@@ -9,7 +9,9 @@
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "engine": "tsx packages/engine/bin/cli.ts"
+    "engine": "tsx packages/engine/bin/cli.ts",
+    "dev": "pnpm --filter @track-studio/server dev",
+    "seed": "pnpm --filter @track-studio/server seed"
   },
   "devDependencies": {
     "tsx": "^4.23.15"

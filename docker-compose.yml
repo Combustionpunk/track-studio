@@ -1,0 +1,20 @@
+# Local run of the production image. Reads settings from .env (see .env.example).
+#   docker compose up --build
+#   docker compose run --rm track-studio node dist/seed.js     # import reference venues + example tracks
+services:
+  track-studio:
+    build: .
+    image: track-studio:local
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data          # inside the container; the volume below
+      DEV_LOGIN: "0"           # never in the production image
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    volumes:
+      - track-studio-data:/data
+    restart: unless-stopped
+
+volumes:
+  track-studio-data:
