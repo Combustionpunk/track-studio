@@ -6,6 +6,7 @@ import { badRequest, notFound } from "./errors.js";
 import {
   adaptTrack,
   changeStatus,
+  copyTrack,
   createTrack,
   createVenue,
   fitTrack,
@@ -17,6 +18,7 @@ import {
   listTracks,
   listVenues,
   permissions,
+  publicRevision,
   tracksFitting,
   trackSummary,
   updateTrack,
@@ -68,9 +70,10 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
     return reply.code(201).send(createTrack(db, user, req.body));
   });
 
+  // the public revision (approved ?? latest); editors load the latest with /r/:revision
   app.get("/api/tracks/:id", async (req) => {
     const row = getTrackRow(db, (req.params as { id: string }).id);
-    return { track: trackSummary(row), doc: getTrackDoc(db, row), can: permissions(req.user, row) };
+    return { track: trackSummary(row), doc: getTrackDoc(db, row, publicRevision(row)), can: permissions(req.user, row) };
   });
 
   app.put("/api/tracks/:id", async (req) => updateTrack(db, requireUser(req), (req.params as { id: string }).id, req.body));
@@ -98,17 +101,27 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
     app.post(`/api/tracks/:id/${action}`, async (req) => ({ track: changeStatus(db, requireUser(req), (req.params as { id: string }).id, action) }));
   }
 
+  // ?r=<revision>, default the public one
   app.get("/api/tracks/:id/fit/:venueId", async (req) => {
     const { id, venueId } = req.params as { id: string; venueId: string };
-    return fitTrack(db, getTrackRow(db, id), venueId);
+    const { r } = req.query as { r?: string };
+    return fitTrack(db, getTrackRow(db, id), venueId, r ? revisionParam(r) : undefined);
   });
 
   app.post("/api/tracks/:id/adapt/:venueId", async (req, reply) => {
     const user = requireUser(req);
     const { id, venueId } = req.params as { id: string; venueId: string };
-    const body = (req.body ?? {}) as { orientation?: unknown };
+    const body = (req.body ?? {}) as { orientation?: unknown; revision?: unknown };
     const orientation = typeof body.orientation === "string" ? body.orientation : undefined;
-    return reply.code(201).send(adaptTrack(db, user, id, venueId, orientation));
+    const revision = typeof body.revision === "number" ? body.revision : undefined;
+    return reply.code(201).send(adaptTrack(db, user, id, venueId, orientation, revision));
+  });
+
+  // "Make my own copy" — body {revision?}, default the public revision
+  app.post("/api/tracks/:id/copy", async (req, reply) => {
+    const user = requireUser(req);
+    const body = (req.body ?? {}) as { revision?: unknown };
+    return reply.code(201).send(copyTrack(db, user, (req.params as { id: string }).id, typeof body.revision === "number" ? body.revision : undefined));
   });
 
   // ---------------------------------------------------------------- venues

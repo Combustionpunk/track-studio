@@ -27,7 +27,7 @@ describe("web app pages", () => {
     expect(res.body).toContain('<script type="module" src="/assets/app-abc123.js">');
     expect(res.body).toContain("<title>Freeform example @ Sports hall B · Track Studio</title>");
     expect(res.body).toContain('<meta property="og:title" content="Freeform example @ Sports hall B">');
-    expect(res.body).toContain(`<meta property="og:image" content="http://tracks.test/p/${SPORTS}/1.png">`);
+    expect(res.body).toMatch(new RegExp(`<meta property="og:image" content="http://tracks.test/p/${SPORTS}/1.png\\?v=[0-9a-f]{12}">`));
     expect(res.body).toMatch(/<div id="root"><h1>Freeform example/); // static fallback until the app starts
     expect(res.headers["content-security-policy"]).toContain("frame-ancestors 'self'");
     expect(res.headers["content-security-policy"]).not.toContain(FORUM_URL);

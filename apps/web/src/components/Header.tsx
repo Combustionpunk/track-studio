@@ -18,6 +18,7 @@ export function Header() {
             Library
           </NavLink>
           <NavLink to="/v">Venues</NavLink>
+          <NavLink to="/new">New track</NavLink>
         </nav>
         <div className="header-user">
           {!ready ? null : me ? (

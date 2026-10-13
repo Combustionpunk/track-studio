@@ -9,7 +9,7 @@ import type { Config } from "./config.js";
 import type { DB } from "./db.js";
 import { HttpError } from "./errors.js";
 import { describeTrack, PREVIEW_WIDTH, previewHeight } from "./previews.js";
-import { getTrackDoc, getTrackRow, getVenueDoc, getVenueRow, type TrackRow } from "./store.js";
+import { getTrackDoc, getTrackRow, getVenueDoc, getVenueRow, previewUrl, publicRevision, type TrackRow } from "./store.js";
 
 export type WebMode = "dev" | "static" | "off";
 
@@ -50,12 +50,13 @@ interface Page {
 }
 
 function trackPage(db: DB, config: Config, row: TrackRow, path: string, revision?: number): Page {
-  const rev = revision ?? row.current_revision;
+  const rev = revision ?? publicRevision(row);
   const doc = getTrackDoc(db, row, rev);
+  const hash = db.prepare("SELECT preview_hash FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(row.id, rev) as string;
   const pageUrl = `${config.baseUrl}/t/${row.id}`;
-  const image = `${config.baseUrl}/p/${row.id}/${rev}.png`;
-  const title = row.name;
-  const description = describeTrack(db, row);
+  const image = `${config.baseUrl}${previewUrl(row.id, rev, hash)}`;
+  const title = doc.info.name;
+  const description = describeTrack(row);
   const height = previewHeight(doc.area);
   const alt = `Plan of ${title}`;
   const head = [
@@ -107,6 +108,11 @@ function pageFor(db: DB, config: Config, path: string, query: Record<string, str
     let m: RegExpExecArray | null;
     if (path === "/" ) return plain("Track Studio");
     if (path === "/v" || path === "/v/") return plain("Venues · Track Studio");
+    if (path === "/new" || path === "/new/" || path === "/new/design") return plain("New track · Track Studio");
+    if ((m = /^\/t\/([\w-]{1,64})\/edit\/?$/.exec(path))) {
+      const row = getTrackRow(db, m[1]);
+      return plain(`Edit ${row.d_name} · Track Studio`);
+    }
     if ((m = /^\/(t|embed)\/([\w-]{1,64})\/?$/.exec(path))) {
       const rev = query.r && /^\d{1,9}$/.test(query.r) ? Number(query.r) : undefined;
       return trackPage(db, config, getTrackRow(db, m[2]), path, rev);
@@ -203,7 +209,7 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     reply.header("cache-control", "no-cache");
     return reply.code(page.status).type("text/html; charset=utf-8").send(fillTemplate(await template(req.url), page));
   };
-  for (const route of ["/", "/t/:id", "/embed/:id", "/v", "/v/:id"]) app.get(route, serve);
+  for (const route of ["/", "/t/:id", "/t/:id/edit", "/new", "/new/design", "/embed/:id", "/v", "/v/:id"]) app.get(route, serve);
   app.decorate("servePage", serve);
 }
 

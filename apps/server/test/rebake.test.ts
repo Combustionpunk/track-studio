@@ -1,8 +1,9 @@
 import type { RcTrack } from "@track-studio/engine";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rebakeAll } from "../src/rebake.js";
+import { setRevisionColumns } from "../src/store.js";
 import { makeApp } from "./helpers.js";
 
 const CLUB_A = "7c002509-b640-5e9d-8e79-0ae336a2ae04";
@@ -18,6 +19,10 @@ function makeOld(app: Awaited<ReturnType<typeof makeApp>>["app"]) {
     app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ? AND revision = ?").run(JSON.stringify(doc), r.track_id, r.revision);
   }
   app.db.prepare("UPDATE tracks SET corners = 18, size_length = NULL, size_width = NULL").run();
+  for (const r of rows) {
+    const doc = JSON.parse(app.db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(r.track_id, r.revision) as string) as RcTrack;
+    setRevisionColumns(app.db, r.track_id, r.revision, doc); // as engine 1.1 would have stored them
+  }
 }
 
 describe("rebake", () => {
@@ -42,7 +47,7 @@ describe("rebake", () => {
     expect(got.doc.built.size).toEqual({ length: 22, width: 11.8, bbox: [-11, -5.9, 11, 5.9] });
     expect(got.doc.design).toEqual(designBefore);
     expect(app.db.prepare("SELECT COUNT(*) FROM track_revisions").pluck().get()).toBe(3);
-    expect(existsSync(join(config.dataDir, "previews", CLUB_A, "1.png"))).toBe(true);
+    expect(readdirSync(join(config.dataDir, "previews", CLUB_A))).toHaveLength(1); // drawing unchanged: picture kept
     expect((await app.inject({ method: "GET", url: "/api/tracks?minCorners=12&maxCorners=12" })).json().tracks.map((t: { id: string }) => t.id)).toEqual([CLUB_A]);
 
     // nothing left to do the second time
@@ -51,13 +56,19 @@ describe("rebake", () => {
 
   it("drops a cached preview whose drawing changed", async () => {
     const { app, config } = await makeApp({ seeded: true });
-    await app.inject({ method: "GET", url: `/p/${CLUB_A}/1.png` });
+    // stored by an older engine whose drawing differed (here: the lap length in the preview's title)
     const doc = JSON.parse(app.db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ?").pluck().get(CLUB_A) as string) as RcTrack;
-    doc.built!.lapLength = 999; // shown in the preview's title
+    doc.built!.lapLength = 999;
     app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ?").run(JSON.stringify(doc), CLUB_A);
+    setRevisionColumns(app.db, CLUB_A, 1, doc);
+    const before = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().track.previewUrl;
+    await app.inject({ method: "GET", url: before });
     const report = rebakeAll(app.db, config.dataDir);
     expect(report.changed.find((c) => c.id === CLUB_A)!.previewChanged).toBe(true);
-    expect(existsSync(join(config.dataDir, "previews", CLUB_A, "1.png"))).toBe(false);
-    expect((await app.inject({ method: "GET", url: `/p/${CLUB_A}/1.png` })).headers["x-preview-cache"]).toBe("miss");
+    expect(existsSync(join(config.dataDir, "previews", CLUB_A))).toBe(true);
+    expect(readdirSync(join(config.dataDir, "previews", CLUB_A))).toEqual([]); // old picture swept
+    const url = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().track.previewUrl;
+    expect(url).not.toBe(before);
+    expect((await app.inject({ method: "GET", url })).headers["x-preview-cache"]).toBe("miss");
   });
 });

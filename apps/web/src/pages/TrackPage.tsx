@@ -1,6 +1,6 @@
 import type { Check, Point2, RcTrack } from "@track-studio/engine";
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CopyButton, Loading, Message, StatusBadge } from "../components/bits.js";
 import { FitPanel } from "../components/FitPanel.js";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
@@ -20,7 +20,9 @@ export function TrackPage() {
   const [actionError, setActionError] = useState<string>();
   const [showFit, setShowFit] = useState(params.has("fit"));
 
-  const current = tr.data?.track.revision;
+  const navigate = useNavigate();
+  // the page shows the public revision (approved ?? latest) unless ?r= asks for another
+  const current = tr.data?.track.publicRevision;
   const r = Number(params.get("r")) || undefined;
   const viewing = r && current && r !== current ? r : undefined;
   const old = useApi<RcTrack>(viewing ? `/api/tracks/${encodeURIComponent(id)}/r/${viewing}` : null);
@@ -30,13 +32,25 @@ export function TrackPage() {
 
   const { track, can } = tr.data;
   const doc = viewing ? old.data : tr.data.doc;
-  const rev = viewing ?? track.revision;
+  const rev = viewing ?? track.publicRevision; // the revision on screen
   const b = doc?.built;
   const origin = window.location.origin;
   const link = `${origin}/t/${track.id}${viewing ? `?r=${viewing}` : ""}`;
   const embed = `<iframe src="${origin}/embed/${track.id}${viewing ? `?r=${viewing}` : ""}" width="100%" height="460" frameborder="0" loading="lazy" title="${escAttr(track.name)} – Track Studio"></iframe>`;
   const download = `/api/tracks/${track.id}/r/${rev}.rctrack.json`;
 
+  const copy = async () => {
+    setBusy("copy");
+    setActionError(undefined);
+    try {
+      const res = await post<TrackResponse>(`/api/tracks/${track.id}/copy`, viewing ? { revision: viewing } : {});
+      navigate(`/t/${res.track.id}/edit`);
+    } catch (e) {
+      setActionError((e as Error).message);
+      setBusy(undefined);
+    }
+  };
+  const blockedByErrors = track.errors > 0 ? `Revision ${track.revision} has ${track.errors === 1 ? "an error" : `${track.errors} errors`} — fix ${track.errors === 1 ? "it" : "them"} in the designer first` : undefined;
   const act = async (action: "submit" | "approve" | "archive") => {
     if (action === "archive" && !window.confirm(`Archive “${track.name}”? It will be hidden from the library.`)) return;
     setBusy(action);
@@ -65,7 +79,7 @@ export function TrackPage() {
         <div>
           <h1>{track.name}</h1>
           <p className="byline">
-            <StatusBadge status={track.status} /> by {track.author.username}
+            <StatusBadge status={rev === track.approvedRevision && track.status !== "archived" ? "approved" : rev === track.revision ? track.status : "draft"} /> by {track.author.username}
             {track.venue && (
               <>
                 {" · "}
@@ -73,11 +87,13 @@ export function TrackPage() {
               </>
             )}
             {" · "}revision {rev}
-            {track.approvedRevision && track.approvedRevision !== track.revision && <> · approved revision {track.approvedRevision}</>}
           </p>
           {doc?.info.derivedFrom && (
             <p className="byline">
-              Adapted from <Link to={`/t/${doc.info.derivedFrom.id}`}>another layout</Link> (revision {doc.info.derivedFrom.revision}, {doc.info.derivedFrom.orientation})
+              {doc.info.derivedFrom.orientation ? "Adapted from " : "Copy of "}
+              <Link to={`/t/${doc.info.derivedFrom.id}`}>{track.derivedFrom?.name ?? "another layout"}</Link>
+              {track.derivedFrom?.author && <> by {track.derivedFrom.author}</>} (revision {doc.info.derivedFrom.revision}
+              {doc.info.derivedFrom.orientation && <>, {doc.info.derivedFrom.orientation}</>})
             </p>
           )}
         </div>
@@ -87,17 +103,27 @@ export function TrackPage() {
           </a>
           <CopyButton text={link} label="Copy link" />
           <CopyButton text={embed} label="Copy forum embed" />
-          {!viewing && can.submit && (
-            <button type="button" className="btn btn-primary" onClick={() => act("submit")} disabled={!!busy}>
-              {busy === "submit" ? "Submitting…" : "Submit for approval"}
+          {can.edit && (
+            <Link className="btn btn-primary" to={`/t/${track.id}/edit`}>
+              {track.newerRevision ? `Edit revision ${track.revision}` : "Edit"}
+            </Link>
+          )}
+          {!can.edit && can.copy && (
+            <button type="button" className="btn" onClick={copy} disabled={!!busy} title="Start your own version of this layout, credited to the original">
+              {busy === "copy" ? "Copying…" : "Make my own copy"}
             </button>
           )}
-          {!viewing && can.approve && (
-            <button type="button" className="btn btn-primary" onClick={() => act("approve")} disabled={!!busy}>
+          {can.submit && (
+            <button type="button" className="btn" onClick={() => act("submit")} disabled={!!busy || !!blockedByErrors} title={blockedByErrors}>
+              {busy === "submit" ? "Submitting…" : `Submit revision ${track.revision}`}
+            </button>
+          )}
+          {can.approve && (
+            <button type="button" className="btn" onClick={() => act("approve")} disabled={!!busy || !!blockedByErrors} title={blockedByErrors}>
               {busy === "approve" ? "Approving…" : `Approve revision ${track.revision}`}
             </button>
           )}
-          {!viewing && can.archive && (
+          {can.archive && (
             <button type="button" className="btn btn-danger" onClick={() => act("archive")} disabled={!!busy}>
               {busy === "archive" ? "Archiving…" : "Archive"}
             </button>
@@ -108,9 +134,22 @@ export function TrackPage() {
         </div>
       </div>
       {actionError && <Message kind="error">{actionError}</Message>}
+      {blockedByErrors && (can.submit || can.approve) && <Message>{blockedByErrors}.</Message>}
+      {track.newerRevision && rev !== track.newerRevision.revision && (
+        <Message>
+          This is approved revision {track.approvedRevision} — what the library and meetings use. Revision {track.newerRevision.revision} is{" "}
+          {track.newerRevision.status === "submitted" ? "submitted for approval" : "a draft in progress"}.{" "}
+          <button type="button" className="linkish" onClick={() => showRevision(track.newerRevision!.revision)}>
+            View revision {track.newerRevision.revision}
+          </button>
+        </Message>
+      )}
       {viewing && (
         <Message>
-          You're looking at revision {viewing}. <button type="button" className="linkish" onClick={() => showRevision(current!)}>Show the latest (revision {current})</button>
+          You're looking at revision {viewing}.{" "}
+          <button type="button" className="linkish" onClick={() => showRevision(current!)}>
+            Show {track.approvedRevision ? `the approved revision (${current})` : `the latest (revision ${current})`}
+          </button>
         </Message>
       )}
 

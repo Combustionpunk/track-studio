@@ -237,7 +237,7 @@ describe("fit + adapt", () => {
       for (const id of [CLUB_A, FREEFORM]) {
         const track = (await req(app, "GET", `/api/tracks/${id}`)).json().doc as RcTrack;
         const res = (await req(app, "GET", `/api/tracks/${id}/fit/${venueId}`)).json();
-        expect(res).toEqual({ track: { id, revision: 1 }, venue: { id: venueId, revision: 1 }, results: fits(track, venue) });
+        expect({ ...res, results: res.results.map(({ thumbUrl: _t, ...r }: { thumbUrl: string }) => r) }).toEqual({ track: { id, revision: 1 }, venue: { id: venueId, revision: 1 }, results: fits(track, venue) });
       }
     }
     // cached per track revision + venue revision

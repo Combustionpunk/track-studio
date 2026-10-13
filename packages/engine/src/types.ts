@@ -22,11 +22,14 @@ export interface VenueRef {
   name: string;
 }
 
+/** Where a track came from: a venue adaptation (with `orientation`) or someone's copy (with `author`). */
 export interface DerivedFrom {
   id: string;
   revision: number;
-  /** fit orientation label, e.g. "rotated 180" */
-  orientation: string;
+  /** fit orientation label, e.g. "rotated 180" — venue adaptations only */
+  orientation?: string;
+  /** forum username of the original's author — copies */
+  author?: string;
 }
 
 export interface TrackInfo {

@@ -1,7 +1,7 @@
 // "Will it fit my venue?" search and adapt. A port of reference/fit.py. Pure: no DOM, no Node APIs.
-import { bake, FOOT_CELL, laneMask, obstacleMask, racingLine } from "./bake.js";
+import { bake, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumPosition } from "./bake.js";
 import { pyRound, pyRoundInt, radians } from "./num.js";
-import type { FitResult, RcTrack, RcVenue } from "./types.js";
+import type { Built, FitResult, Point2, RcTrack, RcVenue } from "./types.js";
 
 /** [label, rotation (deg), mirror] in the order results are reported. */
 export const ORIENTS: [string, number, boolean][] = [
@@ -113,4 +113,44 @@ export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: Adap
   t.id = opts.id ?? globalThis.crypto.randomUUID();
   t.revision = 1;
   return bake(t);
+}
+
+/**
+ * A track's built geometry moved the way a fit result moves it (mirror, rotate, shift) — for drawing a fit in the
+ * venue without re-baking. The adapted copy itself is re-baked from the moved design (adapt()).
+ */
+export function transformBuilt(b: Built, fit: Pick<FitResult, "rotation" | "mirror" | "shift">): Built {
+  const tp = (x: number, z: number): Point2 => {
+    const [a, c] = transformPt(x, z, fit.rotation, fit.mirror);
+    return [a + fit.shift[0], c + fit.shift[1]];
+  };
+  const th = (deg: number) => {
+    const r = (deg * Math.PI) / 180;
+    const [dx, dz] = transformPt(Math.cos(r), Math.sin(r), fit.rotation, fit.mirror);
+    return ((Math.atan2(dz, dx) * 180) / Math.PI + 360) % 360;
+  };
+  const xz = ([x, z]: Point2) => ({ x, z });
+  return {
+    ...b,
+    racingLine: b.racingLine.map(([x, z, w]) => [...tp(x, z), w] as [number, number, number]),
+    dividers: b.dividers.map((d) => ({ ...d, points: d.points.map(([x, z]) => tp(x, z)) })),
+    features: b.features.map((f) => ({ ...f, ...xz(tp(f.x, f.z)), heading: th(f.heading) })),
+    startLine: { ...b.startLine, ...xz(tp(b.startLine.x, b.startLine.z)), heading: th(b.startLine.heading) },
+    checks: b.checks.map((c) => (c.x !== undefined && c.z !== undefined ? { ...c, ...xz(tp(c.x, c.z)) } : c)),
+  };
+}
+
+/** The track drawn where a fit puts it in the venue (venue area, obstacles and rostrum), for previews. */
+export function fittedPreviewDoc(track: RcTrack, venue: RcVenue, fit: FitResult): RcTrack {
+  if (!track.built) throw new Error("fittedPreviewDoc: track has no built section");
+  const placed = transformBuilt(track.built, fit);
+  const side = venue.rostrum?.side ?? "south";
+  const [rx, rz] = rostrumPosition(venue.area, side, venue.rostrum?.offset ?? 0);
+  return {
+    ...track,
+    info: { ...track.info, name: `${track.info.name} · ${fit.orientation} in ${venue.info.name}` },
+    area: { ...venue.area },
+    obstacles: venue.obstacles ?? [],
+    built: { ...placed, rostrum: { ...placed.rostrum, side, x: rx, z: rz } },
+  };
 }

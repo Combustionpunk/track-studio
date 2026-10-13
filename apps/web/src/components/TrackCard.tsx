@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import * as fmt from "../lib/format.js";
 import type { TrackSummary } from "../lib/api.js";
@@ -6,8 +7,11 @@ import { StatusBadge } from "./bits.js";
 /** Library card. In "fits venue" mode (`fitVenueId`) it lists how the track fits and links to the fit preview. */
 export function TrackCard({ track, fitVenueId }: { track: TrackSummary; fitVenueId?: string }) {
   const href = fitVenueId ? `/t/${track.id}?fit=${encodeURIComponent(fitVenueId)}` : `/t/${track.id}`;
-  const aspect = `${track.area.length + 5} / ${track.area.width + 5}`;
-  const preview = track.fit ? `/p/${track.id}/${track.fit.revision}.png` : track.previewUrl;
+  // in "fits venue" mode the picture shows the layout placed in the venue, as the hovered / first orientation fits
+  const [shown, setShown] = useState(0);
+  const fitShown = track.fit?.results[shown] ?? track.fit?.results[0];
+  const preview = fitShown?.thumbUrl ?? track.previewUrl;
+  const aspect = fitShown ? undefined : `${track.area.length + 5} / ${track.area.width + 5}`;
   return (
     <article className="card">
       <Link to={href} className="card-link" aria-label={`${track.name}, ${fmt.lap(track.lapLength)} lap`}>
@@ -18,8 +22,13 @@ export function TrackCard({ track, fitVenueId }: { track: TrackSummary; fitVenue
           <h3>
             <Link to={href}>{track.name}</Link>
           </h3>
-          <StatusBadge status={track.status} />
+          {track.approvedRevision !== null && track.status !== "archived" ? <StatusBadge status="approved" /> : <StatusBadge status={track.status} />}
         </div>
+        {track.newerRevision && (
+          <p className="card-note">
+            Revision {track.newerRevision.revision} {track.newerRevision.status === "submitted" ? "submitted for approval" : "in progress"}
+          </p>
+        )}
         <dl className="card-stats">
           <div>
             <dt>Lap</dt>
@@ -41,9 +50,15 @@ export function TrackCard({ track, fitVenueId }: { track: TrackSummary; fitVenue
         </p>
         {track.fit && (
           <ul className="fit-chips" aria-label="Fits as">
-            {track.fit.results.map((r) => (
+            {track.fit.results.map((r, i) => (
               <li key={r.orientation}>
-                <Link to={`${href}&o=${encodeURIComponent(r.orientation)}`} className="chip" title={fmt.spare(r)}>
+                <Link
+                  to={`${href}&o=${encodeURIComponent(r.orientation)}`}
+                  className={`chip ${i === shown ? "on" : ""}`}
+                  title={fmt.spare(r)}
+                  onMouseEnter={() => setShown(i)}
+                  onFocus={() => setShown(i)}
+                >
                   {r.orientation}
                   <small>{fmt.spare(r)}</small>
                 </Link>

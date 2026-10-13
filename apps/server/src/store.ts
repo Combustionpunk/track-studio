@@ -1,9 +1,11 @@
 // Tracks, venues and their revisions. Every save validates, re-bakes with the engine and adds a revision row.
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   adapt,
   bake,
   fits,
+  ORIENTS,
+  previewSvg,
   validateTrack,
   validateVenue,
   type FitResult,
@@ -142,6 +144,9 @@ export function updateVenue(db: DB, user: User, id: string, body: unknown) {
 }
 
 // ------------------------------------------------------------------ tracks
+// A track has a latest revision (current_revision) and, once approved, a pinned approved revision. What the public
+// sees — library, links, embeds, fit searches, meetings — is the approved revision if there is one, else the latest.
+// Editing an approved track adds a newer draft; the approved revision stays public until the new one is approved.
 export interface TrackRow {
   id: string;
   name: string;
@@ -152,43 +157,77 @@ export interface TrackRow {
   derived_from_id: string | null;
   current_revision: number;
   approved_revision: number | null;
-  lap_length: number;
-  corners: number;
-  area_length: number;
-  area_width: number;
   footprint_w: number;
   footprint_h: number;
-  size_length: number | null;
-  size_width: number | null;
   venue_name: string | null;
   created_at: string;
   updated_at: string;
+  // the public revision (approved ?? latest)
+  d_revision: number;
+  d_name: string;
+  d_lap: number;
+  d_corners: number;
+  d_size_l: number | null;
+  d_size_w: number | null;
+  d_area_l: number;
+  d_area_w: number;
+  d_hash: string;
+  // the latest revision
+  l_errors: number;
+  l_hash: string;
+  derived_name: string | null;
+  derived_author: string | null;
 }
 
-const TRACK_SELECT = `SELECT t.*, u.username AS author_username, v.name AS venue_name FROM tracks t
-  JOIN users u ON u.forum_id = t.author_forum_id LEFT JOIN venues v ON v.id = t.venue_template_id`;
+const TRACK_SELECT = `SELECT t.*, u.username AS author_username, v.name AS venue_name,
+    r.revision AS d_revision, r.name AS d_name, r.lap_length AS d_lap, r.corners AS d_corners, r.size_length AS d_size_l,
+    r.size_width AS d_size_w, r.area_length AS d_area_l, r.area_width AS d_area_w, r.preview_hash AS d_hash,
+    l.errors AS l_errors, l.preview_hash AS l_hash, d.name AS derived_name, du.username AS derived_author
+  FROM tracks t
+  JOIN users u ON u.forum_id = t.author_forum_id
+  LEFT JOIN venues v ON v.id = t.venue_template_id
+  JOIN track_revisions r ON r.track_id = t.id AND r.revision = COALESCE(t.approved_revision, t.current_revision)
+  JOIN track_revisions l ON l.track_id = t.id AND l.revision = t.current_revision
+  LEFT JOIN tracks d ON d.id = t.derived_from_id
+  LEFT JOIN users du ON du.forum_id = d.author_forum_id`;
+
+/** The revision the public sees. */
+export const publicRevision = (row: Pick<TrackRow, "approved_revision" | "current_revision">) => row.approved_revision ?? row.current_revision;
+
+export const previewUrl = (id: string, revision: number, hash: string) => `/p/${id}/${revision}.png?v=${hash}`;
 
 export function trackSummary(r: TrackRow) {
   return {
     id: r.id,
-    name: r.name,
+    /** name of the public revision */
+    name: r.d_name,
+    /** workflow state of the latest revision */
     status: r.status,
     author: { id: r.author_forum_id, username: r.author_username },
+    /** latest revision */
     revision: r.current_revision,
     approvedRevision: r.approved_revision,
-    lapLength: r.lap_length,
-    corners: r.corners,
-    area: { length: r.area_length, width: r.area_width },
+    /** the revision shown publicly: approved if there is one, else the latest */
+    publicRevision: r.d_revision,
+    /** an approved track with a newer draft/submitted revision in progress */
+    newerRevision: r.approved_revision !== null && r.current_revision > r.approved_revision ? { revision: r.current_revision, status: r.status } : null,
+    /** error-level checks on the latest revision (submitting is blocked while > 0) */
+    errors: r.l_errors,
+    lapLength: r.d_lap,
+    corners: r.d_corners,
+    area: { length: r.d_area_l, width: r.d_area_w },
     /** real size from the lane edges; null until re-baked with engine 1.2 */
-    size: r.size_length === null || r.size_width === null ? null : { length: r.size_length, width: r.size_width },
+    size: r.d_size_l === null || r.d_size_w === null ? null : { length: r.d_size_l, width: r.d_size_w },
     footprint: { width: r.footprint_w, height: r.footprint_h },
     venue: r.venue_template_id ? { id: r.venue_template_id, name: r.venue_name } : null,
     venueTemplateId: r.venue_template_id,
     derivedFromId: r.derived_from_id,
+    derivedFrom: r.derived_from_id ? { id: r.derived_from_id, name: r.derived_name, author: r.derived_author } : null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     url: `/t/${r.id}`,
-    previewUrl: `/p/${r.id}/${r.current_revision}.png`,
+    previewUrl: previewUrl(r.id, r.d_revision, r.d_hash),
+    latestPreviewUrl: previewUrl(r.id, r.current_revision, r.l_hash),
   };
 }
 
@@ -206,7 +245,7 @@ export function statusOfRevision(row: TrackRow, revision: number): TrackStatus {
   return "draft";
 }
 
-export function getTrackDoc(db: DB, row: TrackRow, revision = row.current_revision): RcTrack {
+export function getTrackDoc(db: DB, row: TrackRow, revision: number): RcTrack {
   const json = db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(row.id, revision) as string | undefined;
   if (!json) throw notFound("Track revision");
   const doc = JSON.parse(json) as RcTrack;
@@ -214,20 +253,62 @@ export function getTrackDoc(db: DB, row: TrackRow, revision = row.current_revisi
   return doc;
 }
 
+/** Per-revision summary columns, computed from the baked document. */
+export function revisionColumns(doc: RcTrack) {
+  const b = doc.built!;
+  return {
+    name: doc.info.name,
+    lap: b.lapLength,
+    corners: b.stats.corners,
+    sizeL: b.size?.length ?? null,
+    sizeW: b.size?.width ?? null,
+    al: doc.area.length,
+    aw: doc.area.width,
+    errors: b.checks.filter((c) => c.level === "error").length,
+    hash: previewHash(doc),
+  };
+}
+
+/** Changes whenever the drawn preview changes; goes into preview URLs so year-long caching is safe. */
+export function previewHash(doc: RcTrack): string {
+  return createHash("sha256").update(previewSvg(doc)).digest("hex").slice(0, 12);
+}
+
+const SET_REVISION_COLUMNS = `UPDATE track_revisions SET name = @name, lap_length = @lap, corners = @corners, size_length = @sizeL,
+  size_width = @sizeW, area_length = @al, area_width = @aw, errors = @errors, preview_hash = @hash WHERE track_id = @id AND revision = @revision`;
+
+export function setRevisionColumns(db: DB, id: string, revision: number, doc: RcTrack) {
+  db.prepare(SET_REVISION_COLUMNS).run({ id, revision, ...revisionColumns(doc) });
+}
+
+/** Fill in summary columns for revisions saved before they existed (migration 003). */
+export function backfillRevisions(db: DB): number {
+  const rows = db.prepare("SELECT track_id, revision, rctrack_json FROM track_revisions WHERE preview_hash IS NULL").all() as {
+    track_id: string;
+    revision: number;
+    rctrack_json: string;
+  }[];
+  db.transaction(() => {
+    for (const r of rows) setRevisionColumns(db, r.track_id, r.revision, JSON.parse(r.rctrack_json) as RcTrack);
+  })();
+  return rows.length;
+}
+
 export function listRevisions(db: DB, row: TrackRow) {
   const rows = db
     .prepare(
-      `SELECT r.revision, r.created_at, r.note, r.created_by, u.username FROM track_revisions r JOIN users u ON u.forum_id = r.created_by
-       WHERE r.track_id = ? ORDER BY r.revision DESC`,
+      `SELECT r.revision, r.created_at, r.note, r.created_by, r.preview_hash, r.errors, u.username FROM track_revisions r
+       JOIN users u ON u.forum_id = r.created_by WHERE r.track_id = ? ORDER BY r.revision DESC`,
     )
-    .all(row.id) as { revision: number; created_at: string; note: string | null; created_by: number; username: string }[];
+    .all(row.id) as { revision: number; created_at: string; note: string | null; created_by: number; username: string; preview_hash: string; errors: number }[];
   return rows.map((r) => ({
     revision: r.revision,
     createdAt: r.created_at,
     createdBy: { id: r.created_by, username: r.username },
     note: r.note,
     status: statusOfRevision(row, r.revision),
-    previewUrl: `/p/${row.id}/${r.revision}.png`,
+    errors: r.errors,
+    previewUrl: previewUrl(row.id, r.revision, r.preview_hash),
     downloadUrl: `/api/tracks/${row.id}/r/${r.revision}.rctrack.json`,
   }));
 }
@@ -242,29 +323,32 @@ export interface ListQuery {
   q?: string;
 }
 
+/** Filters apply to what the public sees (the approved revision when there is one). */
 export function listTracks(db: DB, f: ListQuery): TrackRow[] {
   const where: string[] = [];
   const args: unknown[] = [];
-  if (f.status) {
+  if (f.status === "approved") where.push("t.approved_revision IS NOT NULL AND t.status != 'archived'");
+  else if (f.status) {
     where.push("t.status = ?");
     args.push(f.status);
   } else where.push("t.status != 'archived'");
   if (f.venue) { where.push("t.venue_template_id = ?"); args.push(f.venue); }
-  if (f.minLap !== undefined) { where.push("t.lap_length >= ?"); args.push(f.minLap); }
-  if (f.maxLap !== undefined) { where.push("t.lap_length <= ?"); args.push(f.maxLap); }
-  if (f.minCorners !== undefined) { where.push("t.corners >= ?"); args.push(f.minCorners); }
-  if (f.maxCorners !== undefined) { where.push("t.corners <= ?"); args.push(f.maxCorners); }
-  if (f.q) { where.push("t.name LIKE ? ESCAPE '\\'"); args.push(`%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`); }
+  if (f.minLap !== undefined) { where.push("r.lap_length >= ?"); args.push(f.minLap); }
+  if (f.maxLap !== undefined) { where.push("r.lap_length <= ?"); args.push(f.maxLap); }
+  if (f.minCorners !== undefined) { where.push("r.corners >= ?"); args.push(f.minCorners); }
+  if (f.maxCorners !== undefined) { where.push("r.corners <= ?"); args.push(f.maxCorners); }
+  if (f.q) { where.push("r.name LIKE ? ESCAPE '\\'"); args.push(`%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`); }
   return db.prepare(`${TRACK_SELECT} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`).all(...args) as TrackRow[];
 }
 
-/** Accepts {track: <rctrack>, fromVenue?, note?} or a bare rctrack document. */
-function trackBody(body: unknown): { src: Record<string, unknown>; fromVenue?: string; note?: string } {
+/** Accepts {track: <rctrack>, fromVenue?, note?, baseRevision?} or a bare rctrack document. */
+function trackBody(body: unknown): { src: Record<string, unknown>; fromVenue?: string; note?: string; baseRevision?: number } {
   const env = isObject(body) && isObject(body.track) ? body : { track: body };
   if (!isObject(env.track)) throw badRequest("invalid-track", "Body must be an rctrack document or {track: …, fromVenue?, note?}");
-  const note = typeof env.note === "string" ? env.note.slice(0, 500) : undefined;
+  const note = typeof env.note === "string" && env.note.trim() ? env.note.trim().slice(0, 500) : undefined;
   const fromVenue = typeof env.fromVenue === "string" ? env.fromVenue : undefined;
-  return { src: env.track, fromVenue, note };
+  const baseRevision = typeof env.baseRevision === "number" ? env.baseRevision : undefined;
+  return { src: env.track, fromVenue, note, baseRevision };
 }
 
 interface SaveOptions {
@@ -273,7 +357,7 @@ interface SaveOptions {
   note?: string;
 }
 
-/** The `tracks` summary columns that come from a baked document. */
+/** The `tracks` summary columns that come from the latest baked document. */
 export function builtColumns(doc: RcTrack) {
   const b = doc.built!;
   const m3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -324,11 +408,17 @@ function saveRevision(db: DB, user: User, input: RcTrack, opts: SaveOptions, exi
       user.id,
       opts.note ?? null,
     );
+    setRevisionColumns(db, doc.id, doc.revision, doc);
   })();
   return doc;
 }
 
 const TRACK_KEYS = ["area", "obstacles", "design"] as const;
+
+function trackResult(db: DB, id: string, user: User | null) {
+  const row = getTrackRow(db, id);
+  return { track: trackSummary(row), doc: getTrackDoc(db, row, row.current_revision), can: permissions(user, row) };
+}
 
 /** New draft track from the client's document. Server-owned fields (id, revision, author, dates, status) are set here. */
 export function createTrack(db: DB, user: User, body: unknown, opts: { keepId?: boolean; status?: TrackStatus; approve?: boolean } = {}) {
@@ -363,30 +453,39 @@ export function createTrack(db: DB, user: User, body: unknown, opts: { keepId?: 
   }
   if (db.prepare("SELECT 1 FROM tracks WHERE id = ?").get(doc.id)) throw conflict("track-exists", `Track ${String(doc.id)} already exists`);
   const saved = saveRevision(db, user, doc as unknown as RcTrack, { status, approve: opts.approve, note });
-  return { track: trackSummary(getTrackRow(db, saved.id)), doc: getTrackDoc(db, getTrackRow(db, saved.id)) };
+  return trackResult(db, saved.id, user);
 }
 
 const canEdit = (user: User, row: TrackRow) => user.id === row.author_forum_id || user.organiser;
 
-/** What the current user may do with the track — mirrors the checks in updateTrack/changeStatus/adaptTrack. */
+/** What the current user may do with the track — mirrors the checks in updateTrack/changeStatus/copy/adapt. */
 export function permissions(user: User | null, row: TrackRow) {
   const live = row.status !== "archived";
+  const latestApproved = row.approved_revision === row.current_revision;
   return {
     edit: !!user && live && canEdit(user, row),
+    /** allowed to submit (the button may still be blocked by `errors`) */
     submit: !!user && live && user.id === row.author_forum_id && row.status === "draft",
-    approve: !!user && live && user.organiser && !(row.status === "approved" && row.approved_revision === row.current_revision),
+    approve: !!user && live && user.organiser && !latestApproved,
     archive: !!user && live && user.organiser,
     adapt: !!user,
+    copy: !!user,
   };
 }
 
-/** New revision. Author, provenance and creation date are kept; a changed track goes back to draft. */
+/**
+ * New revision. Author, provenance and creation date are kept; the new revision is a draft. If the track was
+ * approved, the approved revision stays pinned (and public) until a newer one is approved.
+ */
 export function updateTrack(db: DB, user: User, id: string, body: unknown) {
   const row = getTrackRow(db, id);
   if (!canEdit(user, row)) throw forbidden("Only the author or an organiser can change this track");
   if (row.status === "archived") throw conflict("archived", "Archived tracks can't be changed");
-  const prev = getTrackDoc(db, row);
-  const { src, note } = trackBody(body);
+  const { src, note, baseRevision } = trackBody(body);
+  if (baseRevision !== undefined && baseRevision !== row.current_revision) {
+    throw conflict("stale", `Revision ${row.current_revision} was saved since you started editing revision ${baseRevision}. Reload to see it.`);
+  }
+  const prev = getTrackDoc(db, row, row.current_revision);
   const info = isObject(src.info) ? src.info : {};
   const doc: Record<string, unknown> = {
     format: "rctrack",
@@ -408,12 +507,24 @@ export function updateTrack(db: DB, user: User, id: string, body: unknown) {
   };
   if (!prev.info.derivedFrom) delete (doc.info as Record<string, unknown>).derivedFrom;
   for (const k of TRACK_KEYS) if (src[k] !== undefined) doc[k] = src[k];
+  // a track started from a venue template keeps the template's area, obstacles and rostrum
+  if (prev.basedOn) {
+    doc.area = prev.area;
+    doc.obstacles = prev.obstacles ?? [];
+    if (isObject(doc.design)) doc.design = { ...doc.design, rostrum: prev.design.rostrum };
+  }
   saveRevision(db, user, doc as unknown as RcTrack, { status: "draft", note }, row);
-  const updated = getTrackRow(db, id);
-  return { track: trackSummary(updated), doc: getTrackDoc(db, updated) };
+  return trackResult(db, id, user);
 }
 
 export type StatusAction = "submit" | "approve" | "archive";
+
+function assertNoErrors(db: DB, row: TrackRow, what: string) {
+  if (row.l_errors === 0) return;
+  const doc = getTrackDoc(db, row, row.current_revision);
+  const errors = doc.built!.checks.filter((c) => c.level === "error");
+  throw new HttpError(409, "has-errors", `Fix the errors before ${what}: ${errors.map((c) => c.message).join("; ")}`, errors);
+}
 
 export function changeStatus(db: DB, user: User, id: string, action: StatusAction) {
   const row = getTrackRow(db, id);
@@ -421,11 +532,13 @@ export function changeStatus(db: DB, user: User, id: string, action: StatusActio
   if (action === "submit") {
     if (user.id !== row.author_forum_id) throw forbidden("Only the author can submit this track");
     if (row.status !== "draft") throw conflict("bad-status", `Only drafts can be submitted (this track is ${row.status})`);
+    assertNoErrors(db, row, "submitting");
     db.prepare("UPDATE tracks SET status = 'submitted', updated_at = ? WHERE id = ?").run(now(), id);
   } else {
     if (!user.organiser) throw forbidden("Only organisers can do that");
     if (action === "approve") {
-      if (row.status === "approved" && row.approved_revision === row.current_revision) throw conflict("bad-status", "Already approved");
+      if (row.approved_revision === row.current_revision) throw conflict("bad-status", "Already approved");
+      assertNoErrors(db, row, "approving");
       db.prepare("UPDATE tracks SET status = 'approved', approved_revision = current_revision, updated_at = ? WHERE id = ?").run(now(), id);
     } else {
       db.prepare("UPDATE tracks SET status = 'archived', updated_at = ? WHERE id = ?").run(now(), id);
@@ -434,15 +547,47 @@ export function changeStatus(db: DB, user: User, id: string, action: StatusActio
   return trackSummary(getTrackRow(db, id));
 }
 
+/** "Make my own copy": a new draft for the user, credited to the original (info.derivedFrom). */
+export function copyTrack(db: DB, user: User, id: string, revision?: number) {
+  const row = getTrackRow(db, id);
+  const rev = revision ?? publicRevision(row);
+  const src = getTrackDoc(db, row, rev);
+  const t = now();
+  const doc: RcTrack = {
+    ...structuredClone(src),
+    id: randomUUID(),
+    revision: 1,
+    info: {
+      ...src.info,
+      name: `${src.info.name} (copy)`.slice(0, 80),
+      author: user.username,
+      created: t,
+      modified: t,
+      status: "draft",
+      derivedFrom: { id: row.id, revision: rev, author: row.author_username },
+    },
+  };
+  const saved = saveRevision(db, user, doc, { status: "draft", note: `Copy of ${row.d_name} r${rev} by ${row.author_username}` });
+  return trackResult(db, saved.id, user);
+}
+
 // ------------------------------------------------------------------ fit + adapt
+export type FitResultWithThumb = FitResult & { thumbUrl: string };
+
 export interface FitAnswer {
   track: { id: string; revision: number };
   venue: { id: string; revision: number };
-  results: FitResult[];
+  results: FitResultWithThumb[];
 }
 
-/** Fit search for one track revision in a venue's current revision, cached (revisions never change). */
-export function fitTrack(db: DB, row: TrackRow, venueId: string, revision = row.current_revision): FitAnswer {
+/** Picture of the track placed as `fit` in the venue: /p/:id/:rev/fit/:venueId/:k.png, k = index in ORIENTS. */
+export function fitThumbUrl(trackId: string, revision: number, trackHash: string, venueId: string, venueRevision: number, fit: FitResult) {
+  const k = ORIENTS.findIndex(([label]) => label === fit.orientation);
+  return `/p/${trackId}/${revision}/fit/${venueId}/${k}.png?v=${trackHash}.${venueRevision}`;
+}
+
+/** Fit search for one track revision (default: the public one) in a venue's current revision, cached. */
+export function fitTrack(db: DB, row: TrackRow, venueId: string, revision = publicRevision(row)): FitAnswer {
   const vrow = getVenueRow(db, venueId);
   const key = [row.id, revision, venueId, vrow.current_revision];
   const cached = db
@@ -455,7 +600,12 @@ export function fitTrack(db: DB, row: TrackRow, venueId: string, revision = row.
     results = fits(getTrackDoc(db, row, revision), getVenueDoc(db, venueId, vrow.current_revision));
     db.prepare("INSERT OR REPLACE INTO fit_cache (track_id, track_revision, venue_id, venue_revision, results_json) VALUES (?, ?, ?, ?, ?)").run(...key, JSON.stringify(results));
   }
-  return { track: { id: row.id, revision }, venue: { id: venueId, revision: vrow.current_revision }, results };
+  const hash = db.prepare("SELECT preview_hash FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(row.id, revision) as string;
+  return {
+    track: { id: row.id, revision },
+    venue: { id: venueId, revision: vrow.current_revision },
+    results: results.map((r) => ({ ...r, thumbUrl: fitThumbUrl(row.id, revision, hash, venueId, vrow.current_revision, r) })),
+  };
 }
 
 /** Approved tracks (their pinned revision) that fit the venue. */
@@ -470,16 +620,17 @@ export function tracksFitting(db: DB, venueId: string, f: Omit<ListQuery, "statu
   return out;
 }
 
-export function adaptTrack(db: DB, user: User, id: string, venueId: string, orientation?: string) {
+export function adaptTrack(db: DB, user: User, id: string, venueId: string, orientation?: string, revision?: number) {
   const row = getTrackRow(db, id);
-  const answer = fitTrack(db, row, venueId);
+  const rev = revision ?? publicRevision(row);
+  const answer = fitTrack(db, row, venueId, rev);
   if (!answer.results.length) throw new HttpError(422, "does-not-fit", "This track doesn't fit that venue in any orientation");
   const fit = orientation ? answer.results.find((r) => r.orientation === orientation) : answer.results[0];
   if (!fit) throw badRequest("bad-orientation", `It doesn't fit as "${orientation}"; options: ${answer.results.map((r) => r.orientation).join(", ")}`);
-  const adapted = adapt(getTrackDoc(db, row), getVenueDoc(db, venueId), fit);
+  const { thumbUrl: _t, ...plainFit } = fit;
+  const adapted = adapt(getTrackDoc(db, row, rev), getVenueDoc(db, venueId), plainFit);
   const t = now();
   adapted.info = { ...adapted.info, author: user.username, created: t, modified: t, status: "draft" };
-  const saved = saveRevision(db, user, adapted, { status: "draft", note: `Adapted from ${row.name} r${row.current_revision} (${fit.orientation})` });
-  const newRow = getTrackRow(db, saved.id);
-  return { track: trackSummary(newRow), doc: getTrackDoc(db, newRow), fit };
+  const saved = saveRevision(db, user, adapted, { status: "draft", note: `Adapted from ${row.d_name} r${rev} (${fit.orientation})` });
+  return { ...trackResult(db, saved.id, user), fit: plainFit };
 }

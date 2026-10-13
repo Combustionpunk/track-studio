@@ -11,7 +11,7 @@ import {
   FEATURE_COLOUR,
   featureCorners,
   fitView,
-  laneSegments,
+  laneRuns,
   pan,
   pts,
   viewBox,
@@ -56,12 +56,18 @@ export interface PlanViewProps {
   className?: string;
   /** extra content in plan space (svg units = metres, y = -z) */
   children?: ReactNode;
+  /** editor layer drawn on top; gets the size of one screen pixel in metres (for constant-size handles) */
+  overlay?: (mPerPx: number) => ReactNode;
+  /** wheel over an element marked data-wheel: return true if handled (then it doesn't zoom) */
+  onHandleWheel?: (e: WheelEvent, el: Element) => boolean;
+  /** click (no drag) on the plan where there's no handle */
+  onBackgroundClick?: () => void;
 }
 
 const MAX_SCALE = 400; // px per metre
 
 export function PlanView(props: PlanViewProps) {
-  const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children } = props;
+  const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children, overlay, onHandleWheel, onBackgroundClick } = props;
   const [boxRef, box] = useElementSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const bounds = useMemo(() => areaBounds(area), [area]);
@@ -107,6 +113,11 @@ export function PlanView(props: PlanViewProps) {
     if (!el || !interactive) return;
     let hintTimer: ReturnType<typeof setTimeout> | undefined;
     const onWheel = (e: WheelEvent) => {
+      const handle = (e.target as Element).closest?.("[data-wheel]");
+      if (handle && onHandleWheel?.(e, handle)) {
+        e.preventDefault();
+        return;
+      }
       if (compact && !(e.ctrlKey || e.metaKey)) {
         setHint(true);
         clearTimeout(hintTimer);
@@ -123,13 +134,14 @@ export function PlanView(props: PlanViewProps) {
       el.removeEventListener("wheel", onWheel);
       clearTimeout(hintTimer);
     };
-  }, [zoomBy, compact, interactive]);
+  }, [zoomBy, compact, interactive, onHandleWheel]);
 
   // drag to pan, two fingers to pinch
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const dragged = useRef(false);
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!interactive || e.button > 0) return;
+    if ((e.target as Element).closest("[data-handle]")) return; // the editor's handles take this pointer
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragged.current = false;
@@ -165,7 +177,8 @@ export function PlanView(props: PlanViewProps) {
     setTip(key ? { x: e.clientX - r.left, y: e.clientY - r.top, key } : null);
   };
   const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
-    pointers.current.delete(e.pointerId);
+    const ours = pointers.current.delete(e.pointerId);
+    if (ours && !dragged.current && !(e.target as Element).closest("[data-handle]")) onBackgroundClick?.();
     // a tap (no drag) on a touch screen shows the details too
     if (!dragged.current && e.pointerType !== "mouse") {
       const r = e.currentTarget.getBoundingClientRect();
@@ -255,7 +268,7 @@ export function PlanView(props: PlanViewProps) {
 
   // ---------------------------------------------------------------- drawing
   const L = area.length, W = area.width;
-  const lanes = useMemo(() => (built ? laneSegments(built.racingLine) : []), [built]);
+  const lanes = useMemo(() => (built ? laneRuns(built.racingLine) : []), [built]);
   const arrows = useMemo(() => (built ? arrowsAlong(built.racingLine) : []), [built]);
   const rostrum = built?.rostrum ?? props.rostrum;
   const px = v ? 1 / v.s : 0.05; // one screen pixel in metres
@@ -314,8 +327,8 @@ export function PlanView(props: PlanViewProps) {
             )}
           {layers.lanes && (
             <g className="plan-lanes">
-              {lanes.map((s, i) => (
-                <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} strokeWidth={s.w} />
+              {lanes.map((r, i) => (
+                <polyline key={i} points={r.points} strokeWidth={r.w} />
               ))}
             </g>
           )}
@@ -391,6 +404,7 @@ export function PlanView(props: PlanViewProps) {
               ) : null,
             )}
           {children}
+          {overlay?.(px)}
           {highlight && (
             <circle cx={highlight[0]} cy={-highlight[1]} r={Math.max(0.8, 14 * px)} className="plan-highlight" vectorEffect="non-scaling-stroke" />
           )}

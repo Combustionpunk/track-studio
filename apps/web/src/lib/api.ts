@@ -8,13 +8,26 @@ export interface UserRef {
   username: string;
 }
 
+export type FitResultWithThumb = FitResult & { thumbUrl: string };
+
 export interface TrackSummary {
   id: string;
+  /** name of the public revision */
   name: string;
+  /** workflow state of the latest revision */
   status: TrackStatus;
   author: UserRef;
+  /** latest revision */
   revision: number;
   approvedRevision: number | null;
+  /** what the public sees: the approved revision if there is one, else the latest */
+  publicRevision: number;
+  /** an approved track with a newer draft / submitted revision */
+  newerRevision: { revision: number; status: TrackStatus } | null;
+  /** error-level checks on the latest revision */
+  errors: number;
+  derivedFrom: { id: string; name: string | null; author: string | null } | null;
+  latestPreviewUrl: string;
   lapLength: number;
   corners: number;
   /** real size from the lane edges; null for tracks not re-baked since engine 1.2 */
@@ -29,7 +42,7 @@ export interface TrackSummary {
   url: string;
   previewUrl: string;
   /** only in "fits venue" results */
-  fit?: { revision: number; results: FitResult[] };
+  fit?: { revision: number; results: FitResultWithThumb[] };
 }
 
 export interface Permissions {
@@ -38,6 +51,7 @@ export interface Permissions {
   approve: boolean;
   archive: boolean;
   adapt: boolean;
+  copy: boolean;
 }
 
 export interface TrackResponse {
@@ -69,7 +83,7 @@ export interface VenueSummary {
 export interface FitAnswer {
   track: { id: string; revision: number };
   venue: { id: string; revision: number };
-  results: FitResult[];
+  results: FitResultWithThumb[];
 }
 
 export interface Me {

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as fmt from "../src/lib/format.js";
-import { areaBounds, featureCorners, fitView, laneSegments, pan, rostrumPos, toPlan, transformBuilt, viewBox, zoomAt } from "../src/lib/plan.js";
+import { areaBounds, featureCorners, fitView, laneRuns, laneSegments, pan, rostrumPos, toPlan, transformBuilt, viewBox, zoomAt } from "../src/lib/plan.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
 
@@ -43,6 +43,14 @@ describe("drawing helpers", () => {
     const last = segs[segs.length - 1], first = club.built!.racingLine[0];
     expect([last.x2, last.y2]).toEqual([first[0], -first[1]]);
     expect(Math.min(...segs.map((s) => s.w))).toBeGreaterThanOrEqual(1.8);
+  });
+
+  it("lane runs group steps of equal width into few polylines", () => {
+    const runs = laneRuns(club.built!.racingLine);
+    expect(runs.length).toBeLessThan(80);
+    const points = runs.reduce((n, r) => n + r.points.split(" ").length, 0);
+    expect(points).toBe(club.built!.racingLine.length + runs.length); // every step drawn once (+ run starts)
+    for (const r of runs) expect(r.w).toBeGreaterThanOrEqual(1.8), expect(r.w).toBeLessThanOrEqual(2);
   });
 
   it("feature footprint is length × width around its centre", () => {

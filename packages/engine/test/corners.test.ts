@@ -66,3 +66,14 @@ describe("size", () => {
     expect(b.size!.bbox[3]).toBeCloseTo(5.75, 3);
   });
 });
+
+describe("corner join gap setting", () => {
+  it("is one setting and can be overridden", async () => {
+    const { CORNER_JOIN_GAP } = await import("../src/index.js");
+    expect(CORNER_JOIN_GAP).toBe(3);
+    const club = ex("club-a.rctrack.json");
+    expect(bakeBuilt(club, { cornerJoinGap: 0.5 }).stats.corners).toBe(13); // hairpins only; the carousel splits
+    expect(bakeBuilt(club, { cornerJoinGap: 0 }).stats.corners).toBe(18); // every corner point
+    expect(bakeBuilt(club).stats.corners).toBe(12);
+  });
+});

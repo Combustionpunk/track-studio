@@ -49,6 +49,11 @@ Forum embeds (`/embed/:id`, "Copy forum embed" on a track page): add `<BASE_URL>
 refuses to be framed. Link previews (onebox) read the Open Graph tags of `/t/:id`; a forum on the internet can't fetch
 a LAN `BASE_URL`, and Discourse blocks private addresses unless they're in `allowed internal hosts`.
 
+## Public vs latest revision
+A track's **public** revision is its approved one if it has one, else its latest. The library, links, link previews,
+embeds and fit searches show the public revision; editing an approved track adds a newer draft that only becomes
+public when it's approved. Each revision row stores its own summary (name, lap, corners, size, errors, preview hash).
+
 ## API
 Errors are always `{error, message, details?}`. Reads are public; writes need the session cookie, and cross-origin
 writes (an `Origin` header other than `BASE_URL`) are refused.
@@ -59,13 +64,15 @@ writes (an `Origin` header other than `BASE_URL`) are refused.
 | `GET /api/tracks?status=&venue=&minLap=&maxLap=&minCorners=&maxCorners=&q=` | list (archived hidden unless `status=archived`) |
 | `GET /api/tracks?fits=<venueId>` | approved tracks (their pinned revision) that fit, each with `fit.results` |
 | `POST /api/tracks` `{track, fromVenue?, note?}` (or a bare rctrack doc) | new draft; server sets id/revision/author/dates/status, re-bakes |
-| `PUT /api/tracks/:id` `{track, note?}` | new revision (author or organiser); a changed track goes back to `draft` |
-| `POST /api/tracks/:id/submit` · `/approve` · `/archive` | author · organiser (pins the current revision) · organiser |
-| `GET /api/tracks/:id` · `/revisions` · `/r/:rev.rctrack.json` | summary + current doc + `can` (what you may do) · history · download |
-| `GET /api/tracks/:id/fit/:venueId` · `POST /api/tracks/:id/adapt/:venueId` `{orientation?}` | fit search (cached per revision pair) · adapted draft copy |
+| `PUT /api/tracks/:id` `{track, note?, baseRevision?}` | new revision (author or organiser), always a draft; `baseRevision` ≠ latest → 409 `stale`. Venue-based tracks keep the template's area/obstacles/rostrum |
+| `POST /api/tracks/:id/copy` `{revision?}` | "Make my own copy": a new draft for you, `info.derivedFrom` credits the original |
+| `POST /api/tracks/:id/submit` · `/approve` · `/archive` | author · organiser (pins the latest revision) · organiser. Submit/approve → 409 `has-errors` while the latest revision has error-level checks |
+| `GET /api/tracks/:id` · `/revisions` · `/r/:rev.rctrack.json` | summary + the **public** revision's doc + `can` (what you may do) · history · download (`/r/:rev` = plain JSON, e.g. the latest for the designer) |
+| `GET /api/tracks/:id/fit/:venueId[?r=]` · `POST /api/tracks/:id/adapt/:venueId` `{orientation?, revision?}` | fit search (cached per revision pair; each result has a `thumbUrl`) · adapted draft copy |
 | `GET /api/venues` · `/api/venues/:id` · `POST /api/venues` · `PUT /api/venues/:id` | venue templates (writes: organisers) |
-| `GET /p/:id/:rev.png` | 1200 px preview (cached in DATA_DIR, immutable) |
-| `GET /`, `/t/:id`, `/embed/:id[?r=]`, `/v`, `/v/:id` | web app pages; `/t` and `/embed` carry Open Graph tags; `/embed` may be framed by the forum |
+| `GET /p/:id/:rev.png?v=<hash>` | 1200 px preview; `v` = hash of the drawing, so the exact URL is cached for a year and a changed drawing gets a new URL (no/old `v`: same image, 5 min cache) |
+| `GET /p/:id/:rev/fit/:venueId/:k.png?v=` | the track placed in the venue as fit orientation `k` (index in the engine's `ORIENTS`) — "fits venue" thumbnails |
+| `GET /`, `/t/:id`, `/t/:id/edit`, `/new`, `/new/design`, `/embed/:id[?r=]`, `/v`, `/v/:id` | web app pages; `/t` and `/embed` carry Open Graph tags (public revision); `/embed` may be framed by the forum |
 | `GET /api/config` | what the web app needs (dev login on?, forum URL) |
 
 Input limits (to keep the engine's work bounded): area ≤ 100 × 100 m, ≤ 300 points within ±100 m, lap ≤ 1500 m,

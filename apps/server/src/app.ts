@@ -7,6 +7,7 @@ import { openDb, type DB } from "./db.js";
 import { HttpError } from "./errors.js";
 import { registerPreviews } from "./previews.js";
 import { registerRoutes } from "./routes.js";
+import { backfillRevisions } from "./store.js";
 import { registerWeb, type WebOptions } from "./web.js";
 
 declare module "fastify" {
@@ -33,6 +34,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
     trustProxy: true,
   });
   const db = opts.db ?? openDb(config.dataDir);
+  backfillRevisions(db); // summary columns for revisions saved before migration 003
   app.decorate("db", db);
   app.decorate("config", config);
   app.addHook("onClose", async () => {

@@ -1,6 +1,7 @@
 import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { createBrowserRouter, Outlet, RouterProvider, useLocation, useParams } from "react-router-dom";
+import { EditTrackPage, NewDesignPage, NewTrackPage } from "./designer/pages.js";
 import { Header } from "./components/Header.js";
 import { SessionProvider } from "./lib/session.js";
 import { Embed } from "./pages/Embed.js";
@@ -34,30 +35,30 @@ function TrackRoute() {
   return <TrackPage key={id} />;
 }
 
-function App() {
-  return (
-    <Routes>
-      {/* the embed has no site chrome */}
-      <Route path="/embed/:id" element={<Embed />} />
-      <Route element={<Layout />}>
-        <Route path="/" element={<Library />} />
-        <Route path="/t/:id" element={<TrackRoute />} />
-        <Route path="/v" element={<Venues />} />
-        <Route path="/v/:id" element={<VenuePage />} />
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
-  );
-}
+const router = createBrowserRouter([
+  // the embed has no site chrome
+  { path: "/embed/:id", element: <Embed /> },
+  {
+    element: <Layout />,
+    children: [
+      { path: "/", element: <Library /> },
+      { path: "/t/:id", element: <TrackRoute /> },
+      { path: "/t/:id/edit", element: <EditTrackPage /> },
+      { path: "/new", element: <NewTrackPage /> },
+      { path: "/new/design", element: <NewDesignPage /> },
+      { path: "/v", element: <Venues /> },
+      { path: "/v/:id", element: <VenuePage /> },
+      { path: "*", element: <NotFound /> },
+    ],
+  },
+]);
 
 const root = document.getElementById("root")!;
 root.textContent = ""; // drop the server's no-script fallback before React takes over
 createRoot(root).render(
   <StrictMode>
     <SessionProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </SessionProvider>
   </StrictMode>,
 );

@@ -21,7 +21,8 @@ SIMPLIFY_TOL = 0.02    # divider polyline simplification tolerance (m)
 MIN_RADIUS = 0.6       # tightest racing-line radius a 1/10 buggy can follow (m)
 MIN_WIDTH = 1.4        # narrowest sensible lane (m)
 CORNER_MIN_TURN = math.radians(20)   # smaller changes of direction aren't corners
-CORNER_JOIN_GAP = 3.0  # same-direction turns joined by less straight than this (m) are one corner (hairpins, carousels)
+CORNER_JOIN_GAP = 3.0  # same-direction turns joined by less straight than this (m) are one corner (hairpins, carousels).
+                       # The one setting for the corner count; the TypeScript engine has the same constant.
 
 FEATURE_PROFILES = {   # along-track distance (m), height (m), for default length/height; scaled to the feature's values
     "tabletop": [[0, 0], [0.70, 1], [1.50, 1], [2.20, 0]],
@@ -77,7 +78,7 @@ def racing_line(points, default_width):
             out.append([q[0], q[1], W[i] + (w1 - W[i]) * k / m, 0.0])
     return np.array(out), corners
 
-def count_corners(corners):
+def count_corners(corners, join_gap=CORNER_JOIN_GAP):
     """Corners as racers count them: every turn of more than CORNER_MIN_TURN, except that turns the same way joined
     by less than CORNER_JOIN_GAP of racing line (a hairpin, or turn - short straight - turn) count as one.
     A track that is one continuous same-direction turn counts as 1."""
@@ -92,7 +93,7 @@ def count_corners(corners):
         gap = straight[i]; m = (i + 1) % n          # racing line from the end of corner i to the start of corner j
         while m != j:
             gap += arc[m] + straight[m]; m = (m + 1) % n
-        if corners[i]["sign"] == corners[j]["sign"] and gap < CORNER_JOIN_GAP: links += 1
+        if corners[i]["sign"] == corners[j]["sign"] and gap < join_gap: links += 1
     return max(1, len(sig) - links)
 
 def arclength(xy):

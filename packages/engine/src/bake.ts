@@ -28,7 +28,11 @@ export const SIMPLIFY_TOL = 0.02; // divider polyline simplification tolerance (
 export const MIN_RADIUS = 0.6; // tightest racing-line radius a 1/10 buggy can follow (m)
 export const MIN_WIDTH = 1.4; // narrowest sensible lane (m)
 export const CORNER_MIN_TURN = radians(20); // smaller changes of direction aren't corners
-export const CORNER_JOIN_GAP = 3.0; // same-direction turns joined by less straight than this (m) are one corner
+/**
+ * Same-direction turns joined by less straight than this (m) are one corner (hairpins, carousels). The one setting for
+ * the corner count — reference/bake.py has the same constant; change both (and `pnpm rebake`) to change the rule.
+ */
+export const CORNER_JOIN_GAP = 3.0;
 export const FOOT_CELL = 0.1; // footprint raster cell (m)
 export const PIPE_R = 0.04; // half the pipe thickness, added round the lanes
 export const EYE_HEIGHT = 2.8;
@@ -159,7 +163,7 @@ export function racingLine(points: DesignPoint[], defaultWidth: number): { line:
  * than CORNER_JOIN_GAP of racing line (a hairpin, or turn - short straight - turn) count as one.
  * A track that is one continuous same-direction turn counts as 1.
  */
-export function countCorners(corners: Corner[]): number {
+export function countCorners(corners: Corner[], joinGap = CORNER_JOIN_GAP): number {
   const n = corners.length;
   const sig: number[] = [];
   corners.forEach((c, i) => { if (c.th > CORNER_MIN_TURN) sig.push(i); });
@@ -175,7 +179,7 @@ export function countCorners(corners: Corner[]): number {
     // racing line from the end of corner i to the start of corner j
     let gap = straight[i];
     for (let m = (i + 1) % n; m !== j; m = (m + 1) % n) gap += arc[m] + straight[m];
-    if (corners[i].sign === corners[j].sign && gap < CORNER_JOIN_GAP) links++;
+    if (corners[i].sign === corners[j].sign && gap < joinGap) links++;
   });
   return Math.max(1, sig.length - links);
 }
@@ -474,7 +478,24 @@ export function unrle(s: string, size: number): Uint8Array {
 
 // ------------------------------------------------------------------ bake
 /** Compute the `built` section from `design` (and area/obstacles). */
-export function bakeBuilt(doc: RcTrack): Built {
+export interface BakeOptions {
+  /** override CORNER_JOIN_GAP (m), e.g. to try a different corner rule */
+  cornerJoinGap?: number;
+}
+
+/** Where the rostrum stands: ROSTRUM_SETBACK outside the middle of a side, moved `offset` metres along it. */
+export function rostrumPosition(area: { length: number; width: number }, side: Side = "south", offset = 0): Point2 {
+  const L = area.length, Wd = area.width;
+  const pos: Record<Side, Point2> = {
+    north: [offset, Wd / 2 + ROSTRUM_SETBACK],
+    south: [offset, -Wd / 2 - ROSTRUM_SETBACK],
+    east: [L / 2 + ROSTRUM_SETBACK, offset],
+    west: [-L / 2 - ROSTRUM_SETBACK, offset],
+  };
+  return pos[side];
+}
+
+export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   const design = doc.design, area = doc.area;
   const W0 = design.laneWidth ?? 2.0;
   const { line, corners } = racingLine(design.points, W0);
@@ -519,13 +540,8 @@ export function bakeBuilt(doc: RcTrack): Built {
   const side: Side = design.rostrum?.side ?? "south";
   const off = design.rostrum?.offset ?? 0.0;
   const L = area.length, Wd = area.width;
-  const pos: Record<Side, Point2> = {
-    north: [off, Wd / 2 + ROSTRUM_SETBACK],
-    south: [off, -Wd / 2 - ROSTRUM_SETBACK],
-    east: [L / 2 + ROSTRUM_SETBACK, off],
-    west: [-L / 2 - ROSTRUM_SETBACK, off],
-  };
-  const rostrum = { side, x: r3(pos[side][0]), z: r3(pos[side][1]), eyeHeight: EYE_HEIGHT };
+  const pos = rostrumPosition(area, side, off);
+  const rostrum = { side, x: r3(pos[0]), z: r3(pos[1]), eyeHeight: EYE_HEIGHT };
 
   // checks: area, radius, width
   const { lx, lz } = frame(x, z);
@@ -603,11 +619,11 @@ export function bakeBuilt(doc: RcTrack): Built {
     checks,
     footprint,
     size,
-    stats: { dividerLength: r3(pipe), dividerRuns: divs.length, corners: countCorners(corners) },
+    stats: { dividerLength: r3(pipe), dividerRuns: divs.length, corners: countCorners(corners, opts.cornerJoinGap) },
   };
 }
 
 /** Returns a copy of the track with a fresh `built` section. Does not modify `doc`. */
-export function bake(doc: RcTrack): RcTrack {
-  return { ...doc, built: bakeBuilt(doc) };
+export function bake(doc: RcTrack, opts: BakeOptions = {}): RcTrack {
+  return { ...doc, built: bakeBuilt(doc, opts) };
 }

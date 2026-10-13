@@ -2,11 +2,11 @@
 // The design is untouched, so revisions keep their numbers (and approvals stay pinned); only derived data changes.
 import { bake, previewSvg, type RcTrack } from "@track-studio/engine";
 import { config as loadDotenv } from "dotenv";
-import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { ConfigError, loadConfig, ROOT_DIR } from "./config.js";
 import { openDb, type DB } from "./db.js";
-import { builtColumns } from "./store.js";
+import { sweepPreviews } from "./previews.js";
+import { builtColumns, setRevisionColumns } from "./store.js";
 
 export interface RebakeChange {
   id: string;
@@ -14,7 +14,7 @@ export interface RebakeChange {
   revision: number;
   corners: [number, number];
   size: [string, string];
-  /** the drawn preview changed, so its cached PNG was dropped */
+  /** the drawn preview changed: it gets a new URL (?v=) and the old cached PNG is dropped */
   previewChanged: boolean;
 }
 
@@ -28,17 +28,15 @@ export interface RebakeReport {
 const sizeText = (doc: RcTrack) => (doc.built?.size ? `${doc.built.size.length} × ${doc.built.size.width} m` : "—");
 
 export function rebakeAll(db: DB, dataDir: string, { dryRun = false } = {}): RebakeReport {
-  const rows = db.prepare("SELECT track_id, revision, rctrack_json, png_path FROM track_revisions ORDER BY track_id, revision").all() as {
+  const rows = db.prepare("SELECT track_id, revision, rctrack_json FROM track_revisions ORDER BY track_id, revision").all() as {
     track_id: string;
     revision: number;
     rctrack_json: string;
-    png_path: string | null;
   }[];
   const report: RebakeReport = { revisions: rows.length, changed: [], failed: [], dryRun };
-  const pngsToDelete: string[] = [];
 
   db.transaction(() => {
-    const writeRev = db.prepare("UPDATE track_revisions SET rctrack_json = ?, png_path = ? WHERE track_id = ? AND revision = ?");
+    const writeRev = db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ? AND revision = ?");
     for (const r of rows) {
       const old = JSON.parse(r.rctrack_json) as RcTrack;
       let fresh: RcTrack;
@@ -61,8 +59,10 @@ export function rebakeAll(db: DB, dataDir: string, { dryRun = false } = {}): Reb
         size: [sizeText(old), sizeText(fresh)],
         previewChanged,
       });
-      if (previewChanged && r.png_path) pngsToDelete.push(r.png_path);
-      if (!dryRun) writeRev.run(json, previewChanged ? null : r.png_path, r.track_id, r.revision);
+      if (!dryRun) {
+        writeRev.run(json, r.track_id, r.revision);
+        setRevisionColumns(db, r.track_id, r.revision, fresh); // new preview hash -> new image URL
+      }
     }
     if (dryRun) return;
     // summary columns come from each track's current revision
@@ -80,7 +80,8 @@ export function rebakeAll(db: DB, dataDir: string, { dryRun = false } = {}): Reb
     db.prepare("DELETE FROM fit_cache").run();
   })();
 
-  if (!dryRun) for (const p of pngsToDelete) rmSync(join(dataDir, p), { force: true });
+  // cached pictures whose drawing changed are no longer referenced by any URL
+  if (!dryRun) for (const id of new Set(report.changed.map((c) => c.id))) sweepPreviews(db, dataDir, id);
   return report;
 }
 
@@ -98,9 +99,6 @@ if (process.argv[1] && /rebake\.(ts|js)$/.test(process.argv[1])) {
       console.log(`  ${c.name} r${c.revision}: ${corners}, ${size}${c.previewChanged ? ", preview re-rendered" : ""}`);
     }
     for (const f of r.failed) console.log(`  FAILED ${f.id} r${f.revision}: ${f.error}`);
-    if (r.changed.some((c) => c.previewChanged)) {
-      console.log("Note: changed previews keep their URLs; browsers and the forum may show cached copies for a while.");
-    }
     db.close();
     process.exit(r.failed.length ? 1 : 0);
   } catch (e) {

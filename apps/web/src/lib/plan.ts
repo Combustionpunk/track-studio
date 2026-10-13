@@ -1,9 +1,8 @@
 // Geometry for drawing plans. SVG user units are metres with y = -z (north up), so a plan point (x, z) is drawn at
 // (x, -z). Everything is drawn from `built` (never recomputed from `design`).
-import { transformPt, type Area, type Built, type BuiltFeature, type FitResult, type Point2, type Side } from "@track-studio/engine";
+import { rostrumPosition, type Area, type Built, type BuiltFeature, type Point2, type Side } from "@track-studio/engine";
 
 export const MARGIN = 2.5; // m around the area (room for the rostrum)
-export const ROSTRUM_SETBACK = 1.5; // m outside the area edge, as in the engine
 
 export interface Bounds {
   x0: number;
@@ -60,6 +59,25 @@ export function laneSegments(racingLine: Built["racingLine"]) {
   });
 }
 
+/**
+ * Lane surface as a few polylines: consecutive steps with (nearly) the same lane width share one polyline, drawn with
+ * stroke-width = lane width. Much cheaper to redraw than one element per step (the designer redraws while dragging).
+ */
+export function laneRuns(racingLine: Built["racingLine"]): { points: string; w: number }[] {
+  const n = racingLine.length;
+  if (n < 2) return [];
+  const q = (w: number) => Math.round(w * 50) / 50; // 2 cm steps
+  const runs: { pts: string[]; w: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = racingLine[i], b = racingLine[(i + 1) % n];
+    const w = q((a[2] + b[2]) / 2);
+    const last = runs[runs.length - 1];
+    if (last && last.w === w) last.pts.push(`${b[0]},${-b[1]}`);
+    else runs.push({ pts: [`${a[0]},${-a[1]}`, `${b[0]},${-b[1]}`], w });
+  }
+  return runs.map((r) => ({ points: r.pts.join(" "), w: r.w }));
+}
+
 /** Arrows along the racing line every `every` metres: position and angle (degrees, svg space). */
 export function arrowsAlong(racingLine: Built["racingLine"], every = 8) {
   const out: { x: number; y: number; angle: number }[] = [];
@@ -88,10 +106,7 @@ export function featureCorners(f: Pick<BuiltFeature, "x" | "z" | "heading" | "le
 
 /** Where the rostrum stands for a side/offset (as the engine places it). */
 export function rostrumPos(area: Area, side: Side = "south", offset = 0): Point2 {
-  const { length: L, width: W } = area;
-  return { north: [offset, W / 2 + ROSTRUM_SETBACK], south: [offset, -W / 2 - ROSTRUM_SETBACK], east: [L / 2 + ROSTRUM_SETBACK, offset], west: [-L / 2 - ROSTRUM_SETBACK, offset] }[
-    side
-  ] as Point2;
+  return rostrumPosition(area, side, offset);
 }
 
 export const FEATURE_COLOUR: Record<string, string> = {
@@ -106,29 +121,5 @@ export const FEATURE_COLOUR: Record<string, string> = {
 
 export const CHECK_COLOUR: Record<string, string> = { error: "#ff4d4d", warning: "#ffb000", info: "#7fb2ff" };
 
-/**
- * The track's built geometry moved as a fit result would move it (mirror, rotate, shift), for previewing a fit in
- * the venue before making the copy. The copy itself is re-baked by the server.
- */
-export function transformBuilt(b: Built, fit: Pick<FitResult, "rotation" | "mirror" | "shift">): Built {
-  const tp = (x: number, z: number): Point2 => {
-    const [a, c] = transformPt(x, z, fit.rotation, fit.mirror);
-    return [a + fit.shift[0], c + fit.shift[1]];
-  };
-  // headings: transform a unit direction; mirroring also reverses nothing about driving order, only handedness
-  const th = (deg: number) => {
-    const r = (deg * Math.PI) / 180;
-    const [dx, dz] = transformPt(Math.cos(r), Math.sin(r), fit.rotation, fit.mirror);
-    return ((Math.atan2(dz, dx) * 180) / Math.PI + 360) % 360;
-  };
-  return {
-    ...b,
-    racingLine: b.racingLine.map(([x, z, w]) => [...tp(x, z), w]),
-    dividers: b.dividers.map((d) => ({ ...d, points: d.points.map(([x, z]) => tp(x, z)) })),
-    features: b.features.map((f) => ({ ...f, ...xz(tp(f.x, f.z)), heading: th(f.heading) })),
-    startLine: { ...b.startLine, ...xz(tp(b.startLine.x, b.startLine.z)), heading: th(b.startLine.heading) },
-    checks: b.checks.map((c) => (c.x !== undefined && c.z !== undefined ? { ...c, ...xz(tp(c.x, c.z)) } : c)),
-  };
-}
-
-const xz = ([x, z]: Point2) => ({ x, z });
+// transformBuilt / rostrumPosition live in the engine (the server draws fit thumbnails with them too)
+export { transformBuilt } from "@track-studio/engine";

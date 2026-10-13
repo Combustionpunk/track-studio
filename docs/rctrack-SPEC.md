@@ -19,7 +19,7 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 |---|---|
 | `format`, `version` | `"rctrack"`, `1` |
 | `id`, `revision` | UUID stable across edits; revision increments on every saved change. Meetings pin a revision. |
-| `info` | name, author (forum username), dates, description, venue `{id, name}`, status `draft / submitted / approved / archived`, surface, classes, tags |
+| `info` | name, author (forum username), dates, description, venue `{id, name}`, status `draft / submitted / approved / archived`, surface, classes, tags, `derivedFrom` (below) |
 | `area` | `{length, width}` usable track area in metres — from the venue template (or set by the designer for a blank design) |
 | `basedOn` | `{venueTemplate, revision}` if the design started from a venue template, else `null` |
 | `obstacles` | fixed items inside the area, copied from the venue template: `{type: "circle", x, z, radius, label}` or `{type: "rect", x, z, length, width, rotation?, label}` |
@@ -69,7 +69,8 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 A design point whose turn is more than 20° is a corner. Turns **the same way** joined by less than **3 m** of racing line
 (the straight between them, plus any intermediate turns of 20° or less) count as **one** corner — a hairpin drawn as two
 90° points, or a turn – short straight – turn the same way (carousel). A track that is a single continuous turn counts as
-1. Club A: 18 corner points → 12 corners.
+1. Club A: 18 corner points → 12 corners. The 3 m is a single setting (`CORNER_JOIN_GAP` in `bake.py` and the TypeScript
+engine); changing it means changing both and re-baking stored tracks.
 
 `examples/*.rctrack.json` are fixtures: a TypeScript or C# port must reproduce their `built` sections (within 1 cm).
 
@@ -99,7 +100,8 @@ Import a `.rctrack.json` (file or forum link) and build directly from `built`: a
 features → ramps, startLine → timing line and grid, rostrum → VR/rostrum position.
 
 ## Changes
-- **1.2** — `built.size` added (lane-edge size); `stats.corners` counts like a racer (same-direction turns joined by
+- **1.2** — `info.derivedFrom = {id, revision, orientation?, author?}` credits the track this one came from: a venue
+  adaptation (`orientation`, see Fit search) or someone's copy (`author` = the original's author). `built.size` added (lane-edge size); `stats.corners` counts like a racer (same-direction turns joined by
   < 3 m are one corner; was: every corner point turning > 20°). `version` stays `1`: older readers ignore `size`, and
   files baked by 1.1 simply have no `size` and the old corner count until re-baked.
 - **1.1** — footprint raster, obstacles, `obstacle` check, rostrum offset.
