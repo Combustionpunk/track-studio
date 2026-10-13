@@ -8,7 +8,7 @@ import { bake, fits, adapt, previewSvg, validateTrack, validateVenue } from "@tr
 ```
 
 - `bake(doc)` / `bakeBuilt(doc)` — design -> built (racing line, dividers, features, start, rostrum, checks, footprint,
-  size); format v1.2. `countCorners()` is the racer's corner count (same-direction turns joined by < 3 m are one corner)
+  size); format v1.3. `borders()` gives the lane edges (square / round outer corners, collapsed inside apexes). `countCorners()` is the racer's corner count (same-direction turns joined by < 3 m are one corner)
 - `fits(track, venue)` / `adapt(track, venue, fit)` — venue fit search (8 orientations, 0.1 m grid) and adapted copy
 - `previewSvg(doc)` — 2D plan drawn from `built` only
 - `validateTrack` / `validateVenue` — JSON Schema (draft 2020-12). `src/schemas/rctrack.schema.json` is a copy of

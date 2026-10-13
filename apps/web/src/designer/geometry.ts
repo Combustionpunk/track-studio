@@ -187,10 +187,13 @@ export function snapPoint(raw: Point2, prev: Point2, next: Point2, free = false)
   return best ?? { p: [r3(snap(raw[0])), r3(snap(raw[1]))], guides: [] };
 }
 
-/** Keep a corner point inside the area, far enough in that its lane does (bounds on the grid). */
+/**
+ * Keep a corner point inside the area: exactly width/2 from an edge at most, so its lane (and, with a square outer
+ * corner, the corner itself) can reach the edge — and the area's corner — but not go past it.
+ */
 export function clampToArea(p: Point2, area: Area, halfWidth: number): Point2 {
-  const bx = Math.max(0, Math.floor((area.length / 2 - halfWidth) / GRID) * GRID);
-  const bz = Math.max(0, Math.floor((area.width / 2 - halfWidth) / GRID) * GRID);
+  const bx = Math.max(0, r3(area.length / 2 - halfWidth));
+  const bz = Math.max(0, r3(area.width / 2 - halfWidth));
   return [Math.max(-bx, Math.min(bx, p[0])), Math.max(-bz, Math.min(bz, p[1]))];
 }
 

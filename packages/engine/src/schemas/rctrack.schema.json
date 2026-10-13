@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forum.rcmisfits.org/schemas/rctrack-v1.json",
-  "title": "RC track design (rctrack v1.2)",
+  "title": "RC track design (rctrack v1.3)",
   "type": "object",
   "required": [
     "format",
@@ -152,6 +152,14 @@
                 "type": "number",
                 "minimum": 0.5,
                 "description": "Lane width at this corner (m); blends linearly to the next point"
+              },
+              "outer": {
+                "enum": [
+                  "square",
+                  "round"
+                ],
+                "default": "square",
+                "description": "Outside of the corner: two straight pipes meeting (square, mitre/bevel) or following the arc (round). v1.3"
               }
             }
           }

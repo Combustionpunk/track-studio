@@ -85,6 +85,8 @@ export interface DesignPoint {
   radius?: number;
   /** lane width at this corner; blends linearly to the next point (default design.laneWidth) */
   width?: number;
+  /** outside of the corner: two straight pipes meeting ("square", default) or following the arc ("round") — v1.3 */
+  outer?: "square" | "round";
 }
 
 export interface DesignFeature {

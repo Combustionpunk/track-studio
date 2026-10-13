@@ -332,3 +332,10 @@ kbd { font: 0.8em var(--font); border: 1px solid var(--border); border-bottom-wi
   .designer-plan { height: 70vh; }
   .tool-hint { margin-left: 0; width: 100%; }
 }
+
+.seg { display: flex; align-items: center; gap: 0; margin: 0 0 10px; flex-wrap: wrap; }
+.seg-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-right: 10px; }
+.seg button { font: inherit; font-size: 0.9rem; padding: 4px 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.seg button:first-of-type { border-radius: 8px 0 0 8px; }
+.seg button:last-of-type { border-radius: 0 8px 8px 0; border-left: 0; }
+.seg button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

@@ -48,6 +48,28 @@ EXTRA_TRACKS = {
         "features": [{"type": "tabletop", "distance": 30.0}, {"type": "double", "distance": 55.0}, {"type": "bump", "distance": 140.0}],
         "start": {"distance": 12.5}, "rostrum": {"side": "north", "offset": 4.0}}),
 }
+# rctrack 1.3: square outer corners and shared-divider transitions
+def serpentine(outer):
+    """Main straight with a hairpin beside it that peels away (the switchback a club builds along a hall)."""
+    pts = [(-9, -4.5), (9, -4.5), (9, -2.5), (-6, -2.5), (-6, -0.5), (9, -0.5), (9, 4.5), (-9, 4.5)]
+    return [dict(x=x, z=z, radius=1.5 if outer == "round" and i in (3, 4) else 1.0, **({"outer": outer} if i in (3, 4) else {}))
+            for i, (x, z) in enumerate(pts)]
+
+EXTRA_TRACKS.update({
+    # points width/2 from every edge: square corners reach the area's corners (size = the whole area)
+    "square-fill": track("4", "Square fill", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": [{"x": -10, "z": -5}, {"x": 10, "z": -5}, {"x": 10, "z": 5}, {"x": -10, "z": 5}],
+        "start": {"distance": 5.0}, "rostrum": {"side": "south"}}),
+    # a 164° corner: bevelled, no mitre spike
+    "sharp-v": track("5", "Sharp V", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": [{"x": -8, "z": -4}, {"x": 8, "z": -4, "radius": 1.0}, {"x": -6, "z": 0}, {"x": -8, "z": 3}],
+        "start": {"distance": 3.0}, "rostrum": {"side": "south"}}),
+    "peel-square": track("6", "Hairpin peels away (square)", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": serpentine("square"), "start": {"distance": 3.0}, "rostrum": {"side": "north"}}),
+    "peel-round": track("7", "Hairpin peels away (round)", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": serpentine("round"), "start": {"distance": 3.0}, "rostrum": {"side": "north"}}),
+})
+
 EXTRA_VENUES = {
     "rotated-desk": {"format": "rcvenue", "version": 1, "id": "venue-x1", "revision": 2,
                      "info": {"name": "Hall with desk", "venue": {"id": 99, "name": "Hall with desk"}, "notes": "fixture"},
@@ -69,4 +91,11 @@ for t in tracks:
     for v in venues:
         out[f"{os.path.basename(t)} | {os.path.basename(v)}"] = fit.fits(json.load(open(t)), json.load(open(v)))
 json.dump(out, open(os.path.join(fixtures, "fit-expected.json"), "w"), indent=1)
+
+# round outer corners must reproduce rctrack 1.2 exactly (v12/: baked by bake.py 1.2)
+for f in sorted(glob.glob(os.path.join(fixtures, "v12", "*.rctrack.json"))):
+    doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
+    same = all(old[k] == new[k] for k in old if k != "generator")
+    print(f"{os.path.basename(f)}: {'same as 1.2' if same else 'DIFFERENT from 1.2'}")
+    assert same
 print(f"{len(out)} fit results; fitting:", sum(1 for r in out.values() if r))

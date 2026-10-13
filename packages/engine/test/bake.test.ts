@@ -24,13 +24,14 @@ describe.each(allTracks)("bake $name", ({ path }) => {
 
   it("dividers: same runs, same pipe within 1 cm", () => {
     expect(diff.dividerCount[0]).toBe(diff.dividerCount[1]);
-    // Every reference divider vertex lies on our unsimplified run: the pipe geometry is the same.
-    const { line } = racingLine(doc.design.points, doc.design.laneWidth ?? 2.0);
-    const dense = dividers(line).runs;
+    // Every reference divider vertex lies on one of our unsimplified runs: the pipe geometry is the same.
+    // (Loop cuts add crossing points, which lie on the simplified polyline: within SIMPLIFY_TOL of a run.)
+    const { line, corners } = racingLine(doc.design.points, doc.design.laneWidth ?? 2.0);
+    const dense = dividers(line, corners, doc.design.points).runs;
     expected.dividers.forEach((d, i) => {
       expect(diff.dividers[i].sameFlags).toBe(true);
-      const worst = Math.max(...d.points.map((p) => distanceToPolyline(p, dense[i])));
-      expect(worst).toBeLessThanOrEqual(TOL);
+      const worst = Math.max(...d.points.map((p) => Math.min(...dense.map((r) => distanceToPolyline(p, r)))));
+      expect(worst).toBeLessThanOrEqual(TOL + SIMPLIFY_TOL);
     });
   });
 

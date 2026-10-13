@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference "will it fit my venue?" search (rctrack v1.1).
+Reference "will it fit my venue?" search (rctrack v1.3).
 For a track and a venue template, tries 8 orientations (as designed, mirrored, rotated 90/180/270, and
 mirrored + rotated), slides the track's footprint around the venue's area on a 0.1 m grid, and keeps
 positions where it stays inside the area and clear of every obstacle. Can write the adapted track.
@@ -27,9 +27,9 @@ def fits(track, venue):
     results = []
     for label, rot, mirror in ORIENTS:
         pts = [dict(p, **dict(zip(("x", "z"), transform_pt(p["x"], p["z"], rot, mirror)))) for p in track["design"]["points"]]
-        line, _ = bake.racing_line(pts, track["design"].get("laneWidth", 2.0))
-        m_obs, origin = bake.lane_mask(line)                                                     # lanes + pipe thickness: obstacle test
-        m_lane, _ = bake.lane_mask(line, origin=origin, shape=m_obs.shape, extra=-0.6 * cell)    # lanes only: must sit inside the area
+        line, corners = bake.racing_line(pts, track["design"].get("laneWidth", 2.0))
+        m_obs, origin = bake.lane_mask(line, corners, pts)                                       # lanes + pipe thickness: obstacle test
+        m_lane, _ = bake.lane_mask(line, corners, pts, origin=origin, shape=m_obs.shape, extra=-0.6 * cell)  # lanes only: inside the area
         rows = np.flatnonzero(m_lane.any(1)); cols = np.flatnonzero(m_lane.any(0))
         r0, r1, c0, c1 = rows[0], rows[-1] + 1, cols[0], cols[-1] + 1
         h, w = r1 - r0, c1 - c0

@@ -76,7 +76,7 @@ describe("area and neighbours", () => {
   it("keeps points in, on the grid, a half lane from the edge", () => {
     expect(clampToArea([12, -7], { length: 22, width: 12 }, 1)).toEqual([10, -5]);
     expect(clampToArea([3, 2], { length: 22, width: 12 }, 1)).toEqual([3, 2]);
-    expect(clampToArea([12, 0], { length: 22, width: 12 }, 0.9)).toEqual([10, 0]); // 10.1 rounds in to the grid
+    expect(clampToArea([12, 0], { length: 22, width: 12 }, 0.9)).toEqual([10.1, 0]); // exactly width/2 in, not tighter
   });
   it("rejects points on top of a neighbour", () => {
     expect(tooClose([0.1, 0], [0, 0], [5, 5])).toBe(true);
@@ -128,5 +128,18 @@ describe("steps", () => {
     expect(wheelRadius(1, 10)).toBeCloseTo(2.6, 1); // a few notches take a hairpin to a sweeper
     expect(wheelRadius(0.1, -5)).toBe(0);
     expect(wheelRadius(14, 10)).toBe(15);
+  });
+});
+
+describe("square corners fill the area", () => {
+  it("dragging a corner as far as it goes puts its lane on both edges and fills the area's corner", () => {
+    const area = { length: 22, width: 12 };
+    for (const width of [2, 1.8, 2.4]) {
+      const corner = clampToArea([99, 99], area, width / 2);
+      const pts = [{ x: -corner[0], z: -corner[1], width }, { x: corner[0], z: -corner[1], width }, { x: corner[0], z: corner[1], width }, { x: -corner[0], z: corner[1], width }];
+      const b = bakeBuilt({ format: "rctrack", version: 1, id: "x", revision: 1, info: { name: "x" }, area, design: { laneWidth: width, points: pts } });
+      expect(b.size, `width ${width}`).toEqual({ length: 22, width: 12, bbox: [-11, -6, 11, 6] });
+      expect(b.checks.filter((c) => c.level === "error"), `width ${width}`).toEqual([]);
+    }
   });
 });

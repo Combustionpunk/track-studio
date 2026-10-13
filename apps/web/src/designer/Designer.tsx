@@ -224,6 +224,14 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** square <-> round outside corner */
+  const toggleOuter = useCallback((i: number) => {
+    const p = draftRef.current.design.points[i];
+    if (!p) return;
+    setPoints((pts) => pts.map((q, k) => (k === i ? { ...q, outer: (q.outer ?? "square") === "square" ? "round" : "square" } : q)), `outer:${i}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
@@ -241,6 +249,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       } else if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
         hist.redo();
+      } else if ((e.key === "o" || e.key === "O") && !mod && selRef.current?.kind === "point") {
+        e.preventDefault();
+        toggleOuter(selRef.current.i);
       } else if (e.key === "Delete" || e.key === "Backspace") {
         if (selRef.current) {
           e.preventDefault();
@@ -254,7 +265,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hist, deleteSelection]);
+  }, [hist, deleteSelection, toggleOuter]);
 
   // ------------------------------------------------------------------------------------ dragging
   type DragKind = { kind: "point"; i: number; offset: Point2 } | { kind: "feature"; i: number; ds: number } | { kind: "start"; ds: number };
@@ -854,9 +865,25 @@ function SelectionPanel({
             onChange={(v) => setPoint(sel.i, { width: v }, "width")}
           />
         </div>
+        <div className="seg" role="radiogroup" aria-label="Outside corner">
+          <span className="seg-label">Outside corner</span>
+          {(["square", "round"] as const).map((o) => (
+            <button
+              key={o}
+              type="button"
+              role="radio"
+              aria-checked={(p.outer ?? "square") === o}
+              className={(p.outer ?? "square") === o ? "on" : ""}
+              onClick={() => setPoint(sel.i, { outer: o }, "outer")}
+              title={o === "square" ? "Two straight pipes meeting in a corner (O)" : "The pipe follows the curve (O)"}
+            >
+              {o === "square" ? "Square" : "Round"}
+            </button>
+          ))}
+        </div>
         {c && c.th > 1e-3 && Math.abs(c.r - (p.radius ?? 1)) > 0.01 && <p className="hint">The radius is reduced to {c.r.toFixed(2)} m to fit the straights either side.</p>}
         {c && c.th <= 1e-3 && <p className="hint">This point is on a straight line — drag it to make a corner.</p>}
-        <p className="hint">Wheel over the point: radius · Ctrl + wheel: lane width.</p>
+        <p className="hint">Wheel over the point: radius · Ctrl + wheel: lane width · O: square / round outside.</p>
         <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= 3}>
           Delete point
         </button>
@@ -966,7 +993,7 @@ function Shortcuts() {
           <kbd>Delete</kbd> or <b>right-click</b> a point to remove it.
         </li>
         <li>
-          <b>Wheel</b> over a point: corner radius · <kbd>Ctrl</kbd> + wheel: lane width.
+          <b>Wheel</b> over a point: corner radius · <kbd>Ctrl</kbd> + wheel: lane width · <kbd>O</kbd>: square / round outside corner.
         </li>
         <li>Pick a jump, click the track to place it, drag it along. Drag the start line the same way.</li>
         <li>

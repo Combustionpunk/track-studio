@@ -42,9 +42,9 @@ export function fits(track: RcTrack, venue: RcVenue): FitResult[] {
       const [x, z] = transformPt(p.x, p.z, rot, mirror);
       return { ...p, x, z };
     });
-    const { line } = racingLine(pts, track.design.laneWidth ?? 2.0);
-    const mObs = laneMask(line); // lanes + pipe thickness: obstacle test
-    const mLane = laneMask(line, cell, mObs, -0.6 * cell); // lanes only: must sit inside the area
+    const { line, corners } = racingLine(pts, track.design.laneWidth ?? 2.0);
+    const mObs = laneMask(line, corners, pts); // lanes + pipe thickness: obstacle test
+    const mLane = laneMask(line, corners, pts, cell, mObs, -0.6 * cell); // lanes only: must sit inside the area
     const H = mObs.rows, Wc = mObs.cols;
     let r0 = Infinity, r1 = -Infinity, c0 = Infinity, c1 = -Infinity;
     for (let r = 0; r < H; r++) {

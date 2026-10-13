@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.2)
+# rctrack — shared track format (v1.3)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -28,9 +28,11 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 
 ## design
 - `laneWidth` — default lane width (m).
-- `points[]` — corner points in driving order, closed loop: `{x, z, radius, width}`.
+- `points[]` — corner points in driving order, closed loop: `{x, z, radius, width, outer}`.
   Straights run point-to-point at any angle (diagonals); each corner is a circular arc of `radius` (small = hairpin,
   large = sweeper), automatically reduced if it can't fit the straights either side. `width` blends linearly between points.
+  `outer` — the outside of the corner: `"square"` (default: two straight pipes meeting in a corner, as clubs build them)
+  or `"round"` (the pipe follows the arc). The racing line is the same either way. *(v1.3)*
 - `features[]` — `{type, distance, length?, height?}`; `distance` is metres along the racing line from point 0 to the
   feature's centre. Types: `tabletop, double, kicker, stepup, stepdown, whoops, bump` (defaults in the engine).
 - `start.distance` — start/finish line position along the racing line.
@@ -52,18 +54,41 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
   in metres, `length` along x. This is the figure to show people ("22 × 12 m"). *(v1.2)*
 - `footprint` — raster of the area the lanes and pipes cover, for fit searches only: `{cell, origin, rows, cols, bbox, rle}`
   (`rle` = row-major run lengths, starting with an empty run). Its bbox includes pipe thickness and a one-cell margin, so
-  it is slightly bigger than `size`. New check code: `obstacle`.
+  it is slightly bigger than `size`. Covered = discs of radius width/2 + 0.04 m round every other racing-line sample, plus
+  each square corner's outer half out to its mitre (see *Borders*). New check code: `obstacle`.
 
 ## Geometry engine (reference: `bake.py`)
 1. **Racing line:** closed polyline through `points`, each corner filleted with its radius (radius shrinks to fit).
-2. **Borders:** offset the line by ±width/2.
-3. **Shared dividers:** border points from parts of the track ≥ 3 m apart along the line, running roughly parallel
-   (|cos| ≥ 0.9) and closer than 0.6 m are pulled to their midpoint (fully below 0.2 m, blended between) — the two
-   borders become one pipe, generated once.
-4. **Dividers:** remaining border runs, simplified (0.02 m tolerance).
+2. **Borders:** the lane edges (see *Borders* below).
+3. **Shared dividers:** a border point pairs with the nearest point of another border from a part of the track ≥ 3 m
+   away along the line, running roughly parallel (|cos| ≥ 0.9 between the borders' own directions; a collapsed inside
+   apex pairs with anything), closer than 0.6 m; it is pulled towards their midpoint (fully below 0.2 m, blended
+   between). The pull is then averaged over ±4 samples (~0.4 m in all) along the border, so a pipe peels away smoothly —
+   but never across a corner of the border (a turn of more than 30° between samples, or entering/leaving a collapsed
+   apex); a corner vertex moves to where its two pulled legs meet. Fully shared stretches are generated once.
+4. **Dividers:** remaining border runs, simplified (0.02 m tolerance). Then each is tidied: a self-crossing is cut (an
+   open run splits there into head, loop and tail and loses the shortest; a closed one keeps its longer part); repeated
+   points and short (< 0.25 m) end segments doubling back (> 120°) are dropped; longest first, end vertices lying within
+   0.06 m of an already kept divider are trimmed (that stretch is drawn already); anything shorter than 0.25 m is dropped.
 5. **Features / start / rostrum:** placed by distance along the racing line.
 6. **Checks:** area, corner radius (min 0.6 m), lane width (min 1.4 m), features on or landing into corners.
 7. **Size:** bounding box of both lane edges (step 2, before divider merging).
+
+### Borders
+Each sample of the racing line is offset ±width/2 sideways. At a corner (design point P, effective radius r, turn θ,
+the corner point's width w — not the blend):
+- **Inside:** the arc of radius r − w/2. Where that is ≤ 0 the inside edge collapses to the **apex**: the point where
+  the two straights' inside edges meet, P + (inside bisector) · (w/2) / cos(θ/2); straight samples whose inside edge
+  would run past it are held there too.
+- **Outside, `round`:** the arc of radius r + w/2 (rctrack 1.2 behaviour).
+- **Outside, `square`:** the incoming straight's outside edge runs on to the **mitre** — where the two straights'
+  outside edges meet, P + (outside bisector) · (w/2) / cos(θ/2) — and the outgoing straight's outside edge leaves from
+  there. The corner's arc samples are spread along that outline by length, with the mitre exactly on one sample.
+- **Mitre limit:** a square corner turning more than 120° gets a **bevel** instead: the outline is cut square to the
+  bisector at distance (r + w/2) / cos(60°) from the arc's centre — as far out as the mitre of a 120° corner reaches.
+  For r = 0 that is width/2 / cos(60°) (= the lane width) from the corner point.
+
+So a loop whose points sit width/2 from the edges of the area reaches the area's edges *and* corners.
 
 ### Corner count
 A design point whose turn is more than 20° is a corner. Turns **the same way** joined by less than **3 m** of racing line
@@ -100,6 +125,10 @@ Import a `.rctrack.json` (file or forum link) and build directly from `built`: a
 features → ramps, startLine → timing line and grid, rostrum → VR/rostrum position.
 
 ## Changes
+- **1.3** — `design.points[].outer: "square" | "round"` (default `square`): square outer corners (mitre, bevel past
+  120°). Inside corners tighter than the lane collapse cleanly to the apex. Shared dividers: nearest-point pairing,
+  blended transitions, cut self-crossings, trimmed overlaps, no fragments under 0.25 m. Footprint includes square
+  corners. `version` stays `1`; re-baking changes `built` of existing tracks (outer pipes, size/footprint near corners).
 - **1.2** — `info.derivedFrom = {id, revision, orientation?, author?}` credits the track this one came from: a venue
   adaptation (`orientation`, see Fit search) or someone's copy (`author` = the original's author). `built.size` added (lane-edge size); `stats.corners` counts like a racer (same-direction turns joined by
   < 3 m are one corner; was: every corner point turning > 20°). `version` stays `1`: older readers ignore `size`, and
