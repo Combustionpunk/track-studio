@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forum.rcmisfits.org/schemas/rcvenue-v1.json",
+  "title": "RC venue template (rcvenue v1)",
+  "type": "object",
+  "required": ["format", "version", "id", "revision", "info", "area"],
+  "properties": {
+    "format": { "const": "rcvenue" },
+    "version": { "const": 1 },
+    "id": { "type": "string" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "info": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 80 },
+        "venue": {
+          "type": ["object", "null"],
+          "properties": { "id": { "type": "integer" }, "name": { "type": "string" } }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "area": {
+      "type": "object",
+      "description": "Usable track area in metres. Origin at its centre, +x east (right on the plan), +z north (up on the plan).",
+      "required": ["length", "width"],
+      "properties": {
+        "length": { "type": "number", "exclusiveMinimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "rostrum": {
+      "type": "object",
+      "properties": {
+        "side": { "enum": ["north", "south", "east", "west"] },
+        "offset": { "type": "number", "description": "Metres along that side from its centre" }
+      }
+    },
+    "obstacles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "x", "z"],
+        "properties": {
+          "type": { "enum": ["circle", "rect"] },
+          "x": { "type": "number" },
+          "z": { "type": "number" },
+          "radius": { "type": "number", "exclusiveMinimum": 0 },
+          "length": { "type": "number", "exclusiveMinimum": 0 },
+          "width": { "type": "number", "exclusiveMinimum": 0 },
+          "rotation": { "type": "number" },
+          "label": { "type": "string" }
+        },
+        "if": { "properties": { "type": { "const": "circle" } } },
+        "then": { "required": ["radius"] },
+        "else": { "required": ["length", "width"] }
+      }
+    }
+  }
+}

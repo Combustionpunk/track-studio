@@ -1,0 +1,39 @@
+{
+ "format": "rcvenue",
+ "version": 1,
+ "id": "venue-x1",
+ "revision": 2,
+ "info": {
+  "name": "Hall with desk",
+  "venue": {
+   "id": 99,
+   "name": "Hall with desk"
+  },
+  "notes": "fixture"
+ },
+ "area": {
+  "length": 24,
+  "width": 14
+ },
+ "rostrum": {
+  "side": "east",
+  "offset": -1.0
+ },
+ "obstacles": [
+  {
+   "type": "rect",
+   "x": -3.0,
+   "z": 0.5,
+   "length": 1.2,
+   "width": 0.6,
+   "rotation": 45,
+   "label": "Desk"
+  },
+  {
+   "type": "circle",
+   "x": 9.0,
+   "z": -5.5,
+   "radius": 0.5
+  }
+ ]
+}

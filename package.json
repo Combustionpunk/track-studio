@@ -1,0 +1,17 @@
+{
+  "name": "track-studio",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "engine": "tsx packages/engine/bin/cli.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}
