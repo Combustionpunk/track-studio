@@ -1,6 +1,7 @@
 # Local run of the production image. Reads settings from .env (see .env.example).
 #   docker compose up --build
 #   docker compose run --rm track-studio node dist/seed.js     # import reference venues + example tracks
+#   docker compose run --rm track-studio node dist/rebake.js   # after an engine update: refresh every stored built
 services:
   track-studio:
     build: .

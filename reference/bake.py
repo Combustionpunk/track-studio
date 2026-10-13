@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1).
+Reference implementation of the rctrack geometry engine (format v1.2).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.1"
+GENERATOR = "rctrack-bake.py 1.2"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -20,6 +20,8 @@ MERGE_PARALLEL = 0.9   # ...and run roughly parallel (|cos| of the angle between
 SIMPLIFY_TOL = 0.02    # divider polyline simplification tolerance (m)
 MIN_RADIUS = 0.6       # tightest racing-line radius a 1/10 buggy can follow (m)
 MIN_WIDTH = 1.4        # narrowest sensible lane (m)
+CORNER_MIN_TURN = math.radians(20)   # smaller changes of direction aren't corners
+CORNER_JOIN_GAP = 3.0  # same-direction turns joined by less straight than this (m) are one corner (hairpins, carousels)
 
 FEATURE_PROFILES = {   # along-track distance (m), height (m), for default length/height; scaled to the feature's values
     "tabletop": [[0, 0], [0.70, 1], [1.50, 1], [2.20, 0]],
@@ -74,6 +76,24 @@ def racing_line(points, default_width):
             q = c["end"] + (nxt - c["end"]) * k / m
             out.append([q[0], q[1], W[i] + (w1 - W[i]) * k / m, 0.0])
     return np.array(out), corners
+
+def count_corners(corners):
+    """Corners as racers count them: every turn of more than CORNER_MIN_TURN, except that turns the same way joined
+    by less than CORNER_JOIN_GAP of racing line (a hairpin, or turn - short straight - turn) count as one.
+    A track that is one continuous same-direction turn counts as 1."""
+    n = len(corners)
+    sig = [i for i, c in enumerate(corners) if c["th"] > CORNER_MIN_TURN]
+    if len(sig) < 2: return len(sig)
+    straight = [math.dist(corners[i]["end"], corners[(i + 1) % n]["start"]) for i in range(n)]
+    arc = [c["r"] * c["th"] for c in corners]
+    links = 0
+    for k, i in enumerate(sig):
+        j = sig[(k + 1) % len(sig)]
+        gap = straight[i]; m = (i + 1) % n          # racing line from the end of corner i to the start of corner j
+        while m != j:
+            gap += arc[m] + straight[m]; m = (m + 1) % n
+        if corners[i]["sign"] == corners[j]["sign"] and gap < CORNER_JOIN_GAP: links += 1
+    return max(1, len(sig) - links)
 
 def arclength(xy):
     d = np.linalg.norm(np.diff(np.vstack([xy, xy[:1]]), axis=0), axis=1)
@@ -237,11 +257,10 @@ def bake(doc):
     rostrum = {"side": side, "x": r3(pos[0]), "z": r3(pos[1]), "eyeHeight": 2.8}
 
     # checks: area, radius, width
-    for k, (x, z, w, c) in enumerate(line[::4]):
-        pass
     hw = line[:, 2] / 2
     t, left = frame(xy)
-    for B in (xy - left * hw[:, None], xy + left * hw[:, None]):
+    edges = (xy - left * hw[:, None], xy + left * hw[:, None])      # lane edges, right then left
+    for B in edges:
         out = (np.abs(B[:, 0]) > L / 2 + 0.01) | (np.abs(B[:, 1]) > Wd / 2 + 0.01)
         if out.any():
             q = B[np.argmax(out)]
@@ -271,6 +290,10 @@ def bake(doc):
                  "bbox": [r3(origin[0]), r3(origin[1]), r3(origin[0] + mask.shape[1] * FOOT_CELL), r3(origin[1] + mask.shape[0] * FOOT_CELL)],
                  "rle": rle(mask)}
 
+    # real size of the track: lane edges (no pipe padding; the footprint keeps that for fit checks)
+    E = np.concatenate(edges); lo, hi = E.min(0), E.max(0)
+    size = {"length": r3(hi[0] - lo[0]), "width": r3(hi[1] - lo[1]), "bbox": [r3(lo[0]), r3(lo[1]), r3(hi[0]), r3(hi[1])]}
+
     pipe = sum(sum(math.dist(a, b) for a, b in zip(d["points"], d["points"][1:])) for d in divs)
     doc["built"] = {
         "generator": GENERATOR,
@@ -282,7 +305,8 @@ def bake(doc):
         "rostrum": rostrum,
         "checks": checks,
         "footprint": footprint,
-        "stats": {"dividerLength": r3(pipe), "dividerRuns": len(divs), "corners": int(sum(1 for c in corners if c["th"] > math.radians(20)))},
+        "size": size,
+        "stats": {"dividerLength": r3(pipe), "dividerRuns": len(divs), "corners": count_corners(corners)},
     }
     return doc
 

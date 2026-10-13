@@ -64,7 +64,7 @@ describe("track page (Open Graph)", () => {
     expect(res.headers["content-type"]).toBe("text/html; charset=utf-8");
     const html = res.body;
     expect(meta(html, "og:title")).toBe("Freeform example @ Sports hall B");
-    expect(meta(html, "og:description")).toBe("94 m lap · 12 corners · Sports hall B · approved");
+    expect(meta(html, "og:description")).toBe("94 m lap · 9 corners · 22 × 12 m · Sports hall B · approved");
     expect(meta(html, "og:image")).toBe(`${BASE_URL}/p/${SPORTS}/1.png`);
     expect(meta(html, "og:url")).toBe(`${BASE_URL}/t/${SPORTS}`);
     expect(meta(html, "og:image:width")).toBe("1200");
@@ -86,7 +86,7 @@ describe("track page (Open Graph)", () => {
     const html = (await app.inject({ method: "GET", url: `/t/${created.track.id}` })).body;
     expect(meta(html, "og:title")).toBe("Tom &amp; &quot;Jerry&quot; &lt;b&gt;");
     expect(html).not.toContain("<b>");
-    expect(meta(html, "og:description")).toBe("94 m lap · 12 corners · no venue · draft");
+    expect(meta(html, "og:description")).toBe("94 m lap · 9 corners · 22 × 12 m · no venue · draft");
     expect(meta(html, "og:image")).toBe(`${BASE_URL}/p/${created.track.id}/2.png`);
   });
 });

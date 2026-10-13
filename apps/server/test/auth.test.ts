@@ -174,3 +174,28 @@ describe("dev login", () => {
     expect(me2.organiser).toBe(false);
   });
 });
+
+describe("logging", () => {
+  it("never logs query strings (login payloads) or cookies", async () => {
+    const { buildApp } = await import("../src/app.js");
+    const { testConfig } = await import("./helpers.js");
+    const lines: string[] = [];
+    const config = testConfig();
+    const app = await buildApp(config, { logger: { level: "info", stream: { write: (s: string) => lines.push(s) } } });
+    try {
+      const { nonce } = await startLogin(app);
+      const r = forumResponse(nonce, ALICE);
+      const res = await app.inject({ method: "GET", url: callbackUrl(r) });
+      const cookie = res.cookies[0].value;
+      await app.inject({ method: "GET", url: "/api/me", headers: { cookie: `ts_session=${cookie}` } });
+      const log = lines.join("\n");
+      expect(log).toContain('"url":"/auth/callback"');
+      expect(log).not.toContain(r.sig);
+      expect(log).not.toContain(encodeURIComponent(r.sso).slice(0, 20));
+      expect(log).not.toContain(cookie);
+      expect(log).not.toContain(SECRET);
+    } finally {
+      await app.close();
+    }
+  });
+});

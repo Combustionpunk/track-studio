@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.1)
+# rctrack — shared track format (v1.2)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -46,9 +46,13 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 - `rostrum` — `{side, x, z, eyeHeight}`
 - `checks[]` — `{level: error|warning|info, code, message, x?, z?}`. Codes so far: `outside-area`, `tight-corner`,
   `narrow-lane`, `feature-in-corner`, `radius-reduced`.
-- `stats` — `{dividerLength, dividerRuns, corners}` (feeds the build sheet)
-- `footprint` — raster of the area the lanes and pipes cover, for fit searches: `{cell, origin, rows, cols, bbox, rle}`
-  (`rle` = row-major run lengths, starting with an empty run). New check code: `obstacle`.
+- `stats` — `{dividerLength, dividerRuns, corners}` (feeds the build sheet). `corners` counts corners the way racers
+  do (see *Corner count* below).
+- `size` — the track's real size from its lane edges (no pipe padding): `{length, width, bbox: [xmin, zmin, xmax, zmax]}`
+  in metres, `length` along x. This is the figure to show people ("22 × 12 m"). *(v1.2)*
+- `footprint` — raster of the area the lanes and pipes cover, for fit searches only: `{cell, origin, rows, cols, bbox, rle}`
+  (`rle` = row-major run lengths, starting with an empty run). Its bbox includes pipe thickness and a one-cell margin, so
+  it is slightly bigger than `size`. New check code: `obstacle`.
 
 ## Geometry engine (reference: `bake.py`)
 1. **Racing line:** closed polyline through `points`, each corner filleted with its radius (radius shrinks to fit).
@@ -59,6 +63,13 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 4. **Dividers:** remaining border runs, simplified (0.02 m tolerance).
 5. **Features / start / rostrum:** placed by distance along the racing line.
 6. **Checks:** area, corner radius (min 0.6 m), lane width (min 1.4 m), features on or landing into corners.
+7. **Size:** bounding box of both lane edges (step 2, before divider merging).
+
+### Corner count
+A design point whose turn is more than 20° is a corner. Turns **the same way** joined by less than **3 m** of racing line
+(the straight between them, plus any intermediate turns of 20° or less) count as **one** corner — a hairpin drawn as two
+90° points, or a turn – short straight – turn the same way (carousel). A track that is a single continuous turn counts as
+1. Club A: 18 corner points → 12 corners.
 
 `examples/*.rctrack.json` are fixtures: a TypeScript or C# port must reproduce their `built` sections (within 1 cm).
 
@@ -86,3 +97,9 @@ revision and orientation) and re-bakes it.
 ## Sim integration (plan)
 Import a `.rctrack.json` (file or forum link) and build directly from `built`: area → hall, dividers → pipes,
 features → ramps, startLine → timing line and grid, rostrum → VR/rostrum position.
+
+## Changes
+- **1.2** — `built.size` added (lane-edge size); `stats.corners` counts like a racer (same-direction turns joined by
+  < 3 m are one corner; was: every corner point turning > 20°). `version` stays `1`: older readers ignore `size`, and
+  files baked by 1.1 simply have no `size` and the old corner count until re-baked.
+- **1.1** — footprint raster, obstacles, `obstacle` check, rostrum offset.

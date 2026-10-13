@@ -44,6 +44,10 @@ describe.each(allTracks)("bake $name", ({ path }) => {
     expect(diff.checks[0]).toEqual(diff.checks[1]);
   });
 
+  it("size within 1 cm", () => {
+    expect(diff.size).toBeLessThanOrEqual(TOL);
+  });
+
   it("footprint bbox within one cell", () => {
     expect(diff.footprint.bboxMax).toBeLessThanOrEqual(CELL + 1e-9);
   });

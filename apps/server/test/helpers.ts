@@ -7,6 +7,7 @@ import { buildApp } from "../src/app.js";
 import { decodePayload, encodePayload, signPayload } from "../src/auth.js";
 import { ROOT_DIR, type Config } from "../src/config.js";
 import { seed } from "../src/seed.js";
+import type { WebOptions } from "../src/web.js";
 
 export const SECRET = "test-discourse-connect-secret";
 export const BASE_URL = "http://tracks.test";
@@ -37,9 +38,9 @@ afterEach(async () => {
 });
 
 /** A fresh app on an empty temp DATA_DIR (closed and deleted after each test). */
-export async function makeApp(opts: { seeded?: boolean; config?: Partial<Config> } = {}) {
+export async function makeApp(opts: { seeded?: boolean; config?: Partial<Config>; web?: WebOptions } = {}) {
   const config = testConfig(opts.config);
-  const app = await buildApp(config);
+  const app = await buildApp(config, { web: opts.web });
   open.push({ app, dir: config.dataDir });
   if (opts.seeded) seed(app.db, config, join(ROOT_DIR, "reference"), () => {});
   return { app, config };

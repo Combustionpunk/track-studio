@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forum.rcmisfits.org/schemas/rctrack-v1.json",
-  "title": "RC track design (rctrack v1.1)",
+  "title": "RC track design (rctrack v1.2)",
   "type": "object",
   "required": [
     "format",
@@ -328,7 +328,49 @@
           }
         },
         "stats": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "dividerLength": {
+              "type": "number",
+              "description": "Total pipe length (m)"
+            },
+            "dividerRuns": {
+              "type": "integer"
+            },
+            "corners": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Corners as racers count them: same-direction turns joined by < 3 m of racing line count as one"
+            }
+          }
+        },
+        "size": {
+          "type": "object",
+          "description": "Real size from the lane edges (no pipe padding), v1.2",
+          "required": [
+            "length",
+            "width",
+            "bbox"
+          ],
+          "properties": {
+            "length": {
+              "type": "number",
+              "description": "Extent along x (m)"
+            },
+            "width": {
+              "type": "number",
+              "description": "Extent along z (m)"
+            },
+            "bbox": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 4,
+              "maxItems": 4,
+              "description": "[xmin, zmin, xmax, zmax]"
+            }
+          }
         }
       }
     },

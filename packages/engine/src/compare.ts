@@ -17,6 +17,8 @@ export interface BuiltDiff {
   rostrum: number;
   stats: { dividerLength: number; dividerRuns: [number, number]; corners: [number, number] };
   footprint: { bboxMax: number; shape: [number, number, number, number]; cellsDiffer: number | null };
+  /** max difference of size length/width/bbox (Infinity if either side has none) */
+  size: number;
 }
 
 const dist = (a: Point2, b: Point2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -109,6 +111,14 @@ export function compareBuilt(actual: Built, expected: Built): BuiltDiff {
       dividerRuns: [actual.stats.dividerRuns, expected.stats.dividerRuns],
       corners: [actual.stats.corners, expected.stats.corners],
     },
+    size:
+      actual.size && expected.size
+        ? Math.max(
+            Math.abs(actual.size.length - expected.size.length),
+            Math.abs(actual.size.width - expected.size.width),
+            ...actual.size.bbox.map((v, i) => Math.abs(v - expected.size!.bbox[i])),
+          )
+        : Infinity,
     footprint: {
       bboxMax: Math.max(...fa.bbox.map((v, i) => Math.abs(v - fe.bbox[i]))),
       shape: [fa.rows, fa.cols, fe.rows, fe.cols],

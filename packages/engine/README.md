@@ -7,7 +7,8 @@ Node APIs — runs in the browser (designer) and on the server.
 import { bake, fits, adapt, previewSvg, validateTrack, validateVenue } from "@track-studio/engine";
 ```
 
-- `bake(doc)` / `bakeBuilt(doc)` — design -> built (racing line, dividers, features, start, rostrum, checks, footprint)
+- `bake(doc)` / `bakeBuilt(doc)` — design -> built (racing line, dividers, features, start, rostrum, checks, footprint,
+  size); format v1.2. `countCorners()` is the racer's corner count (same-direction turns joined by < 3 m are one corner)
 - `fits(track, venue)` / `adapt(track, venue, fit)` — venue fit search (8 orientations, 0.1 m grid) and adapted copy
 - `previewSvg(doc)` — 2D plan drawn from `built` only
 - `validateTrack` / `validateVenue` — JSON Schema (draft 2020-12). `src/schemas/rctrack.schema.json` is a copy of

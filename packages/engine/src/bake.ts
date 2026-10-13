@@ -13,9 +13,10 @@ import type {
   Point2,
   RcTrack,
   Side,
+  Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.1";
+export const GENERATOR = "track-studio-engine 1.2";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -26,6 +27,8 @@ const MERGE_K = 48; // bake.py asks the KD-tree for the 48 nearest neighbours (s
 export const SIMPLIFY_TOL = 0.02; // divider polyline simplification tolerance (m)
 export const MIN_RADIUS = 0.6; // tightest racing-line radius a 1/10 buggy can follow (m)
 export const MIN_WIDTH = 1.4; // narrowest sensible lane (m)
+export const CORNER_MIN_TURN = radians(20); // smaller changes of direction aren't corners
+export const CORNER_JOIN_GAP = 3.0; // same-direction turns joined by less straight than this (m) are one corner
 export const FOOT_CELL = 0.1; // footprint raster cell (m)
 export const PIPE_R = 0.04; // half the pipe thickness, added round the lanes
 export const EYE_HEIGHT = 2.8;
@@ -149,6 +152,32 @@ export function racingLine(points: DesignPoint[], defaultWidth: number): { line:
     curvature: Float64Array.from(oc),
   };
   return { line, corners };
+}
+
+/**
+ * Corners as racers count them: every turn of more than CORNER_MIN_TURN, except that turns the same way joined by less
+ * than CORNER_JOIN_GAP of racing line (a hairpin, or turn - short straight - turn) count as one.
+ * A track that is one continuous same-direction turn counts as 1.
+ */
+export function countCorners(corners: Corner[]): number {
+  const n = corners.length;
+  const sig: number[] = [];
+  corners.forEach((c, i) => { if (c.th > CORNER_MIN_TURN) sig.push(i); });
+  if (sig.length < 2) return sig.length;
+  const straight = corners.map((c, i) => {
+    const next = corners[(i + 1) % n].start;
+    return Math.hypot(next[0] - c.end[0], next[1] - c.end[1]);
+  });
+  const arc = corners.map((c) => c.r * c.th);
+  let links = 0;
+  sig.forEach((i, k) => {
+    const j = sig[(k + 1) % sig.length];
+    // racing line from the end of corner i to the start of corner j
+    let gap = straight[i];
+    for (let m = (i + 1) % n; m !== j; m = (m + 1) % n) gap += arc[m] + straight[m];
+    if (corners[i].sign === corners[j].sign && gap < CORNER_JOIN_GAP) links++;
+  });
+  return Math.max(1, sig.length - links);
 }
 
 /** Cumulative distance at each sample, and the closed-loop total. */
@@ -511,6 +540,18 @@ export function bakeBuilt(doc: RcTrack): Built {
       }
     }
   }
+  // real size of the track: lane edges (no pipe padding; the footprint keeps that for fit checks)
+  let exMin = Infinity, ezMin = Infinity, exMax = -Infinity, ezMax = -Infinity;
+  for (const sgn of [-1, 1]) {
+    for (let i = 0; i < line.n; i++) {
+      const hw = line.width[i] / 2;
+      const ex = x[i] + sgn * lx[i] * hw, ez = z[i] + sgn * lz[i] * hw;
+      exMin = Math.min(exMin, ex); exMax = Math.max(exMax, ex);
+      ezMin = Math.min(ezMin, ez); ezMax = Math.max(ezMax, ez);
+    }
+  }
+  const size: Size = { length: r3(exMax - exMin), width: r3(ezMax - ezMin), bbox: [r3(exMin), r3(ezMin), r3(exMax), r3(ezMax)] };
+
   corners.forEach((c, i) => {
     const p = design.points[i];
     if (c.th > 1e-3 && c.r > 0 && c.r < MIN_RADIUS) {
@@ -551,7 +592,6 @@ export function bakeBuilt(doc: RcTrack): Built {
     for (let k = 1; k < d.points.length; k++) run += Math.hypot(d.points[k][0] - d.points[k - 1][0], d.points[k][1] - d.points[k - 1][1]);
     pipe += run;
   }
-  const turn20 = radians(20);
   return {
     generator: GENERATOR,
     lapLength: r3(total),
@@ -562,7 +602,8 @@ export function bakeBuilt(doc: RcTrack): Built {
     rostrum,
     checks,
     footprint,
-    stats: { dividerLength: r3(pipe), dividerRuns: divs.length, corners: corners.filter((c) => c.th > turn20).length },
+    size,
+    stats: { dividerLength: r3(pipe), dividerRuns: divs.length, corners: countCorners(corners) },
   };
 }
 

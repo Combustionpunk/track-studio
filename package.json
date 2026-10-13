@@ -7,11 +7,14 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev": "pnpm --filter @track-studio/server dev",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter @track-studio/server start",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "engine": "tsx packages/engine/bin/cli.ts",
-    "dev": "pnpm --filter @track-studio/server dev",
-    "seed": "pnpm --filter @track-studio/server seed"
+    "seed": "pnpm --filter @track-studio/server seed",
+    "rebake": "pnpm --filter @track-studio/server rebake",
+    "engine": "tsx packages/engine/bin/cli.ts"
   },
   "devDependencies": {
     "tsx": "^4.23.15"

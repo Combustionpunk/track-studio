@@ -154,7 +154,18 @@ export interface Check {
 export interface Stats {
   dividerLength: number;
   dividerRuns: number;
+  /** corners as racers count them: same-direction turns joined by < 3 m of racing line are one corner (v1.2) */
   corners: number;
+}
+
+/** Real size from the lane edges, no pipe padding (v1.2). */
+export interface Size {
+  /** extent along x (m) */
+  length: number;
+  /** extent along z (m) */
+  width: number;
+  /** [xmin, zmin, xmax, zmax] */
+  bbox: [number, number, number, number];
 }
 
 export interface Footprint {
@@ -178,6 +189,8 @@ export interface Built {
   rostrum: BuiltRostrum;
   checks: Check[];
   footprint: Footprint;
+  /** absent in files baked before v1.2 */
+  size?: Size;
   stats: Stats;
 }
 

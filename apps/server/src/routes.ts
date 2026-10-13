@@ -16,6 +16,7 @@ import {
   listRevisions,
   listTracks,
   listVenues,
+  permissions,
   tracksFitting,
   trackSummary,
   updateTrack,
@@ -46,7 +47,15 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
   app.get("/api/tracks", async (req) => {
     const q = req.query as Record<string, string | undefined>;
     if (q.status && !STATUSES.includes(q.status)) throw badRequest("bad-request", `status must be one of ${STATUSES.join(", ")}`);
-    const filter: ListQuery = { status: q.status, venue: q.venue || undefined, minLap: num(q.minLap, "minLap"), maxLap: num(q.maxLap, "maxLap"), q: q.q || undefined };
+    const filter: ListQuery = {
+      status: q.status,
+      venue: q.venue || undefined,
+      minLap: num(q.minLap, "minLap"),
+      maxLap: num(q.maxLap, "maxLap"),
+      minCorners: num(q.minCorners, "minCorners"),
+      maxCorners: num(q.maxCorners, "maxCorners"),
+      q: q.q || undefined,
+    };
     if (q.fits) {
       const { status: _ignored, ...rest } = filter;
       return { tracks: tracksFitting(db, q.fits, rest) };
@@ -61,7 +70,7 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
 
   app.get("/api/tracks/:id", async (req) => {
     const row = getTrackRow(db, (req.params as { id: string }).id);
-    return { track: trackSummary(row), doc: getTrackDoc(db, row) };
+    return { track: trackSummary(row), doc: getTrackDoc(db, row), can: permissions(req.user, row) };
   });
 
   app.put("/api/tracks/:id", async (req) => updateTrack(db, requireUser(req), (req.params as { id: string }).id, req.body));

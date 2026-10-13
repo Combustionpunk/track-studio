@@ -196,7 +196,7 @@ describe("saving tracks", () => {
 
   it("404s and errors are {error, message}", async () => {
     const { app, alice } = await setup();
-    for (const url of ["/api/tracks/nope", "/api/tracks/nope/revisions", `/api/tracks/${CLUB_A}/r/9.rctrack.json`, `/api/tracks/${CLUB_A}/r/x.zip`, "/api/venues/nope", `/api/tracks/${CLUB_A}/fit/nope`, "/nothing/here", "/t/nope", `/p/${CLUB_A}/7.png`]) {
+    for (const url of ["/api/tracks/nope", "/api/tracks/nope/revisions", `/api/tracks/${CLUB_A}/r/9.rctrack.json`, `/api/tracks/${CLUB_A}/r/x.zip`, "/api/venues/nope", `/api/tracks/${CLUB_A}/fit/nope`, "/nothing/here", `/p/${CLUB_A}/7.png`]) {
       const res = await req(app, "GET", url);
       expect(res.statusCode, url).toBe(404);
       expect(res.json(), url).toEqual({ error: "not-found", message: expect.any(String) });

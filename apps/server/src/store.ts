@@ -158,11 +158,15 @@ export interface TrackRow {
   area_width: number;
   footprint_w: number;
   footprint_h: number;
+  size_length: number | null;
+  size_width: number | null;
+  venue_name: string | null;
   created_at: string;
   updated_at: string;
 }
 
-const TRACK_SELECT = "SELECT t.*, u.username AS author_username FROM tracks t JOIN users u ON u.forum_id = t.author_forum_id";
+const TRACK_SELECT = `SELECT t.*, u.username AS author_username, v.name AS venue_name FROM tracks t
+  JOIN users u ON u.forum_id = t.author_forum_id LEFT JOIN venues v ON v.id = t.venue_template_id`;
 
 export function trackSummary(r: TrackRow) {
   return {
@@ -175,7 +179,10 @@ export function trackSummary(r: TrackRow) {
     lapLength: r.lap_length,
     corners: r.corners,
     area: { length: r.area_length, width: r.area_width },
+    /** real size from the lane edges; null until re-baked with engine 1.2 */
+    size: r.size_length === null || r.size_width === null ? null : { length: r.size_length, width: r.size_width },
     footprint: { width: r.footprint_w, height: r.footprint_h },
+    venue: r.venue_template_id ? { id: r.venue_template_id, name: r.venue_name } : null,
     venueTemplateId: r.venue_template_id,
     derivedFromId: r.derived_from_id,
     createdAt: r.created_at,
@@ -230,6 +237,8 @@ export interface ListQuery {
   venue?: string;
   minLap?: number;
   maxLap?: number;
+  minCorners?: number;
+  maxCorners?: number;
   q?: string;
 }
 
@@ -243,6 +252,8 @@ export function listTracks(db: DB, f: ListQuery): TrackRow[] {
   if (f.venue) { where.push("t.venue_template_id = ?"); args.push(f.venue); }
   if (f.minLap !== undefined) { where.push("t.lap_length >= ?"); args.push(f.minLap); }
   if (f.maxLap !== undefined) { where.push("t.lap_length <= ?"); args.push(f.maxLap); }
+  if (f.minCorners !== undefined) { where.push("t.corners >= ?"); args.push(f.minCorners); }
+  if (f.maxCorners !== undefined) { where.push("t.corners <= ?"); args.push(f.maxCorners); }
   if (f.q) { where.push("t.name LIKE ? ESCAPE '\\'"); args.push(`%${f.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`); }
   return db.prepare(`${TRACK_SELECT} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`).all(...args) as TrackRow[];
 }
@@ -262,6 +273,22 @@ interface SaveOptions {
   note?: string;
 }
 
+/** The `tracks` summary columns that come from a baked document. */
+export function builtColumns(doc: RcTrack) {
+  const b = doc.built!;
+  const m3 = (v: number) => Math.round(v * 1000) / 1000;
+  return {
+    lap: b.lapLength,
+    corners: b.stats.corners,
+    al: doc.area.length,
+    aw: doc.area.width,
+    fpW: m3(b.footprint.bbox[2] - b.footprint.bbox[0]),
+    fpH: m3(b.footprint.bbox[3] - b.footprint.bbox[1]),
+    sizeL: b.size?.length ?? null,
+    sizeW: b.size?.width ?? null,
+  };
+}
+
 /** Validate, re-bake (any client `built` is discarded) and insert a new track or a new revision. */
 function saveRevision(db: DB, user: User, input: RcTrack, opts: SaveOptions, existing?: TrackRow): RcTrack {
   const { built: _ignored, ...unbaked } = input;
@@ -272,37 +299,21 @@ function saveRevision(db: DB, user: User, input: RcTrack, opts: SaveOptions, exi
   } catch (e) {
     throw badRequest("invalid-track", `The design could not be built: ${(e as Error).message}`);
   }
-  const b = doc.built!;
   const t = now();
-  const fpW = Math.round((b.footprint.bbox[2] - b.footprint.bbox[0]) * 1000) / 1000;
-  const fpH = Math.round((b.footprint.bbox[3] - b.footprint.bbox[1]) * 1000) / 1000;
-  const cols = {
-    id: doc.id,
-    name: doc.info.name,
-    status: opts.status,
-    venue: doc.basedOn?.venueTemplate ?? null,
-    derived: doc.info.derivedFrom?.id ?? null,
-    revision: doc.revision,
-    lap: b.lapLength,
-    corners: b.stats.corners,
-    al: doc.area.length,
-    aw: doc.area.width,
-    fpW,
-    fpH,
-    t,
-  };
+  const cols = { id: doc.id, name: doc.info.name, status: opts.status, venue: doc.basedOn?.venueTemplate ?? null, derived: doc.info.derivedFrom?.id ?? null, revision: doc.revision, ...builtColumns(doc), t };
   db.transaction(() => {
     if (existing) {
       db.prepare(
         `UPDATE tracks SET name = @name, status = @status, venue_template_id = @venue, derived_from_id = @derived, current_revision = @revision,
-           lap_length = @lap, corners = @corners, area_length = @al, area_width = @aw, footprint_w = @fpW, footprint_h = @fpH, updated_at = @t
+           lap_length = @lap, corners = @corners, area_length = @al, area_width = @aw, footprint_w = @fpW, footprint_h = @fpH,
+           size_length = @sizeL, size_width = @sizeW, updated_at = @t
          WHERE id = @id`,
       ).run(cols);
     } else {
       db.prepare(
         `INSERT INTO tracks (id, name, author_forum_id, status, venue_template_id, derived_from_id, current_revision, approved_revision,
-           lap_length, corners, area_length, area_width, footprint_w, footprint_h, created_at, updated_at)
-         VALUES (@id, @name, @author, @status, @venue, @derived, @revision, @approved, @lap, @corners, @al, @aw, @fpW, @fpH, @t, @t)`,
+           lap_length, corners, area_length, area_width, footprint_w, footprint_h, size_length, size_width, created_at, updated_at)
+         VALUES (@id, @name, @author, @status, @venue, @derived, @revision, @approved, @lap, @corners, @al, @aw, @fpW, @fpH, @sizeL, @sizeW, @t, @t)`,
       ).run({ ...cols, author: user.id, approved: opts.approve ? doc.revision : null });
     }
     db.prepare("INSERT INTO track_revisions (track_id, revision, rctrack_json, created_at, created_by, note) VALUES (?, ?, ?, ?, ?, ?)").run(
@@ -356,6 +367,18 @@ export function createTrack(db: DB, user: User, body: unknown, opts: { keepId?: 
 }
 
 const canEdit = (user: User, row: TrackRow) => user.id === row.author_forum_id || user.organiser;
+
+/** What the current user may do with the track — mirrors the checks in updateTrack/changeStatus/adaptTrack. */
+export function permissions(user: User | null, row: TrackRow) {
+  const live = row.status !== "archived";
+  return {
+    edit: !!user && live && canEdit(user, row),
+    submit: !!user && live && user.id === row.author_forum_id && row.status === "draft",
+    approve: !!user && live && user.organiser && !(row.status === "approved" && row.approved_revision === row.current_revision),
+    archive: !!user && live && user.organiser,
+    adapt: !!user,
+  };
+}
 
 /** New revision. Author, provenance and creation date are kept; a changed track goes back to draft. */
 export function updateTrack(db: DB, user: User, id: string, body: unknown) {

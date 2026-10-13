@@ -7,6 +7,7 @@ import { openDb, type DB } from "./db.js";
 import { HttpError } from "./errors.js";
 import { registerPreviews } from "./previews.js";
 import { registerRoutes } from "./routes.js";
+import { registerWeb, type WebOptions } from "./web.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -18,17 +19,18 @@ declare module "fastify" {
 export interface BuildOptions {
   logger?: FastifyServerOptions["logger"];
   db?: DB;
+  /** how to serve the web app; default "off" (fallback pages, no web build needed) */
+  web?: WebOptions;
 }
 
 /** Log the path only: query strings can carry login payloads (/auth/callback?sso=…). */
-const reqSerializer = (req: { method: string; url: string; ip?: string }) => ({ method: req.method, url: req.url.split("?")[0], ip: req.ip });
+export const reqSerializer = (req: { method: string; url: string; ip?: string }) => ({ method: req.method, url: req.url.split("?")[0], ip: req.ip });
 
 export async function buildApp(config: Config, opts: BuildOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: opts.logger === undefined ? false : opts.logger,
+    logger: opts.logger ? { ...(opts.logger === true ? {} : opts.logger), serializers: { req: reqSerializer } } : false,
     bodyLimit: 2 * 1024 * 1024,
     trustProxy: true,
-    ...(opts.logger ? { serializers: { req: reqSerializer } } : {}),
   });
   const db = opts.db ?? openDb(config.dataDir);
   app.decorate("db", db);
@@ -49,11 +51,20 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
     const code = status === 500 ? "internal" : status === 413 ? "too-large" : status === 415 ? "unsupported-media-type" : "bad-request";
     return reply.code(status).send({ error: code, message: status === 500 ? "Something went wrong" : e.message });
   });
-  app.setNotFoundHandler((req, reply) => reply.code(404).send({ error: "not-found", message: `No route for ${req.method} ${req.url.split("?")[0]}` }));
+  app.setNotFoundHandler((req, reply) => {
+    const path = req.url.split("?")[0];
+    // browsers get the app's own 404 page; API clients get JSON
+    const api = /^\/(api|auth|p)(\/|$)/.test(path);
+    if (!api && req.method === "GET" && (req.headers.accept ?? "").includes("text/html") && app.servePage) return app.servePage(req, reply);
+    return reply.code(404).send({ error: "not-found", message: `No route for ${req.method} ${path}` });
+  });
 
   registerAuth(app, config, db);
   registerRoutes(app, db);
   registerPreviews(app, config, db);
+  await registerWeb(app, config, db, opts.web ?? { mode: "off", root: "", dist: "" });
   app.get("/healthz", async () => ({ ok: true }));
+  // what the web app needs to know about this server
+  app.get("/api/config", async () => ({ devLogin: config.devLogin, forumUrl: config.forumUrl, baseUrl: config.baseUrl, organiserGroup: config.organiserGroup }));
   return app;
 }
