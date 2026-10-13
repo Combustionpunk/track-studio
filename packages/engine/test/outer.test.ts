@@ -6,6 +6,7 @@ import {
   borders,
   dividers,
   MIN_DIVIDER,
+  outerStyle,
   polylineLength,
   racingLine,
   squareOutline,
@@ -19,6 +20,27 @@ import { join } from "node:path";
 
 const fixture = (name: string) => readJson<RcTrack>(join(extraDir, `${name}.rctrack.json`));
 const withOuter = (t: RcTrack, outer: "square" | "round"): RcTrack => ({ ...t, design: { ...t.design, points: t.design.points.map((p) => ({ ...p, outer })) } });
+
+describe("auto outer corners (the default)", () => {
+  it("square up to 120°, round beyond", () => {
+    const { corners } = racingLine(fixture("sharp-v").design.points, 2);
+    for (const c of corners) expect(outerStyle({ x: 0, z: 0 }, c)).toBe(c.th <= (120 * Math.PI) / 180 ? "square" : "round");
+    expect(outerStyle({ x: 0, z: 0, outer: "square" }, corners[1])).toBe("square");
+  });
+
+  it("a sharp V without an explicit style is rounded, so nothing pokes out", () => {
+    const t = fixture("sharp-v");
+    const auto = bakeBuilt({ ...t, design: { ...t.design, points: t.design.points.map(({ outer: _o, ...p }) => p) } });
+    const square = bakeBuilt(t);
+    expect(auto.size!.length).toBeLessThan(square.size!.length);
+  });
+
+  it("built.lanes: two closed rings around the track, square at square corners", () => {
+    const b = bakeBuilt(fixture("square-fill"));
+    const all = [...b.lanes!.right, ...b.lanes!.left];
+    for (const corner of [[-11, -6], [11, -6], [11, 6], [-11, 6]]) expect(all).toContainEqual(corner);
+  });
+});
 
 describe("square outer corners", () => {
   it("points width/2 from the edges fill the whole area, corners included", () => {
@@ -48,8 +70,9 @@ describe("square outer corners", () => {
   it("round reproduces rctrack 1.2 exactly", () => {
     const t = readJson<RcTrack>(join(extraDir, "..", "v12", "round-sweepers.rctrack.json"));
     const { generator: _g, ...want } = t.built!;
-    const { generator: _h, ...got } = bakeBuilt(t);
+    const { generator: _h, lanes, ...got } = bakeBuilt(t); // lanes are new in 1.4
     expect(got).toEqual(want);
+    expect(lanes!.right.length).toBeGreaterThan(4);
   });
 
   it("a sharp V is bevelled, never spiking out", () => {
@@ -141,7 +164,7 @@ describe.each(allTracks)("pipes of $name", ({ path }) => {
     const legit: Point2[] = [];
     corners.forEach((c, i) => {
       if (!(c.th > 1e-6 && c.r > 0)) return;
-      if ((t.design.points[i].outer ?? "square") === "square") legit.push(...squareOutline(c, c.w / 2).slice(1, -1));
+      if (outerStyle(t.design.points[i], c) === "square") legit.push(...squareOutline(c, c.w / 2).slice(1, -1));
       if (c.r - c.w / 2 <= 1e-9) legit.push(c.P); // (near the apex)
       else if (c.r - c.w / 2 < 0.3) legit.push([c.start[0] - c.a[1] * c.sign * c.r, c.start[1] + c.a[0] * c.sign * c.r]); // arc centre
     });

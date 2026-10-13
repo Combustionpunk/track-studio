@@ -45,6 +45,10 @@ describe.each(allTracks)("bake $name", ({ path }) => {
     expect(diff.checks[0]).toEqual(diff.checks[1]);
   });
 
+  it("lane rings within 1 cm (+ simplification)", () => {
+    expect(diff.lanes).toBeLessThanOrEqual(TOL + SIMPLIFY_TOL);
+  });
+
   it("size within 1 cm", () => {
     expect(diff.size).toBeLessThanOrEqual(TOL);
   });

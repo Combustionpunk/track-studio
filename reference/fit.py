@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference "will it fit my venue?" search (rctrack v1.3).
+Reference "will it fit my venue?" search (rctrack v1.4).
 For a track and a venue template, tries 8 orientations (as designed, mirrored, rotated 90/180/270, and
 mirrored + rotated), slides the track's footprint around the venue's area on a 0.1 m grid, and keeps
 positions where it stays inside the area and clear of every obstacle. Can write the adapted track.

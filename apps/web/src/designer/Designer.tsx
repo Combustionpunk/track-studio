@@ -2,6 +2,7 @@
 // place and slide jumps and the start line, live checks, undo/redo, save as a new revision, local auto-save.
 import {
   FEATURE_DEFAULTS,
+  outerStyle,
   rostrumPosition,
   type Area,
   type BasedOn,
@@ -147,6 +148,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       rostrum,
       checks: b?.checks ?? [],
       footprint: b?.footprint ?? { cell: 0.1, origin: [0, 0], rows: 0, cols: 0, bbox: [0, 0, 0, 0], rle: "" },
+      lanes: live.lanes,
       size: b?.size,
       stats: b?.stats ?? { dividerLength: 0, dividerRuns: 0, corners: 0 },
     };
@@ -224,11 +226,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** square <-> round outside corner */
+  /** O: flip the corner to the opposite of what it looks like now (square <-> round) */
   const toggleOuter = useCallback((i: number) => {
     const p = draftRef.current.design.points[i];
-    if (!p) return;
-    setPoints((pts) => pts.map((q, k) => (k === i ? { ...q, outer: (q.outer ?? "square") === "square" ? "round" : "square" } : q)), `outer:${i}`);
+    const c = liveRef.current.corners[i];
+    if (!p || !c) return;
+    const now = outerStyle(p, c);
+    setPoints((pts) => pts.map((q, k) => (k === i ? { ...q, outer: now === "square" ? "round" : "square" } : q)), `outer:${i}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -867,17 +871,19 @@ function SelectionPanel({
         </div>
         <div className="seg" role="radiogroup" aria-label="Outside corner">
           <span className="seg-label">Outside corner</span>
-          {(["square", "round"] as const).map((o) => (
+          {(["auto", "square", "round"] as const).map((o) => (
             <button
               key={o}
               type="button"
               role="radio"
-              aria-checked={(p.outer ?? "square") === o}
-              className={(p.outer ?? "square") === o ? "on" : ""}
-              onClick={() => setPoint(sel.i, { outer: o }, "outer")}
-              title={o === "square" ? "Two straight pipes meeting in a corner (O)" : "The pipe follows the curve (O)"}
+              aria-checked={(p.outer ?? "auto") === o}
+              className={(p.outer ?? "auto") === o ? "on" : ""}
+              onClick={() => setPoint(sel.i, { outer: o === "auto" ? undefined : o }, "outer")}
+              title={
+                o === "auto" ? "Square up to a 120° turn, round beyond" : o === "square" ? "Two straight pipes meeting in a corner (O)" : "The pipe follows the curve (O)"
+              }
             >
-              {o === "square" ? "Square" : "Round"}
+              {o === "auto" ? `Auto${c && (p.outer ?? "auto") === "auto" ? ` (${outerStyle(p, c)})` : ""}` : o === "square" ? "Square" : "Round"}
             </button>
           ))}
         </div>

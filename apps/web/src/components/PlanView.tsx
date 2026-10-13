@@ -268,7 +268,7 @@ export function PlanView(props: PlanViewProps) {
 
   // ---------------------------------------------------------------- drawing
   const L = area.length, W = area.width;
-  const lanes = useMemo(() => (built ? laneRuns(built.racingLine) : []), [built]);
+  const lanes = useMemo(() => (built && !built.lanes ? laneRuns(built.racingLine) : []), [built]);
   const arrows = useMemo(() => (built ? arrowsAlong(built.racingLine) : []), [built]);
   const rostrum = built?.rostrum ?? props.rostrum;
   const px = v ? 1 / v.s : 0.05; // one screen pixel in metres
@@ -325,13 +325,17 @@ export function PlanView(props: PlanViewProps) {
                 />
               ),
             )}
-          {layers.lanes && (
-            <g className="plan-lanes">
-              {lanes.map((r, i) => (
-                <polyline key={i} points={r.points} strokeWidth={r.w} />
-              ))}
-            </g>
-          )}
+          {layers.lanes &&
+            (built?.lanes ? (
+              // rctrack 1.4: the lane edges themselves (square corners included)
+              <path className="plan-carpet" d={lanePath(built.lanes)} fillRule="evenodd" />
+            ) : (
+              <g className="plan-lanes">
+                {lanes.map((r, i) => (
+                  <polyline key={i} points={r.points} strokeWidth={r.w} />
+                ))}
+              </g>
+            ))}
           {layers.racingLine && built && (
             <g className="plan-racing">
               <polygon points={pts(built.racingLine)} vectorEffect="non-scaling-stroke" />
@@ -469,6 +473,11 @@ function StartLine({ built }: { built: Built }) {
       <path d="M -0.3 -0.25 L 0.1 0 L -0.3 0.25" transform={`translate(${s.x + Math.cos(h) * 1.6} ${-(s.z + Math.sin(h) * 1.6)}) rotate(${-s.heading})`} className="plan-start-dir" />
     </g>
   );
+}
+
+/** Both lane rings as one SVG path (filled even-odd: the band between them). */
+export function lanePath(l: NonNullable<Built["lanes"]>): string {
+  return [l.right, l.left].map((ring) => `M${ring.map(([x, z]) => `${x},${-z}`).join("L")}Z`).join("");
 }
 
 /** 1, 2 or 5 × 10^n, close to `m`. */

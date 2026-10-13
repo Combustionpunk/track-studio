@@ -6,7 +6,9 @@ import {
   bakeBuilt,
   EXPORT_STEP,
   FEATURE_DEFAULTS,
+  borders,
   headingDeg,
+  laneRings,
   racingLine,
   SAMPLE,
   type Area,
@@ -15,6 +17,7 @@ import {
   type Design,
   type DesignFeature,
   type DesignPoint,
+  type Lanes,
   type Line,
   type Obstacle,
   type Point2,
@@ -42,6 +45,8 @@ export interface Live {
   racing: [number, number, number][];
   features: BuiltFeature[];
   startLine: StartLine;
+  /** lane-edge rings, as built.lanes */
+  lanes: Lanes;
 }
 
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -57,6 +62,7 @@ export function liveGeometry(design: Design): Live {
   const sd = design.start?.distance ?? 0;
   const st = atDistance(line.x, line.z, s, total, sd);
   live.startLine = { x: st.p[0], z: st.p[1], heading: headingDeg(st.t), width: line.width[st.i], distance: sd };
+  live.lanes = laneRings(borders(line, corners, design.points));
   return live;
 }
 

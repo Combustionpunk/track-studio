@@ -85,8 +85,11 @@ export interface DesignPoint {
   radius?: number;
   /** lane width at this corner; blends linearly to the next point (default design.laneWidth) */
   width?: number;
-  /** outside of the corner: two straight pipes meeting ("square", default) or following the arc ("round") — v1.3 */
-  outer?: "square" | "round";
+  /**
+   * outside of the corner: two straight pipes meeting ("square") or following the arc ("round"); "auto" (default,
+   * v1.4) is square up to a 120° turn and round beyond
+   */
+  outer?: "square" | "round" | "auto";
 }
 
 export interface DesignFeature {
@@ -163,6 +166,12 @@ export interface Stats {
   corners: number;
 }
 
+/** Both lane edges as closed rings [[x, z], …], before divider merging: fill the band between them for the carpet (v1.4). */
+export interface Lanes {
+  right: Point2[];
+  left: Point2[];
+}
+
 /** Real size from the lane edges, no pipe padding (v1.2). */
 export interface Size {
   /** extent along x (m) */
@@ -194,6 +203,8 @@ export interface Built {
   rostrum: BuiltRostrum;
   checks: Check[];
   footprint: Footprint;
+  /** absent in files baked before v1.4 */
+  lanes?: Lanes;
   /** absent in files baked before v1.2 */
   size?: Size;
   stats: Stats;

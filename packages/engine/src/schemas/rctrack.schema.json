@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forum.rcmisfits.org/schemas/rctrack-v1.json",
-  "title": "RC track design (rctrack v1.3)",
+  "title": "RC track design (rctrack v1.4)",
   "type": "object",
   "required": [
     "format",
@@ -156,10 +156,11 @@
               "outer": {
                 "enum": [
                   "square",
-                  "round"
+                  "round",
+                  "auto"
                 ],
-                "default": "square",
-                "description": "Outside of the corner: two straight pipes meeting (square, mitre/bevel) or following the arc (round). v1.3"
+                "default": "auto",
+                "description": "Outside of the corner: two straight pipes meeting (square, mitre/bevel), following the arc (round), or auto (default: square up to a 120° turn, round beyond). v1.3/1.4"
               }
             }
           }
@@ -377,6 +378,34 @@
               "minItems": 4,
               "maxItems": 4,
               "description": "[xmin, zmin, xmax, zmax]"
+            }
+          }
+        },
+        "lanes": {
+          "type": "object",
+          "description": "Both lane edges as closed rings (before divider merging); fill the band between them for the carpet. v1.4",
+          "properties": {
+            "right": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            "left": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                }
+              }
             }
           }
         }

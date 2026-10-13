@@ -48,6 +48,11 @@ export function previewSvg(doc: RcTrack, { pxPerM = 40 }: PreviewOptions = {}): 
     }
     if (ob.label) o.push(`<text x="${f1(X(ob.x))}" y="${f1(Z(ob.z) + 4)}" fill="#fff" font-size="12" text-anchor="middle">${esc(ob.label)}</text>`);
   }
+  // lanes (carpet), when the file has them (rctrack 1.4)
+  if (b.lanes) {
+    const d = [b.lanes.right, b.lanes.left].map((ring) => `M ${ring.map(([x, z]) => `${f1(X(x))},${f1(Z(z))}`).join(" L ")} Z`).join(" ");
+    o.push(`<path d="${d}" fill="#4a5d51" fill-rule="evenodd"/>`);
+  }
   // racing line
   const pts = b.racingLine.map((p) => `${f1(X(p[0]))},${f1(Z(p[1]))}`).join(" ");
   o.push(`<polygon points="${pts}" fill="none" stroke="#ff4fb0" stroke-width="2" stroke-dasharray="8 6" opacity="0.7"/>`);

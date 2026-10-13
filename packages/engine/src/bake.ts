@@ -11,12 +11,13 @@ import type {
   Footprint,
   Obstacle,
   Point2,
+  Lanes,
   RcTrack,
   Side,
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.3";
+export const GENERATOR = "track-studio-engine 1.4";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -303,7 +304,28 @@ export interface Borders {
   lz: Float64Array;
 }
 
-const outerStyle = (p: DesignPoint) => p.outer ?? "square";
+/** "square" or "round" for a corner: "auto" (the default) is square up to SQUARE_MAX_TURN, round beyond. */
+export function outerStyle(p: DesignPoint, c: Corner): "square" | "round" {
+  const style = p.outer ?? "auto";
+  if (style === "auto") return c.th <= SQUARE_MAX_TURN ? "square" : "round";
+  return style;
+}
+
+/** built.lanes: both lane edges as closed rings, simplified like the dividers (before any divider merging). */
+export function laneRings(b: Borders): Lanes {
+  const ring = (xs: Float64Array, zs: Float64Array): Point2[] => {
+    const pts: Point2[] = [[xs[0], zs[0]]];
+    for (let i = 1; i < xs.length; i++) {
+      const q = pts[pts.length - 1];
+      if (norm(xs[i] - q[0], zs[i] - q[1]) > 1e-6) pts.push([xs[i], zs[i]]);
+    }
+    pts.push(pts[0]);
+    return rdp(pts, SIMPLIFY_TOL)
+      .slice(0, -1)
+      .map(([x, z]) => [r3(x), r3(z)] as Point2);
+  };
+  return { right: ring(b.rx, b.rz), left: ring(b.lx, b.lz) };
+}
 
 /**
  * Both lane edges at every sample, offset by width/2 + extra. Straights: the racing line offset sideways. Corners: the
@@ -326,7 +348,7 @@ export function borders(line: Line, corners: Corner[], points: DesignPoint[], ex
     const e = c.str0 % n;
     const hwc = c.w / 2 + extra;
     const [ox, oz, ix, iz] = c.sign > 0 ? [rx, rz, lx, lz] : [lx, lz, rx, rz];
-    if (outerStyle(points[i]) === "square") {
+    if (outerStyle(points[i], c) === "square") {
       spread(squareOutline(c, hwc), m).forEach((q, k) => {
         ox[(a0 + k) % n] = q[0];
         oz[(a0 + k) % n] = q[1];
@@ -365,7 +387,7 @@ export function squareCornerPolygons(line: Line, corners: Corner[], points: Desi
   const { n, x, z } = line;
   const polys: Point2[][] = [];
   corners.forEach((c, i) => {
-    if (!(c.th > 1e-6 && c.r > 0) || outerStyle(points[i]) !== "square") return;
+    if (!(c.th > 1e-6 && c.r > 0) || outerStyle(points[i], c) !== "square") return;
     const poly = squareOutline(c, c.w / 2 + extra);
     const e = c.str0 % n;
     poly.push([x[e], z[e]]);
@@ -1016,6 +1038,7 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     rostrum,
     checks,
     footprint,
+    lanes: laneRings(edges),
     size,
     stats: { dividerLength: r3(pipe), dividerRuns: divs.length, corners: countCorners(corners, opts.cornerJoinGap) },
   };

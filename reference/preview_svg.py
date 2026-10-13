@@ -28,6 +28,10 @@ def svg(doc, px_per_m=40):
             o.append(f'<rect x="{X(ob["x"]-ob["length"]/2):.1f}" y="{Z(ob["z"]+ob["width"]/2):.1f}" width="{ob["length"]*px_per_m:.1f}" height="{ob["width"]*px_per_m:.1f}" fill="#b03a3a" fill-opacity="0.45" stroke="#ff6060" stroke-dasharray="6 4" transform="rotate({-ob.get("rotation",0)} {X(ob["x"]):.1f} {Z(ob["z"]):.1f})"/>')
         if ob.get("label"):
             o.append(f'<text x="{X(ob["x"]):.1f}" y="{Z(ob["z"])+4:.1f}" fill="#fff" font-size="12" text-anchor="middle">{ob["label"]}</text>')
+    # lanes (carpet), when the file has them (rctrack 1.4)
+    if b.get("lanes"):
+        d = " ".join("M " + " L ".join(f"{X(x):.1f},{Z(z):.1f}" for x, z in ring) + " Z" for ring in (b["lanes"]["right"], b["lanes"]["left"]))
+        o.append(f'<path d="{d}" fill="#4a5d51" fill-rule="evenodd"/>')
     # racing line
     pts = " ".join(f"{X(p[0]):.1f},{Z(p[1]):.1f}" for p in b["racingLine"])
     o.append(f'<polygon points="{pts}" fill="none" stroke="#ff4fb0" stroke-width="2" stroke-dasharray="8 6" opacity="0.7"/>')

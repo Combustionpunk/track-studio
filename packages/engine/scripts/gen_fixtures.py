@@ -60,9 +60,10 @@ EXTRA_TRACKS.update({
     "square-fill": track("4", "Square fill", {"length": 22, "width": 12}, {
         "laneWidth": 2.0, "points": [{"x": -10, "z": -5}, {"x": 10, "z": -5}, {"x": 10, "z": 5}, {"x": -10, "z": 5}],
         "start": {"distance": 5.0}, "rostrum": {"side": "south"}}),
-    # a 164° corner: bevelled, no mitre spike
+    # a 164° corner, explicitly square: bevelled, no mitre spike
     "sharp-v": track("5", "Sharp V", {"length": 22, "width": 12}, {
-        "laneWidth": 2.0, "points": [{"x": -8, "z": -4}, {"x": 8, "z": -4, "radius": 1.0}, {"x": -6, "z": 0}, {"x": -8, "z": 3}],
+        "laneWidth": 2.0, "points": [{"x": -8, "z": -4, "outer": "square"}, {"x": 8, "z": -4, "radius": 1.0, "outer": "square"},
+                                     {"x": -6, "z": 0, "outer": "square"}, {"x": -8, "z": 3, "outer": "square"}],
         "start": {"distance": 3.0}, "rostrum": {"side": "south"}}),
     "peel-square": track("6", "Hairpin peels away (square)", {"length": 22, "width": 12}, {
         "laneWidth": 2.0, "points": serpentine("square"), "start": {"distance": 3.0}, "rostrum": {"side": "north"}}),
@@ -95,7 +96,7 @@ json.dump(out, open(os.path.join(fixtures, "fit-expected.json"), "w"), indent=1)
 # round outer corners must reproduce rctrack 1.2 exactly (v12/: baked by bake.py 1.2)
 for f in sorted(glob.glob(os.path.join(fixtures, "v12", "*.rctrack.json"))):
     doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
-    same = all(old[k] == new[k] for k in old if k != "generator")
+    same = all(old[k] == new[k] for k in old if k != "generator")   # (1.4 adds built.lanes)
     print(f"{os.path.basename(f)}: {'same as 1.2' if same else 'DIFFERENT from 1.2'}")
     assert same
 print(f"{len(out)} fit results; fitting:", sum(1 for r in out.values() if r))

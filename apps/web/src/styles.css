@@ -199,6 +199,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .plan-area { fill: var(--plan-area); stroke: #8a9096; stroke-width: 0.04; }
 .grid1 { stroke: var(--plan-grid); stroke-width: 1; }
 .grid5 { stroke: var(--plan-grid5); stroke-width: 1; }
+.plan-carpet { fill: var(--plan-carpet); stroke: none; }
 .plan-lanes polyline { fill: none; stroke: var(--plan-carpet); stroke-linecap: round; stroke-linejoin: round; }
 .plan-racing polygon { fill: none; stroke: var(--plan-line); stroke-width: 1.5; stroke-dasharray: 7 6; opacity: 0.75; }
 .plan-racing path { fill: none; stroke: var(--plan-line); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }

@@ -19,6 +19,8 @@ export interface BuiltDiff {
   footprint: { bboxMax: number; shape: [number, number, number, number]; cellsDiffer: number | null };
   /** max difference of size length/width/bbox (Infinity if either side has none) */
   size: number;
+  /** max distance between the lane rings (Infinity if either side has none) */
+  lanes: number;
 }
 
 const dist = (a: Point2, b: Point2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -111,6 +113,10 @@ export function compareBuilt(actual: Built, expected: Built): BuiltDiff {
       dividerRuns: [actual.stats.dividerRuns, expected.stats.dividerRuns],
       corners: [actual.stats.corners, expected.stats.corners],
     },
+    lanes:
+      actual.lanes && expected.lanes
+        ? Math.max(polylineDistance(actual.lanes.right, expected.lanes.right, true), polylineDistance(actual.lanes.left, expected.lanes.left, true))
+        : Infinity,
     size:
       actual.size && expected.size
         ? Math.max(

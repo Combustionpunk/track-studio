@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.3).
+Reference implementation of the rctrack geometry engine (format v1.4).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.3"
+GENERATOR = "rctrack-bake.py 1.4"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -156,6 +156,23 @@ def spread(V, m):
     out.append(V[-1])
     return out
 
+def outer_style(point, c):
+    """"square" or "round" for corner c: "auto" (the default) is square up to SQUARE_MAX_TURN, round beyond."""
+    style = point.get("outer", "auto")
+    if style == "auto": return "square" if c["th"] <= SQUARE_MAX_TURN else "round"
+    return style
+
+def lane_rings(R, L):
+    """built.lanes: both lane edges as closed rings, simplified like the dividers (before any divider merging)."""
+    def ring(B):
+        pts = [B[0]]
+        for p in B[1:]:
+            if float(np.linalg.norm(p - pts[-1])) > 1e-6: pts.append(p)
+        pts = np.array(pts + [pts[0]])
+        simp = rdp(pts, SIMPLIFY_TOL)[:-1]
+        return [[r3(x), r3(z)] for x, z in simp]
+    return {"right": ring(R), "left": ring(L)}
+
 def borders(line, corners, points, extra=0.0):
     """Both lane edges at every sample (right side, left side), offset by width/2 + extra.
     Straights: the racing line offset sideways. Corners: the inner edge follows the arc (radius r - width/2) or, where
@@ -170,7 +187,7 @@ def borders(line, corners, points, extra=0.0):
         a0, m, e = c["arc0"], c["m"], c["str0"] % n
         hwc = c["w"] / 2 + extra
         outer, inner = (R, L) if c["sign"] > 0 else (L, R)
-        if points[i].get("outer", "square") == "square":
+        if outer_style(points[i], c) == "square":
             for k, q in enumerate(spread(square_outline(c, hwc), m)):
                 outer[(a0 + k) % n] = q
         if c["r"] - hwc <= 1e-9:                          # (radius reduced to exactly half the lane counts)
@@ -194,7 +211,7 @@ def square_corner_polygons(line, corners, points, extra=0.0):
     """For the footprint: the outer half of each square corner out to the mitre (racing-line arc + outer outline)."""
     xy = line[:, :2]; n = len(xy); polys = []
     for i, c in enumerate(corners):
-        if not (c["th"] > 1e-6 and c["r"] > 0) or points[i].get("outer", "square") != "square": continue
+        if not (c["th"] > 1e-6 and c["r"] > 0) or outer_style(points[i], c) != "square": continue
         V = square_outline(c, c["w"] / 2 + extra)
         arc = [xy[(c["arc0"] + k) % n] for k in range(c["m"])]
         polys.append(np.array(V + [xy[c["str0"] % n]] + arc[::-1], float))
@@ -549,6 +566,7 @@ def bake(doc):
         "rostrum": rostrum,
         "checks": checks,
         "footprint": footprint,
+        "lanes": lane_rings(*edges),
         "size": size,
         "stats": {"dividerLength": r3(pipe), "dividerRuns": len(divs), "corners": count_corners(corners)},
     }

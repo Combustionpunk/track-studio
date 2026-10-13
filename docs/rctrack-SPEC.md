@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.3)
+# rctrack — shared track format (v1.4)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -31,8 +31,9 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 - `points[]` — corner points in driving order, closed loop: `{x, z, radius, width, outer}`.
   Straights run point-to-point at any angle (diagonals); each corner is a circular arc of `radius` (small = hairpin,
   large = sweeper), automatically reduced if it can't fit the straights either side. `width` blends linearly between points.
-  `outer` — the outside of the corner: `"square"` (default: two straight pipes meeting in a corner, as clubs build them)
-  or `"round"` (the pipe follows the arc). The racing line is the same either way. *(v1.3)*
+  `outer` — the outside of the corner: `"square"` (two straight pipes meeting in a corner, as clubs build them),
+  `"round"` (the pipe follows the arc) or `"auto"` (the default: square for turns up to 120°, round for sharper ones).
+  The racing line is the same either way. *(v1.3; `auto` v1.4)*
 - `features[]` — `{type, distance, length?, height?}`; `distance` is metres along the racing line from point 0 to the
   feature's centre. Types: `tabletop, double, kicker, stepup, stepdown, whoops, bump` (defaults in the engine).
 - `start.distance` — start/finish line position along the racing line.
@@ -50,6 +51,9 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
   `narrow-lane`, `feature-in-corner`, `radius-reduced`.
 - `stats` — `{dividerLength, dividerRuns, corners}` (feeds the build sheet). `corners` counts corners the way racers
   do (see *Corner count* below).
+- `lanes` — `{right: [[x, z], …], left: [[x, z], …]}`: both lane edges as closed rings (the borders below, before
+  divider merging, simplified with the dividers' 0.02 m tolerance). Fill the band between them (even-odd) to draw the
+  carpet — square corners included. *(v1.4)*
 - `size` — the track's real size from its lane edges (no pipe padding): `{length, width, bbox: [xmin, zmin, xmax, zmax]}`
   in metres, `length` along x. This is the figure to show people ("22 × 12 m"). *(v1.2)*
 - `footprint` — raster of the area the lanes and pipes cover, for fit searches only: `{cell, origin, rows, cols, bbox, rle}`
@@ -125,6 +129,9 @@ Import a `.rctrack.json` (file or forum link) and build directly from `built`: a
 features → ramps, startLine → timing line and grid, rostrum → VR/rostrum position.
 
 ## Changes
+- **1.4** — `outer: "auto"` (now the default when `outer` is missing: square up to 120°, round beyond). `built.lanes`:
+  the lane-edge rings, for drawing the carpet. Re-baking changes `built` of tracks with corners sharper than 120° that
+  had no explicit `outer` (they were square in 1.3).
 - **1.3** — `design.points[].outer: "square" | "round"` (default `square`): square outer corners (mitre, bevel past
   120°). Inside corners tighter than the lane collapse cleanly to the apex. Shared dividers: nearest-point pairing,
   blended transitions, cut self-crossings, trimmed overlaps, no fragments under 0.25 m. Footprint includes square
