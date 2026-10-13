@@ -1,0 +1,46 @@
+{
+ "format": "rcvenue",
+ "version": 1,
+ "id": "venue-2",
+ "revision": 1,
+ "info": {
+  "name": "Sports hall B",
+  "venue": {
+   "id": 2,
+   "name": "Sports hall B"
+  },
+  "notes": ""
+ },
+ "area": {
+  "length": 25,
+  "width": 14
+ },
+ "rostrum": {
+  "side": "south",
+  "offset": 3.0
+ },
+ "obstacles": [
+  {
+   "type": "circle",
+   "x": -6.0,
+   "z": 1.0,
+   "radius": 0.35,
+   "label": "Pillar"
+  },
+  {
+   "type": "circle",
+   "x": 6.0,
+   "z": 1.0,
+   "radius": 0.35,
+   "label": "Pillar"
+  },
+  {
+   "type": "rect",
+   "x": 11.5,
+   "z": -5.5,
+   "length": 2.0,
+   "width": 3.0,
+   "label": "Fire exit"
+  }
+ ]
+}

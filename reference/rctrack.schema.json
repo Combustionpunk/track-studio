@@ -1,0 +1,390 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forum.rcmisfits.org/schemas/rctrack-v1.json",
+  "title": "RC track design (rctrack v1.1)",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "id",
+    "revision",
+    "info",
+    "area",
+    "design"
+  ],
+  "properties": {
+    "format": {
+      "const": "rctrack"
+    },
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "description": "UUID, stable across revisions"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "info": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "author": {
+          "type": "string",
+          "description": "Forum username"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "modified": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": {
+          "type": "string"
+        },
+        "venue": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "submitted",
+            "approved",
+            "archived"
+          ]
+        },
+        "surface": {
+          "enum": [
+            "carpet",
+            "astro",
+            "clay",
+            "other"
+          ]
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "area": {
+      "type": "object",
+      "description": "Usable track area in metres. Origin at its centre, +x east (right on the plan), +z north (up on the plan).",
+      "required": [
+        "length",
+        "width"
+      ],
+      "properties": {
+        "length": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "design": {
+      "type": "object",
+      "description": "Editable inputs. Only designers read this.",
+      "required": [
+        "points"
+      ],
+      "properties": {
+        "laneWidth": {
+          "type": "number",
+          "default": 2.0
+        },
+        "points": {
+          "type": "array",
+          "minItems": 3,
+          "description": "Corner points of the racing line in driving order (closed loop).",
+          "items": {
+            "type": "object",
+            "required": [
+              "x",
+              "z"
+            ],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              },
+              "radius": {
+                "type": "number",
+                "minimum": 0,
+                "default": 1.0,
+                "description": "Racing-line radius at this corner (m)"
+              },
+              "width": {
+                "type": "number",
+                "minimum": 0.5,
+                "description": "Lane width at this corner (m); blends linearly to the next point"
+              }
+            }
+          }
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "type",
+              "distance"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "tabletop",
+                  "double",
+                  "kicker",
+                  "stepup",
+                  "stepdown",
+                  "whoops",
+                  "bump"
+                ]
+              },
+              "distance": {
+                "type": "number",
+                "description": "Centre of the feature, metres along the racing line from point 0"
+              },
+              "length": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "start": {
+          "type": "object",
+          "properties": {
+            "distance": {
+              "type": "number"
+            }
+          }
+        },
+        "rostrum": {
+          "type": "object",
+          "properties": {
+            "side": {
+              "enum": [
+                "north",
+                "south",
+                "east",
+                "west"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "built": {
+      "type": "object",
+      "description": "Derived geometry written by the designer. Viewers, the forum and the sim only read this.",
+      "properties": {
+        "generator": {
+          "type": "string"
+        },
+        "lapLength": {
+          "type": "number"
+        },
+        "racingLine": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "[x, z, laneWidth] every ~0.25 m"
+          }
+        },
+        "dividers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "points": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "number"
+                  }
+                }
+              },
+              "shared": {
+                "type": "boolean",
+                "description": "True where one pipe separates two parts of the track"
+              },
+              "closed": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "x": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              },
+              "heading": {
+                "type": "number",
+                "description": "Degrees, 0 = +x, counter-clockwise towards +z"
+              },
+              "length": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "profile": {
+                "type": "array",
+                "description": "[along, height] pairs in metres, along = 0 at the entry edge"
+              }
+            }
+          }
+        },
+        "startLine": {
+          "type": "object"
+        },
+        "rostrum": {
+          "type": "object"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "enum": [
+                  "error",
+                  "warning",
+                  "info"
+                ]
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "stats": {
+          "type": "object"
+        }
+      }
+    },
+    "basedOn": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "venueTemplate": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer"
+        }
+      }
+    },
+    "obstacles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "x",
+          "z"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "circle",
+              "rect"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          },
+          "radius": {
+            "type": "number"
+          },
+          "length": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          },
+          "rotation": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

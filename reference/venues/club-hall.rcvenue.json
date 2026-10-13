@@ -1,0 +1,23 @@
+{
+ "format": "rcvenue",
+ "version": 1,
+ "id": "venue-1",
+ "revision": 1,
+ "info": {
+  "name": "Club hall",
+  "venue": {
+   "id": 1,
+   "name": "Club hall"
+  },
+  "notes": ""
+ },
+ "area": {
+  "length": 22,
+  "width": 12
+ },
+ "rostrum": {
+  "side": "north",
+  "offset": 0
+ },
+ "obstacles": []
+}
