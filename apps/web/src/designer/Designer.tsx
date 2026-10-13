@@ -18,14 +18,15 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { Message, StatusBadge } from "../components/bits.js";
-import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
+import { DEFAULT_LAYERS, lanePath, PlanView, type Layers } from "../components/PlanView.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useStored } from "../lib/hooks.js";
 import { featureCorners, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
-import { clampToArea, insertionFor, liveGeometry, nearestOnLine, newPointBetween, placeFeature, roundTo, snapPoint, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
+import { insertionFor, liveGeometry, nearestOnLine, newPointBetween, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory } from "./history.js";
+import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { useBake } from "./useBake.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -35,7 +36,8 @@ export const WHEEL_STEP = 0.05; // m: radius / width resolution; a radius step i
 export const WHEEL_WIDTH_STEP = 0.1; // m of lane width per notch
 export const RADIUS_RANGE: [number, number] = [0, 15];
 export const WIDTH_RANGE: [number, number] = [0.8, 5];
-const HANDLE_PX = 7; // corner point handle radius on screen
+const HANDLE_PX = 5; // centre (racing-line) point handle radius on screen
+const MITRE_PX = 6; // outside-corner handle half-size on screen
 const GRAB_PX = 14; // a press on the track this close to a corner point grabs the point (instead of adding one)
 const DRAG_START_PX = 3; // movement before a press on a straight becomes a drag
 
@@ -126,6 +128,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<{ kind: "info" | "error"; text: ReactNode } | null>(null);
   const [restore, setRestore] = useState<Autosave | null>(null);
+  const [snap, setSnap] = useStored<{ mode: SnapMode }>("designer-snap", { mode: "lanes" });
+  const snapRef = useRef(snap.mode);
+  snapRef.current = snap.mode;
+  const [snapInfo, setSnapInfo] = useState<{ mode: SnapMode; tags: SnapTag[] } | null>(null);
+  const [shared, setShared] = useState<Guide | null>(null);
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [hoverPt, setHoverPt] = useState<number | null>(null);
+  /** Shift = fine, Alt = free, otherwise the toolbar's mode */
+  const modeFor = (ev: { shiftKey: boolean; altKey: boolean }): SnapMode => (ev.altKey ? "free" : ev.shiftKey ? "fine" : snapRef.current);
 
   const live = useMemo(() => liveGeometry(draft.design), [draft.design]);
   const doc = useMemo(() => toDoc(draft, base), [draft, base]);
@@ -167,7 +178,6 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const setPoints = (fn: (p: DesignPoint[]) => DesignPoint[], group?: string) => update((d) => ({ ...d, design: { ...d.design, points: fn(d.design.points) } }), group);
   const setFeatures = (fn: (f: DesignFeature[]) => DesignFeature[], group?: string) =>
     update((d) => ({ ...d, design: { ...d.design, features: fn(d.design.features ?? []) } }), group);
-  const halfWidth = (p: DesignPoint) => (p.width ?? draftRef.current.design.laneWidth ?? 2) / 2;
 
   // ------------------------------------------------------------------------------------ auto-save + leaving
   useEffect(() => {
@@ -253,6 +263,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       } else if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
         hist.redo();
+      } else if ((e.key === "h" || e.key === "H") && !mod && selRef.current?.kind === "point") {
+        e.preventDefault();
+        const i = selRef.current.i;
+        const cur = draftRef.current;
+        const hp = makeHairpin(cur.design.points, i, cur.design.laneWidth ?? 2);
+        if (hp) {
+          hist.set({ ...cur, design: { ...cur.design, points: hp } }, `hairpin:${Date.now()}`);
+          setMessage(null);
+        } else setMessage({ kind: "info", text: "That point is on a straight: there's no turn to make a hairpin of." });
       } else if ((e.key === "o" || e.key === "O") && !mod && selRef.current?.kind === "point") {
         e.preventDefault();
         toggleOuter(selRef.current.i);
@@ -272,7 +291,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   }, [hist, deleteSelection, toggleOuter]);
 
   // ------------------------------------------------------------------------------------ dragging
-  type DragKind = { kind: "point"; i: number; offset: Point2 } | { kind: "feature"; i: number; ds: number } | { kind: "start"; ds: number };
+  type DragKind =
+    | { kind: "point"; i: number; offset: Point2 }
+    | { kind: "mitre"; i: number; offset: Point2 }
+    | { kind: "feature"; i: number; ds: number }
+    | { kind: "start"; ds: number };
   const startDrag = (e: React.PointerEvent, svg: SVGSVGElement, d: DragKind, opts: { threshold?: boolean; onClick?: () => void } = {}) => {
     e.stopPropagation();
     const group = `drag:${d.kind}:${Date.now()}`;
@@ -285,15 +308,32 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       }
       const p = planPoint(svg, ev.clientX, ev.clientY);
       const cur = draftRef.current;
-      if (d.kind === "point") {
+      if (d.kind === "point" || d.kind === "mitre") {
         const n = cur.design.points.length;
         const prev = cur.design.points[(d.i - 1 + n) % n], next = cur.design.points[(d.i + 1) % n], me = cur.design.points[d.i];
         const raw: Point2 = [p[0] + d.offset[0], p[1] + d.offset[1]];
-        const snapped = snapPoint(raw, [prev.x, prev.z], [next.x, next.z], ev.shiftKey);
-        const q = clampToArea(snapped.p, cur.area, halfWidth(me));
-        if (tooClose(q, [prev.x, prev.z], [next.x, next.z]) || (q[0] === me.x && q[1] === me.z)) return;
-        setGuides(q[0] === snapped.p[0] && q[1] === snapped.p[1] ? snapped.guides : []);
-        hist.set({ ...cur, design: { ...cur.design, points: cur.design.points.map((pt, i) => (i === d.i ? { ...pt, x: q[0], z: q[1] } : pt)) } }, group);
+        const mode = modeFor(ev);
+        const lw = cur.design.laneWidth ?? 2;
+        const ctx = { area: cur.area, points: cur.design.points, laneWidth: lw, i: d.i, mode };
+        let res: SnapResult, q: Point2;
+        if (d.kind === "point") {
+          res = snapCentre(raw, ctx);
+          q = res.p;
+        } else {
+          // the pipes' outside corner follows the pointer: solve for the centre point
+          res = snapMitre(raw, ctx);
+          const P = placeByMitre(cur.design.points, d.i, res.p, lw);
+          q = [tidy(P[0]), tidy(P[1])];
+        }
+        setSnapInfo({ mode, tags: res.tags });
+        if (tooClose(q, [prev.x, prev.z], [next.x, next.z]) || !Number.isFinite(q[0]) || !Number.isFinite(q[1])) return;
+        setGuides(res.guides);
+        setShared(res.shared ?? null);
+        if (q[0] === me.x && q[1] === me.z) return;
+        let moved = cur.design.points.map((pt, i) => (i === d.i ? { ...pt, x: q[0], z: q[1] } : pt));
+        pinned.delete(d.i);
+        if (pinned.size) moved = keepPinned(moved, pinned, lw, origin);
+        hist.set({ ...cur, design: { ...cur.design, points: moved } }, group);
       } else {
         const s = wrapDistance(nearestOnLine(liveRef.current, p).s - d.ds, liveRef.current.total);
         if (d.kind === "feature") {
@@ -305,11 +345,18 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         }
       }
     };
+    // corners whose pipes sit in a hall corner stay there while this point moves
+    const origin = draftRef.current.design.points;
+    const pinned = d.kind === "point" || d.kind === "mitre" ? pinnedCorners(origin, draftRef.current.area, draftRef.current.design.laneWidth ?? 2, d.i) : new Map<number, Point2>();
+    if (d.kind === "point" || d.kind === "mitre") setDragging(d.i);
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       setGuides([]);
+      setShared(null);
+      setSnapInfo(null);
+      setDragging(null);
       if (!started) opts.onClick?.();
     };
     window.addEventListener("pointermove", move);
@@ -325,6 +372,18 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setSel({ kind: "point", i });
     setTool({ kind: "select" });
     startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] });
+  };
+
+  const onMitreDown = (e: React.PointerEvent<SVGRectElement>, i: number) => {
+    if (e.button !== 0) return;
+    const svg = svgOf(e.currentTarget);
+    const p = planPoint(svg, e.clientX, e.clientY);
+    const cur = draftRef.current;
+    const m = mitrePoint(cur.design.points, i, cur.design.laneWidth ?? 2);
+    if (!m) return;
+    setSel({ kind: "point", i });
+    setTool({ kind: "select" });
+    startDrag(e, svg, { kind: "mitre", i, offset: [m[0] - p[0], m[1] - p[1]] });
   };
 
   const onLaneDown = (e: React.PointerEvent<SVGGElement>) => {
@@ -356,7 +415,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       return;
     }
     // on a straight: add a point there (and drag it if the pointer moves)
-    const { after, at } = insertionFor(pts, p);
+    const { after, at: projected } = insertionFor(pts, p);
+    const at = snapInsertion(projected, pts, after, modeFor(e), draftRef.current.area, draftRef.current.design.laneWidth ?? 2);
     const i = after + 1;
     const np = newPointBetween(pts[after], pts[(after + 1) % pts.length], at);
     setPoints((list) => [...list.slice(0, i), np, ...list.slice(i)], `drag:insert:${Date.now()}`);
@@ -456,6 +516,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   // ------------------------------------------------------------------------------------ overlay
   const pointsList = draft.design.points;
+  const lw = draft.design.laneWidth ?? 2;
   const overlay = (m: number) => {
     const selPt = sel?.kind === "point" ? pointsList[sel.i] : null;
     const corner = sel?.kind === "point" ? live.corners[sel.i] : null;
@@ -475,6 +536,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           ))}
         </g>
         <polygon className="ed-control" points={pts(pointsList.map((p) => [p.x, p.z]))} vectorEffect="non-scaling-stroke" />
+        {(dragging !== null || hoverPt !== null) && <path className="ed-edges" d={lanePath(live.lanes)} vectorEffect="non-scaling-stroke" />}
+        {shared && <line className="ed-shared" x1={shared.from[0]} y1={-shared.from[1]} x2={shared.to[0]} y2={-shared.to[1]} vectorEffect="non-scaling-stroke" />}
         {guides.map((g, i) => (
           <line key={i} className="ed-guide" x1={g.from[0]} y1={-g.from[1]} x2={g.to[0]} y2={-g.to[1]} vectorEffect="non-scaling-stroke" />
         ))}
@@ -502,6 +565,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             cy={-p.z}
             r={(sel?.kind === "point" && sel.i === i ? HANDLE_PX + 2 : HANDLE_PX) * m}
             onPointerDown={(e) => onPointDown(e, i)}
+            onPointerEnter={() => setHoverPt(i)}
+            onPointerLeave={() => setHoverPt(null)}
             onContextMenu={(e) => {
               e.preventDefault();
               setSel({ kind: "point", i });
@@ -513,6 +578,42 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             <title>Corner {i + 1}: drag to move, wheel for radius, Ctrl+wheel for lane width, right-click to delete</title>
           </circle>
         ))}
+        {pointsList.map((p, i) => {
+          if (!hasMitre(pointsList, i, lw)) return null;
+          const mp = mitrePoint(pointsList, i, lw);
+          if (!mp) return null;
+          const s = MITRE_PX * m;
+          return (
+            <rect
+              key={`m${i}`}
+              data-handle="mitre"
+              className={`ed-mitre ${sel?.kind === "point" && sel.i === i ? "on" : ""}`}
+              x={mp[0] - s}
+              y={-mp[1] - s}
+              width={2 * s}
+              height={2 * s}
+              transform={`rotate(45 ${mp[0]} ${-mp[1]})`}
+              onPointerDown={(e) => onMitreDown(e, i)}
+              onPointerEnter={() => setHoverPt(i)}
+              onPointerLeave={() => setHoverPt(null)}
+              vectorEffect="non-scaling-stroke"
+            >
+              <title>Outside corner of the pipes: drag it — snaps to walls, the hall's corners and other pipes</title>
+            </rect>
+          );
+        })}
+        {dragging !== null &&
+          [dragging - 1, dragging, dragging + 1].map((k) => {
+            const i = (k + pointsList.length) % pointsList.length;
+            const deg = turnDegrees(pointsList, i);
+            if (deg <= SHARP_TURN) return null;
+            const q = pointsList[i];
+            return (
+              <text key={`sharp${i}`} className="ed-badge" x={q.x} y={-q.z + 22 * m} fontSize={12 * m} strokeWidth={3 * m} textAnchor="middle">
+                ⚠ {Math.round(deg)}° turn
+              </text>
+            );
+          })}
         {selPt && corner && (
           <text className="ed-label" x={selPt.x} y={-selPt.z - 16 * m} fontSize={12 * m} strokeWidth={3 * m} textAnchor="middle">
             r {fmtR(selPt.radius ?? 1, corner.r)} · lane {fmt.metres(selPt.width ?? draft.design.laneWidth ?? 2, 2)}
@@ -655,8 +756,37 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                 {fmt.FEATURE_LABEL[t]}
               </button>
             ))}
-            <span className="tool-hint">{tool.kind === "feature" ? `Click on the track to place the ${fmt.FEATURE_LABEL[tool.type].toLowerCase()} · Esc to cancel` : "Snap 25 cm · 45° — hold Shift to place freely"}</span>
+            {tool.kind === "feature" ? (
+              <span className="tool-hint">Click on the track to place the {fmt.FEATURE_LABEL[tool.type].toLowerCase()} · Esc to cancel</span>
+            ) : (
+              <span className="snap-bar">
+                <span className="seg" role="radiogroup" aria-label="Snap">
+                  <span className="seg-label">Snap</span>
+                  {(["lanes", "fine", "free"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={snap.mode === m}
+                      className={snap.mode === m ? "on" : ""}
+                      onClick={() => setSnap({ mode: m })}
+                      title={m === "lanes" ? "Lanes: points on the lane grid, lanes against the walls and beside each other" : m === "fine" ? "Fine: 25 cm grid and 45° (hold Shift)" : "Free: no snapping (hold Alt)"}
+                    >
+                      {SNAP_LABEL[m]}
+                    </button>
+                  ))}
+                </span>
+                <span className="snap-info">Shift: fine · Alt: free</span>
+              </span>
+            )}
           </div>
+          <div className="designer-plan-wrap">
+          {snapInfo && (
+            <div className="snap-float" aria-live="polite">
+              <b>{SNAP_LABEL[snapInfo.mode]}</b>
+              {snapInfo.tags.length > 0 && <> · {snapInfo.tags.join(" · ")}</>}
+            </div>
+          )}
           <PlanView
             area={draft.area}
             obstacles={draft.obstacles}
@@ -674,6 +804,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               setHighlight(null);
             }}
           />
+          </div>
         </div>
         <aside className="designer-side">
           <Stats built={built} pending={bake.pending} live={live} />
@@ -709,6 +840,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     </div>
   );
 }
+
+const SNAP_LABEL: Record<SnapMode, string> = { lanes: "Lanes", fine: "Fine", free: "Free" };
 
 const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${want.toFixed(2)}→${got.toFixed(2)} m` : `${want.toFixed(2)} m`);
 
@@ -990,7 +1123,11 @@ function Shortcuts() {
       <summary>How to draw</summary>
       <ul>
         <li>
-          <b>Drag</b> a corner point to move it (snaps to 25 cm and 45°; <kbd>Shift</kbd> = free).
+          <b>Drag</b> a corner point (the small dot is the racing line; the diamond is the outside corner of the pipes). Snap:
+          lanes against the walls and beside other lanes; <kbd>Shift</kbd> = 25 cm grid, <kbd>Alt</kbd> = free.
+        </li>
+        <li>
+          <kbd>H</kbd> on a corner: make it a hairpin (two points a lane apart).
         </li>
         <li>
           <b>Click a straight</b> to add a point there (or press and pull).

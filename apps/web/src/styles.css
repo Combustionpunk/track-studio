@@ -340,3 +340,19 @@ kbd { font: 0.8em var(--font); border: 1px solid var(--border); border-bottom-wi
 .seg button:first-of-type { border-radius: 8px 0 0 8px; }
 .seg button:last-of-type { border-radius: 0 8px 8px 0; border-left: 0; }
 .seg button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* snapping */
+.snap-bar { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+.snap-bar .seg { margin: 0; }
+.snap-info { font-size: 0.82rem; color: var(--muted); min-width: 16ch; }
+.snap-info b { color: var(--text); }
+.ed-mitre { fill: #111; stroke: #ffd166; stroke-width: 2; cursor: grab; }
+.ed-mitre:hover, .ed-mitre.on { fill: #ffd166; stroke: #111; }
+.ed-edges { fill: none; stroke: rgb(255 255 255 / 0.75); stroke-width: 1.2; stroke-dasharray: 5 4; pointer-events: none; }
+.ed-shared { stroke: #ffd166; stroke-width: 6; stroke-linecap: round; opacity: 0.75; pointer-events: none; }
+.ed-badge { fill: #ffb000; font-family: var(--font); font-weight: 700; paint-order: stroke; stroke: rgb(0 0 0 / 0.85); stroke-linejoin: round; pointer-events: none; }
+.panel .seg .seg-label { width: 100%; margin-bottom: 4px; }
+.designer-plan-wrap { position: relative; }
+.snap-float { position: absolute; left: 12px; top: 10px; z-index: 3; background: rgb(15 19 17 / 0.9); color: #e6e9e7; border: 1px solid rgb(255 255 255 / 0.2); border-radius: 8px; padding: 4px 10px; font-size: 0.85rem; pointer-events: none; }
+.snap-float b { color: #ffd166; }
+.snap-info { white-space: nowrap; }

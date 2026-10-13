@@ -9,6 +9,16 @@ venues (read-only), the compact `/embed/:id` viewer for forum posts, and the **d
   Tuning constants are at the top: `GRID` 0.25 m, `LINE_SNAP` 0.35 m (+ `ANGLE_TOLERANCE` 15°), `CORNER_SNAP` 0.5 m,
   `MIN_POINT_GAP` 0.3 m. `Designer.tsx` has the wheel ones: one notch = ~10% radius (min 5 cm) / 10 cm lane width,
   `GRAB_PX` 14 (a press on the track this close to a point grabs it instead of adding one).
+- `snap.ts` — snapping in lanes and pipes (pure, tested in `test/snap.test.ts`):
+  - **Lanes** (default): centre points on the lane grid — lane centres measured from both walls (−L/2 + w/2 + k·w and
+    +L/2 − w/2 − k·w), w = the point's lane width — and 0°/45°/90° from a neighbour. **Fine** (Shift): 0.25 m + 45°.
+    **Free** (Alt): none. Inserting a point on a straight uses the same mode.
+  - **Beside lane** (wins over the grid): a straight within `BESIDE_ANGLE` 7° of parallel to another, centre lines
+    within `BESIDE_RANGE` 1.5 × average width, overlapping → exactly (w1 + w2)/2 apart (one shared pipe), any angle.
+  - **Outside-corner handles** (diamonds, square / auto ≤ 120° corners): drag the pipes' corner; snaps within
+    `MITRE_PULL` 0.3 m to the hall's corners and walls, other pipes' corners and lane edges. Corners whose pipes sit in a
+    hall corner stay pinned there while neighbours move (by up to `PIN_FOLLOW` 0.5 m).
+  - Neighbour lines pull within `LINE_PULL` 0.35 m; the sharp-turn badge shows past `SHARP_TURN` 150°; H = hairpin.
 - `bake.worker.ts` + `useBake.ts` — the full engine bake (pipes, checks, stats) in a Web Worker, latest-wins.
 - `history.ts` — undo/redo snapshots; a drag is one step, wheel/typing bursts merge.
 - Auto-save goes to localStorage per track (`designer:<id>` / `designer:new:…`) and is offered back on return.
