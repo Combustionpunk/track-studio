@@ -25,3 +25,17 @@ SQLite via better-sqlite3, @resvg/resvg-js for PNG) · `apps/web` (Vite + React 
 
 ## Workflow
 Small, testable steps. Each phase ends with tests passing and a short summary of what changed and how to try it.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `Combustionpunk/track-studio` (use the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
