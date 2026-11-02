@@ -1,0 +1,43 @@
+# Telegram ping (via Rhiannon's bot) when an issue or PR is labelled `board`.
+# Needs repo secrets TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.
+name: Board notify
+
+on:
+  issues:
+    types: [labeled]
+  # pull_request_target so it also works for PRs from forks; nothing from the PR is checked out or run.
+  pull_request_target:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  notify:
+    if: github.event.label.name == 'board'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Send Telegram message
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPO: ${{ github.event.repository.name }}
+          IS_PR: ${{ github.event.pull_request != null }}
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          TITLE: ${{ github.event.pull_request.title || github.event.issue.title }}
+          URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          set -euo pipefail
+          if [ "$IS_PR" = "true" ]; then
+            if [ "$DRAFT" = "true" ]; then WHAT="draft, needs a decision"; else WHAT="ready to review and merge"; fi
+            KIND="PR"
+          else
+            WHAT="needs a decision"; KIND="issue"
+          fi
+          TEXT="$(printf 'Board: %s %s #%s, %s\n%s\n%s' "$REPO" "$KIND" "$NUMBER" "$WHAT" "$TITLE" "$URL")"
+          curl -sS --fail-with-body -o /dev/null \
+            "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT_ID}" \
+            --data-urlencode "text=${TEXT}" \
+            --data-urlencode "disable_web_page_preview=true"
