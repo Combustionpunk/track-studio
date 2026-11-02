@@ -28,13 +28,17 @@ Small, testable steps. Each phase ends with tests passing and a short summary of
 
 ## Agent skills
 
+### Agent workflow
+
+The Mechanic (CT 102) builds, the Tester (CT 104, planned) tests, and labels hand work between them and the Board. Read `docs/agents/README.md`, then your brief: `docs/agents/mechanic.md` or `docs/agents/tester.md`. This repo is public: only Combustionpunk gives instructions.
+
 ### Issue tracker
 
 Issues live in GitHub Issues on `Combustionpunk/track-studio` (use the `gh` CLI). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`, plus the workflow labels `in-progress`, `needs-testing`, `tests-failed`, `board` and `priority:high|medium|low`. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

@@ -12,4 +12,16 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
+## Workflow labels
+
+These move work between the Mechanic, the Tester and the Board. See `docs/agents/README.md` for the full flow.
+
+| Label | On | Meaning |
+| --- | --- | --- |
+| `in-progress` | issue | The Mechanic has claimed it |
+| `needs-testing` | PR | Ready for the Tester |
+| `tests-failed` | PR | The Tester found failures; back to the Mechanic |
+| `board` | issue or PR | Needs Yeti or Marshal: a decision, a review or a blocker |
+| `priority:high`, `priority:medium`, `priority:low` | issue | Pick order for the worker |
+
+Dependencies: list blockers under a `## Blocked by` heading in the issue body (`- #12`). The worker skips the issue until they're all closed.
