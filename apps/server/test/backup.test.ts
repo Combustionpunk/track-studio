@@ -53,7 +53,7 @@ describe("backup config", () => {
     expect(c.keep).toBe(14);
     expect(c.prefix).toBe("track-studio/nightly/");
     expect(c.dataDir).toBe("/data");
-    expect(loadBackupConfig({ ...env, SPACES_REGION: "us-east-1", BACKUP_KEEP: "7", BACKUP_PREFIX: "x" }).s3.region).toBe("us-east-1");
+    expect(loadBackupConfig({ ...env, SPACES_REGION: "us-east-1", BACKUP_KEEP: "7", BACKUP_PREFIX: "x" }).s3!.region).toBe("us-east-1");
     expect(loadBackupConfig({ ...env, BACKUP_PREFIX: "x" }).prefix).toBe("x/");
   });
 
