@@ -227,6 +227,57 @@ describe("saving tracks", () => {
     expect(await names("?q=%25")).toEqual([]);
     expect((await req(app, "GET", "/api/tracks?status=bogus")).statusCode).toBe(400);
   });
+
+  it("author=me lists only the signed-in user's tracks", async () => {
+    const { app, alice, bob } = await setup();
+    const a = await createAs(app, alice);
+    await createAs(app, bob);
+    const ids = async (qs: string, cookie?: string) => {
+      const res = await req(app, "GET", `/api/tracks${qs}`, cookie);
+      expect(res.statusCode, res.body).toBe(200);
+      return (res.json().tracks as { id: string; author: { username: string } }[]).map((t) => ({ id: t.id, author: t.author.username }));
+    };
+    expect(await ids("?author=me", alice)).toEqual([{ id: a.track.id, author: "alice" }]);
+    expect((await ids("?author=me", bob)).map((t) => t.author)).toEqual(["bob"]);
+    expect((await ids("", alice)).length).toBe(5);
+  });
+
+  it("author=me combines with the other filters", async () => {
+    const { app, alice } = await setup();
+    const a = await createAs(app, alice);
+    const ids = async (qs: string) => ((await req(app, "GET", `/api/tracks${qs}`, alice)).json().tracks as { id: string }[]).map((t) => t.id);
+    expect(await ids("?author=me&status=draft")).toEqual([a.track.id]);
+    expect(await ids("?author=me&status=approved")).toEqual([]);
+    expect(await ids("?author=me&q=freeform")).toEqual([a.track.id]);
+    expect(await ids("?author=me&q=club")).toEqual([]);
+    expect(await ids("?author=me&minLap=100")).toEqual([]);
+    expect(await ids("?author=me&maxLap=100")).toEqual([a.track.id]);
+    expect(await ids("?author=me&venue=venue-2")).toEqual([]);
+    // fits= lists approved tracks only; none of alice's are approved
+    expect(await ids("?author=me&fits=venue-2")).toEqual([]);
+  });
+
+  it("author=me signed out -> 401", async () => {
+    const { app } = await setup();
+    const res = await req(app, "GET", "/api/tracks?author=me");
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ error: "unauthorized", message: "Log in first" });
+    expect((await req(app, "GET", "/api/tracks?author=me&fits=venue-2")).statusCode).toBe(401);
+  });
+
+  it("author accepts only me -> other values 400", async () => {
+    const { app, alice } = await setup();
+    for (const v of ["101", "alice", "ME", "me,101"]) {
+      const res = await req(app, "GET", `/api/tracks?author=${encodeURIComponent(v)}`, alice);
+      expect(res.statusCode, `author=${v}`).toBe(400);
+      expect(res.json().error).toBe("bad-request");
+    }
+    expect((await req(app, "GET", "/api/tracks?author=me&author=me", alice)).statusCode).toBe(400);
+    // the check comes first, signed out too
+    expect((await req(app, "GET", "/api/tracks?author=101")).statusCode).toBe(400);
+    // empty means no filter, like the other parameters
+    expect((await req(app, "GET", "/api/tracks?author=")).json().tracks.length).toBe(3);
+  });
 });
 
 describe("fit + adapt", () => {
