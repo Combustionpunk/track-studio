@@ -18,6 +18,7 @@ describe("live geometry matches the engine", () => {
       expect(f.z).toBeCloseTo(b.features[i].z, 3);
       expect(f.heading).toBeCloseTo(b.features[i].heading, 3);
       expect(f.length).toBe(b.features[i].length);
+      expect(f.profile).toEqual(b.features[i].profile); // the live plan draws the same jump symbol
     });
     expect(live.startLine.x).toBeCloseTo(b.startLine.x, 3);
     expect(live.total).toBeCloseTo(b.lapLength, 3);

@@ -1,10 +1,11 @@
 // pnpm rebake [--dry-run]: one-off refresh of every stored revision's `built` with the current engine.
 // The design is untouched, so revisions keep their numbers (and approvals stay pinned); only derived data changes.
-import { bake, previewSvg, type RcTrack } from "@track-studio/engine";
+import { bake, type RcTrack } from "@track-studio/engine";
 import { config as loadDotenv } from "dotenv";
 import { join } from "node:path";
 import { ConfigError, loadConfig, ROOT_DIR } from "./config.js";
 import { openDb, type DB } from "./db.js";
+import { drawPreview } from "./drawing.js";
 import { sweepPreviews } from "./previews.js";
 import { builtColumns, setRevisionColumns } from "./store.js";
 
@@ -50,7 +51,7 @@ export function rebakeAll(db: DB, dataDir: string, { dryRun = false } = {}): Reb
       const before = JSON.stringify({ ...old.built, generator: "" });
       const after = JSON.stringify({ ...fresh.built, generator: "" });
       if (before === after) continue;
-      const previewChanged = !old.built || previewSvg(old) !== previewSvg(fresh);
+      const previewChanged = !old.built || drawPreview(old) !== drawPreview(fresh);
       report.changed.push({
         id: r.track_id,
         name: fresh.info.name,

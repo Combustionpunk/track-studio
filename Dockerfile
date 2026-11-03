@@ -41,6 +41,9 @@ WORKDIR /app/apps/server
 COPY --from=build --chown=root:root /out ./
 # the built web app; the server finds it at <root>/apps/web/dist and serves it
 COPY --from=build --chown=root:root /src/apps/web/dist /app/apps/web/dist
+# the logo and the static Inter/Oswald files, for the PNG previews and link-preview cards (apps/server/src/card.ts, fonts.ts)
+COPY --chown=root:root apps/web/src/brand /app/apps/web/src/brand
+COPY --chown=root:root apps/server/fonts /app/apps/server/fonts
 COPY --chown=root:root reference /app/reference
 # code is root-owned and read-only for the app user; only /data is writable
 RUN mkdir -p /data && chown node:node /data

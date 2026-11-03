@@ -11,6 +11,8 @@ interface Session {
 }
 
 const Ctx = createContext<Session | null>(null);
+/** For tests: provide a session without the API. */
+export const SessionContext = Ctx;
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);

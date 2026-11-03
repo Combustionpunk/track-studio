@@ -5,7 +5,6 @@ import {
   bake,
   fits,
   ORIENTS,
-  previewSvg,
   validateTrack,
   validateVenue,
   type FitResult,
@@ -15,6 +14,8 @@ import {
 } from "@track-studio/engine";
 import type { User } from "./auth.js";
 import type { DB } from "./db.js";
+import { drawPreview } from "./drawing.js";
+import { fontsKey } from "./fonts.js";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "./errors.js";
 
 // ------------------------------------------------------------------ input limits
@@ -314,9 +315,31 @@ export function revisionColumns(doc: RcTrack) {
   };
 }
 
-/** Changes whenever the drawn preview changes; goes into preview URLs so year-long caching is safe. */
+/** Changes whenever the drawn preview changes (drawing or fonts); goes into preview URLs so year-long caching is safe. */
 export function previewHash(doc: RcTrack): string {
-  return createHash("sha256").update(previewSvg(doc)).digest("hex").slice(0, 12);
+  return createHash("sha256").update(drawPreview(doc)).update(`\n${fontsKey()}`).digest("hex").slice(0, 12);
+}
+
+/**
+ * Recompute every revision's preview hash (at start): a new engine or new fonts can change
+ * the drawing without changing the data, and the hash must follow or browsers keep the old picture. ~1 ms a revision.
+ */
+export function refreshPreviewHashes(db: DB): number {
+  const rows = db.prepare("SELECT track_id, revision, rctrack_json, preview_hash FROM track_revisions").all() as {
+    track_id: string;
+    revision: number;
+    rctrack_json: string;
+    preview_hash: string | null;
+  }[];
+  const set = db.prepare("UPDATE track_revisions SET preview_hash = ? WHERE track_id = ? AND revision = ?");
+  let changed = 0;
+  db.transaction(() => {
+    for (const r of rows) {
+      const hash = previewHash(JSON.parse(r.rctrack_json) as RcTrack);
+      if (hash !== r.preview_hash) set.run(hash, r.track_id, r.revision), changed++;
+    }
+  })();
+  return changed;
 }
 
 const SET_REVISION_COLUMNS = `UPDATE track_revisions SET name = @name, lap_length = @lap, corners = @corners, size_length = @sizeL,

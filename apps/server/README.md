@@ -22,6 +22,8 @@ same, so clients that cached it may show the old image for a while).
 Production build: `pnpm --filter @track-studio/server build` -> `apps/server/dist/{main,seed}.js` (the engine is
 bundled in; native and runtime-file packages stay in node_modules). Docker: `docker compose up --build`, seed with
 `docker compose run --rm track-studio node dist/seed.js`.
+Production (tracks.rcmisfits.org: `docker-compose.prod.yml` with Caddy, nightly backups to Spaces with
+`dist/backup.js`, restore with `dist/restore.js`): see [docs/deploy.md](../../docs/deploy.md).
 
 ## Environment (.env at the repo root)
 | Name | |
@@ -32,6 +34,7 @@ bundled in; native and runtime-file packages stay in node_modules). Docker: `doc
 | `SESSION_SECRET` | ≥ 32 chars, signs the session cookie (`openssl rand -hex 32`); changing it logs everyone out |
 | `DATA_DIR` | SQLite file + `previews/` cache; relative paths are from the repo root |
 | `PORT` (3000), `HOST` (0.0.0.0), `ORGANISER_GROUP` (track-admins), `LOG_LEVEL` (info) | optional |
+| `SPACES_ENDPOINT`, `SPACES_BUCKET`, `SPACES_KEY`, `SPACES_SECRET` (`SPACES_REGION`, `BACKUP_PREFIX`, `BACKUP_KEEP`) | backups only (docs/deploy.md) |
 | `DEV_LOGIN=1` | enables `/auth/dev-login?user=<name>&organiser=1`; refused when `NODE_ENV=production` |
 
 ## Forum login (DiscourseConnect provider)
