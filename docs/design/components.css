@@ -1,0 +1,104 @@
+/* Track Studio components: reference CSS over the tokens (custom properties named after tokens.json). Port into the web app's styles. */
+body { margin: 0; font-family: var(--font-sans); font-size: 15px; line-height: 22px; background: var(--bg); color: var(--text); }
+.lucide { width: 16px; height: 16px; flex: none; }
+
+/* Button */
+.ts-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: var(--control-height); padding: 0 var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: transparent; color: var(--text); font: 600 14px/20px var(--font-sans); cursor: pointer; white-space: nowrap; }
+.ts-btn:hover { background: var(--bg-hover); }
+.ts-btn:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
+.ts-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.ts-btn--primary:hover { background: var(--accent); filter: brightness(1.06); }
+.ts-btn--quiet { border-color: transparent; }
+.ts-btn--danger { background: var(--danger); border-color: var(--danger); color: var(--on-danger); }
+.ts-btn--icon { width: var(--control-height); padding: 0; }
+.ts-btn--touch { height: var(--touch-target); min-width: var(--touch-target); }
+.ts-btn[disabled] { opacity: .45; cursor: not-allowed; filter: none; }
+
+/* Field */
+.ts-field { display: grid; gap: var(--space-1); max-width: 320px; }
+.ts-label { font: 600 11px/16px var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.ts-input { height: var(--control-height); padding: 0 var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--bg-sunken); color: var(--text); font: 400 15px/22px var(--font-sans); }
+.ts-input:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); border-color: var(--accent); }
+.ts-input--invalid { border-color: var(--danger); }
+.ts-help { font-size: 13px; line-height: 18px; color: var(--text-muted); }
+.ts-help--error { color: var(--danger-text); }
+.ts-unit { display: flex; align-items: center; gap: var(--space-2); }
+.ts-unit .ts-input { width: 96px; font-variant-numeric: tabular-nums; }
+
+/* Status badge */
+.ts-badge { display: inline-flex; align-items: center; height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-full); border: 1px solid var(--line-strong); font: 600 11px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.ts-badge--submitted { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.ts-badge--approved { background: var(--positive-soft); border-color: var(--positive); color: var(--positive); }
+.ts-badge--archived { border-style: dashed; }
+
+/* Track card */
+.ts-card { display: grid; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--bg-raised); overflow: hidden; color: inherit; text-decoration: none; }
+.ts-card:hover { border-color: var(--line-strong); }
+.ts-card:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
+.ts-card__plan { background: var(--plan-floor); aspect-ratio: 16 / 9; max-width: 100%; }
+.ts-card__plan svg { display: block; width: 100%; height: 100%; }
+.ts-card__body { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-4); }
+.ts-card__top { display: flex; gap: var(--space-2); align-items: flex-start; justify-content: space-between; }
+.ts-card__name { margin: 0; font: 500 20px/24px var(--font-display); color: var(--text); }
+.ts-card__meta { font-size: 13px; line-height: 18px; color: var(--text-muted); }
+.ts-figures { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); }
+.ts-figure__v { font: 500 18px/22px var(--font-display); font-variant-numeric: tabular-nums; color: var(--text); }
+.ts-figure__l { font: 600 11px/16px var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+
+/* Checks list */
+.ts-checks { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; max-width: 420px; }
+.ts-check { display: grid; grid-template-columns: 16px 1fr auto; gap: var(--space-2); align-items: start; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--bg-raised); font-size: 14px; line-height: 20px; }
+.ts-check--error { background: var(--danger-soft); color: var(--danger-text); }
+.ts-check--warning { background: var(--accent-soft); color: var(--accent); }
+.ts-check--ok { color: var(--positive); }
+.ts-check .lucide { margin-top: 2px; }
+.ts-check__go { font-size: 13px; color: inherit; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; }
+.ts-check__code { font-family: var(--font-mono); font-size: 12px; opacity: .8; }
+.ts-summary { display: flex; gap: var(--space-3); font-size: 14px; }
+
+/* States */
+.ts-empty { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-12) var(--space-6); text-align: center; border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); }
+.ts-empty__title { margin: 0; font: 500 22px/28px var(--font-display); }
+.ts-empty__text { margin: 0; max-width: 42ch; color: var(--text-muted); }
+.ts-skeleton { border-radius: var(--radius-sm); background: var(--bg-raised); animation: ts-pulse 1.4s ease-in-out infinite; }
+@keyframes ts-pulse { 50% { background: var(--line); } }
+@media (prefers-reduced-motion: reduce) { .ts-skeleton { animation: none; } }
+.ts-alert { display: grid; grid-template-columns: 16px 1fr; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--danger-soft); color: var(--danger-text); max-width: 520px; }
+.ts-alert p { margin: 0; color: var(--text); }
+.ts-alert strong { display: block; color: var(--danger-text); }
+
+/* App header */
+.ts-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-6); padding: var(--space-3) var(--space-6); background: var(--header); color: var(--header-text); border-bottom: 1px solid var(--line); }
+.ts-brand { display: flex; align-items: center; gap: var(--space-2); text-decoration: none; color: var(--header-text); }
+.ts-brand img { width: 32px; height: 32px; }
+.ts-brand__word { font: 600 20px/1 var(--font-display); letter-spacing: .04em; }
+.ts-brand__word b { font-weight: 500; color: var(--accent); }
+.ts-nav { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+.ts-nav a { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); color: var(--header-text); text-decoration: none; font: 600 14px/20px var(--font-sans); }
+.ts-nav a:hover { background: var(--bg-hover); }
+.ts-nav a[aria-current="page"] { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); border-radius: 0; }
+.ts-header__end { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); font-size: 13px; color: var(--text-muted); }
+
+/* Plan key */
+.ts-plankey { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); padding: var(--space-4); }
+.ts-plankey__item { display: grid; grid-template-columns: 56px 1fr; gap: var(--space-2); align-items: center; font-size: 13px; line-height: 18px; color: var(--text-muted); }
+.ts-plankey__item svg { width: 56px; height: 32px; border-radius: var(--radius-sm); background: var(--plan-area); }
+.ts-plankey__item strong { display: block; color: var(--text); font-weight: 600; }
+
+/* Plan drawing (fixed palette; every plan: library, track page, embed, PNG preview, designer) */
+.p-floor { fill: var(--plan-floor); }
+.p-area { fill: var(--plan-area); }
+.p-grid { stroke: var(--plan-grid); stroke-width: 1; fill: none; }
+.p-grid-major { stroke: var(--plan-grid-major); stroke-width: 1; fill: none; }
+.p-pipe { fill: none; stroke: var(--plan-pipe); stroke-linejoin: round; }
+.p-carpet { fill: none; stroke: var(--plan-carpet); stroke-linejoin: round; }
+.p-shared { fill: none; stroke: var(--plan-pipe-shared); stroke-width: 1; }
+.p-line { fill: none; stroke: var(--plan-line); stroke-width: 1.5; stroke-dasharray: 4 3; stroke-linejoin: round; }
+.p-jump { fill: var(--plan-jump); stroke: var(--plan-jump-edge); stroke-width: 1; }
+.p-jump-edge { fill: none; stroke: var(--plan-jump-edge); stroke-width: 1.5; }
+.p-rostrum { fill: var(--plan-rostrum); }
+.p-obstacle { fill: var(--plan-obstacle); }
+.p-error { fill: none; stroke: var(--plan-error); stroke-width: 3; stroke-linecap: round; }
+.p-warning { fill: none; stroke: var(--plan-warning); stroke-width: 2; }
+.p-start-a { fill: var(--plan-pipe); }
+.p-start-b { fill: var(--plan-floor); }
