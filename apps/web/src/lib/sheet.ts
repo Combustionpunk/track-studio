@@ -113,14 +113,15 @@ export interface SheetPlan {
 
 const LABEL_ROOM = 1.4; // m outside the plan margin for the edge labels
 
-/** The print plan fitted to `widthPx`, with room round the area for the rostrum and the edge labels. */
-export function sheetPlan(doc: Pick<RcTrack, "area" | "obstacles" | "built">, widthPx: number, id = "sheet"): SheetPlan {
+/** The print plan fitted into widthPx × heightPx, with room round the area for the rostrum and the edge labels. */
+export function sheetPlan(doc: Pick<RcTrack, "area" | "obstacles" | "built">, widthPx: number, heightPx: number, id = "sheet"): SheetPlan {
   const { length: L, width: W } = doc.area;
   const x = -L / 2 - PLAN_MARGIN - LABEL_ROOM, y = -W / 2 - PLAN_MARGIN;
   const viewBox = { x, y, w: L + 2 * PLAN_MARGIN + LABEL_ROOM, h: W + 2 * PLAN_MARGIN + LABEL_ROOM };
-  const px = viewBox.w / widthPx;
+  const px = Math.max(viewBox.w / widthPx, viewBox.h / heightPx);
   const svg = planLayers(planScene(doc), { px, palette: "print", layers: { checks: false }, id });
-  const marks = (len: number) => [...Array.from({ length: Math.floor(len / 5) + 1 }, (_, k) => k * 5), ...(len % 5 > 0.05 ? [len] : [])];
+  // every 5 m, and the far wall unless it would crowd the last 5 m mark
+  const marks = (len: number) => [...Array.from({ length: Math.floor(len / 5) + 1 }, (_, k) => k * 5), ...(len % 5 >= 1.5 ? [len] : [])];
   const label = (m: number) => (m === 0 ? "0" : `${trim(m, 1)} m`);
   // just outside the wall, or outside the rostrum when it stands on that side
   const side = doc.built?.rostrum.side;

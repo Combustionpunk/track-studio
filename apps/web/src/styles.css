@@ -314,7 +314,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .sheet-link svg { width: 88px; height: 88px; fill: var(--print-ink); }
 .sheet-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 32px; }
 .sheet-plan { display: grid; gap: 8px; align-content: start; }
-.sheet-plan svg { width: 100%; height: auto; display: block; }
+.sheet-plan svg { display: block; max-width: 100%; height: auto; }
 .sheet-ticks line { stroke: var(--print-grid-major); }
 .sheet-edge text { fill: var(--print-muted); font-family: var(--font-body); }
 .sheet-corners circle { fill: var(--print-ink); }

@@ -12,7 +12,8 @@ import { useApi, useElementSize } from "../lib/hooks.js";
 import { cornerRows, figures, jumpRows, PAPER, paperFrom, qrModules, SHEET_PX, sheetPlan, sheetStatus, shortLink, startText, type Paper } from "../lib/sheet.js";
 import { NotFound } from "./NotFound.js";
 
-const PLAN_PX = 1039; // the plan column's width on the A3 layout
+// the plan's room on the A3 layout: the plan column (narrower beside a split corner table) by what's left under the header
+const PLAN_PX = { width: 1039, wideWidth: 939, height: 740 };
 const SPLIT_ROWS = 22; // longer corner tables print as two side by side, in a wider column
 const MIN_SCREEN_ZOOM = 0.45; // phones scroll sideways rather than shrink the sheet to nothing
 
@@ -48,7 +49,7 @@ export function BuildSheetPage() {
   else
     body = (
       <div className="sheet-zoom" style={{ "--screen-zoom": screenZoom, "--print-zoom": PAPER[paper].scale } as React.CSSProperties}>
-        <Sheet track={tr.data.track} doc={doc} rev={rev} pinned={viewing} />
+        <Sheet track={tr.data.track} doc={doc} rev={rev} />
       </div>
     );
 
@@ -78,11 +79,13 @@ export function BuildSheetPage() {
   );
 }
 
-function Sheet({ track, doc, rev, pinned }: { track: TrackSummary; doc: RcTrack; rev: number; pinned?: number }) {
+function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: number }) {
   const s: BuildSheet = useMemo(() => buildSheet(doc), [doc]);
-  const plan = useMemo(() => sheetPlan(doc, PLAN_PX), [doc]);
+  const split = s.cornerPoints.length > SPLIT_ROWS;
+  const plan = useMemo(() => sheetPlan(doc, split ? PLAN_PX.wideWidth : PLAN_PX.width, PLAN_PX.height), [doc, split]);
   const status = sheetStatus(track, rev);
-  const link = shortLink(window.location.origin, track.id, pinned);
+  // the QR code and link always pin the printed revision: the sheet shouldn't follow later edits
+  const link = shortLink(window.location.origin, track.id, rev);
   const qr = useMemo(() => qrModules(link.url), [link.url]);
   const corners = cornerRows(s);
   const jumps = jumpRows(s);
@@ -90,7 +93,7 @@ function Sheet({ track, doc, rev, pinned }: { track: TrackSummary; doc: RcTrack;
   const m = 1 / plan.pxPerM; // one output pixel in metres
   const disc = 11 * m;
   const vb = plan.viewBox;
-  const halves = corners.length > SPLIT_ROWS ? [corners.slice(0, Math.ceil(corners.length / 2)), corners.slice(Math.ceil(corners.length / 2))] : [corners];
+  const halves = split ? [corners.slice(0, Math.ceil(corners.length / 2)), corners.slice(Math.ceil(corners.length / 2))] : [corners];
 
   return (
     <article className="sheet" aria-label={`Build sheet for ${doc.info.name}`}>
@@ -128,7 +131,7 @@ function Sheet({ track, doc, rev, pinned }: { track: TrackSummary; doc: RcTrack;
 
       <div className={`sheet-body ${halves.length > 1 ? "sheet-body-wide" : ""}`}>
         <section className="sheet-plan" aria-label="Plan">
-          <svg viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} role="img" aria-label="Plan with a 1 metre grid, measured from the south-west corner">
+          <svg viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} width={vb.w * plan.pxPerM} height={vb.h * plan.pxPerM} role="img" aria-label="Plan with a 1 metre grid, measured from the south-west corner">
             <g dangerouslySetInnerHTML={{ __html: plan.svg }} />
             <g className="sheet-ticks" strokeWidth={m}>
               {plan.south.map((l) => (

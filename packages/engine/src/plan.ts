@@ -298,7 +298,7 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
       } else if (ob.type === "circle") o.push(`<circle class="p-obstacle" cx="${n(ob.x)}" cy="${n(-ob.z)}" r="${n(ob.radius)}" fill="${P["plan-obstacle"]}"${tip(`o${i}`)}/>`);
       else
         o.push(
-          `<rect class="p-keepout" x="${n(ob.x - ob.length / 2)}" y="${n(-ob.z - ob.width / 2)}" width="${n(ob.length)}" height="${n(ob.width)}" transform="rotate(${n(-(ob.rotation ?? 0))} ${n(ob.x)} ${n(-ob.z)})" fill="${P["plan-obstacle"]}" fill-opacity="0.35" stroke="${P["plan-obstacle"]}" stroke-width="${n(1.5 * px)}" stroke-dasharray="${n(6 * px)} ${n(4 * px)}"${tip(`o${i}`)}/>`,
+          `<rect class="p-keepout" x="${n(ob.x - ob.length / 2)}" y="${n(-ob.z - ob.width / 2)}" width="${n(ob.length)}" height="${n(ob.width)}" transform="rotate(${n(-(ob.rotation ?? 0))} ${n(ob.x)} ${n(-ob.z)})" fill="${P["plan-obstacle"]}" fill-opacity="0.35" stroke="${print ? P["plan-pipe"] : P["plan-obstacle"]}" stroke-width="${n(1.5 * px)}" stroke-dasharray="${n(6 * px)} ${n(4 * px)}"${tip(`o${i}`)}/>`,
         );
     });
 

@@ -132,6 +132,13 @@ describe("print palette", () => {
     expect(used.filter((c) => !print.has(c))).toEqual([]);
   });
 
+  it("keep-out areas are outlined in ink, not white on white", () => {
+    const doc = readJson<RcTrack>(allTracks.find((t) => t.name === "freeform-at-sports-hall-b.rctrack.json")!.path);
+    expect(doc.obstacles?.some((o) => o.type === "rect")).toBe(true);
+    const svg = planLayers(planScene(doc), { px: 0.02, palette: "print" });
+    for (const m of svg.matchAll(/<rect class="p-keepout"[^>]*>/g)) expect(m[0]).toContain(`stroke="${PRINT_PALETTE["print-ink"]}"`);
+  });
+
   it("jumps are hatched and outlined in ink, so they read in black and white", () => {
     const svg = planLayers(planScene(ex("club-a.rctrack.json")), { px: 0.02, palette: "print" });
     expect(svg).toMatch(new RegExp(`class="p-jump-body"[^>]*fill="${PRINT_PALETTE["print-jump"]}" stroke="${PRINT_PALETTE["print-ink"]}"`));

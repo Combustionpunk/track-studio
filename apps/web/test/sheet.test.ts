@@ -103,13 +103,27 @@ describe("paper", () => {
 
 describe("plan and link", () => {
   it("sheetPlan: 5 m labels along the south and west edges, from the south-west corner", () => {
-    const p = sheetPlan(club, 1000);
+    const p = sheetPlan(club, 1000, 800);
     expect(p.south.map((l) => l.text)).toEqual(["0", "5 m", "10 m", "15 m", "20 m", "22 m"]);
     expect(p.west.map((l) => l.text)).toEqual(["0", "5 m", "10 m", "12 m"]);
     expect(p.south[0].x).toBe(-11);
     expect(p.west[1].y).toBe(6 - 5); // svg y = -z: 5 m up from the south wall (z = -6) is z = -1
     expect(p.svg).toContain('class="p-jump-print-hatch"');
     expect(p.svg).not.toContain('class="p-error"'); // checks aren't printed
+  });
+
+  it("sheetPlan fits a width and a height budget: square and tall areas aren't cut off", () => {
+    for (const area of [{ length: 22, width: 12 }, { length: 20, width: 20 }, { length: 12, width: 30 }]) {
+      const p = sheetPlan({ ...club, area }, 1000, 760);
+      expect(p.viewBox.w * p.pxPerM).toBeLessThanOrEqual(1000 + 1e-6);
+      expect(p.viewBox.h * p.pxPerM).toBeLessThanOrEqual(760 + 1e-6);
+    }
+  });
+
+  it("no end label crowding the last 5 m mark", () => {
+    const p = sheetPlan({ ...club, area: { length: 20.5, width: 13.04 } }, 1000, 760);
+    expect(p.south.map((l) => l.text)).toEqual(["0", "5 m", "10 m", "15 m", "20 m"]);
+    expect(p.west.map((l) => l.text)).toEqual(["0", "5 m", "10 m", "13 m"]);
   });
 
   it("short link and QR code", () => {
