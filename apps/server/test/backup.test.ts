@@ -198,7 +198,8 @@ describe("restore", () => {
   });
 
   it("says so when there is nothing to restore", async () => {
-    await expect(restoreBackup(cfgFor(tempDir()), "latest")).rejects.toThrow(/no backups/i);
-    expect(existsSync(join(tempDir(), "track-studio.sqlite"))).toBe(false);
+    const target = tempDir();
+    await expect(restoreBackup(cfgFor(target), "latest")).rejects.toThrow(/no backups/i);
+    expect(existsSync(join(target, "track-studio.sqlite"))).toBe(false);
   });
 });
