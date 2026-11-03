@@ -1,0 +1,27 @@
+# Validates the production deploy files: compose config, Caddyfile, backup wrapper.
+name: Deploy config
+
+on:
+  pull_request:
+    paths: [docker-compose.prod.yml, deploy/**, .env.example, .github/workflows/deploy-config.yml]
+  push:
+    branches: [main]
+    paths: [docker-compose.prod.yml, deploy/**, .env.example, .github/workflows/deploy-config.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose config
+        run: |
+          cp .env.example .env
+          docker compose -f docker-compose.prod.yml config --quiet
+      - name: caddy validate
+        run: docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: backup.sh syntax
+        run: bash -n deploy/backup.sh

@@ -13,11 +13,13 @@ const envExample = read(".env.example");
 /** The lines nested under a YAML key path, e.g. block(compose, "services", "caddy"). Enough for this one file. */
 function block(text: string, ...path: string[]): string {
   let lines = text.split("\n");
+  const content = (l: string) => l.trim() !== "" && !l.trim().startsWith("#");
   for (const key of path) {
-    const i = lines.findIndex((l) => new RegExp(`^\\s*${key}:`).test(l));
+    // keys at this block's own level, not deeper ones
+    const indent = lines.find(content)?.search(/\S/) ?? 0;
+    const i = lines.findIndex((l) => l.startsWith(`${" ".repeat(indent)}${key}:`));
     if (i < 0) return "";
-    const indent = lines[i].search(/\S/);
-    const end = lines.findIndex((l, j) => j > i && l.trim() !== "" && !l.trim().startsWith("#") && l.search(/\S/) <= indent);
+    const end = lines.findIndex((l, j) => j > i && content(l) && l.search(/\S/) <= indent);
     lines = lines.slice(i + 1, end < 0 ? undefined : end);
   }
   return lines.join("\n");
