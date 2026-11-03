@@ -4,6 +4,7 @@ import { createBrowserRouter, Outlet, RouterProvider, useLocation, useParams } f
 import { EditTrackPage, NewDesignPage, NewTrackPage } from "./designer/pages.js";
 import { Header } from "./components/Header.js";
 import { SessionProvider } from "./lib/session.js";
+import { BuildSheetPage } from "./pages/BuildSheet.js";
 import { Embed } from "./pages/Embed.js";
 import { Library } from "./pages/Library.js";
 import { NotFound } from "./pages/NotFound.js";
@@ -38,6 +39,8 @@ function TrackRoute() {
 const router = createBrowserRouter([
   // the embed has no site chrome
   { path: "/embed/:id", element: <Embed /> },
+  // the build sheet prints without the site's chrome
+  { path: "/t/:id/build", element: <BuildSheetPage /> },
   {
     element: <Layout />,
     children: [

@@ -101,6 +101,9 @@ export function TrackPage() {
           <a className="btn" href={download} download>
             Download
           </a>
+          <Link className="btn" to={`/t/${track.id}/build${viewing ? `?r=${viewing}` : ""}`}>
+            Build sheet
+          </Link>
           <CopyButton text={link} label="Copy link" />
           <CopyButton text={embed} label="Copy forum embed" />
           {can.edit && (
