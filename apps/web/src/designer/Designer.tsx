@@ -18,11 +18,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { Message, StatusBadge } from "../components/bits.js";
-import { DEFAULT_LAYERS, lanePath, PlanView, type Layers } from "../components/PlanView.js";
+import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useStored } from "../lib/hooks.js";
-import { featureCorners, laneRuns, pts } from "../lib/plan.js";
+import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
 import { insertionFor, liveGeometry, nearestOnLine, newPointBetween, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory } from "./history.js";

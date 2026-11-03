@@ -104,10 +104,10 @@ describe("track page (Open Graph)", () => {
     const html = res.body;
     expect(meta(html, "og:title")).toBe("Freeform example @ Sports hall B");
     expect(meta(html, "og:description")).toBe("94 m lap · 9 corners · 22 × 12 m · Sports hall B · approved");
-    expect(meta(html, "og:image")).toBe(`${BASE_URL}/p/${SPORTS}/1.png?v=${hashOf(app, SPORTS, 1)}`);
+    expect(meta(html, "og:image")).toMatch(new RegExp(`^${BASE_URL}/p/${SPORTS}/1/card.png\\?v=[0-9a-f]{12}$`));
     expect(meta(html, "og:url")).toBe(`${BASE_URL}/t/${SPORTS}`);
     expect(meta(html, "og:image:width")).toBe("1200");
-    expect(meta(html, "og:image:height")).toBe(String(Math.round((1200 * 19) / 30)));
+    expect(meta(html, "og:image:height")).toBe("630");
     expect(meta(html, "twitter:card")).toBe("summary_large_image");
     expect(html).toContain(`<img src="${BASE_URL}/p/${SPORTS}/1.png?v=`);
     // the image the tags point at exists
@@ -128,7 +128,8 @@ describe("track page (Open Graph)", () => {
     expect(meta(html, "og:title")).toBe("Tom &amp; &quot;Jerry&quot; &lt;b&gt;");
     expect(html).not.toContain("<b>");
     expect(meta(html, "og:description")).toBe("94 m lap · 9 corners · 22 × 12 m · no venue · draft");
-    expect(meta(html, "og:image")).toBe(`${BASE_URL}/p/${created.track.id}/2.png?v=${hashOf(app, created.track.id, 2)}`);
+    expect(meta(html, "og:image")).toMatch(new RegExp(`^${BASE_URL}/p/${created.track.id}/2/card.png\\?v=[0-9a-f]{12}$`));
+    expect(html).toContain(`/p/${created.track.id}/2.png?v=${hashOf(app, created.track.id, 2)}`); // the plan in the page
   });
 });
 

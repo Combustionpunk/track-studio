@@ -1,26 +1,13 @@
 // Interactive 2D plan drawn from `built` (+ area, obstacles). Pan by dragging, zoom with the wheel / pinch /
 // double-click / buttons, toggle layers, hover jumps, checks and obstacles for details.
-import type { Area, Built, Check, DesignFeature, Obstacle, Point2, Side } from "@track-studio/engine";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { niceLength, planLayers, type Area, type Built, type Check, type DesignFeature, type Obstacle, type PlanLayer, type Point2, type Side } from "@track-studio/engine";
+import { Layers as LayersIcon, Scan, ZoomIn, ZoomOut } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { FEATURE_LABEL, metres } from "../lib/format.js";
 import { useElementSize } from "../lib/hooks.js";
-import {
-  areaBounds,
-  arrowsAlong,
-  CHECK_COLOUR,
-  FEATURE_COLOUR,
-  FEATURE_COLOUR_OTHER,
-  featureCorners,
-  fitView,
-  laneRuns,
-  pan,
-  pts,
-  viewBox,
-  zoomAt,
-  type View,
-} from "../lib/plan.js";
+import { areaBounds, fitView, pan, viewBox, zoomAt, type View } from "../lib/plan.js";
 
-export type LayerKey = "lanes" | "racingLine" | "dividers" | "features" | "start" | "checks" | "obstacles" | "grid" | "rostrum";
+export type LayerKey = PlanLayer;
 export type Layers = Record<LayerKey, boolean>;
 
 export const LAYERS: { key: LayerKey; label: string }[] = [
@@ -32,7 +19,7 @@ export const LAYERS: { key: LayerKey; label: string }[] = [
   { key: "checks", label: "Checks" },
   { key: "obstacles", label: "Obstacles" },
   { key: "rostrum", label: "Rostrum" },
-  { key: "grid", label: "1 m grid" },
+  { key: "grid", label: "1 m / 5 m grid" },
 ];
 
 export const DEFAULT_LAYERS: Layers = { lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: true, obstacles: true, grid: true, rostrum: true };
@@ -268,20 +255,13 @@ export function PlanView(props: PlanViewProps) {
   }, [built, obstacles, props.designFeatures, props.rostrum]);
 
   // ---------------------------------------------------------------- drawing
-  const L = area.length, W = area.width;
-  const lanes = useMemo(() => (built && !built.lanes ? laneRuns(built.racingLine) : []), [built]);
-  const arrows = useMemo(() => (built ? arrowsAlong(built.racingLine) : []), [built]);
-  const rostrum = built?.rostrum ?? props.rostrum;
+  // The plan itself comes from the engine's shared renderer (the same drawing as the PNG previews and the embed);
+  // this component adds the view, hover details, controls and editor overlays on top.
   const px = v ? 1 / v.s : 0.05; // one screen pixel in metres
-
-  const grid: ReactNode[] = [];
-  if (layers.grid) {
-    for (let x = Math.ceil(-L / 2); x <= L / 2; x++)
-      grid.push(<line key={`gx${x}`} x1={x} y1={-W / 2} x2={x} y2={W / 2} className={x % 5 === 0 ? "grid5" : "grid1"} vectorEffect="non-scaling-stroke" />);
-    for (let z = Math.ceil(-W / 2); z <= W / 2; z++)
-      grid.push(<line key={`gz${z}`} x1={-L / 2} y1={-z} x2={L / 2} y2={-z} className={z % 5 === 0 ? "grid5" : "grid1"} vectorEffect="non-scaling-stroke" />);
-  }
-
+  const pxStep = 2 ** (Math.round(Math.log2(px) * 4) / 4); // redraw hairlines in ~19% zoom steps, not on every wheel tick
+  const uid = useId().replace(/[^\w-]/g, "");
+  const scene = useMemo(() => ({ area, obstacles, built, rostrum: props.rostrum }), [area, obstacles, built, props.rostrum]);
+  const drawing = useMemo(() => planLayers(scene, { px: pxStep, layers, tips: interactive, id: `plan${uid}` }), [scene, pxStep, layers, interactive, uid]);
   const scaleBar = v ? niceLength(120 / v.s) : 1;
 
   return (
@@ -306,108 +286,7 @@ export function PlanView(props: PlanViewProps) {
           onDoubleClick={onDoubleClick}
           onKeyDown={onKeyDown}
         >
-          <rect x={-L / 2} y={-W / 2} width={L} height={W} className="plan-area" />
-          {grid}
-          {layers.obstacles &&
-            obstacles.map((o, i) =>
-              o.type === "circle" ? (
-                <circle key={i} data-tip={`o${i}`} cx={o.x} cy={-o.z} r={o.radius} className="plan-obstacle" />
-              ) : (
-                <rect
-                  key={i}
-                  data-tip={`o${i}`}
-                  x={o.x - o.length / 2}
-                  y={-o.z - o.width / 2}
-                  width={o.length}
-                  height={o.width}
-                  transform={`rotate(${-(o.rotation ?? 0)} ${o.x} ${-o.z})`}
-                  className="plan-keepout"
-                  vectorEffect="non-scaling-stroke"
-                />
-              ),
-            )}
-          {layers.lanes &&
-            (built?.lanes ? (
-              // rctrack 1.4: the lane edges themselves (square corners included)
-              <path className="plan-carpet" d={lanePath(built.lanes)} fillRule="evenodd" />
-            ) : (
-              <g className="plan-lanes">
-                {lanes.map((r, i) => (
-                  <polyline key={i} points={r.points} strokeWidth={r.w} />
-                ))}
-              </g>
-            ))}
-          {layers.racingLine && built && (
-            <g className="plan-racing">
-              <polygon points={pts(built.racingLine)} vectorEffect="non-scaling-stroke" />
-              {arrows.map((a, i) => (
-                <path key={i} d="M -0.25 -0.22 L 0.2 0 L -0.25 0.22" transform={`translate(${a.x} ${a.y}) rotate(${a.angle})`} vectorEffect="non-scaling-stroke" />
-              ))}
-            </g>
-          )}
-          {layers.features &&
-            built?.features.map((f, i) => (
-              <g key={i} data-tip={`f${i}`} className="plan-feature">
-                <polygon points={pts(featureCorners(f))} fill={FEATURE_COLOUR[f.type] ?? FEATURE_COLOUR_OTHER} />
-                <path
-                  d="M -0.18 -0.25 L 0.18 0 L -0.18 0.25"
-                  transform={`translate(${f.x} ${-f.z}) rotate(${-f.heading})`}
-                  className="plan-feature-arrow"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </g>
-            ))}
-          {layers.dividers && built && (
-            <g className="plan-pipes">
-              {built.dividers.map((d, i) =>
-                d.closed ? (
-                  <polygon key={i} points={pts(d.points)} className={d.shared ? "shared" : undefined} />
-                ) : (
-                  <polyline key={i} points={pts(d.points)} className={d.shared ? "shared" : undefined} />
-                ),
-              )}
-            </g>
-          )}
-          {layers.start && built && <StartLine built={built} />}
-          {layers.rostrum && rostrum && (
-            <g data-tip="rostrum" className="plan-rostrum" transform={`translate(${rostrum.x} ${-rostrum.z})`}>
-              <rect x={rostrum.side === "east" || rostrum.side === "west" ? -0.6 : -2.5} y={rostrum.side === "east" || rostrum.side === "west" ? -2.5 : -0.6} width={rostrum.side === "east" || rostrum.side === "west" ? 1.2 : 5} height={rostrum.side === "east" || rostrum.side === "west" ? 5 : 1.2} rx={0.2} />
-              <text
-                x={0}
-                y={0}
-                dy="0.35em"
-                textAnchor="middle"
-                fontSize={0.6}
-                transform={rostrum.side === "east" || rostrum.side === "west" ? "rotate(-90)" : undefined}
-              >
-                ROSTRUM
-              </text>
-            </g>
-          )}
-          {layers.obstacles &&
-            obstacles.map((o, i) =>
-              o.label ? (
-                <text key={`l${i}`} x={o.x} y={-o.z} dy="0.35em" textAnchor="middle" fontSize={0.4} className="plan-label">
-                  {o.label}
-                </text>
-              ) : null,
-            )}
-          {layers.checks &&
-            built?.checks.map((c, i) =>
-              c.x !== undefined && c.z !== undefined ? (
-                <circle
-                  key={i}
-                  data-tip={`c${i}`}
-                  cx={c.x}
-                  cy={-c.z}
-                  r={0.45}
-                  className="plan-check"
-                  stroke={CHECK_COLOUR[c.level]}
-                  fill={CHECK_COLOUR[c.level]}
-                  vectorEffect="non-scaling-stroke"
-                />
-              ) : null,
-            )}
+          <g className="plan-drawing" dangerouslySetInnerHTML={{ __html: drawing }} />
           {children}
           {overlay?.(px)}
           {highlight && (
@@ -420,17 +299,17 @@ export function PlanView(props: PlanViewProps) {
         <>
           <div className="plan-controls" role="toolbar" aria-label="Plan view">
             <button type="button" onClick={() => zoomBy(1.5)} aria-label="Zoom in" title="Zoom in (+)">
-              +
+              <ZoomIn size={18} aria-hidden="true" />
             </button>
             <button type="button" onClick={() => zoomBy(1 / 1.5)} aria-label="Zoom out" title="Zoom out (−)">
-              −
+              <ZoomOut size={18} aria-hidden="true" />
             </button>
             <button type="button" onClick={reset} aria-label="Fit to view" title="Fit (0)">
-              ⤢
+              <Scan size={18} aria-hidden="true" />
             </button>
             {onLayersChange && (
               <button type="button" onClick={() => setLayersOpen((o) => !o)} aria-expanded={layersOpen} aria-label="Layers" title="Layers" className={layersOpen ? "on" : ""}>
-                ≡
+                <LayersIcon size={18} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -444,11 +323,13 @@ export function PlanView(props: PlanViewProps) {
               ))}
             </div>
           )}
-          <div className="plan-scale" aria-hidden="true">
-            <span style={{ width: scaleBar * v.s }} />
-            {scaleBar} m
-          </div>
         </>
+      )}
+      {v && (
+        <div className="plan-scale" aria-hidden="true">
+          <span style={{ width: scaleBar * v.s }} />
+          {scaleBar} m
+        </div>
       )}
       {tip && tips.get(tip.key) && (
         <div className="plan-tip" style={{ left: Math.min(tip.x + 14, box.width - 230), top: tip.y + 14 > box.height - 80 ? tip.y - 70 : tip.y + 14 }} role="status">
@@ -458,32 +339,4 @@ export function PlanView(props: PlanViewProps) {
       {hint && <div className="plan-hint">Use Ctrl + scroll to zoom</div>}
     </div>
   );
-}
-
-function StartLine({ built }: { built: Built }) {
-  const s = built.startLine;
-  const h = (s.heading * Math.PI) / 180;
-  const nx = -Math.sin(h), nz = Math.cos(h);
-  const a = [s.x + (nx * s.width) / 2, s.z + (nz * s.width) / 2], b = [s.x - (nx * s.width) / 2, s.z - (nz * s.width) / 2];
-  return (
-    <g data-tip="start" className="plan-start">
-      <line x1={a[0]} y1={-a[1]} x2={b[0]} y2={-b[1]} />
-      <line x1={a[0]} y1={-a[1]} x2={b[0]} y2={-b[1]} className="checker" />
-      {/* direction of travel */}
-      <line x1={s.x + Math.cos(h) * 0.4} y1={-(s.z + Math.sin(h) * 0.4)} x2={s.x + Math.cos(h) * 1.6} y2={-(s.z + Math.sin(h) * 1.6)} className="plan-start-dir" />
-      <path d="M -0.3 -0.25 L 0.1 0 L -0.3 0.25" transform={`translate(${s.x + Math.cos(h) * 1.6} ${-(s.z + Math.sin(h) * 1.6)}) rotate(${-s.heading})`} className="plan-start-dir" />
-    </g>
-  );
-}
-
-/** Both lane rings as one SVG path (filled even-odd: the band between them). */
-export function lanePath(l: NonNullable<Built["lanes"]>): string {
-  return [l.right, l.left].map((ring) => `M${ring.map(([x, z]) => `${x},${-z}`).join("L")}Z`).join("");
-}
-
-/** 1, 2 or 5 × 10^n, close to `m`. */
-function niceLength(m: number): number {
-  const p = 10 ** Math.floor(Math.log10(m));
-  const f = m / p;
-  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p;
 }
