@@ -17,9 +17,9 @@ const meta = (html: string, key: string) => new RegExp(`<meta (?:property|name)=
 const colors = fallbackTheme().colors;
 
 describe("plan previews use the shared renderer", () => {
-  it("drawPreview is the engine's planSvg at 1200 px", () => {
+  it("drawPreview is the engine's planSvg at 1200 px, lines sized for a ~480 px display", () => {
     const doc = ref("club-a.rctrack.json");
-    expect(drawPreview(doc)).toBe(planSvg(planScene(doc), { width: 1200 }));
+    expect(drawPreview(doc)).toBe(planSvg(planScene(doc), { width: 1200, pixelRatio: 2.5 }));
   });
 
   it("the stored preview hash is of that drawing", async () => {

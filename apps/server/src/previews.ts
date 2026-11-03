@@ -10,7 +10,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { cardSvg } from "./card.js";
 import type { Config } from "./config.js";
 import type { DB } from "./db.js";
-import { drawPreview, PREVIEW_WIDTH } from "./drawing.js";
+import { drawPreview, PREVIEW_PIXEL_RATIO, PREVIEW_WIDTH } from "./drawing.js";
 import { notFound } from "./errors.js";
 import { previewFontFiles } from "./fonts.js";
 import { fitTrack, getTrackDoc, getTrackRow, getVenueDoc, type TrackRow } from "./store.js";
@@ -116,7 +116,7 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB, t
     const out = join(cacheDir, id, `fit-${revision}-${venueId}-${answer.venue.revision}-${k}-${hash}.png`);
     return sendPng(reply, out, version, (req.query as { v?: string }).v, () => {
       const track: RcTrack = getTrackDoc(db, row, revision);
-      return planSvg(planScene(fittedPreviewDoc(track, getVenueDoc(db, venueId, answer.venue.revision), fit)), { width: PREVIEW_WIDTH });
+      return planSvg(planScene(fittedPreviewDoc(track, getVenueDoc(db, venueId, answer.venue.revision), fit)), { width: PREVIEW_WIDTH, pixelRatio: PREVIEW_PIXEL_RATIO });
     });
   });
 

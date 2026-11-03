@@ -107,7 +107,7 @@ export function cardSvg(doc: RcTrack, status: TrackStatus, colors: Tokens): stri
   // the plan, in a plan well
   const well = { x: 520, y: 116, w: 632, h: 482 };
   o.push(`<rect x="${well.x}" y="${well.y}" width="${well.w}" height="${well.h}" rx="10" fill="${PLAN_PALETTE["plan-floor"]}" stroke="${colors.border}" stroke-width="1"/>`);
-  o.push(planInBox(planScene(doc), { x: well.x + 12, y: well.y + 12, w: well.w - 24, h: well.h - 24 }, { id: "card" }));
+  o.push(planInBox(planScene(doc), { x: well.x + 12, y: well.y + 12, w: well.w - 24, h: well.h - 24 }, { id: "card", pixelRatio: 1.5 })); // the card is usually shown at ~600 px
   o.push("</svg>");
   return o.join("");
 }
