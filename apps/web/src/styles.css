@@ -252,11 +252,12 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .palette-help { margin: auto 0 0; font-size: 13px; line-height: 18px; color: var(--muted); }
 .seg-snap { margin: 12px 0 0; gap: 4px 0; }
 .seg-snap .label { width: 100%; }
+.seg-snap button { padding: 4px 9px; font-size: 13px; }
 .seg-snap .snap-info { width: 100%; font-size: 12px; }
 .designer-plan-wrap { position: relative; min-width: 0; min-height: 0; background: var(--selected); }
 .designer-plan { height: 100%; }
-.plan-hint { position: absolute; left: 16px; top: 14px; z-index: 3; display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 6px; background: var(--header-bg); box-shadow: var(--shadow-pop); font-size: 13px; color: var(--text); pointer-events: none; }
-.plan-hint b { color: var(--accent); }
+.designer-hint { position: absolute; left: 16px; top: 14px; z-index: 3; display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 6px; background: var(--header-bg); box-shadow: var(--shadow-pop); font-size: 13px; color: var(--text); pointer-events: none; }
+.designer-hint b { color: var(--accent); }
 .designer-side { display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--surface); border-left: 1px solid var(--border); overflow-y: auto; min-width: 0; }
 .designer-side h2 { font-size: 22px; line-height: 28px; margin: 0 0 12px; }
 .sel-panel h2 { font-size: 18px; line-height: 22px; margin: 0 0 8px; }
@@ -283,7 +284,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .designer-phone { height: auto; min-height: 0; }
 .designer-phone .designer-bar { padding: 6px 8px; flex-wrap: nowrap; }
 .designer-phone .back { width: 44px; height: 44px; }
-.designer-name { font-size: 19px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.designer-name { margin: 0; font: 500 19px var(--font-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .phone-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
 .phone-body .empty { display: grid; justify-items: center; gap: 12px; padding: 28px 20px; text-align: center; border: 1px dashed var(--line-strong); border-radius: 10px; }
 .phone-body .empty h1 { font-size: 22px; line-height: 28px; }

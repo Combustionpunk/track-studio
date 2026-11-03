@@ -689,7 +689,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           <Link to={backTo.to} className="btn btn-quiet btn-icon back" aria-label={backTo.label}>
             <ChevronLeft size={20} aria-hidden="true" />
           </Link>
-          <h1 className="designer-name">{draft.info.name || "Untitled track"}</h1>
+          <p className="designer-name">{draft.info.name || "Untitled track"}</p>
         </div>
         <main className="phone-body">
           <div className="empty">
@@ -887,12 +887,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
         <section className="designer-plan-wrap" aria-label="Plan">
           {snapInfo ? (
-            <div className="plan-hint" aria-live="polite">
+            <div className="designer-hint" aria-live="polite">
               <b>{SNAP_LABEL[snapInfo.mode]}</b>
               {snapInfo.tags.length > 0 && <> · {snapInfo.tags.join(" · ")}</>}
             </div>
           ) : (
-            <div className="plan-hint">{tool.kind === "feature" ? "Click on the racing line to place it." : "Click a straight to add a corner. Drag a corner to move it."}</div>
+            <div className="designer-hint">{tool.kind === "feature" ? "Click on the racing line to place it." : "Click a straight to add a corner. Drag a corner to move it."}</div>
           )}
           <PlanView
             area={draft.area}
