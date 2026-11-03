@@ -37,10 +37,13 @@ afterEach(async () => {
   }
 });
 
+/** Tests never reach a real forum: the theme fetch fails (Grey Amber) unless a test passes its own. */
+const offline: typeof fetch = async () => Promise.reject(new Error("no network in tests"));
+
 /** A fresh app on an empty temp DATA_DIR (closed and deleted after each test). */
-export async function makeApp(opts: { seeded?: boolean; config?: Partial<Config>; web?: WebOptions } = {}) {
+export async function makeApp(opts: { seeded?: boolean; config?: Partial<Config>; web?: WebOptions; themeFetch?: typeof fetch } = {}) {
   const config = testConfig(opts.config);
-  const app = await buildApp(config, { web: opts.web });
+  const app = await buildApp(config, { web: opts.web, themeFetch: opts.themeFetch ?? offline });
   open.push({ app, dir: config.dataDir });
   if (opts.seeded) seed(app.db, config, join(ROOT_DIR, "reference"), () => {});
   return { app, config };

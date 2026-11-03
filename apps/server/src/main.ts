@@ -30,5 +30,6 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
+void app.theme.start(); // forum colour scheme now and hourly; serves the cached/built-in one meanwhile
 await app.listen({ port: config.port, host: config.host });
 app.log.info(`Track Studio at ${config.baseUrl} (forum ${config.forumUrl}, data in ${config.dataDir})`);

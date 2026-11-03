@@ -4,6 +4,18 @@ React app (Vite): library with filters and "fits venue", track page (pan/zoom pl
 checks, revisions, download, copy link / forum embed, Edit / Make my own copy, Submit/Approve/Archive, fit to a venue),
 venues (read-only), the compact `/embed/:id` viewer for forum posts, and the **designer** (`/new`, `/t/:id/edit`).
 
+## Theme, fonts, logo
+- **Colours come from tokens only.** `src/theme/tokens.css` holds the forum-synced tokens (`--bg`, `--text`,
+  `--accent`, `--header-bg`, …; defaults = the forum's Grey Amber, overridden by the server's `<style id="theme">`),
+  the few fixed ones the forum has no colour for (`--warning`, `--info`) and the font tokens. The plan drawing's fixed
+  palette is `src/theme/plan-palette.css` + `src/lib/plan.ts`. `test/tokens.test.ts` fails on a literal colour
+  anywhere else, and on a `var(--x)` that isn't defined.
+- **Fonts:** Inter (`--font-body`) and Oswald (`--font-heading`: headings and figures such as lap length and corner
+  count), variable woff2 in `src/theme/fonts/` (SIL OFL), bundled by Vite, with system fallbacks.
+- **Logo:** `src/brand/logo.svg` is the one file (placeholder: loop mark + RC MISFITS wordmark as paths). The header
+  shows it whole; `brand.ts` makes `/favicon.svg` from its `<view id="mark">`. Replace the file (keep that view) and
+  rebuild.
+
 ## Designer (`src/designer/`)
 - `geometry.ts` — live racing line and placements on the main thread, pointer projection, snapping, starter loop.
   Tuning constants are at the top: `GRID` 0.25 m, `LINE_SNAP` 0.35 m (+ `ANGLE_TOLERANCE` 15°), `CORNER_SNAP` 0.5 m,

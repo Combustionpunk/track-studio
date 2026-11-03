@@ -1,5 +1,8 @@
+import { LoaderCircle, RefreshCw } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import logoSvg from "../brand/logo.svg?raw";
+import { refreshTheme } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
 
 export function Header() {
@@ -10,8 +13,9 @@ export function Header() {
     <header className="site-header">
       <div className="wrap header-row">
         <Link to="/" className="brand">
-          <img src="/favicon.svg" alt="" width={26} height={26} />
-          <span>Track Studio</span>
+          {/* inline (our own file), so the logo takes the theme's colours */}
+          <span className="brand-logo" dangerouslySetInnerHTML={{ __html: logoSvg }} />
+          <span className="brand-app">Track Studio</span>
         </Link>
         <nav aria-label="Main">
           <NavLink to="/" end>
@@ -24,6 +28,7 @@ export function Header() {
           {!ready ? null : me ? (
             <>
               {me.avatarUrl && <img src={me.avatarUrl.replace("{size}", "48")} alt="" width={24} height={24} className="avatar" />}
+              {me.organiser && <RefreshTheme />}
               <span className="who">
                 {me.username}
                 {me.organiser && <small> · organiser</small>}
@@ -43,6 +48,39 @@ export function Header() {
         </div>
       </div>
     </header>
+  );
+}
+
+/** Organisers (track-admins, forum admins): fetch the forum's colours now instead of waiting for the hourly sync. */
+function RefreshTheme() {
+  const [state, setState] = useState<{ busy: boolean; msg: string }>({ busy: false, msg: "" });
+  const go = async () => {
+    setState({ busy: true, msg: "" });
+    try {
+      const res = await refreshTheme();
+      let style = document.getElementById("theme");
+      if (!style) {
+        style = document.createElement("style");
+        style.id = "theme";
+        document.head.append(style);
+      }
+      style.textContent = res.css;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", res.theme.colors.headerBg);
+      setState({ busy: false, msg: res.ok ? `Theme updated: ${res.theme.scheme.name}` : "Couldn't reach the forum; colours unchanged" });
+    } catch (e) {
+      setState({ busy: false, msg: e instanceof Error ? e.message : "Refresh failed" });
+    }
+  };
+  return (
+    <>
+      <button type="button" className="btn btn-quiet btn-icon" onClick={go} disabled={state.busy} title="Refresh theme now (fetch the forum's colours)">
+        {state.busy ? <LoaderCircle size={18} aria-hidden className="spin" /> : <RefreshCw size={18} aria-hidden />}
+        <span className="sr-only">Refresh theme now</span>
+      </button>
+      <span className="header-status" role="status">
+        {state.msg}
+      </span>
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
 import type { DB } from "./db.js";
 import { HttpError } from "./errors.js";
+import { themeHead } from "./theme.js";
 import { describeTrack, PREVIEW_WIDTH, previewHeight } from "./previews.js";
 import { getTrackDoc, getTrackRow, getVenueDoc, getVenueRow, previewUrl, publicRevision, type TrackRow } from "./store.js";
 
@@ -32,7 +33,7 @@ export const FALLBACK_TEMPLATE = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Track Studio</title>
 ${HEAD}
-<style>body{margin:0;background:#1e2a22;color:#eee;font:16px/1.5 system-ui,sans-serif}main{max-width:1200px;margin:0 auto;padding:16px}img{width:100%;height:auto;display:block}a{color:#ff9fd4}</style>
+<style>body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}main{max-width:1200px;margin:0 auto;padding:16px}img{width:100%;height:auto;display:block}a{color:var(--link)}</style>
 </head>
 <body>
 <main>${BODY}</main>
@@ -207,7 +208,8 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     const page = pageFor(db, config, path, query);
     pageHeaders(reply, config, { embed: !!page.embed, strict: web.mode === "static" });
     reply.header("cache-control", "no-cache");
-    return reply.code(page.status).type("text/html; charset=utf-8").send(fillTemplate(await template(req.url), page));
+    const themed = { ...page, head: `${themeHead(app.theme.current())}\n${page.head}` };
+    return reply.code(page.status).type("text/html; charset=utf-8").send(fillTemplate(await template(req.url), themed));
   };
   for (const route of ["/", "/t/:id", "/t/:id/edit", "/new", "/new/design", "/embed/:id", "/v", "/v/:id"]) app.get(route, serve);
   app.decorate("servePage", serve);
