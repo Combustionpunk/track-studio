@@ -76,8 +76,20 @@ export interface VenueSummary {
   forumVenueId: number | null;
   ownerId: number;
   revision: number;
+  /** tracks drawn on this venue (any revision), archived ones not counted */
+  tracks: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface VenueRevision {
+  revision: number;
+  createdAt: string;
+  createdBy: UserRef;
+  name: string;
+  area: { length: number; width: number };
+  obstacles: number;
+  downloadUrl: string;
 }
 
 export interface FitAnswer {

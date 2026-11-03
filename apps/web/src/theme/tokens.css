@@ -43,6 +43,8 @@
   --danger-soft: color-mix(in srgb, var(--danger) 22%, var(--bg));
   /* control borders that pass 3:1 (design token line-strong: 55% text over bg, as Discourse derives its shades) */
   --line-strong: color-mix(in srgb, var(--text) 55%, var(--bg));
+  /* venue editor control borders: the same as line-strong (--positive / --positive-soft are defined below) */
+  --border-strong: var(--line-strong);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
   --shadow-pop: 0 8px 30px rgb(0 0 0 / 0.45);
 

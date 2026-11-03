@@ -296,6 +296,88 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .panel .seg .seg-label { width: 100%; margin-bottom: 4px; }
 .snap-info { white-space: nowrap; }
 
+/* ---------------------------------------------------------------- venue editor (docs/design/mockups/Venue.dc.html) */
+.btn-sm { padding: 5px 10px; font-size: 0.87rem; font-weight: 600; }
+.btn-icon:disabled { cursor: default; opacity: 0.45; }
+.ve-edit-btn { align-self: flex-start; }
+.venue-editor { display: flex; flex-direction: column; height: calc(100vh - 57px); min-height: 600px; } /* 57px: the site header */
+.ve-bar { display: flex; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.ve-title { min-width: 0; }
+.ve-title h1 { font-size: 2rem; line-height: 1.2; }
+.ve-title .crumbs { margin: 0 0 2px; }
+.ve-sub, .ve-state { font-size: 0.87rem; color: var(--muted); }
+.ve-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.ve-actions .btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; border-color: var(--border-strong); background: transparent; }
+.btn-icon svg { flex: none; }
+.ve-msg { padding: 0 24px; }
+.ve-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 380px minmax(0, 1fr); }
+.ve-form { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; background: var(--surface); border-right: 1px solid var(--border); min-width: 0; min-height: 0; overflow-y: auto; }
+.ve-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ve-field { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.ve-field.wide { grid-column: span 2; }
+.ve-label { font-size: 0.73rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.ve-label-hint { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ve-input { height: 36px; padding: 0 12px; border-radius: 4px; border: 1px solid var(--border-strong); background: var(--selected); color: var(--text); font: inherit; width: 100%; }
+select.ve-input { padding: 0 8px; }
+textarea.ve-input { height: auto; padding: 6px 12px; resize: vertical; }
+.ve-input.invalid { border-color: var(--danger); }
+.ve-with-unit { display: flex; gap: 8px; align-items: center; }
+.ve-unit { color: var(--muted); }
+.ve-help { font-size: 0.85rem; color: var(--muted); }
+.ve-help.error { color: var(--danger-text); margin: 0; }
+.ve-obstacles { display: grid; gap: 8px; }
+.ve-obstacles-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ve-obstacles-head .btn { background: transparent; border-color: var(--border-strong); }
+.ve-empty { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.ve-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.ve-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; border-radius: 4px; border: 1px solid var(--border); background: var(--selected); }
+.ve-item.on { border-color: var(--accent); }
+.ve-item.bad { border-color: var(--danger); }
+.ve-item.on.bad { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--danger); }
+.ve-item-pick { display: grid; gap: 2px; padding: 8px 12px; text-align: left; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; border-radius: 4px; min-width: 0; }
+.ve-item-name { font-weight: 600; overflow-wrap: anywhere; }
+.ve-item-sum { font-size: 0.87rem; color: var(--muted); }
+.ve-item .btn-icon { margin: 4px; color: var(--muted); }
+.ve-item-fields { grid-column: span 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 4px 12px 12px; }
+.ve-item-fields .ve-help { grid-column: span 2; }
+.ve-check { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border-radius: 4px; font-size: 0.93rem; }
+.ve-check svg { flex: none; margin-top: 3px; }
+.ve-check.ok { background: var(--positive-soft); color: var(--positive); }
+.ve-check.bad { background: var(--selected); color: var(--danger-text); border: 1px solid var(--danger); }
+.ve-check.warn { background: var(--selected); color: var(--warning); border: 1px solid var(--warning); }
+.ve-note { margin: 0; font-size: 0.87rem; line-height: 1.4; color: var(--muted); }
+.ve-plan-wrap { position: relative; min-width: 0; min-height: 0; padding: 24px; background: var(--selected); display: flex; }
+.ve-plan { flex: 1; min-height: 0; border-radius: var(--radius); }
+.ve-hint { position: absolute; left: 24px; top: 20px; padding: 6px 10px; border-radius: 6px; background: var(--header-bg); box-shadow: var(--shadow-pop); font-size: 0.87rem; pointer-events: none; max-width: calc(100% - 110px); }
+.ve-narrow { display: none; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 6px; background: var(--selected); font-size: 0.93rem; line-height: 1.4; margin: 12px 0; }
+.ve-narrow-icon { color: var(--accent); flex: none; margin-top: 2px; }
+.venue-editor > .ve-narrow { margin: 16px; }
+
+/* on the plan */
+.ve-area-edge { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 6 4; pointer-events: none; }
+.ve-dim { fill: var(--plan-ink); font-family: var(--font-body); paint-order: stroke; stroke: var(--plan-halo); pointer-events: none; }
+.ve-obstacle { fill: transparent; stroke: transparent; stroke-width: 2; cursor: grab; pointer-events: all; }
+.ve-obstacle:hover { stroke: var(--ed-hover); }
+.ve-obstacle.out { stroke: var(--plan-warning); stroke-dasharray: 4 3; }
+.ve-obstacle.on { stroke: var(--accent); stroke-dasharray: none; }
+.ve-obstacle:active, .ve-rostrum:active, .ve-resize:active { cursor: grabbing; }
+.ve-rostrum { fill: transparent; stroke: transparent; stroke-width: 2; cursor: grab; pointer-events: all; }
+.ve-rostrum:hover { stroke: var(--ed-hover); }
+.ve-rostrum.on { stroke: var(--accent); }
+.ve-resize { fill: var(--accent); stroke: var(--plan-ink-dark); stroke-width: 1.5; cursor: nwse-resize; }
+
+@media (max-width: 1100px) {
+  .ve-grid { grid-template-columns: 340px minmax(0, 1fr); }
+}
+/* phones: venue details only (editing needs a laptop or tablet) */
+@media (max-width: 760px) {
+  .venue-editor { height: auto; min-height: 0; }
+  .ve-grid, .ve-actions, .ve-edit-btn { display: none; }
+  .ve-narrow { display: flex; }
+  .ve-bar { padding: 16px; }
+  .ve-title h1 { font-size: 1.75rem; }
+}
+
 /* ---------------------------------------------------------------- design system components (docs/design, prefix ts-)
    Header, library and track page (#10). Values from tokens only. */
 .lucide { flex: none; }
