@@ -39,6 +39,11 @@
   --st-submitted: var(--warning);
   --st-approved: var(--success-text);
   --st-archived: var(--muted);
+  /* Track Studio's own (not synced): passed checks; the forum's success is the same amber as warnings */
+  --positive: #6fcf97;
+  --positive-soft: #33503f;
+  /* control borders: 55% text over bg, as docs/design line-strong (3:1 or better) */
+  --border-strong: color-mix(in srgb, var(--text) 55%, var(--bg));
   --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
   --shadow-pop: 0 8px 30px rgb(0 0 0 / 0.45);
 
