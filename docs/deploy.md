@@ -71,6 +71,7 @@ SPACES_KEY=<access key id>
 SPACES_SECRET=<access key secret>
 ```
 
+Docker Compose expands `$` in `.env` values, so avoid `$` in secrets (the `openssl rand -hex` ones never have one).
 `PORT`, `DATA_DIR`, `NODE_ENV` and `DEV_LOGIN` are fixed by the compose file; leave them as they are. Don't paste the
 `.env` anywhere: it's the only place the secrets live.
 
@@ -162,6 +163,9 @@ ROT
 
 Glance at `/var/log/track-studio-backup.log` now and then: each night adds an `Uploaded …` line.
 Manual backups (like the one before an update) count towards the 14.
+
+The Spaces key sits in the app container's environment, so someone who broke into the app could delete the backups.
+Turning on versioning for the bucket (or keeping an occasional copy elsewhere) guards against that.
 
 ## Restore
 

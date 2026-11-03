@@ -141,6 +141,14 @@ describe("nightly backup", () => {
     expect(stub.objects.size).toBe(15);
   });
 
+  it("cleans up a snapshot left behind by a backup that was killed part-way", async () => {
+    const dataDir = tempDir();
+    openDb(dataDir).close();
+    writeFileSync(join(dataDir, ".backup-20261102T031500Z.sqlite"), "half a snapshot");
+    await runBackup(cfgFor(dataDir), { now: NOW });
+    expect(readdirSync(dataDir)).toEqual(["track-studio.sqlite"]);
+  });
+
   it("fails when there is no database to back up", async () => {
     await expect(runBackup(cfgFor(tempDir()), { now: NOW })).rejects.toThrow(/no database/i);
   });

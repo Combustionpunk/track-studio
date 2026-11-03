@@ -5,7 +5,7 @@
 // .sqlite file alone would miss whatever is still in the -wal file). Preview PNGs are a cache and aren't backed up.
 import Database from "better-sqlite3";
 import { config as loadDotenv } from "dotenv";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { ConfigError, ROOT_DIR } from "./config.js";
@@ -78,7 +78,8 @@ function checkDb(file: string) {
 
 /** A consistent, self-contained copy (rollback journal, not WAL) of the live database, checked. */
 async function snapshot(src: string, dest: string) {
-  const db = new Database(src, { readonly: true, fileMustExist: true });
+  // only reads; not opened readonly, because a readonly last connection leaves the -wal/-shm files behind
+  const db = new Database(src, { fileMustExist: true });
   try {
     await db.backup(dest);
   } finally {
@@ -111,6 +112,8 @@ export interface BackupReport {
 export async function runBackup(cfg: BackupConfig, { dryRun = false, now = new Date(), fetch: fetchFn }: { dryRun?: boolean; now?: Date; fetch?: typeof fetch } = {}): Promise<BackupReport> {
   const dbPath = join(cfg.dataDir, cfg.dbFile);
   if (!existsSync(dbPath)) throw new Error(`No database to back up at ${dbPath}`);
+  // leftovers from a backup that was killed part-way
+  for (const f of readdirSync(cfg.dataDir)) if (/^\.backup-.*\.sqlite/.test(f)) rmSync(join(cfg.dataDir, f), { force: true });
   const tmp = join(cfg.dataDir, `.backup-${stamp(now)}.sqlite`);
   let gz: Buffer;
   try {
@@ -123,8 +126,9 @@ export async function runBackup(cfg: BackupConfig, { dryRun = false, now = new D
   if (!cfg.s3) return { key, bytes: gz.length, uploaded: false, deleted: [], dryRun };
 
   const client = s3Client(cfg, fetchFn);
-  const existing = (await client.list(cfg.prefix)).filter((k) => isBackupKey(cfg.prefix, k));
+  // upload first, so a failing list (or prune) never costs tonight's backup
   if (!dryRun) await client.put(key, gz);
+  const existing = (await client.list(cfg.prefix)).filter((k) => isBackupKey(cfg.prefix, k));
   // keys sort by time; only prune once tonight's backup is safely up
   const all = [...new Set([...existing, key])].sort();
   const deleted = all.slice(0, Math.max(0, all.length - cfg.keep));

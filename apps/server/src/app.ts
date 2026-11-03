@@ -76,7 +76,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   // compose's health check: the process is up and the database answers
   app.get("/healthz", async (_req, reply) => {
     try {
-      db.prepare("SELECT 1").get();
+      db.prepare("SELECT count(*) FROM schema_migrations").get(); // reads a page of the file
       return { ok: true };
     } catch {
       return reply.code(503).send({ ok: false, error: "database" });
