@@ -13,7 +13,8 @@ import { cornerRows, figures, jumpRows, PAPER, paperFrom, qrModules, SHEET_PX, s
 import { NotFound } from "./NotFound.js";
 
 const PLAN_PX = 1039; // the plan column's width on the A3 layout
-const SPLIT_ROWS = 16; // longer corner tables print as two side by side
+const SPLIT_ROWS = 22; // longer corner tables print as two side by side, in a wider column
+const MIN_SCREEN_ZOOM = 0.45; // phones scroll sideways rather than shrink the sheet to nothing
 
 export function BuildSheetPage() {
   const { id = "" } = useParams();
@@ -38,7 +39,7 @@ export function BuildSheetPage() {
   const error = tr.error ?? old.error;
   const back = `/t/${id}${viewing ? `?r=${viewing}` : ""}`;
   // on screen the sheet is scaled to fit the window; in print it is the paper's size
-  const screenZoom = stage.width ? Math.min(1, stage.width / SHEET_PX.width) : 1;
+  const screenZoom = stage.width ? Math.max(MIN_SCREEN_ZOOM, Math.min(1, stage.width / SHEET_PX.width)) : 1;
 
   let body;
   if (error) body = error instanceof ApiError && error.status === 404 ? <NotFound what="track" /> : <div className="wrap page"><Message kind="error">{error.message}</Message></div>;
@@ -68,6 +69,7 @@ export function BuildSheetPage() {
         <button type="button" className="btn btn-primary" onClick={() => window.print()} disabled={!doc?.built}>
           <Printer size={16} aria-hidden="true" /> Print or save as PDF
         </button>
+        <p className="sheet-hint">The sheet is A3: print it from a computer, or save it as a PDF.</p>
       </div>
       <div className="sheet-stage" ref={stageRef}>
         {body}
@@ -124,7 +126,7 @@ function Sheet({ track, doc, rev, pinned }: { track: TrackSummary; doc: RcTrack;
         </div>
       </header>
 
-      <div className="sheet-body">
+      <div className={`sheet-body ${halves.length > 1 ? "sheet-body-wide" : ""}`}>
         <section className="sheet-plan" aria-label="Plan">
           <svg viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`} role="img" aria-label="Plan with a 1 metre grid, measured from the south-west corner">
             <g dangerouslySetInnerHTML={{ __html: plan.svg }} />

@@ -3,7 +3,7 @@ import { buildSheet, fromSouthWest, PRINT_PALETTE, type RcTrack } from "@track-s
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cornerRows, figures, jumpRows, metres1, paperFrom, PAPER, qrModules, sheetPlan, sheetStatus, shortLink, startText } from "../src/lib/sheet.js";
+import { cornerRows, figures, jumpRows, metres1, paperFrom, PAPER, qrModules, SHEET_PX, sheetPlan, sheetStatus, shortLink, startText } from "../src/lib/sheet.js";
 
 const REF = join(__dirname, "..", "..", "..", "reference", "examples");
 const fixtures = readdirSync(REF).filter((f) => f.endsWith(".rctrack.json")).map((name) => ({ name, doc: JSON.parse(readFileSync(join(REF, name), "utf8")) as RcTrack }));
@@ -90,8 +90,13 @@ describe("paper", () => {
     expect(paperFrom("letter")).toBe("a3");
     expect(PAPER.a3.page).toBe("A3 landscape");
     expect(PAPER.a4.page).toBe("A4 landscape");
-    // the A3 layout scaled down to A4 keeps the proportions (both are √2)
-    expect(PAPER.a4.scale).toBeCloseTo(297 / 420, 4);
+    // one page each: the layout (scaled) fits the paper at 96 px per inch; A4 keeps the proportions (both are √2)
+    const px = (mm: number) => (mm / 25.4) * 96;
+    for (const [paper, [w, h]] of [["a3", [420, 297]], ["a4", [297, 210]]] as const) {
+      expect(SHEET_PX.width * PAPER[paper].scale, paper).toBeLessThanOrEqual(px(w));
+      expect(SHEET_PX.height * PAPER[paper].scale, paper).toBeLessThanOrEqual(px(h));
+    }
+    expect(PAPER.a4.scale).toBeCloseTo(297 / 420, 3);
     expect(PAPER.a3.scale).toBe(1);
   });
 });

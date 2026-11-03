@@ -77,12 +77,16 @@ export function sheetStatus(track: { status: TrackStatus; revision: number; appr
 
 export type Paper = "a3" | "a4";
 
-/** The sheet is laid out for A3 landscape at 96 dpi (the mockup's 1587 × 1123); A4 is the same layout scaled. */
-export const SHEET_PX = { width: 1587, height: 1123 } as const;
+/**
+ * The sheet is laid out for A3 landscape at 96 dpi (420 × 297 mm = 1587.4 × 1122.5 px; the mockup's 1587 × 1123, one
+ * pixel shorter so it never spills onto a second page); A4 is the same layout scaled, a hair under 297/420 for the same
+ * reason.
+ */
+export const SHEET_PX = { width: 1587, height: 1122 } as const;
 
 export const PAPER: Record<Paper, { label: string; page: string; scale: number }> = {
   a3: { label: "A3", page: "A3 landscape", scale: 1 },
-  a4: { label: "A4", page: "A4 landscape", scale: 297 / 420 },
+  a4: { label: "A4", page: "A4 landscape", scale: 0.707 },
 };
 
 export const paperFrom = (q: string | null | undefined): Paper => (q?.toLowerCase() === "a4" ? "a4" : "a3");
