@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { ConfigError, loadConfig, ROOT_DIR } from "./config.js";
 import { openDb, type DB } from "./db.js";
 import { drawPreview } from "./drawing.js";
+import { prepareFonts } from "./fonts.js";
 import { sweepPreviews } from "./previews.js";
 import { builtColumns, setRevisionColumns } from "./store.js";
 
@@ -92,6 +93,7 @@ if (process.argv[1] && /rebake\.(ts|js)$/.test(process.argv[1])) {
     const config = loadConfig();
     const dryRun = process.argv.includes("--dry-run");
     const db = openDb(config.dataDir);
+    await prepareFonts(config.dataDir).catch(() => {}); // the server's fonts, so the preview hashes match its own
     const r = rebakeAll(db, config.dataDir, { dryRun });
     console.log(`${dryRun ? "[dry run] " : ""}Re-baked ${r.revisions} revisions in ${config.dataDir}: ${r.changed.length} changed.`);
     for (const c of r.changed) {

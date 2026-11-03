@@ -29,14 +29,15 @@ describe("plan previews use the shared renderer", () => {
     expect(track.previewUrl).toBe(`/p/${CLUB}/1.png?v=${previewHash(doc)}`);
   });
 
-  it("migration 004 clears old hashes so they are recomputed at start", async () => {
-    const { app } = await makeApp({ seeded: true });
+  it("stale preview hashes (new engine or fonts) are refreshed at start", async () => {
+    const { app, config } = await makeApp({ seeded: true });
     app.db.prepare("UPDATE track_revisions SET preview_hash = 'old0old0old0'").run();
-    const sql = readFileSync(join(ROOT_DIR, "apps/server/migrations/004_plan_drawing.sql"), "utf8");
-    app.db.exec(sql);
-    const { backfillRevisions } = await import("../src/store.js");
-    expect(backfillRevisions(app.db)).toBe(3);
-    expect(app.db.prepare("SELECT count(*) FROM track_revisions WHERE preview_hash = 'old0old0old0' OR preview_hash IS NULL").pluck().get()).toBe(0);
+    const { buildApp } = await import("../src/app.js");
+    const again = await buildApp(config, { db: app.db });
+    expect(again.db.prepare("SELECT count(*) FROM track_revisions WHERE preview_hash = 'old0old0old0' OR preview_hash IS NULL").pluck().get()).toBe(0);
+    const { refreshPreviewHashes } = await import("../src/store.js");
+    expect(refreshPreviewHashes(again.db)).toBe(0); // nothing left to do
+    await again.close();
   });
 });
 
@@ -89,10 +90,12 @@ describe("Open Graph card", () => {
     expect(long).toHaveLength(2);
     expect(long[1].endsWith("…")).toBe(true);
     expect(wrapName("Supercalifragilisticexpialidociousandthensome")[0].endsWith("…")).toBe(true);
+    for (const name of ["Supercalifragilisticexpialidocious Raceway", "A Supercalifragilisticexpialidocious Raceway", "Short Supercalifragilisticexpialidocious"])
+      for (const line of wrapName(name)) expect(line.length, `${name}: ${line}`).toBeLessThanOrEqual(17);
   });
 
   it("the track page points og:image at the card (1200 × 630), cached by a hash of the card", async () => {
-    const { app } = await makeApp({ seeded: true });
+    const { app, config } = await makeApp({ seeded: true });
     const html = (await app.inject({ method: "GET", url: `/t/${SPORTS}` })).body;
     const image = meta(html, "og:image")!;
     expect(image).toMatch(new RegExp(`^${BASE_URL}/p/${SPORTS}/1/card.png\\?v=[0-9a-f]{12}$`));
@@ -108,6 +111,13 @@ describe("Open Graph card", () => {
     expect(res.rawPayload.readUInt32BE(20)).toBe(630);
     expect((await app.inject({ method: "GET", url: url.pathname + url.search })).headers["x-preview-cache"]).toBe("hit");
     expect((await app.inject({ method: "GET", url: url.pathname })).headers["cache-control"]).toBe("public, max-age=300");
+    // an older card of the same revision is dropped when a new one is drawn
+    const dir = join(config.dataDir, "previews", SPORTS);
+    const { readdirSync, renameSync } = await import("node:fs");
+    const card = readdirSync(dir).find((f) => f.startsWith("card-1-"))!;
+    renameSync(join(dir, card), join(dir, "card-1-0123456789ab.png"));
+    await app.inject({ method: "GET", url: url.pathname + url.search });
+    expect(readdirSync(dir).filter((f) => f.startsWith("card-1-"))).toEqual([card]);
     for (const bad of [`/p/${SPORTS}/9/card.png`, `/p/${SPORTS}/1/card.jpg`, "/p/nope/1/card.png"]) expect((await app.inject({ method: "GET", url: bad })).statusCode, bad).toBe(404);
   });
 

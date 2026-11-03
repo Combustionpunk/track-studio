@@ -124,7 +124,7 @@ function drawJump(f: BuiltFeature, i: number, px: number, tips: boolean): string
   const sym = jumpSymbol(f);
   if (!sym.humps.length) sym.humps.push({ from: 0, to: f.length }); // no profile: the footprint, plain
   const hair = n(px);
-  const o: string[] = [`<g class="p-jump" data-type="${f.type}"${tips ? ` data-tip="f${i}"` : ""}>`];
+  const o: string[] = [`<g class="p-jump" data-type="${escapeXml(f.type)}"${tips ? ` data-tip="f${i}"` : ""}>`];
   for (const hp of sym.humps) {
     const quad = [at(hp.from, -half), at(hp.to, -half), at(hp.to, half), at(hp.from, half)];
     o.push(`<path class="p-jump-body" d="${path(quad, true)}" fill="${P["plan-jump"]}" stroke="${P["plan-jump-edge"]}" stroke-width="${hair}" stroke-linejoin="round"/>`);
@@ -288,10 +288,16 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
       if (c.level === "warning") return void marks.push(ring("p-warning", P["plan-warning"], 2));
       const near = nearestIndex(built.racingLine, c.x, c.z);
       if (near.d > built.racingLine[near.i][2] / 2 + 0.3) return void marks.push(ring("p-error", P["plan-error"], 3));
-      const pts = built.racingLine.filter((_, k) => {
+      // one continuous run either side of the problem (the line is closed: wrap round point 0)
+      const len = built.racingLine.length;
+      const gap = (k: number) => {
         const d = Math.abs(s[k] - s[near.i]);
-        return Math.min(d, total - d) <= 1.5;
-      });
+        return Math.min(d, total - d);
+      };
+      let a = 0, b = 0;
+      while (a < len - 1 && gap((near.i - a - 1 + len) % len) <= 1.5) a++;
+      while (b < len - 1 - a && gap((near.i + b + 1) % len) <= 1.5) b++;
+      const pts = Array.from({ length: a + b + 1 }, (_, k) => built.racingLine[(near.i - a + k + len) % len]);
       o.push(`<path class="p-error" d="${path(pts, false)}" fill="none" stroke="${P["plan-error"]}" stroke-width="${n(3 * px)}" stroke-linecap="round" stroke-linejoin="round"${tip(`c${i}`)}/>`);
     });
   }

@@ -32,7 +32,7 @@ export function wrapName(name: string, max = NAME_CHARS, lines = 2): string[] {
       line = next;
       continue;
     }
-    if (line) out.push(line);
+    if (line) out.push(cut(line));
     line = w;
     if (out.length === lines - 1) {
       // last line: the rest, shortened
@@ -45,10 +45,16 @@ export function wrapName(name: string, max = NAME_CHARS, lines = 2): string[] {
   return out.length ? out : [""];
 }
 
+const logoCache = new Map<string, string | null>();
+const readLogo = (file: string) => {
+  if (!logoCache.has(file)) logoCache.set(file, existsSync(file) ? readFileSync(file, "utf8") : null);
+  return logoCache.get(file)!;
+};
+
 /** The logo file as plain SVG for resvg: theme variables become this theme's colours (or the file's fallbacks). */
 export function logoMarkup(colors: Tokens, file = LOGO_FILE): string | null {
-  if (!existsSync(file)) return null;
-  const svg = readFileSync(file, "utf8");
+  const svg = readLogo(file);
+  if (svg === null) return null;
   const box = /<svg\b[^>]*viewBox="([^"]+)"/.exec(svg)?.[1] ?? "0 0 244 48";
   const inner = svg
     .replace(/^[\s\S]*?<svg\b[^>]*>/, "")

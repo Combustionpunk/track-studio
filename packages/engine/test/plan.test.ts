@@ -111,6 +111,16 @@ describe("planLayers", () => {
     expect(draw(club())).not.toMatch(/p-error|p-warning/); // only info checks
   });
 
+  it("an error near point 0 is one continuous run along the line (no chord across the infield)", () => {
+    const doc = club();
+    const [x, z] = doc.built!.racingLine[0];
+    doc.built!.checks = [{ level: "error", code: "outside-area", message: "x", x, z }];
+    const d = /class="p-error" d="([^"]+)"/.exec(draw(doc))![1];
+    const pts = d.slice(1).split(" L").map((p) => p.split(" ").map(Number));
+    expect(pts.length).toBeGreaterThan(5);
+    for (let k = 1; k < pts.length; k++) expect(Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1])).toBeLessThan(0.5);
+  });
+
   it("can tag things for the web plan's hover details", () => {
     const doc = club();
     const svg = draw(doc, { px: 0.025, tips: true });

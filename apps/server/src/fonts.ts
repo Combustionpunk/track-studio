@@ -34,3 +34,6 @@ export async function prepareFonts(dataDir: string, from = WEB_FONTS_DIR): Promi
 
 /** Font files for resvg: the prepared web fonts, then the fallback. */
 export const previewFontFiles = () => [...prepared, FALLBACK_FONT];
+
+/** Which fonts pictures are drawn with: part of every picture's hash, so they refresh when the fonts change. */
+export const fontsKey = () => previewFontFiles().map((f) => f.split(/[\\/]/).pop()).join(",");

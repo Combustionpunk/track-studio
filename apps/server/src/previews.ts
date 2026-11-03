@@ -12,7 +12,7 @@ import type { Config } from "./config.js";
 import type { DB } from "./db.js";
 import { drawPreview, PREVIEW_PIXEL_RATIO, PREVIEW_WIDTH } from "./drawing.js";
 import { notFound } from "./errors.js";
-import { previewFontFiles } from "./fonts.js";
+import { fontsKey, previewFontFiles } from "./fonts.js";
 import { fitTrack, getTrackDoc, getTrackRow, getVenueDoc, type TrackRow } from "./store.js";
 import type { ThemeSync } from "./theme.js";
 
@@ -37,7 +37,7 @@ const hash12 = (s: string) => createHash("sha256").update(s).digest("hex").slice
 export function trackCard(db: DB, theme: ThemeSync, row: TrackRow, revision: number): { svg: string; url: string } {
   const doc = getTrackDoc(db, row, revision);
   const svg = cardSvg(doc, doc.info.status ?? "draft", theme.current().colors);
-  return { svg, url: `/p/${row.id}/${revision}/card.png?v=${hash12(svg)}` };
+  return { svg, url: `/p/${row.id}/${revision}/card.png?v=${hash12(`${svg}\n${fontsKey()}`)}` };
 }
 
 /** "94 m lap · 9 corners · 22 × 12 m · Sports hall B · approved" — of the public revision. */
@@ -129,6 +129,11 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB, t
     revisionHash(row, revision); // 404 for a revision that doesn't exist
     const card = trackCard(db, theme, row, revision);
     const version = card.url.split("?v=")[1];
-    return sendPng(reply, join(cacheDir, id, `card-${revision}-${version}.png`), version, (req.query as { v?: string }).v, () => card.svg);
+    const file = join(cacheDir, id, `card-${revision}-${version}.png`);
+    const fresh = !existsSync(file);
+    const res = sendPng(reply, file, version, (req.query as { v?: string }).v, () => card.svg);
+    // a new card (status, name or theme changed): drop this revision's older ones
+    if (fresh) for (const f of readdirSync(dirname(file))) if (f.startsWith(`card-${revision}-`) && f !== `card-${revision}-${version}.png`) rmSync(join(dirname(file), f), { force: true });
+    return res;
   });
 }
