@@ -33,6 +33,12 @@ export type AdvancedControl =
 
 export const allows = (mode: DesignerMode, _control: AdvancedControl): boolean => mode === "advanced";
 
+/** What the wheel over a corner changes: radius, or lane width with Ctrl/⌘; nothing in Quick (the plan zooms instead). */
+export function wheelEdit(mode: DesignerMode, ev: { ctrlKey: boolean; metaKey: boolean }): "radius" | "width" | null {
+  const what = ev.ctrlKey || ev.metaKey ? "width" : "radius";
+  return allows(mode, what) ? what : null;
+}
+
 /** Shift = fine, Alt = free, otherwise the toolbar's mode; Quick snaps to lanes only. */
 export function snapModeFor(mode: DesignerMode, ev: { shiftKey: boolean; altKey: boolean }, toolbar: SnapMode): SnapMode {
   if (mode === "quick") return "lanes";

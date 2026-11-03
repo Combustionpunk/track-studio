@@ -29,7 +29,7 @@ import { featureCorners, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
 import { insertionFor, liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory } from "./history.js";
-import { allows, checkCounts, deletePoint, insertPoint, MODE_KEY, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, type DesignerMode } from "./mode.js";
+import { allows, checkCounts, wheelEdit, deletePoint, insertPoint, MODE_KEY, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, type DesignerMode } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { useBake } from "./useBake.js";
 
@@ -156,6 +156,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const viewRef = useRef(view);
   viewRef.current = view;
   const phone = useMediaQuery(PHONE_QUERY);
+  const phoneRef = useRef(phone);
+  phoneRef.current = phone;
   const [shared, setShared] = useState<Guide | null>(null);
   const [dragging, setDragging] = useState<number | null>(null);
   const [hoverPt, setHoverPt] = useState<number | null>(null);
@@ -275,10 +277,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       if (mod && e.key.toLowerCase() === "s") {
         // save works from anywhere, also while typing in a field
         e.preventDefault();
-        setSaveOpen(true);
+        if (!phoneRef.current) setSaveOpen(true);
         return;
       }
-      if (isTyping(e.target)) return; // inputs keep their own undo, delete, etc.
+      if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) hist.redo();
@@ -472,8 +474,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       const i = Number(el.getAttribute("data-index"));
       const pts = draftRef.current.design.points;
       if (!(i >= 0 && i < pts.length)) return false;
-      const what = e.ctrlKey || e.metaKey ? "width" : "radius";
-      if (!allows(viewRef.current, what)) return false; // Quick: the wheel zooms the plan as anywhere else
+      const what = wheelEdit(viewRef.current, e);
+      if (!what) return false; // Quick: the wheel zooms the plan as anywhere else
       const key = `${what}:${i}`;
       const acc = wheelAcc.current;
       if (acc.key !== key) Object.assign(acc, { key, px: 0 });
@@ -661,7 +663,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   // ------------------------------------------------------------------------------------ layout
   const status = base?.track;
-  const showSubmit = !!me && (mode === "new" || !!base?.can.submit);
+  const showSubmit = !!me && mode === "edit" && !!base?.can.submit;
   const blocked = submitBlock({ dirty, pending: bake.pending, checks: built.checks, points: pointsList });
   const venueName = fromVenue?.name ?? (draft.basedOn ? status?.venue?.name ?? draft.basedOn.venueTemplate : undefined);
   const backTo = mode === "edit" && base ? { to: `/t/${base.id}`, label: "Back to track" } : { to: "/new", label: "Start over" };
@@ -679,8 +681,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     });
     setSel(best);
   };
-  // PlanView draws no checks here: the designer draws them itself (see `marks`)
-  const planBuilt = useMemo(() => ({ ...built, checks: [] }), [built]);
+  // In Quick, PlanView draws no checks (no info dots): the designer's own marks show errors and warnings. Advanced keeps
+  // PlanView's check dots and their hover details as well.
+  const quickBuilt = useMemo(() => ({ ...built, checks: [] }), [built]);
+  const planBuilt = advanced ? built : quickBuilt;
 
   if (phone) {
     return (
@@ -691,12 +695,16 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </Link>
           <p className="designer-name">{draft.info.name || "Untitled track"}</p>
         </div>
-        <main className="phone-body">
+        <div className="phone-body">
           <div className="empty">
             <Monitor size={36} className="empty-icon" aria-hidden="true" />
             <h1>Design on a laptop or tablet</h1>
             <p>The designer needs a bigger screen. You can look at the plan here, and pick up where you left off on a laptop or tablet.</p>
-            <CopyButton text={window.location.href} label="Copy link to this design" className="btn btn-touch" />
+            {mode === "edit" && !dirty ? (
+              <CopyButton text={window.location.href} label="Copy link to this design" className="btn btn-touch" />
+            ) : (
+              <p>Changes you haven't saved stay in this browser until you save them.</p>
+            )}
           </div>
           <PlanView area={draft.area} obstacles={draft.obstacles} built={built} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
           <dl className="figures">
@@ -713,7 +721,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               <dt>Status</dt>
             </div>
           </dl>
-        </main>
+        </div>
       </div>
     );
   }
@@ -914,7 +922,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         </section>
 
         <aside className="designer-side" aria-label="Checks">
-          <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} onShow={showCheck} />
+          <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
           <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} />
           {advanced && <Shortcuts />}
           <Stats built={built} live={live} view={view} />
@@ -982,7 +990,21 @@ function Stats({ built, live, view }: { built: Built; live: Live; view: Designer
 const CHECK_ICON = { error: CircleX, warning: TriangleAlert, info: Info } as const;
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
-function ChecksPanel({ checks, view, pending, blocked, onShow }: { checks: Check[]; view: DesignerMode; pending: boolean; blocked: string | null; onShow: (x: number, z: number) => void }) {
+function ChecksPanel({
+  checks,
+  view,
+  pending,
+  blocked,
+  ready,
+  onShow,
+}: {
+  checks: Check[];
+  view: DesignerMode;
+  pending: boolean;
+  blocked: string | null;
+  ready: boolean;
+  onShow: (x: number, z: number) => void;
+}) {
   const shown = visibleChecks(checks, view);
   const { errors, warnings } = checkCounts(checks);
   return (
@@ -994,7 +1016,7 @@ function ChecksPanel({ checks, view, pending, blocked, onShow }: { checks: Check
         <ul className="checks">
           <li className="check check-ok">
             <CircleCheck size={16} aria-hidden="true" />
-            <span>No problems. Ready to submit.</span>
+            <span>{pending ? "Checking…" : ready ? "No problems. Ready to submit." : "No problems found."}</span>
           </li>
         </ul>
       ) : (

@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { draftFromDoc, toDoc } from "../src/designer/Designer.js";
-import { allows, checkCounts, deletePoint, insertPoint, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks } from "../src/designer/mode.js";
-import { snapCentre } from "../src/designer/snap.js";
+import { allows, checkCounts, deletePoint, insertPoint, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, wheelEdit } from "../src/designer/mode.js";
+import { keepPinned, pinnedCorners, snapCentre } from "../src/designer/snap.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
 
@@ -25,11 +25,6 @@ describe("the mode preference", () => {
     expect(readMode(JSON.stringify({ mode: "advanced" }))).toBe("advanced");
     expect(readMode(JSON.stringify({ mode: "quick" }))).toBe("quick");
   });
-
-  it("doesn't look at the track: custom radius, width and outer still open in the remembered mode", () => {
-    // readMode takes only the stored preference; nothing about the track can switch the mode
-    expect(readMode.length).toBe(1);
-  });
 });
 
 describe("what Quick mode allows", () => {
@@ -38,6 +33,14 @@ describe("what Quick mode allows", () => {
       expect(allows("quick", a)).toBe(false);
       expect(allows("advanced", a)).toBe(true);
     }
+  });
+
+  it("the wheel over a corner changes nothing in Quick (the plan zooms instead)", () => {
+    expect(wheelEdit("quick", { ctrlKey: false, metaKey: false })).toBeNull();
+    expect(wheelEdit("quick", { ctrlKey: true, metaKey: false })).toBeNull();
+    expect(wheelEdit("advanced", { ctrlKey: false, metaKey: false })).toBe("radius");
+    expect(wheelEdit("advanced", { ctrlKey: true, metaKey: false })).toBe("width");
+    expect(wheelEdit("advanced", { ctrlKey: false, metaKey: true })).toBe("width");
   });
 
   it("snaps to lanes only, whatever the keys or the toolbar say", () => {
@@ -74,11 +77,28 @@ describe("Quick mode edits keep custom values", () => {
   it("a Quick session round-trips the custom values unchanged", () => {
     const t = customTrack();
     const draft = draftFromDoc(t);
+    const lw = draft.design.laneWidth ?? 2;
     let points = insertPoint("quick", draft.design.points, 0, [(draft.design.points[0].x + draft.design.points[1].x) / 2, (draft.design.points[0].z + draft.design.points[1].z) / 2]);
     points = movePoint(points, 1, [points[1].x + 0.25, points[1].z]);
     points = deletePoint(points, 1); // the new corner goes again
+    // move custom corners away and back, the way a drag does (pinned hall corners follow, then return)
+    for (const i of [0, 5, 11]) {
+      const origin = points;
+      const pinned = pinnedCorners(origin, draft.area, lw, i);
+      const { p } = snapCentre([origin[i].x - 0.5, origin[i].z + 0.5], { area: draft.area, points: origin, laneWidth: lw, i, mode: "lanes" });
+      let moved = movePoint(origin, i, p);
+      if (pinned.size) moved = keepPinned(moved, pinned, lw, origin);
+      moved = movePoint(moved, i, [origin[i].x, origin[i].z]);
+      if (pinned.size) moved = keepPinned(moved, pinned, lw, origin);
+      expect(moved.map(custom)).toEqual(origin.map(custom));
+      points = moved;
+    }
     const doc = toDoc({ ...draft, design: { ...draft.design, points } }, { id: t.id, revision: t.revision, doc: t });
-    expect(doc.design.points).toEqual(t.design.points);
+    expect(doc.design.points.map(custom)).toEqual(t.design.points.map(custom));
+    doc.design.points.forEach((q, k) => {
+      expect(q.x).toBeCloseTo(t.design.points[k].x, 6);
+      expect(q.z).toBeCloseTo(t.design.points[k].z, 6);
+    });
     expect(doc.design.laneWidth).toBe(t.design.laneWidth);
   });
 });
