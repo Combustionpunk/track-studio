@@ -6,9 +6,10 @@ import { registerAuth, requireOrganiser } from "./auth.js";
 import type { Config } from "./config.js";
 import { openDb, type DB } from "./db.js";
 import { HttpError } from "./errors.js";
+import { prepareFonts } from "./fonts.js";
 import { registerPreviews } from "./previews.js";
 import { registerRoutes } from "./routes.js";
-import { backfillRevisions } from "./store.js";
+import { backfillRevisions, refreshPreviewHashes } from "./store.js";
 import { ThemeSync, themeCss } from "./theme.js";
 import { registerWeb, type WebOptions } from "./web.js";
 
@@ -39,11 +40,15 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
     trustProxy: true,
   });
   const db = opts.db ?? openDb(config.dataDir);
-  backfillRevisions(db); // summary columns for revisions saved before migration 003
   app.decorate("db", db);
   app.decorate("config", config);
   const theme = new ThemeSync({ forumUrl: config.forumUrl, fetch: opts.themeFetch, log: app.log, cacheFile: join(config.dataDir, "theme-cache.json") });
   app.decorate("theme", theme);
+  // Inter and Oswald for the PNG previews (DejaVu Sans if they can't be prepared)
+  await prepareFonts(config.dataDir).catch((e: Error) => app.log.warn({ err: e.message }, "preview fonts unavailable; using DejaVu Sans"));
+  backfillRevisions(db); // summary columns for revisions saved before migration 003
+  const refreshed = refreshPreviewHashes(db); // the drawing or fonts changed: new picture URLs
+  if (refreshed) app.log.info({ revisions: refreshed }, "preview hashes refreshed");
   app.addHook("onClose", async () => {
     theme.stop();
     if (!opts.db) db.close();
@@ -71,7 +76,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
 
   registerAuth(app, config, db);
   registerRoutes(app, db);
-  registerPreviews(app, config, db);
+  registerPreviews(app, config, db, theme);
   await registerWeb(app, config, db, opts.web ?? { mode: "off", root: "", dist: "" });
   app.get("/healthz", async () => ({ ok: true }));
   // what the web app needs to know about this server

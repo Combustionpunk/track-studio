@@ -1,4 +1,4 @@
-import { fits, transformPt, type Built, type RcTrack, type RcVenue } from "@track-studio/engine";
+import { fits, PLAN_PALETTE, planLayers, planScene, planSvg, transformPt, type Built, type RcTrack, type RcVenue } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -100,5 +100,31 @@ describe("format", () => {
     expect(fmt.corners(1)).toBe("1 corner");
     expect(fmt.spare({ orientation: "x", rotation: 0, mirror: false, shift: [0, 0], spare: [0.1, 0.3] })).toBe("0.1 × 0.3 m spare");
     expect(fmt.slug("Club A @ Hall!")).toBe("club-a-hall");
+  });
+});
+
+describe("one plan drawing everywhere", () => {
+  const WEB = join(__dirname, "..");
+  const src = (f: string) => readFileSync(join(WEB, f), "utf8");
+
+  it("the web app's plan colours are the engine's plan palette (tokens.json plan-*)", () => {
+    const css = src("src/theme/plan-palette.css");
+    for (const [name, value] of Object.entries(PLAN_PALETTE)) expect(css, name).toContain(`--${name}: ${value};`);
+  });
+
+  it("PlanView and the venue thumbnails draw with the engine's planLayers, not shapes of their own", () => {
+    for (const f of ["src/components/PlanView.tsx", "src/components/bits.tsx"]) {
+      const s = src(f);
+      expect(s, f).toMatch(/planLayers\(/);
+      expect(s, f).not.toMatch(/<(polygon|polyline)\b|className="plan-(carpet|pipes|feature|start|rostrum|obstacle|keepout|area)"/);
+    }
+  });
+
+  it("the PNG preview is the same layers the web plan draws, plus the floor and a scale bar", () => {
+    const doc = ref<RcTrack>("examples/club-a.rctrack.json");
+    const scene = planScene(doc);
+    const width = 1200;
+    const px = (doc.area.length + 5) / width;
+    expect(planSvg(scene, { width })).toContain(planLayers(scene, { px }));
   });
 });
