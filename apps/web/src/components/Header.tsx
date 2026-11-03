@@ -24,9 +24,10 @@ export function Header() {
       </button>
       <div className="ts-header__fold" id="main-nav">
         <nav className="ts-nav" aria-label="Main">
-          <NavLink to="/" end>
+          {/* the library and its track pages */}
+          <Link to="/" aria-current={inLibrary(loc.pathname) ? "page" : undefined}>
             Library
-          </NavLink>
+          </Link>
           <NavLink to="/v">Venues</NavLink>
           <NavLink to="/new">New track</NavLink>
         </nav>
@@ -56,6 +57,8 @@ export function Header() {
     </header>
   );
 }
+
+const inLibrary = (path: string) => path === "/" || (path.startsWith("/t/") && !path.endsWith("/edit"));
 
 /** Organisers (track-admins, forum admins): fetch the forum's colours now instead of waiting for the hourly sync. */
 function RefreshTheme() {

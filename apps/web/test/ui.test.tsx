@@ -354,3 +354,10 @@ describe("styles", () => {
       expect(tokens, t).toMatch(new RegExp(`--${t}:`));
   });
 });
+
+describe("header on a track page", () => {
+  it("marks Library as the current place", () => {
+    const h = html(<Header />, "/t/winter-3");
+    expect(h).toMatch(/<a [^>]*aria-current="page"[^>]*>Library<\/a>/);
+  });
+});
