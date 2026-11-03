@@ -220,6 +220,7 @@ export function TrackPage() {
                 className="ts-plan-well track-plan"
               />
               <ul className="ts-plan-caption">
+                <li>Layout {fmt.size(b.size, true)}</li>
                 <li>Rostrum on the {b.rostrum.side} side</li>
                 <li>Start line {fmt.metres(b.startLine.distance)} along the lap</li>
                 <li>
@@ -310,7 +311,8 @@ export function TrackPage() {
                 ))}
               </ol>
             ) : (
-              <div aria-busy="true" aria-label="Loading revisions">
+              <div role="status" aria-busy="true">
+                <span className="sr-only">Loading revisions…</span>
                 <Skeleton className="ts-skeleton--line" />
                 <Skeleton className="ts-skeleton--line" />
               </div>

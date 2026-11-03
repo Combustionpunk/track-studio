@@ -361,3 +361,60 @@ describe("header on a track page", () => {
     expect(h).toMatch(/<a [^>]*aria-current="page"[^>]*>Library<\/a>/);
   });
 });
+
+describe("review fixes", () => {
+  it("one primary action: empty states and log in are secondary", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    answers.set("/api/venues", { data: { venues: [] }, loading: false });
+    expect(html(<Library />).match(/ts-btn--primary/g)).toHaveLength(1);
+    expect(html(<Header />, "/", false)).not.toContain("ts-btn--primary");
+  });
+
+  it("the card's venue still links to the venue, above the card link", () => {
+    expect(html(<TrackCard track={summary()} />)).toContain('<a class="ts-card__venue" href="/v/main-hall"');
+  });
+
+  it("loading states are announced", () => {
+    const h = html(<CardGridSkeleton count={1} label="Loading tracks" />);
+    expect(h).toContain('role="status"');
+    expect(text(h)).toContain("Loading tracks…");
+  });
+});
+
+describe("fit results", async () => {
+  const { FitPanel } = await import("../src/components/FitPanel.js");
+  const doc = JSON.parse(readFileSync(join(ROOT, "reference/examples/club-a.rctrack.json"), "utf8")) as RcTrack;
+  const venue = JSON.parse(readFileSync(join(ROOT, "reference/venues", (await import("node:fs")).readdirSync(join(ROOT, "reference/venues")).find((f) => f.endsWith(".rcvenue.json"))!), "utf8"));
+  const panel = () => html(<FitPanel trackId="winter-3" built={doc.built!} initialVenue="hall" />);
+  const setup = (fit: Partial<Loadable<unknown>>) => {
+    answers.set("/api/venues", { data: { venues: [{ id: "hall", name: "Village Hall" }] }, loading: false });
+    answers.set("/api/venues/hall", { data: { doc: venue }, loading: false });
+    answers.set("/api/tracks/winter-3/fit/hall", fit);
+  };
+
+  it("loading → announced skeleton", () => {
+    setup({ loading: true });
+    const h = panel();
+    expect(h).toContain("ts-skeleton");
+    expect(text(h)).toContain("Checking how it fits Village Hall…");
+  });
+
+  it("error → alert with retry", () => {
+    setup({ error: new Error("Request failed (500)"), loading: false });
+    expect(text(panel())).toMatch(/Couldn't check how it fits Village Hall\..*Try again/);
+  });
+
+  it("no fit → empty state with one action", () => {
+    setup({ data: { results: [] }, loading: false });
+    const h = panel();
+    expect(h).toContain('<h3 class="ts-empty__title">Doesn&#x27;t fit Village Hall</h3>');
+    expect(text(h)).toContain("Choose another venue");
+  });
+
+  it("fits → one choice per orientation and the copy button", () => {
+    setup({ data: { results: [{ orientation: "as designed", rotation: 0, mirror: false, shift: [0, 0], spare: [1, 2], thumbUrl: "" }] }, loading: false });
+    const t = text(panel());
+    expect(t).toContain("as designed 1 × 2 m spare");
+    expect(t).toMatch(/Make a copy for|Log in to make a copy/);
+  });
+});

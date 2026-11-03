@@ -30,7 +30,15 @@ export function TrackCard({ track, fitVenueId }: { track: TrackSummary; fitVenue
           <StatusBadge status={status} />
         </div>
         <p className="ts-card__meta">
-          by {track.author.username} · {track.venue ? (track.venue.name ?? track.venue.id) : "No venue"} · revision {track.publicRevision}
+          by {track.author.username} ·{" "}
+          {track.venue ? (
+            <Link to={`/v/${track.venue.id}`} className="ts-card__venue">
+              {track.venue.name ?? track.venue.id}
+            </Link>
+          ) : (
+            "No venue"
+          )}{" "}
+          · revision {track.publicRevision}
         </p>
         {track.newerRevision && (
           <p className="ts-card__note">

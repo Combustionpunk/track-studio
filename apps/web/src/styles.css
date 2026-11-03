@@ -66,6 +66,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 
 
 /* used by the venue page and the designer */
+.card-link { display: block; }
 .count { color: var(--muted); font-size: 0.9rem; margin: 0 0 10px; }
 .track-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
 .byline { color: var(--muted); margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
@@ -356,10 +357,13 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-card__name { margin: 0; font: 500 20px/24px var(--font-display); color: var(--text); }
 .ts-card__link { color: inherit; text-decoration: none; outline: none; }
 .ts-card__link::after { content: ""; position: absolute; inset: 0; }
+.ts-card__venue { position: relative; z-index: 1; color: inherit; }
+.ts-card__venue:hover { color: var(--text); }
+.ts-card__venue:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
 .ts-card__meta { margin: 0; font-size: 13px; line-height: 18px; color: var(--text-muted); }
 .ts-card__note { margin: 0; font-size: 13px; line-height: 18px; color: var(--accent); }
 .ts-fits { position: relative; z-index: 1; list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.ts-fit-chip { display: inline-grid; grid-template-columns: auto auto; column-gap: var(--space-2); align-items: baseline; padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--line-strong); color: var(--text); text-decoration: none; font: 600 13px/18px var(--font-sans); cursor: pointer; }
+.ts-fit-chip { position: relative; display: inline-grid; grid-template-columns: auto auto; column-gap: var(--space-2); align-items: baseline; padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--line-strong); color: var(--text); text-decoration: none; font: 600 13px/18px var(--font-sans); cursor: pointer; }
 .ts-fit-chip small { font-weight: 400; color: var(--text-muted); }
 .ts-fit-chip:hover, .ts-fit-chip[aria-current], .ts-fit-chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .ts-fit-chip:focus-visible, .ts-fit-chip:has(input:focus-visible) { outline: 2px solid transparent; box-shadow: var(--focus-ring); }

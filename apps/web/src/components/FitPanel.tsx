@@ -70,7 +70,8 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
         </ErrorAlert>
       )}
       {venueId && (fit.loading || venue.loading) && !fit.error && !venue.error && (
-        <div className="ts-fit__loading" aria-busy="true" aria-label={`Checking how it fits ${venueName}`}>
+        <div className="ts-fit__loading" role="status" aria-busy="true">
+          <span className="sr-only">Checking how it fits {venueName}…</span>
           <Skeleton className="ts-skeleton--line ts-skeleton--short" />
           <Skeleton className="ts-plan-well ts-skeleton--fit" />
         </div>
@@ -87,7 +88,17 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
         </ErrorAlert>
       )}
       {fit.data && !fit.loading && results.length === 0 && (
-        <EmptyState title={`Doesn't fit ${venueName}`}>No way round fits this hall, in any orientation. Try another venue, or make a smaller version in the designer.</EmptyState>
+        <EmptyState
+          level={3}
+          title={`Doesn't fit ${venueName}`}
+          action={
+            <button type="button" className="ts-btn" onClick={() => document.getElementById("fit-venue")?.focus()}>
+              Choose another venue
+            </button>
+          }
+        >
+          No way round fits this hall, in any orientation. Try another venue, or make a smaller version in the designer.
+        </EmptyState>
       )}
       {results.length > 0 && v && !fit.loading && (
         <>

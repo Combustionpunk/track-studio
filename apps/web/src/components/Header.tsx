@@ -47,7 +47,7 @@ export function Header() {
           ) : (
             <>
               {config?.devLogin && <DevLogin returnPath={here} />}
-              <a className="ts-btn ts-btn--primary" href={loginUrl(here)}>
+              <a className="ts-btn" href={loginUrl(here)}>
                 Log in with the forum
               </a>
             </>

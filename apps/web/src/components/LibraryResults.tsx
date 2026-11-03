@@ -16,7 +16,7 @@ interface Props {
 }
 
 const newTrack = (label: string) => (
-  <Link to="/new" className="ts-btn ts-btn--primary">
+  <Link to="/new" className="ts-btn">
     <Plus size={16} aria-hidden />
     {label}
   </Link>
