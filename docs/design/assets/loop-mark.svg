@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>RC Misfits loop mark (placeholder)</title>
+  <rect x="0" y="0" width="64" height="64" rx="10" fill="#36393e"/>
+  <path d="M14 18 H44 A10 10 0 0 1 44 38 H34 L28 46 H18 A6 6 0 0 1 12 40 V22 A4 4 0 0 1 14 18 Z" fill="none" stroke="#ecece6" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M14 18 H44 A10 10 0 0 1 44 38 H34 L28 46 H18 A6 6 0 0 1 12 40 V22 A4 4 0 0 1 14 18 Z" fill="none" stroke="#46564c" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M14 18 H44 A10 10 0 0 1 44 38 H34 L28 46 H18 A6 6 0 0 1 12 40 V22 A4 4 0 0 1 14 18 Z" fill="none" stroke="#fdd459" stroke-width="1.6" stroke-dasharray="3 2.4" stroke-linejoin="round"/>
+</svg>

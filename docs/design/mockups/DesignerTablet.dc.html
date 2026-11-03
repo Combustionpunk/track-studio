@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Designer on a tablet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Oswald:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<!-- Tablet, 1024 x 768 landscape (#16). Every control is at least 44px. Portrait (768 x 1024) uses the same parts: the dock wraps to two rows. -->
+<div style="width: 1024px; height: 768px; box-sizing: border-box; background: #272727; color: #d9d9d9; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 22px; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 12px; padding: 6px 12px; background: #36393e; border-bottom: 1px solid #54585d">
+    <a href="Track.dc.html" aria-label="Back to track" style="width: 44px; height: 44px; display: grid; place-items: center; border-radius: 6px; color: #d9d9d9">[chevron-left]</a>
+    <span style="font: 500 20px Oswald, 'Arial Narrow', sans-serif">Winter Carpet Layout 3</span>
+    <span style="font-size: 13px; color: #bebfc1">Saved</span>
+    <div role="group" aria-label="Mode" style="margin-left: auto; display: flex; padding: 2px; border-radius: 6px; background: #272727">
+      <button type="button" aria-pressed="true" style="height: 40px; padding: 0 16px; border: 0; border-radius: 4px; background: #464a50; color: #d9d9d9; font: 600 14px Inter, sans-serif">Quick</button>
+      <button type="button" aria-pressed="false" style="height: 40px; padding: 0 16px; border: 0; border-radius: 4px; background: transparent; color: #bebfc1; font: 600 14px Inter, sans-serif">Advanced</button>
+    </div>
+    <button type="button" style="height: 44px; padding: 0 18px; border-radius: 6px; border: 1px solid #fdd459; background: #fdd459; color: #272727; font: 600 14px Inter, sans-serif">Submit track</button>
+  </header>
+
+  <section aria-label="Plan" style="position: relative; flex: 1 1 auto; min-height: 0; display: grid; place-items: center; padding: 16px 16px 96px">
+    <!-- Plan as in Designer.dc.html, with corner handles at r 3.6 (bigger touch targets) and the pressed corner shown as a filled accent handle with a partial accent ring: the long-press progress (about 500 ms) before delete. -->
+    <div role="img" aria-label="Plan being edited" style="width: 100%; aspect-ratio: 236 / 148; background: #2b2e32"></div>
+
+    <div style="position: absolute; top: 16px; left: 16px; padding: 8px 12px; border-radius: 6px; background: #36393e; box-shadow: 0 8px 24px #00000066; font-size: 14px">Hold a corner to delete it</div>
+    <button type="button" style="position: absolute; top: 16px; right: 16px; height: 44px; padding: 0 14px; display: flex; gap: 8px; align-items: center; border-radius: 6px; border: 1px solid #6fcf97; background: #33503f; color: #6fcf97; font: 600 14px Inter, sans-serif">[circle-check] No problems</button>
+
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 10px; background: #464a50; border: 1px solid #54585d; box-shadow: 0 8px 24px #00000066">
+      <button type="button" aria-label="Undo" style="width: 48px; height: 48px; border: 1px solid #939597; border-radius: 6px; background: transparent; color: #d9d9d9">[undo-2]</button>
+      <button type="button" aria-label="Redo" style="width: 48px; height: 48px; border: 1px solid #939597; border-radius: 6px; background: transparent; color: #d9d9d9">[redo-2]</button>
+      <span style="width: 1px; height: 32px; background: #54585d"></span>
+      <button type="button" style="height: 48px; padding: 0 14px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif">[tabletop symbol] Tabletop</button>
+      <button type="button" style="height: 48px; padding: 0 14px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif">[double symbol] Double</button>
+      <button type="button" style="height: 48px; padding: 0 14px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif">[kicker symbol] Kicker</button>
+      <button type="button" style="height: 48px; padding: 0 14px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif">[whoops symbol] Whoops</button>
+      <button type="button" style="height: 48px; padding: 0 14px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif">Start line</button>
+      <button type="button" aria-label="Zoom to fit" style="margin-left: auto; width: 48px; height: 48px; border: 1px solid #939597; border-radius: 6px; background: transparent; color: #d9d9d9">[scan]</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

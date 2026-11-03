@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Designer, Quick mode</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Oswald:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#fdd459}a:hover{color:#ffe28a}
+</style>
+</helmet>
+<div style="width: 1200px; height: 800px; box-sizing: border-box; background: #3d4147; color: #d9d9d9; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 22px; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: #36393e; border-bottom: 1px solid #54585d">
+    <a href="Track.dc.html" aria-label="Back to track" style="width: 36px; height: 36px; display: grid; place-items: center; border-radius: 6px; color: #d9d9d9">‹</a>
+    <label for="tname" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">Track name</label>
+    <input id="tname" value="Winter Carpet Layout 3" style="width: 280px; height: 36px; padding: 0 10px; border-radius: 4px; border: 1px solid #54585d; background: transparent; color: #d9d9d9; font: 500 20px Oswald, 'Arial Narrow', sans-serif">
+    <span style="font-size: 13px; color: #bebfc1">Misfits Main Hall · 22 × 12 m</span>
+    <div role="group" aria-label="Mode" style="margin-left: auto; display: flex; padding: 2px; border-radius: 6px; background: #272727">
+      <button type="button" aria-pressed="true" style="height: 32px; padding: 0 14px; border: 0; border-radius: 4px; background: #464a50; color: #d9d9d9; font: 600 14px Inter, sans-serif">Quick</button>
+      <button type="button" aria-pressed="false" style="height: 32px; padding: 0 14px; border: 0; border-radius: 4px; background: transparent; color: #bebfc1; font: 600 14px Inter, sans-serif">Advanced</button>
+    </div>
+    <button type="button" aria-label="Undo" style="width: 36px; height: 36px; border: 1px solid #939597; border-radius: 6px; background: transparent; color: #d9d9d9">[undo-2]</button>
+    <button type="button" aria-label="Redo" style="width: 36px; height: 36px; border: 1px solid #939597; border-radius: 6px; background: transparent; color: #d9d9d9">[redo-2]</button>
+    <span style="font-size: 13px; color: #bebfc1">Saved</span>
+    <button type="button" disabled style="height: 36px; padding: 0 16px; border-radius: 6px; border: 1px solid #fdd459; background: #fdd459; color: #272727; font: 600 14px Inter, sans-serif; opacity: 0.45">Submit track</button>
+  </header>
+
+  <div style="flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 168px minmax(0, 1fr) 300px">
+    <aside aria-label="Add to the track" style="display: flex; flex-direction: column; gap: 8px; padding: 16px 12px; background: #464a50; border-right: 1px solid #54585d">
+      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #bebfc1">Jumps</span>
+      <!-- Each palette button: a 28 × 16 jump symbol in plan-jump / plan-jump-edge plus its name. Selected = accent border on accent-soft. -->
+      <button type="button" aria-pressed="true" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 10px; border-radius: 6px; border: 1px solid #fdd459; background: #5b5434; color: #fdd459; font: 600 14px Inter, sans-serif"><svg width="28" height="16" viewBox="0 0 28 16" aria-hidden="true"><path d="M2 14 L8 4 H20 L26 14 Z" fill="#e0b16a" stroke="#6b4a1f"></path></svg>Tabletop</button>
+      <button type="button" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 10px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif"><svg width="28" height="16" viewBox="0 0 28 16" aria-hidden="true"><path d="M1 14 L7 3 L12 14 Z M16 14 L21 3 L27 14 Z" fill="#e0b16a" stroke="#6b4a1f"></path></svg>Double</button>
+      <button type="button" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 10px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif"><svg width="28" height="16" viewBox="0 0 28 16" aria-hidden="true"><path d="M4 14 L22 3 V14 Z" fill="#e0b16a" stroke="#6b4a1f"></path></svg>Kicker</button>
+      <button type="button" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 10px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif"><svg width="28" height="16" viewBox="0 0 28 16" aria-hidden="true"><path d="M1 14 Q4 6 7 14 Q10 6 13 14 Q16 6 19 14 Q22 6 25 14 Z" fill="#e0b16a" stroke="#6b4a1f"></path></svg>Whoops</button>
+      <span style="margin-top: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #bebfc1">Track</span>
+      <button type="button" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 10px; border-radius: 6px; border: 1px solid #939597; background: transparent; color: #d9d9d9; font: 600 14px Inter, sans-serif">Start line</button>
+      <p style="margin: auto 0 0; font-size: 13px; line-height: 18px; color: #bebfc1">Pick a jump, then click on the racing line to place it.</p>
+    </aside>
+
+    <section aria-label="Plan" style="position: relative; display: grid; place-items: center; padding: 24px; background: #272727">
+      <!-- Same plan drawing as Track.dc.html, plus editing marks:
+           error section: path "M176 104 A16 16 0 0 1 168 110 H156", stroke plan-error #ff7f5c, width 3, round caps;
+           warning ring: circle r 9 at corner 11 (44,48), stroke plan-warning, width 1.4;
+           corner handles: r 2.4 circles, fill bg-sunken, stroke text; selected handle r 3, fill accent, stroke bg-sunken. -->
+      <div role="img" aria-label="Plan being edited" style="width: 100%; aspect-ratio: 244 / 156; background: #2b2e32"></div>
+      <div style="position: absolute; left: 24px; top: 20px; display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 6px; background: #36393e; box-shadow: 0 8px 24px #00000066; font-size: 13px; color: #d9d9d9">Click a straight to add a corner. Drag a corner to move it.</div>
+      <div style="position: absolute; right: 24px; bottom: 20px; display: flex; gap: 4px">
+        <button type="button" aria-label="Zoom out" style="width: 36px; height: 36px; border: 1px solid #939597; border-radius: 6px; background: #36393e; color: #d9d9d9">[minus]</button>
+        <button type="button" aria-label="Zoom in" style="width: 36px; height: 36px; border: 1px solid #939597; border-radius: 6px; background: #36393e; color: #d9d9d9">[plus]</button>
+        <button type="button" aria-label="Zoom to fit" style="width: 36px; height: 36px; border: 1px solid #939597; border-radius: 6px; background: #36393e; color: #d9d9d9">[scan]</button>
+      </div>
+    </section>
+
+    <aside aria-label="Checks" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #464a50; border-left: 1px solid #54585d">
+      <h2 style="margin: 0; font-family: Oswald, sans-serif; font-weight: 500; font-size: 22px; line-height: 28px">Checks</h2>
+      <div style="display: flex; gap: 12px; font-size: 14px"><span style="color: #f8ae99">1 error</span><span style="color: #fdd459">1 warning</span></div>
+      <ul style="margin: 0; padding: 0; list-style: none; display: grid; gap: 8px">
+        <li style="display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: start; padding: 8px 12px; border-radius: 4px; background: #5a3a34; color: #f8ae99; font-size: 14px; line-height: 20px"><span>[circle-x]</span><span>Lane runs outside the track area at corner 7.</span><button type="button" style="border: 0; padding: 0; background: none; color: inherit; font: 13px Inter, sans-serif; text-decoration: underline">Show</button></li>
+        <li style="display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: start; padding: 8px 12px; border-radius: 4px; background: #5b5434; color: #fdd459; font-size: 14px; line-height: 20px"><span>[triangle-alert]</span><span>Corner 3 is tight for a 1/10 buggy.</span><button type="button" style="border: 0; padding: 0; background: none; color: inherit; font: 13px Inter, sans-serif; text-decoration: underline">Show</button></li>
+      </ul>
+      <p style="margin: 0; padding: 10px 12px; border-radius: 4px; background: #272727; font-size: 13px; line-height: 18px; color: #d9d9d9">Submit is waiting on 1 error. Move corner 7 inside the track area to fix it.</p>
+      <div style="margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-top: 12px; border-top: 1px solid #54585d">
+        <div><div style="font-family: Oswald, sans-serif; font-weight: 500; font-size: 18px; line-height: 22px; font-variant-numeric: tabular-nums">38.4 m</div><div style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #bebfc1">Lap</div></div>
+        <div><div style="font-family: Oswald, sans-serif; font-weight: 500; font-size: 18px; line-height: 22px; font-variant-numeric: tabular-nums">12</div><div style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #bebfc1">Corners</div></div>
+        <div><div style="font-family: Oswald, sans-serif; font-weight: 500; font-size: 18px; line-height: 22px; font-variant-numeric: tabular-nums">2</div><div style="font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #bebfc1">Jumps</div></div>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
