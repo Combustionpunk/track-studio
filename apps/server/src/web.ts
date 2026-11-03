@@ -117,6 +117,10 @@ function pageFor(db: DB, config: Config, theme: ThemeSync, path: string, query: 
       const row = getTrackRow(db, m[1]);
       return plain(`Edit ${row.d_name} · Track Studio`);
     }
+    if ((m = /^\/t\/([\w-]{1,64})\/build\/?$/.exec(path))) {
+      const row = getTrackRow(db, m[1]);
+      return plain(`Build sheet: ${row.d_name} · Track Studio`);
+    }
     if ((m = /^\/(t|embed)\/([\w-]{1,64})\/?$/.exec(path))) {
       const rev = query.r && /^\d{1,9}$/.test(query.r) ? Number(query.r) : undefined;
       return trackPage(db, config, theme, getTrackRow(db, m[2]), path, rev);
@@ -214,7 +218,7 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     const themed = { ...page, head: `${themeHead(app.theme.current())}\n${page.head}` };
     return reply.code(page.status).type("text/html; charset=utf-8").send(fillTemplate(await template(req.url), themed));
   };
-  for (const route of ["/", "/t/:id", "/t/:id/edit", "/new", "/new/design", "/embed/:id", "/v", "/v/:id"]) app.get(route, serve);
+  for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/:id"]) app.get(route, serve);
   app.decorate("servePage", serve);
 }
 
