@@ -1,0 +1,7 @@
+# tracks.rcmisfits.org -> the app. Caddy gets and renews the certificate itself (ports 80 and 443 must be open and
+# the DNS A record must point here). TRACKS_DOMAIN comes from docker-compose.prod.yml.
+{$TRACKS_DOMAIN:tracks.rcmisfits.org} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy track-studio:3000
+}

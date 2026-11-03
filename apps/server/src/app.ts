@@ -78,7 +78,15 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   registerRoutes(app, db);
   registerPreviews(app, config, db, theme);
   await registerWeb(app, config, db, opts.web ?? { mode: "off", root: "", dist: "" });
-  app.get("/healthz", async () => ({ ok: true }));
+  // compose's health check: the process is up and the database answers
+  app.get("/healthz", async (_req, reply) => {
+    try {
+      db.prepare("SELECT count(*) FROM schema_migrations").get(); // reads a page of the file
+      return { ok: true };
+    } catch {
+      return reply.code(503).send({ ok: false, error: "database" });
+    }
+  });
   // what the web app needs to know about this server
   app.get("/api/config", async () => ({ devLogin: config.devLogin, forumUrl: config.forumUrl, baseUrl: config.baseUrl, organiserGroup: config.organiserGroup }));
   // the forum's colours as design tokens, for the sim and other tools

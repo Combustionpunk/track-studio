@@ -1,0 +1,56 @@
+# Production: tracks.rcmisfits.org on the droplet. Caddy terminates HTTPS (automatic Let's Encrypt certificates) and
+# proxies to the app; only Caddy is reachable from outside. Setup and day-to-day commands: docs/deploy.md.
+#   docker compose -f docker-compose.prod.yml up -d --build
+# (or put COMPOSE_FILE=docker-compose.prod.yml in .env and drop the -f)
+name: track-studio
+
+services:
+  track-studio:
+    build: .
+    image: track-studio:prod
+    env_file: .env             # secrets live here, on the droplet only (see .env.example)
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data          # the named volume below: database, preview cache, theme cache
+      DEV_LOGIN: "0"
+      PORT: "3000"
+      HOST: 0.0.0.0
+    expose:
+      - "3000"                 # to Caddy on the compose network only
+    volumes:
+      - track-studio-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      track-studio:
+        condition: service_healthy
+    environment:
+      TRACKS_DOMAIN: ${TRACKS_DOMAIN:-tracks.rcmisfits.org}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"          # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data       # certificates: keep, or Let's Encrypt rate limits bite on rebuilds
+      - caddy-config:/config
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+volumes:
+  track-studio-data:
+  caddy-data:
+  caddy-config:

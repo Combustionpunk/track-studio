@@ -3,7 +3,7 @@
 import { build } from "esbuild";
 
 await build({
-  entryPoints: ["src/main.ts", "src/seed.ts", "src/rebake.ts"],
+  entryPoints: ["src/main.ts", "src/seed.ts", "src/rebake.ts", "src/backup.ts", "src/restore.ts"],
   outdir: "dist",
   bundle: true,
   platform: "node",
