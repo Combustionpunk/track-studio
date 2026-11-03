@@ -6,12 +6,13 @@ import type { Plugin } from "vite";
 
 export const LOGO_FILE = fileURLToPath(new URL("./src/brand/logo.svg", import.meta.url));
 
-/** The logo with its viewBox set to the "mark" view, at favicon size. */
+/** The logo with its viewBox set to the "mark" view, at favicon size; theme colours become their fallbacks. */
 export function faviconFromLogo(svg: string): string {
   const box = /<view id="mark" viewBox="([^"]+)"/.exec(svg)?.[1];
   if (!box) throw new Error('logo.svg needs a <view id="mark" viewBox="…"/> for the favicon');
   return svg
     .trim()
+    .replace(/var\(--[\w-]+,\s*([^)]+)\)/g, "$1")
     .replace(/<svg\b[^>]*>/, (tag) => tag.replace(/\s(?:width|height)="[^"]*"/g, "").replace(/\sviewBox="[^"]*"/, ` viewBox="${box}"`).replace(/>$/, ' width="32" height="32">'));
 }
 

@@ -97,6 +97,28 @@ describe("theme sync from the forum", () => {
     expect(themeCss(sync.current())).not.toContain("@media");
   });
 
+  it("uses the dark scheme alone when there's no usable default scheme", async () => {
+    const sync = new ThemeSync({ forumUrl: FORUM_URL, fetch: async () => jsonResponse(siteJson(null, scheme(9, "Night", true, NIGHT))), log: quietLog() });
+    expect((await sync.refresh()).ok).toBe(true);
+    expect(sync.current()).toMatchObject({ scheme: { name: "Night", dark: true }, light: null });
+  });
+
+  it("works out dark/light from the background when the forum doesn't say", async () => {
+    const { is_dark: _, ...noFlag } = scheme(7, "Grey Amber", true, GREY_AMBER);
+    const sync = new ThemeSync({ forumUrl: FORUM_URL, fetch: async () => jsonResponse(siteJson(noFlag)), log: quietLog() });
+    await sync.refresh();
+    expect(sync.current().scheme.dark).toBe(true);
+  });
+
+  it("overlapping refreshes share one fetch", async () => {
+    const fetch = vi.fn(async () => jsonResponse(siteJson(scheme(3, "Ocean", false, OCEAN))));
+    const sync = new ThemeSync({ forumUrl: FORUM_URL, fetch, log: quietLog() });
+    await Promise.all([sync.refresh(), sync.refresh()]);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await sync.refresh();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it("starts with Grey Amber and, until the forum answers, serves it", () => {
     const sync = new ThemeSync({ forumUrl: FORUM_URL, fetch: async () => jsonResponse({}), log: quietLog() });
     const t = sync.current();
@@ -208,6 +230,8 @@ describe("derived tokens", () => {
     expect(contrast(c.dangerText, c.bg)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(c.dangerText, c.surface)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(c.successText, c.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(c.warning, c.surface2)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(c.info, c.surface2)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(c.accentInk, c.accent)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(c.headerText, c.headerBg)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(c.focus, c.bg)).toBeGreaterThanOrEqual(3);
@@ -215,7 +239,7 @@ describe("derived tokens", () => {
 
   it("a light scheme gets readable derived colours too", () => {
     const c = deriveTokens(OCEAN);
-    for (const fg of [c.text, c.muted, c.link, c.dangerText, c.successText]) expect(contrast(fg, c.surface)).toBeGreaterThanOrEqual(4.5);
+    for (const fg of [c.text, c.muted, c.link, c.dangerText, c.successText, c.warning, c.info]) expect(contrast(fg, c.surface)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(c.accentInk, c.accent)).toBeGreaterThanOrEqual(4.5);
   });
 

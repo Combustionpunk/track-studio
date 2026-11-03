@@ -10,7 +10,7 @@ h1, h2, h3 { line-height: 1.2; margin: 0; font-family: var(--font-heading); font
 h1 { font-size: 1.75rem; }
 h2 { font-size: 1.1rem; }
 /* figures: lap length, corner count, sizes */
-.figure, .card-stats dd, .stat-grid dd, .details dd { font-family: var(--font-heading); font-weight: 500; letter-spacing: 0.02em; }
+.figure, .card-stats dd, .stat-grid dd { font-family: var(--font-heading); font-weight: 500; letter-spacing: 0.02em; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .skip { position: absolute; left: -999px; }
 .skip:focus { left: 8px; top: 8px; z-index: 10; background: var(--surface); padding: 6px 10px; }
@@ -24,7 +24,7 @@ h2 { font-size: 1.1rem; }
 .site-header { background: var(--header-bg); color: var(--header-text); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; }
 .header-row { display: flex; align-items: center; gap: 20px; min-height: 56px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--header-text); text-decoration: none; }
-.brand img { display: block; height: 30px; width: auto; }
+.brand-logo, .brand-logo svg { display: block; height: 30px; width: auto; }
 .brand-app { font-family: var(--font-heading); font-weight: 400; font-size: 1.05rem; letter-spacing: 0.04em; text-transform: uppercase; padding-left: 10px; border-left: 1px solid var(--border); }
 nav { display: flex; gap: 4px; }
 nav a { color: var(--header-text); text-decoration: none; padding: 6px 10px; border-radius: 8px; font-weight: 500; }
@@ -34,7 +34,6 @@ nav a.active { color: var(--header-text); background: var(--selected); box-shado
 .avatar { border-radius: 50%; }
 .who small { color: var(--muted); }
 .header-status { font-size: 0.85rem; color: var(--muted); }
-.header-status:empty { display: none; }
 .btn-icon { padding: 7px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .spin { animation: spin 1s linear infinite; }

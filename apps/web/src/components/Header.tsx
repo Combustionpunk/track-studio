@@ -1,7 +1,7 @@
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import logoUrl from "../brand/logo.svg";
+import logoSvg from "../brand/logo.svg?raw";
 import { refreshTheme } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
 
@@ -13,7 +13,8 @@ export function Header() {
     <header className="site-header">
       <div className="wrap header-row">
         <Link to="/" className="brand">
-          <img src={logoUrl} alt="RC Misfits" width={153} height={30} />
+          {/* inline (our own file), so the logo takes the theme's colours */}
+          <span className="brand-logo" dangerouslySetInnerHTML={{ __html: logoSvg }} />
           <span className="brand-app">Track Studio</span>
         </Link>
         <nav aria-label="Main">
@@ -64,6 +65,7 @@ function RefreshTheme() {
         document.head.append(style);
       }
       style.textContent = res.css;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", res.theme.colors.headerBg);
       setState({ busy: false, msg: res.ok ? `Theme updated: ${res.theme.scheme.name}` : "Couldn't reach the forum; colours unchanged" });
     } catch (e) {
       setState({ busy: false, msg: e instanceof Error ? e.message : "Refresh failed" });

@@ -31,6 +31,9 @@ export const GREY_AMBER: Roles = {
   selected: "#272727",
 };
 
+const WARNING_HUE = "#ffa45c";
+const INFO_HUE = "#9cc4ff";
+
 export const FONTS = { body: "Inter", headings: "Oswald" } as const;
 
 /** Colour tokens; the CSS variable is the kebab-case name (surface2 → --surface-2). Keep in step with tokens.css. */
@@ -53,6 +56,9 @@ export interface Tokens {
   successText: string;
   danger: string;
   dangerText: string;
+  /** levels the forum has no colour for: fixed hues, made readable on this scheme */
+  warning: string;
+  info: string;
   hover: string;
   selected: string;
 }
@@ -150,6 +156,8 @@ export function deriveTokens(roles: Roles): Tokens {
     successText: readable(r.success, onSurfaces, away),
     danger: r.danger,
     dangerText: readable(r.danger, onSurfaces, away),
+    warning: readable(WARNING_HUE, onSurfaces, away),
+    info: readable(INFO_HUE, onSurfaces, away),
     hover: r.hover,
     selected: r.selected,
   };
@@ -176,17 +184,21 @@ function readScheme(raw: unknown): Scheme | string {
   }
   if (!found.primary || !found.secondary) return "colour scheme has no primary/secondary";
   if (contrast(found.primary, found.secondary) < 4.5) return "colour scheme's text and background are too close to read";
-  return { id: o.id, name: typeof o.name === "string" && o.name.trim() ? o.name.trim().slice(0, 80) : "Forum", dark: o.is_dark === true, roles: { ...GREY_AMBER, ...found } };
+  return { id: o.id, name: typeof o.name === "string" && o.name.trim() ? o.name.trim().slice(0, 80) : "Forum", dark: typeof o.is_dark === "boolean" ? o.is_dark : luminance(found.secondary) < 0.2, roles: { ...GREY_AMBER, ...found } };
 }
 
 /** site.json → the theme's colours. Throws with a short reason if it's unusable. */
 export function themeFromSite(site: unknown): Pick<Theme, "scheme" | "colors" | "light"> {
   if (!site || typeof site !== "object") throw new Error("site.json is not an object");
   const s = site as { default_light_color_scheme?: unknown; default_dark_color_scheme?: unknown };
-  const main = readScheme(s.default_light_color_scheme);
-  if (typeof main === "string") throw new Error(main);
-  // a separate dark scheme: dark is the default, the light one follows the device
   const dark = s.default_dark_color_scheme ? readScheme(s.default_dark_color_scheme) : null;
+  const main = readScheme(s.default_light_color_scheme);
+  if (typeof main === "string") {
+    // no usable default scheme, but a usable dark one: use that alone
+    if (dark && typeof dark !== "string") return { scheme: { name: dark.name, dark: true }, colors: deriveTokens(dark.roles), light: null };
+    throw new Error(main);
+  }
+  // a separate dark scheme: dark is the default, the light one follows the device
   if (dark && typeof dark !== "string" && dark.id !== main.id) {
     return { scheme: { name: dark.name, dark: true }, colors: deriveTokens(dark.roles), light: { name: main.name, colors: deriveTokens(main.roles) } };
   }
@@ -223,12 +235,19 @@ export interface ThemeSyncOptions {
   timeoutMs?: number;
 }
 
+export interface RefreshResult {
+  ok: boolean;
+  error?: string;
+  theme: Theme;
+}
+
 export const SYNC_INTERVAL_MS = 60 * 60 * 1000;
 
 export class ThemeSync {
   private theme: Theme;
   private timer: ReturnType<typeof setInterval> | null = null;
   private failing = false;
+  private inflight: Promise<RefreshResult> | null = null;
   private readonly fetch: typeof fetch;
 
   constructor(private readonly opts: ThemeSyncOptions) {
@@ -241,7 +260,13 @@ export class ThemeSync {
   }
 
   /** Fetch now. Never throws; on failure the current theme stays (Grey Amber until the forum has answered once). */
-  async refresh(): Promise<{ ok: boolean; error?: string; theme: Theme }> {
+  refresh(): Promise<RefreshResult> {
+    // one fetch at a time: an hourly run and a manual refresh share it, so an older answer can't win
+    this.inflight ??= this.fetchNow().finally(() => (this.inflight = null));
+    return this.inflight;
+  }
+
+  private async fetchNow(): Promise<RefreshResult> {
     try {
       const res = await this.fetch(`${this.opts.forumUrl}/site.json`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(this.opts.timeoutMs ?? 10_000) });
       if (!res.ok) throw new Error(`forum answered HTTP ${res.status}`);

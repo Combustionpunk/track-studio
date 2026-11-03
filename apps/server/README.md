@@ -41,8 +41,24 @@ On the forum, Admin → Settings:
 - create the group `track-admins` (or whatever `ORGANISER_GROUP` says) and add the organisers; forum admins are
   organisers anyway.
 
-The forum is only ever reached by the browser (redirects), never by the server, so the browser must resolve
-`FORUM_URL` and `BASE_URL`.
+Login only goes through the browser (redirects), so the browser must resolve `FORUM_URL` and `BASE_URL`. The server
+itself reads one public URL from the forum: `FORUM_URL/site.json`, for the colour scheme (below).
+
+## Theme (colours from the forum)
+At start and then hourly the server reads the forum's public `site.json` and maps its default colour scheme to the
+web app's design tokens (`src/theme.ts`): `primary` → `text`, `secondary` → `bg`, `tertiary` → `accent`,
+`header_background`/`header_primary` → `headerBg`/`headerText`, plus `highlight`, `success`, `danger`, `hover`,
+`selected`. `surface`, `surface2`, `border` and `muted` are blends of primary over secondary (like Discourse's
+`primary-low` etc.); `link`, `muted`, `dangerText` and `successText` are nudged lighter/darker until they meet WCAG AA.
+If the forum has a separate dark scheme, dark is the default and its light scheme applies when the device prefers
+light; with one scheme (today: Grey Amber, dark) that one is always used.
+
+Every page gets the current theme as CSS variables in `<style id="theme">`, so there's no flash of the wrong colours.
+The last good scheme is kept in `DATA_DIR/theme-cache.json`; if the forum can't be reached (or answers with something
+unusable) the cached scheme stays, or the built-in **Grey Amber** if there's never been one. A failing forum is logged
+once, and again only after it has recovered. Organisers can refresh at once from the header (↻, "Refresh theme now").
+The plan drawing keeps its own fixed palette. The web app's defaults (`apps/web/src/theme/tokens.css`) are the derived
+Grey Amber; a test keeps them in step with `theme.ts`.
 
 Forum embeds (`/embed/:id`, "Copy forum embed" on a track page): add `<BASE_URL>/embed/` to the forum's
 `allowed iframes` setting. Track Studio only lets the forum's origin (`FORUM_URL`) frame those pages; every other page
@@ -74,6 +90,8 @@ writes (an `Origin` header other than `BASE_URL`) are refused.
 | `GET /p/:id/:rev/fit/:venueId/:k.png?v=` | the track placed in the venue as fit orientation `k` (index in the engine's `ORIENTS`) — "fits venue" thumbnails |
 | `GET /`, `/t/:id`, `/t/:id/edit`, `/new`, `/new/design`, `/embed/:id[?r=]`, `/v`, `/v/:id` | web app pages; `/t` and `/embed` carry Open Graph tags (public revision); `/embed` may be framed by the forum |
 | `GET /api/config` | what the web app needs (dev login on?, forum URL) |
+| `GET /api/theme.json` | public, CORS `*`: `{source, syncedAt, scheme:{name,dark}, colors, light, fonts:{body,headings}}` — `source` is `forum`, `cache` or `fallback`; `syncedAt` is the last successful fetch (ISO, `null` if never); `colors` are hex tokens (see Theme); `light` is `{name, colors}` or `null` |
+| `POST /api/theme/refresh` | organisers: fetch the forum's scheme now → `{ok, error?, theme, css}`; on failure `ok: false` and the theme is unchanged |
 
 Input limits (to keep the engine's work bounded): area ≤ 100 × 100 m, ≤ 300 points within ±100 m, lap ≤ 1500 m,
 ≤ 100 features, lane width ≤ 10 m, radius ≤ 50 m, body ≤ 2 MB.

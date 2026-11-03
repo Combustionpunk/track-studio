@@ -28,13 +28,13 @@
   --success-text: #fdd459;
   --danger: #e45735;
   --danger-text: #f3b3a4;
+  --warning: #ffb274;
+  --info: #9cc4ff;
   --hover: #2f2f30;
   --selected: #272727;
   /* synced:end */
 
-  /* not synced: levels and states the forum has no colour for */
-  --warning: #ffa45c;
-  --info: #9cc4ff;
+  /* states, from the tokens above (warning/info: fixed hues the server makes readable on each scheme) */
   --st-draft: var(--muted);
   --st-submitted: var(--warning);
   --st-approved: var(--success-text);
