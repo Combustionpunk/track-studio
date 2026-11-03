@@ -1,8 +1,9 @@
-import { bakeBuilt, type RcTrack } from "@track-studio/engine";
+import { bakeBuilt, rostrumPosition, type Area, type Design, type Obstacle, type RcTrack, type RcVenue } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { clampToArea, roundTo, wheelRadius, insertionFor, liveGeometry, nearestOnLine, snapPoint, starterDesign, starterLoop, tooClose, wrapDistance } from "../src/designer/geometry.js";
+import { laneGrid } from "../src/designer/snap.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
 
@@ -90,30 +91,93 @@ describe("area and neighbours", () => {
   });
 });
 
+const VENUES = ["club-hall", "small-hall", "sports-hall-b"].map((n) => ref<RcVenue>(`venues/${n}.rcvenue.json`));
+const bakeDesign = (area: Area, obstacles: Obstacle[], design: Design) =>
+  bakeBuilt({ format: "rctrack", version: 1, id: "x", revision: 1, info: { name: "x" }, area, obstacles, design });
+/** which straight (after point k) a start line sits on */
+const straightOf = (d: Design, x: number, z: number) =>
+  d.points.findIndex((a, k) => {
+    const b = d.points[(k + 1) % d.points.length];
+    return (Math.abs(a.z - b.z) < 1e-9 && Math.abs(z - a.z) < 1e-6) || (Math.abs(a.x - b.x) < 1e-9 && Math.abs(x - a.x) < 1e-6);
+  });
+
 describe("starter loop", () => {
   it("fills a plain hall without errors", () => {
     const area = { length: 22, width: 12 };
     const pts = starterLoop(area);
     expect(pts).toHaveLength(4);
-    const b = bakeBuilt({ format: "rctrack", version: 1, id: "x", revision: 1, info: { name: "x" }, area, design: { laneWidth: 2, points: pts } });
+    const b = bakeDesign(area, [], { laneWidth: 2, points: pts });
     expect(b.checks.filter((c) => c.level === "error")).toEqual([]);
     expect(b.size!.length).toBeGreaterThan(17);
   });
-  it("shrinks to clear obstacles", () => {
-    const v = ref<{ area: { length: number; width: number }; obstacles: [] }>("venues/sports-hall-b.rcvenue.json");
-    const pts = starterLoop(v.area, v.obstacles);
-    const b = bakeBuilt({ format: "rctrack", version: 1, id: "x", revision: 1, info: { name: "x" }, area: v.area, obstacles: v.obstacles, design: { laneWidth: 2, points: pts } });
+  it("puts its corners on the lane grid, lanes flush inside the walls when nothing's in the way", () => {
+    const pts = starterLoop({ length: 22, width: 12 }, [], 2);
+    expect(pts.map((p) => [p.x, p.z])).toEqual([[-10, -5], [10, -5], [10, 5], [-10, 5]]);
+    const narrow = starterLoop({ length: 20, width: 11 }, [], 2.5);
+    narrow.forEach((p) => {
+      expect(laneGrid(20, 2.5)).toContain(p.x);
+      expect(laneGrid(11, 2.5)).toContain(p.z);
+    });
+    expect(Math.max(...narrow.map((p) => p.x))).toBe(8.75);
+  });
+  it.each(VENUES.map((v) => [v.info.name, v] as const))("bakes with no errors in %s", (_name, v) => {
+    const d = starterDesign(v.area, v.obstacles ?? [], v.rostrum);
+    const b = bakeDesign(v.area, v.obstacles ?? [], d);
+    expect(b.checks.filter((c) => c.code === "outside-area")).toEqual([]);
     expect(b.checks.filter((c) => c.level === "error")).toEqual([]);
+    d.points.forEach((p) => {
+      expect(laneGrid(v.area.length, 2)).toContain(p.x);
+      expect(laneGrid(v.area.width, 2)).toContain(p.z);
+    });
+  });
+  it("steps one side in by a lane to clear an obstacle, keeping the rest flush", () => {
+    const v = VENUES[2]; // sports hall B: a 2 × 3 m box in the south-east corner
+    const pts = starterLoop(v.area, v.obstacles);
+    const xs = pts.map((p) => p.x), zs = pts.map((p) => p.z);
+    const flush = { e: 11.5, w: -11.5, n: 6, s: -6 };
+    const moved = [Math.max(...xs) !== flush.e, Math.min(...xs) !== flush.w, Math.max(...zs) !== flush.n, Math.min(...zs) !== flush.s];
+    expect(moved.filter(Boolean)).toHaveLength(1);
+  });
+  it("still starts when it can't avoid an obstacle, and the checks show the clash", () => {
+    const area = { length: 12, width: 8 };
+    const obstacles: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 12, width: 1 }];
+    const pts = starterLoop(area, obstacles);
+    expect(pts).toHaveLength(4);
+    const b = bakeDesign(area, obstacles, { laneWidth: 2, points: pts });
+    expect(b.checks.some((c) => c.code === "obstacle")).toBe(true);
   });
 });
 
 describe("starter design", () => {
-  it("puts the start line on the first straight, not in a corner", () => {
+  it("puts the start line on a straight, not in a corner", () => {
     const d = starterDesign({ length: 22, width: 12 });
     const live = liveGeometry(d);
     const at = nearestOnLine(live, [live.startLine.x, live.startLine.z]);
     expect(at.curvature).toBe(0);
-    expect(Math.abs(live.startLine.z - d.points[0].z)).toBeLessThan(1e-9); // on the bottom straight
+  });
+  it.each([
+    ["south", 0],
+    ["east", 1],
+    ["north", 2],
+    ["west", 3],
+  ] as const)("start line on the straight nearest a %s rostrum", (side, straight) => {
+    const area = { length: 22, width: 12 };
+    const d = starterDesign(area, [], { side });
+    const live = liveGeometry(d);
+    expect(straightOf(d, live.startLine.x, live.startLine.z)).toBe(straight);
+    expect(d.rostrum).toEqual({ side });
+  });
+  it.each(VENUES.map((v) => [v.info.name, v] as const))("start line nearest the rostrum in %s", (_name, v) => {
+    const d = starterDesign(v.area, v.obstacles ?? [], v.rostrum);
+    const b = bakeDesign(v.area, v.obstacles ?? [], d);
+    const k = straightOf(d, b.startLine.x, b.startLine.z);
+    expect(k).toBeGreaterThanOrEqual(0);
+    const r = rostrumPosition(v.area, v.rostrum?.side, v.rostrum?.offset);
+    const mid = (j: number) => {
+      const a = d.points[j], c = d.points[(j + 1) % d.points.length];
+      return Math.hypot((a.x + c.x) / 2 - r[0], (a.z + c.z) / 2 - r[1]);
+    };
+    d.points.forEach((_, j) => expect(mid(k)).toBeLessThanOrEqual(mid(j)));
   });
 });
 

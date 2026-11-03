@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { draftFromDoc, toDoc } from "../src/designer/Designer.js";
-import { allows, checkCounts, deletePoint, insertPoint, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, wheelEdit } from "../src/designer/mode.js";
+import { allows, checkCounts, deletePoint, insertPoint, movePoint, pressOnStraight, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, wheelEdit } from "../src/designer/mode.js";
+import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import { keepPinned, pinnedCorners, snapCentre } from "../src/designer/snap.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
@@ -100,6 +101,29 @@ describe("Quick mode edits keep custom values", () => {
       expect(q.z).toBeCloseTo(t.design.points[k].z, 6);
     });
     expect(doc.design.laneWidth).toBe(t.design.laneWidth);
+  });
+});
+
+describe("press and drag on a straight", () => {
+  const area = { length: 22, width: 12 };
+  const loop = [{ x: -10, z: -5 }, { x: 10, z: -5 }, { x: 10, z: 5 }, { x: -10, z: 5 }];
+  it("adds a corner on the straight under the pointer, ready to drag", () => {
+    const r = pressOnStraight("quick", loop, [3.1, -4.7], "lanes", area, 2, 1000);
+    expect(r.i).toBe(1);
+    expect(r.points).toHaveLength(5);
+    expect(r.points[1].z).toBe(-5);
+    expect(r.points[1]).toEqual({ x: r.at[0], z: r.at[1] });
+  });
+  it("adding and dragging the corner is one undo step", () => {
+    const r = pressOnStraight("quick", loop, [3.1, -4.7], "lanes", area, 2, 1000);
+    const set = (s: HistoryState<typeof loop>, next: typeof loop, now: number) => historyReducer(s, { type: "set", next, group: r.group, now });
+    let s: HistoryState<typeof loop> = { past: [], present: loop, future: [], group: null, at: 0 };
+    s = set(s, r.points, 1000);
+    for (let k = 1; k <= 5; k++) s = set(s, movePoint(s.present, r.i, [r.at[0], r.at[1] + k]), 1000 + k * 2000);
+    expect(s.present[r.i]).toMatchObject({ z: 0 });
+    s = historyReducer(s, { type: "undo" });
+    expect(s.present).toBe(loop);
+    expect(s.past).toEqual([]);
   });
 });
 
