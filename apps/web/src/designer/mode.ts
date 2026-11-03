@@ -133,11 +133,12 @@ export function fixFor(c: Check, points: DesignPoint[]): string {
   }
 }
 
-/** Why Submit is blocked, as a plain sentence, or null when it can go. Warnings never block. */
+/** Why Submit is blocked, as a plain sentence, or null when it can go. Warnings never block; errors always do. */
 export function submitBlock({ dirty, pending, checks, points }: { dirty: boolean; pending: boolean; checks: Check[]; points: DesignPoint[] }): string | null {
+  // errors first (from the latest bake, a moment behind while dragging): what to fix matters more than saving
+  const errors = checks.filter((c) => c.level === "error");
+  if (errors.length) return `Submit is waiting on ${errors.length} ${errors.length === 1 ? "error" : "errors"}. ${fixFor(errors[0], points)}`;
   if (dirty) return "Save your changes before submitting.";
   if (pending) return "Checking the track…";
-  const errors = checks.filter((c) => c.level === "error");
-  if (!errors.length) return null;
-  return `Submit is waiting on ${errors.length} ${errors.length === 1 ? "error" : "errors"}. ${fixFor(errors[0], points)}`;
+  return null;
 }

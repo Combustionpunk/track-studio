@@ -1,5 +1,6 @@
 // The track designer: drag corner points, click a straight to add one, wheel for radius / Ctrl+wheel for lane width,
 // place and slide jumps and the start line, live checks, undo/redo, save as a new revision, local auto-save.
+// Quick mode (the default) hides the per-corner controls; Advanced shows everything. See mode.ts.
 import {
   FEATURE_DEFAULTS,
   outerStyle,
@@ -7,6 +8,7 @@ import {
   type Area,
   type BasedOn,
   type Built,
+  type Check,
   type DesignFeature,
   type DesignPoint,
   type FeatureType,
@@ -15,17 +17,19 @@ import {
   type RcTrack,
   type Side,
 } from "@track-studio/engine";
+import { ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, TriangleAlert, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
-import { Message, StatusBadge } from "../components/bits.js";
+import { CopyButton, Message, StatusBadge } from "../components/bits.js";
 import { DEFAULT_LAYERS, lanePath, PlanView, type Layers } from "../components/PlanView.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
-import { useStored } from "../lib/hooks.js";
+import { useMediaQuery, useStored } from "../lib/hooks.js";
 import { featureCorners, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
-import { insertionFor, liveGeometry, nearestOnLine, newPointBetween, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
+import { insertionFor, liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory } from "./history.js";
+import { allows, checkCounts, deletePoint, insertPoint, MODE_KEY, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, type DesignerMode } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { useBake } from "./useBake.js";
 
@@ -40,6 +44,8 @@ const HANDLE_PX = 5; // centre (racing-line) point handle radius on screen
 const MITRE_PX = 6; // outside-corner handle half-size on screen
 const GRAB_PX = 14; // a press on the track this close to a corner point grabs the point (instead of adding one)
 const DRAG_START_PX = 3; // movement before a press on a straight becomes a drag
+/** narrower than this, the designer shows a view-only plan */
+export const PHONE_QUERY = "(max-width: 640px)";
 
 export const FEATURE_TYPES: FeatureType[] = ["tabletop", "double", "kicker", "stepup", "stepdown", "whoops", "bump"];
 
@@ -132,11 +138,29 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const snapRef = useRef(snap.mode);
   snapRef.current = snap.mode;
   const [snapInfo, setSnapInfo] = useState<{ mode: SnapMode; tags: SnapTag[] } | null>(null);
+  const [view, setViewState] = useState<DesignerMode>(() => {
+    try {
+      return readMode(localStorage.getItem(MODE_KEY));
+    } catch {
+      return "quick";
+    }
+  });
+  const setView = (m: DesignerMode) => {
+    setViewState(m);
+    try {
+      localStorage.setItem(MODE_KEY, JSON.stringify({ mode: m }));
+    } catch {
+      /* private mode etc. */
+    }
+  };
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const phone = useMediaQuery(PHONE_QUERY);
   const [shared, setShared] = useState<Guide | null>(null);
   const [dragging, setDragging] = useState<number | null>(null);
   const [hoverPt, setHoverPt] = useState<number | null>(null);
-  /** Shift = fine, Alt = free, otherwise the toolbar's mode */
-  const modeFor = (ev: { shiftKey: boolean; altKey: boolean }): SnapMode => (ev.altKey ? "free" : ev.shiftKey ? "fine" : snapRef.current);
+  /** Shift = fine, Alt = free, otherwise the toolbar's mode; lanes only in Quick */
+  const modeFor = (ev: { shiftKey: boolean; altKey: boolean }): SnapMode => snapModeFor(viewRef.current, ev, snapRef.current);
 
   const live = useMemo(() => liveGeometry(draft.design), [draft.design]);
   const doc = useMemo(() => toDoc(draft, base), [draft, base]);
@@ -164,7 +188,6 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       stats: b?.stats ?? { dividerLength: 0, dividerRuns: 0, corners: 0 },
     };
   }, [bake.built, live, rostrum]);
-  const errors = built.checks.filter((c) => c.level === "error");
 
   // refs for window-level handlers
   const draftRef = useRef(draft);
@@ -227,7 +250,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         setMessage({ kind: "info", text: "A track needs at least 3 corner points." });
         return;
       }
-      setPoints((p) => p.filter((_, i) => i !== s.i));
+      setPoints((p) => deletePoint(p, s.i));
       setSel(null);
     } else if (s.kind === "feature") {
       setFeatures((f) => f.filter((_, i) => i !== s.i));
@@ -263,7 +286,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       } else if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
         hist.redo();
-      } else if ((e.key === "h" || e.key === "H") && !mod && selRef.current?.kind === "point") {
+      } else if ((e.key === "h" || e.key === "H") && !mod && selRef.current?.kind === "point" && allows(viewRef.current, "hairpin")) {
         e.preventDefault();
         const i = selRef.current.i;
         const cur = draftRef.current;
@@ -272,7 +295,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           hist.set({ ...cur, design: { ...cur.design, points: hp } }, `hairpin:${Date.now()}`);
           setMessage(null);
         } else setMessage({ kind: "info", text: "That point is on a straight: there's no turn to make a hairpin of." });
-      } else if ((e.key === "o" || e.key === "O") && !mod && selRef.current?.kind === "point") {
+      } else if ((e.key === "o" || e.key === "O") && !mod && selRef.current?.kind === "point" && allows(viewRef.current, "outer")) {
         e.preventDefault();
         toggleOuter(selRef.current.i);
       } else if (e.key === "Delete" || e.key === "Backspace") {
@@ -330,7 +353,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         setGuides(res.guides);
         setShared(res.shared ?? null);
         if (q[0] === me.x && q[1] === me.z) return;
-        let moved = cur.design.points.map((pt, i) => (i === d.i ? { ...pt, x: q[0], z: q[1] } : pt));
+        let moved = movePoint(cur.design.points, d.i, q);
         pinned.delete(d.i);
         if (pinned.size) moved = keepPinned(moved, pinned, lw, origin);
         hist.set({ ...cur, design: { ...cur.design, points: moved } }, group);
@@ -418,8 +441,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const { after, at: projected } = insertionFor(pts, p);
     const at = snapInsertion(projected, pts, after, modeFor(e), draftRef.current.area, draftRef.current.design.laneWidth ?? 2);
     const i = after + 1;
-    const np = newPointBetween(pts[after], pts[(after + 1) % pts.length], at);
-    setPoints((list) => [...list.slice(0, i), np, ...list.slice(i)], `drag:insert:${Date.now()}`);
+    setPoints((list) => insertPoint(viewRef.current, list, after, at), `drag:insert:${Date.now()}`);
     setSel({ kind: "point", i });
     startDrag(e, svg, { kind: "point", i, offset: [at[0] - p[0], at[1] - p[1]] }, { threshold: true });
   };
@@ -451,6 +473,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       const pts = draftRef.current.design.points;
       if (!(i >= 0 && i < pts.length)) return false;
       const what = e.ctrlKey || e.metaKey ? "width" : "radius";
+      if (!allows(viewRef.current, what)) return false; // Quick: the wheel zooms the plan as anywhere else
       const key = `${what}:${i}`;
       const acc = wheelAcc.current;
       if (acc.key !== key) Object.assign(acc, { key, px: 0 });
@@ -517,6 +540,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // ------------------------------------------------------------------------------------ overlay
   const pointsList = draft.design.points;
   const lw = draft.design.laneWidth ?? 2;
+  const advanced = view === "advanced";
+  // problems drawn by the designer (not PlanView), so Quick and Advanced decide what shows; the bake's checks lag the
+  // live line by a moment while dragging
+  const marks = useMemo(() => (layers.checks ? problemMarks(built.checks, built.racingLine) : []), [layers.checks, built.checks, built.racingLine]);
   const overlay = (m: number) => {
     const selPt = sel?.kind === "point" ? pointsList[sel.i] : null;
     const corner = sel?.kind === "point" ? live.corners[sel.i] : null;
@@ -541,7 +568,16 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {guides.map((g, i) => (
           <line key={i} className="ed-guide" x1={g.from[0]} y1={-g.from[1]} x2={g.to[0]} y2={-g.to[1]} vectorEffect="non-scaling-stroke" />
         ))}
-        {corner && corner.r > 0 && corner.th > 1e-6 && <CornerArc c={corner} />}
+        <g className="ed-problems" aria-hidden="true">
+          {marks.map((k) =>
+            k.kind === "section" ? (
+              <polyline key={k.index} className={`ed-problem-${k.level}`} points={pts(k.points)} strokeWidth={3 * m} />
+            ) : (
+              <circle key={k.index} className={`ed-problem-${k.level}`} cx={k.x} cy={-k.z} r={Math.max(0.5, 9 * m)} strokeWidth={(k.level === "error" ? 3 : 2) * m} />
+            ),
+          )}
+        </g>
+        {corner && corner.r > 0 && corner.th > 1e-6 && advanced && <CornerArc c={corner} />}
         {ghost && <polygon className="ed-ghost" points={pts(ghost)} vectorEffect="non-scaling-stroke" />}
         {built.features.map((f, i) => (
           <polygon
@@ -575,11 +611,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             }}
             vectorEffect="non-scaling-stroke"
           >
-            <title>Corner {i + 1}: drag to move, wheel for radius, Ctrl+wheel for lane width, right-click to delete</title>
+            <title>{advanced ? `Corner ${i + 1}: drag to move, wheel for radius, Ctrl+wheel for lane width, right-click to delete` : `Corner ${i + 1}: drag to move, right-click to delete`}</title>
           </circle>
         ))}
         {pointsList.map((p, i) => {
-          if (!hasMitre(pointsList, i, lw)) return null;
+          if (!advanced || !hasMitre(pointsList, i, lw)) return null;
           const mp = mitrePoint(pointsList, i, lw);
           if (!mp) return null;
           const s = MITRE_PX * m;
@@ -614,7 +650,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               </text>
             );
           })}
-        {selPt && corner && (
+        {selPt && corner && advanced && (
           <text className="ed-label" x={selPt.x} y={-selPt.z - 16 * m} fontSize={12 * m} strokeWidth={3 * m} textAnchor="middle">
             r {fmtR(selPt.radius ?? 1, corner.r)} · lane {fmt.metres(selPt.width ?? draft.design.laneWidth ?? 2, 2)}
           </text>
@@ -625,50 +661,105 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   // ------------------------------------------------------------------------------------ layout
   const status = base?.track;
-  const canSubmit = mode === "edit" && !!base?.can.submit;
-  const submitBlocked = dirty ? "Save first" : errors.length ? `Fix ${errors.length === 1 ? "the error" : `the ${errors.length} errors`} first` : bake.pending ? "Checking…" : null;
+  const showSubmit = !!me && (mode === "new" || !!base?.can.submit);
+  const blocked = submitBlock({ dirty, pending: bake.pending, checks: built.checks, points: pointsList });
+  const venueName = fromVenue?.name ?? (draft.basedOn ? status?.venue?.name ?? draft.basedOn.venueTemplate : undefined);
+  const backTo = mode === "edit" && base ? { to: `/t/${base.id}`, label: "Back to track" } : { to: "/new", label: "Start over" };
+  const showCheck = (x: number, z: number) => {
+    setHighlight([x, z]);
+    // select what the check is about: the nearest corner point or jump
+    let best: Selection = null, bestD = 1.5;
+    draft.design.points.forEach((p, i) => {
+      const d = Math.hypot(p.x - x, p.z - z);
+      if (d < bestD) [best, bestD] = [{ kind: "point", i }, d];
+    });
+    built.features.forEach((f, i) => {
+      const d = Math.hypot(f.x - x, f.z - z);
+      if (d < bestD) [best, bestD] = [{ kind: "feature", i }, d];
+    });
+    setSel(best);
+  };
+  // PlanView draws no checks here: the designer draws them itself (see `marks`)
+  const planBuilt = useMemo(() => ({ ...built, checks: [] }), [built]);
+
+  if (phone) {
+    return (
+      <div className="designer designer-phone">
+        <div className="designer-bar">
+          <Link to={backTo.to} className="btn btn-quiet btn-icon back" aria-label={backTo.label}>
+            <ChevronLeft size={20} aria-hidden="true" />
+          </Link>
+          <h1 className="designer-name">{draft.info.name || "Untitled track"}</h1>
+        </div>
+        <main className="phone-body">
+          <div className="empty">
+            <Monitor size={36} className="empty-icon" aria-hidden="true" />
+            <h1>Design on a laptop or tablet</h1>
+            <p>The designer needs a bigger screen. You can look at the plan here, and pick up where you left off on a laptop or tablet.</p>
+            <CopyButton text={window.location.href} label="Copy link to this design" className="btn btn-touch" />
+          </div>
+          <PlanView area={draft.area} obstacles={draft.obstacles} built={built} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
+          <dl className="figures">
+            <div>
+              <dd>{fmt.metres(live.total)}</dd>
+              <dt>Lap</dt>
+            </div>
+            <div>
+              <dd>{built.stats.corners || "—"}</dd>
+              <dt>Corners</dt>
+            </div>
+            <div>
+              <dd>{status ? fmt.STATUS_LABEL[status.status] : "Not saved"}</dd>
+              <dt>Status</dt>
+            </div>
+          </dl>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="designer">
+    <div className={`designer designer-${view}`}>
       <div className="designer-bar">
-        <div className="designer-title">
-          {mode === "edit" && base ? (
-            <Link to={`/t/${base.id}`} className="back" title="Back to the track page">
-              ←
-            </Link>
-          ) : (
-            <Link to="/new" className="back" title="Start over">
-              ←
-            </Link>
-          )}
-          <input className="name-input" aria-label="Track name" value={draft.info.name} maxLength={80} onChange={(e) => update((d) => ({ ...d, info: { ...d.info, name: e.target.value } }), "name")} />
-          {status && <StatusBadge status={status.status} />}
-          <span className="save-state" aria-live="polite">
-            {dirty ? "Unsaved changes · kept on this device" : base ? `Saved · revision ${base.revision}` : "Not saved yet"}
-          </span>
-        </div>
-        <div className="designer-actions">
-          <button type="button" className="btn" onClick={hist.undo} disabled={!hist.canUndo} title="Undo (Ctrl+Z)">
-            Undo
-          </button>
-          <button type="button" className="btn" onClick={hist.redo} disabled={!hist.canRedo} title="Redo (Ctrl+Shift+Z)">
-            Redo
-          </button>
-          {canSubmit && (
-            <button type="button" className="btn" onClick={submit} disabled={!!submitBlocked} title={submitBlocked ?? "Send to the organisers for approval"}>
-              Submit{submitBlocked ? ` (${submitBlocked.toLowerCase()})` : ""}
+        <Link to={backTo.to} className="btn btn-quiet btn-icon back" aria-label={backTo.label} title={backTo.label}>
+          <ChevronLeft size={20} aria-hidden="true" />
+        </Link>
+        <input className="name-input" aria-label="Track name" value={draft.info.name} maxLength={80} onChange={(e) => update((d) => ({ ...d, info: { ...d.info, name: e.target.value } }), "name")} />
+        <span className="designer-venue">
+          {venueName ? `${venueName} · ` : ""}
+          {fmt.size(draft.area, true)}
+        </span>
+        {status && <StatusBadge status={status.status} />}
+        <div className="mode-toggle" role="group" aria-label="Mode">
+          {(["quick", "advanced"] as const).map((m) => (
+            <button key={m} type="button" aria-pressed={view === m} onClick={() => setView(m)} title={m === "quick" ? "The essentials: move, add and delete corners, jumps, start line" : "Everything: corner radius, lane widths, outside corners, fine and free snapping, all checks"}>
+              {m === "quick" ? "Quick" : "Advanced"}
             </button>
-          )}
-          {me ? (
-            <button type="button" className="btn btn-primary" onClick={() => setSaveOpen((o) => !o)} disabled={saving || (!dirty && mode === "edit")} aria-expanded={saveOpen}>
-              {saving ? "Saving…" : mode === "new" ? "Save track" : "Save revision"}
-            </button>
-          ) : (
-            <a className="btn btn-primary" href={loginUrl()}>
-              Log in to save
-            </a>
-          )}
+          ))}
         </div>
+        <button type="button" className="btn btn-icon" onClick={hist.undo} disabled={!hist.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
+          <Undo2 size={20} aria-hidden="true" />
+        </button>
+        <button type="button" className="btn btn-icon" onClick={hist.redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
+          <Redo2 size={20} aria-hidden="true" />
+        </button>
+        <span className="save-state" aria-live="polite">
+          {dirty ? "Unsaved changes · kept on this device" : base ? `Saved · revision ${base.revision}` : "Not saved yet"}
+        </span>
+        {me ? (
+          <button type="button" className={`btn ${showSubmit ? "" : "btn-primary"}`} onClick={() => setSaveOpen((o) => !o)} disabled={saving || (!dirty && mode === "edit")} aria-expanded={saveOpen}>
+            {saving ? "Saving…" : mode === "new" ? "Save track" : "Save revision"}
+          </button>
+        ) : (
+          <a className="btn btn-primary" href={loginUrl()}>
+            Log in to save
+          </a>
+        )}
+        {showSubmit && (
+          <button type="button" className="btn btn-primary" onClick={submit} disabled={!!blocked} aria-describedby={blocked ? "submit-why" : undefined} title={blocked ?? "Send to the organisers for approval"}>
+            Submit track
+          </button>
+        )}
         {saveOpen && me && (
           <form
             className="save-pop"
@@ -698,99 +789,115 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         )}
       </div>
 
-      {restore && (
-        <Message>
-          You have unsaved changes from {fmt.dateTime(restore.savedAt)}
-          {base && restore.baseRevision !== base.revision ? ` (made on revision ${restore.baseRevision}; the track is at revision ${base.revision} now)` : ""}.{" "}
-          <button
-            type="button"
-            className="linkish"
-            onClick={() => {
-              hist.set(restore.draft);
-              setRestore(null);
-            }}
-          >
-            Restore them
-          </button>{" "}
-          ·{" "}
-          <button
-            type="button"
-            className="linkish"
-            onClick={() => {
-              try {
-                localStorage.removeItem(storageKey);
-              } catch {
-                /* ignore */
-              }
-              setRestore(null);
-            }}
-          >
-            Discard
-          </button>
-        </Message>
-      )}
-      {!me && <Message>You're not logged in: you can try the designer, and your work is kept on this device, but log in to save it.</Message>}
-      {message && <Message kind={message.kind}>{message.text}</Message>}
-      {status?.approvedRevision && (
-        <Message>
-          Revision {status.approvedRevision} is approved: it stays in the library and at meetings until a newer revision is approved. Saving here creates a new draft.
-        </Message>
+      {(restore || !me || message || status?.approvedRevision) && (
+        <div className="designer-messages">
+          {restore && (
+            <Message>
+              You have unsaved changes from {fmt.dateTime(restore.savedAt)}
+              {base && restore.baseRevision !== base.revision ? ` (made on revision ${restore.baseRevision}; the track is at revision ${base.revision} now)` : ""}.{" "}
+              <button
+                type="button"
+                className="linkish"
+                onClick={() => {
+                  hist.set(restore.draft);
+                  setRestore(null);
+                }}
+              >
+                Restore them
+              </button>{" "}
+              ·{" "}
+              <button
+                type="button"
+                className="linkish"
+                onClick={() => {
+                  try {
+                    localStorage.removeItem(storageKey);
+                  } catch {
+                    /* ignore */
+                  }
+                  setRestore(null);
+                }}
+              >
+                Discard
+              </button>
+            </Message>
+          )}
+          {!me && <Message>You're not logged in: you can try the designer, and your work is kept on this device, but log in to save it.</Message>}
+          {message && <Message kind={message.kind}>{message.text}</Message>}
+          {status?.approvedRevision && (
+            <Message>
+              Revision {status.approvedRevision} is approved: it stays in the library and at meetings until a newer revision is approved. Saving here creates a new draft.
+            </Message>
+          )}
+        </div>
       )}
 
       <div className="designer-grid">
-        <div className="designer-main">
-          <div className="toolbar" role="toolbar" aria-label="Tools">
-            <button type="button" className={`tool ${tool.kind === "select" ? "on" : ""}`} onClick={() => setTool({ kind: "select" })} title="Move points, jumps and the start line (Esc)">
-              Select
+        <aside className="designer-palette" aria-label="Add to the track">
+          <span className="label">Jumps</span>
+          {FEATURE_TYPES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              className="palette-btn"
+              aria-pressed={tool.kind === "feature" && tool.type === t}
+              onClick={() => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t })}
+              title={`Click on the racing line to place a ${fmt.FEATURE_LABEL[t].toLowerCase()}`}
+            >
+              {fmt.FEATURE_LABEL[t]}
             </button>
-            <span className="tool-sep" aria-hidden="true" />
-            <span className="tool-label">Add jump:</span>
-            {FEATURE_TYPES.map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={`tool ${tool.kind === "feature" && tool.type === t ? "on" : ""}`}
-                onClick={() => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t })}
-                title={`Click on the track to place a ${fmt.FEATURE_LABEL[t].toLowerCase()}`}
-              >
-                {fmt.FEATURE_LABEL[t]}
-              </button>
-            ))}
-            {tool.kind === "feature" ? (
-              <span className="tool-hint">Click on the track to place the {fmt.FEATURE_LABEL[tool.type].toLowerCase()} · Esc to cancel</span>
-            ) : (
-              <span className="snap-bar">
-                <span className="seg" role="radiogroup" aria-label="Snap">
-                  <span className="seg-label">Snap</span>
-                  {(["lanes", "fine", "free"] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      role="radio"
-                      aria-checked={snap.mode === m}
-                      className={snap.mode === m ? "on" : ""}
-                      onClick={() => setSnap({ mode: m })}
-                      title={m === "lanes" ? "Lanes: points on the lane grid, lanes against the walls and beside each other" : m === "fine" ? "Fine: 25 cm grid and 45° (hold Shift)" : "Free: no snapping (hold Alt)"}
-                    >
-                      {SNAP_LABEL[m]}
-                    </button>
-                  ))}
-                </span>
-                <span className="snap-info">Shift: fine · Alt: free</span>
-              </span>
-            )}
-          </div>
-          <div className="designer-plan-wrap">
-          {snapInfo && (
-            <div className="snap-float" aria-live="polite">
+          ))}
+          <span className="label label-gap">Track</span>
+          <button
+            type="button"
+            className="palette-btn"
+            aria-pressed={sel?.kind === "start"}
+            onClick={() => {
+              setTool({ kind: "select" });
+              setSel({ kind: "start" });
+              setHighlight([built.startLine.x, built.startLine.z]);
+            }}
+            title="Select the start line, then drag it along the track"
+          >
+            Start line
+          </button>
+          {advanced && (
+            <div className="seg seg-snap" role="radiogroup" aria-label="Snap">
+              <span className="label">Snap</span>
+              {(["lanes", "fine", "free"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={snap.mode === m}
+                  className={snap.mode === m ? "on" : ""}
+                  onClick={() => setSnap({ mode: m })}
+                  title={m === "lanes" ? "Lanes: points on the lane grid, lanes against the walls and beside each other" : m === "fine" ? "Fine: 25 cm grid and 45° (hold Shift)" : "Free: no snapping (hold Alt)"}
+                >
+                  {SNAP_LABEL[m]}
+                </button>
+              ))}
+              <span className="snap-info">Shift: fine · Alt: free</span>
+            </div>
+          )}
+          <p className="palette-help">
+            {tool.kind === "feature" ? `Click on the racing line to place the ${fmt.FEATURE_LABEL[tool.type].toLowerCase()}. Esc to cancel.` : "Pick a jump, then click on the racing line to place it."}
+          </p>
+        </aside>
+
+        <section className="designer-plan-wrap" aria-label="Plan">
+          {snapInfo ? (
+            <div className="plan-hint" aria-live="polite">
               <b>{SNAP_LABEL[snapInfo.mode]}</b>
               {snapInfo.tags.length > 0 && <> · {snapInfo.tags.join(" · ")}</>}
             </div>
+          ) : (
+            <div className="plan-hint">{tool.kind === "feature" ? "Click on the racing line to place it." : "Click a straight to add a corner. Drag a corner to move it."}</div>
           )}
           <PlanView
             area={draft.area}
             obstacles={draft.obstacles}
-            built={built}
+            built={planBuilt}
             designFeatures={draft.design.features}
             layers={layers}
             onLayersChange={setLayers}
@@ -804,37 +911,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               setHighlight(null);
             }}
           />
-          </div>
-        </div>
-        <aside className="designer-side">
-          <Stats built={built} pending={bake.pending} live={live} />
-          <SelectionPanel
-            sel={sel}
-            draft={draft}
-            live={live}
-            update={update}
-            onDelete={deleteSelection}
-            fromVenue={fromVenue?.name ?? (draft.basedOn ? status?.venue?.name ?? draft.basedOn.venueTemplate : undefined)}
-          />
-          <ChecksPanel
-            built={built}
-            pending={bake.pending}
-            onShow={(x, z) => {
-              setHighlight([x, z]);
-              // select what the check is about: the nearest corner point or jump
-              let best: Selection = null, bestD = 1.5;
-              draft.design.points.forEach((p, i) => {
-                const d = Math.hypot(p.x - x, p.z - z);
-                if (d < bestD) [best, bestD] = [{ kind: "point", i }, d];
-              });
-              built.features.forEach((f, i) => {
-                const d = Math.hypot(f.x - x, f.z - z);
-                if (d < bestD) [best, bestD] = [{ kind: "feature", i }, d];
-              });
-              setSel(best);
-            }}
-          />
-          <Shortcuts />
+        </section>
+
+        <aside className="designer-side" aria-label="Checks">
+          <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} onShow={showCheck} />
+          <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} />
+          {advanced && <Shortcuts />}
+          <Stats built={built} live={live} view={view} />
         </aside>
       </div>
     </div>
@@ -865,60 +948,87 @@ function StartHandle({ built, m, on, onPointerDown }: { built: Built; m: number;
   );
 }
 
-function Stats({ built, pending, live }: { built: Built; pending: boolean; live: Live }) {
+function Stats({ built, live, view }: { built: Built; live: Live; view: DesignerMode }) {
   return (
-    <section className="panel stats-panel" aria-labelledby="st-h">
-      <h2 id="st-h">
-        Track {pending && <span className="pending" title="Updating">…</span>}
-      </h2>
-      <dl className="stat-grid">
-        <div>
-          <dt>Lap</dt>
-          <dd>{fmt.metres(live.total)}</dd>
-        </div>
-        <div>
-          <dt>Corners</dt>
-          <dd>{built.stats.corners || "—"}</dd>
-        </div>
-        <div>
-          <dt>Size</dt>
-          <dd>{fmt.size(built.size, true)}</dd>
-        </div>
-        <div>
-          <dt>Pipe</dt>
-          <dd>{built.stats.dividerLength ? `${Math.round(built.stats.dividerLength)} m` : "—"}</dd>
-        </div>
-      </dl>
-    </section>
+    <dl className="figures designer-stats">
+      <div>
+        <dd>{fmt.metres(live.total)}</dd>
+        <dt>Lap</dt>
+      </div>
+      <div>
+        <dd>{built.stats.corners || "—"}</dd>
+        <dt>Corners</dt>
+      </div>
+      <div>
+        <dd>{built.features.length}</dd>
+        <dt>Jumps</dt>
+      </div>
+      {view === "advanced" && (
+        <>
+          <div>
+            <dd>{fmt.size(built.size, true)}</dd>
+            <dt>Size</dt>
+          </div>
+          <div>
+            <dd>{built.stats.dividerLength ? `${Math.round(built.stats.dividerLength)} m` : "—"}</dd>
+            <dt>Pipe</dt>
+          </div>
+        </>
+      )}
+    </dl>
   );
 }
 
-function ChecksPanel({ built, pending, onShow }: { built: Built; pending: boolean; onShow: (x: number, z: number) => void }) {
-  const order = { error: 0, warning: 1, info: 2 } as const;
-  const checks = [...built.checks].sort((a, b) => order[a.level] - order[b.level]);
+const CHECK_ICON = { error: CircleX, warning: TriangleAlert, info: Info } as const;
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+function ChecksPanel({ checks, view, pending, blocked, onShow }: { checks: Check[]; view: DesignerMode; pending: boolean; blocked: string | null; onShow: (x: number, z: number) => void }) {
+  const shown = visibleChecks(checks, view);
+  const { errors, warnings } = checkCounts(checks);
   return (
-    <section className="panel" aria-labelledby="ck-h">
+    <section className="checks-panel" aria-labelledby="ck-h">
       <h2 id="ck-h">
-        Checks <span className="count-pill">{checks.length}</span>
-        {pending && <span className="pending" title="Updating">…</span>}
+        Checks {pending && <span className="pending" title="Updating">…</span>}
       </h2>
-      {checks.length === 0 ? (
-        <p className="ok">No problems found.</p>
-      ) : (
+      {shown.length === 0 ? (
         <ul className="checks">
-          {checks.map((c, i) => (
-            <li key={i} className={`lvl-${c.level}`}>
-              <span className="lvl">{c.level === "error" ? "Error" : c.level === "warning" ? "Warning" : "Note"}</span>
-              {c.x !== undefined && c.z !== undefined ? (
-                <button type="button" className="check-link" onClick={() => onShow(c.x!, c.z!)}>
-                  {c.message}
-                </button>
-              ) : (
-                <span className="msg-text">{c.message}</span>
-              )}
-            </li>
-          ))}
+          <li className="check check-ok">
+            <CircleCheck size={16} aria-hidden="true" />
+            <span>No problems. Ready to submit.</span>
+          </li>
         </ul>
+      ) : (
+        <>
+          <p className="check-counts" aria-live="polite">
+            {errors > 0 && <span className="lvl-error">{plural(errors, "error")}</span>}
+            {warnings > 0 && <span className="lvl-warning">{plural(warnings, "warning")}</span>}
+            {errors + warnings === 0 && <span>Notes only</span>}
+          </p>
+          <ul className="checks">
+            {shown.map((c, i) => {
+              const Icon = CHECK_ICON[c.level];
+              return (
+                <li key={i} className={`check check-${c.level}`}>
+                  <Icon size={16} aria-label={c.level === "error" ? "Error" : c.level === "warning" ? "Warning" : "Note"} />
+                  <span>
+                    {c.message}
+                    {view === "advanced" && <code className="check-code">{c.code}</code>}
+                  </span>
+                  {c.x !== undefined && c.z !== undefined && (
+                    <button type="button" className="check-show" onClick={() => onShow(c.x!, c.z!)}>
+                      Show
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+      {blocked && (
+        <p id="submit-why" className="submit-why">
+          {blocked}
+        </p>
       )}
     </section>
   );
@@ -963,6 +1073,7 @@ function NumberField({ label, value, step, min, max, placeholder, onChange, suff
 
 function SelectionPanel({
   sel,
+  view,
   draft,
   live,
   update,
@@ -970,6 +1081,7 @@ function SelectionPanel({
   fromVenue,
 }: {
   sel: Selection;
+  view: DesignerMode;
   draft: Draft;
   live: Live;
   update: (fn: (d: Draft) => Draft, group?: string) => void;
@@ -985,8 +1097,18 @@ function SelectionPanel({
     const p = draft.design.points[sel.i];
     const c = live.corners[sel.i];
     if (!p) return null;
+    if (view === "quick")
+      return (
+        <section className="sel-panel" aria-labelledby="sel-h">
+          <h2 id="sel-h">Corner {sel.i + 1}</h2>
+          <p className="hint">Drag it to move it. Right-click it or press Delete to remove it.</p>
+          <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= 3}>
+            Delete corner
+          </button>
+        </section>
+      );
     return (
-      <section className="panel" aria-labelledby="sel-h">
+      <section className="sel-panel" aria-labelledby="sel-h">
         <h2 id="sel-h">Corner point {sel.i + 1}</h2>
         <div className="fields">
           <NumberField label="East (x)" value={p.x} step={0.25} onChange={(v) => v !== undefined && setPoint(sel.i, { x: v }, "x")} />
@@ -1033,8 +1155,18 @@ function SelectionPanel({
     const f = draft.design.features?.[sel.i];
     if (!f) return null;
     const [L0, H0] = FEATURE_DEFAULTS[f.type];
+    if (view === "quick")
+      return (
+        <section className="sel-panel" aria-labelledby="sel-h">
+          <h2 id="sel-h">{fmt.FEATURE_LABEL[f.type]}</h2>
+          <p className="hint">Drag it along the track to move it.</p>
+          <button type="button" className="btn btn-danger" onClick={onDelete}>
+            Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
+          </button>
+        </section>
+      );
     return (
-      <section className="panel" aria-labelledby="sel-h">
+      <section className="sel-panel" aria-labelledby="sel-h">
         <h2 id="sel-h">{fmt.FEATURE_LABEL[f.type]}</h2>
         <div className="fields">
           <label className="nfield">
@@ -1059,8 +1191,15 @@ function SelectionPanel({
     );
   }
   if (sel?.kind === "start") {
+    if (view === "quick")
+      return (
+        <section className="sel-panel" aria-labelledby="sel-h">
+          <h2 id="sel-h">Start line</h2>
+          <p className="hint">Drag the line along the track. Cars start towards the arrow.</p>
+        </section>
+      );
     return (
-      <section className="panel" aria-labelledby="sel-h">
+      <section className="sel-panel" aria-labelledby="sel-h">
         <h2 id="sel-h">Start / finish</h2>
         <div className="fields">
           <NumberField
@@ -1074,10 +1213,11 @@ function SelectionPanel({
       </section>
     );
   }
-  // nothing selected: the track's own settings
+  // nothing selected: the track's own settings (Advanced only)
+  if (view === "quick") return null;
   const rostrum = draft.design.rostrum ?? { side: "south" as Side };
   return (
-    <section className="panel" aria-labelledby="sel-h">
+    <section className="sel-panel" aria-labelledby="sel-h">
       <h2 id="sel-h">Track settings</h2>
       <div className="fields">
         <NumberField
@@ -1119,7 +1259,7 @@ function SelectionPanel({
 
 function Shortcuts() {
   return (
-    <details className="panel shortcuts">
+    <details className="sel-panel shortcuts">
       <summary>How to draw</summary>
       <ul>
         <li>

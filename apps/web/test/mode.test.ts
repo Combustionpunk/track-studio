@@ -162,6 +162,10 @@ describe("Submit", () => {
     );
   });
 
+  it("errors block even with unsaved changes, and say so first", () => {
+    expect(submitBlock({ ...base, dirty: true, pending: true, checks: [{ level: "error", code: "outside-area", x: 30, z: 30, message: "x" }] })).toMatch(/^Submit is waiting on 1 error\./);
+  });
+
   it("asks to save first, and waits for the checks", () => {
     expect(submitBlock({ ...base, dirty: true, checks: [] })).toBe("Save your changes before submitting.");
     expect(submitBlock({ ...base, pending: true, checks: [] })).toBe("Checking the track…");

@@ -22,6 +22,7 @@
   --plan-keepout-edge: #ff6060;
   --plan-rostrum: #6a3da3;
   --plan-warning: #ffb000;
+  --plan-error: #ff7f5c;
 
   /* controls over the plan */
   --plan-ui-bg: rgb(20 26 22 / 0.82);
