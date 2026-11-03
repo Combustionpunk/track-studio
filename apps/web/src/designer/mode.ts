@@ -1,8 +1,8 @@
 // Quick and Advanced designer modes. Both edit the same .rctrack.json; Quick only hides controls and never writes
 // per-corner radius, width or outer values (nor removes ones a track already has).
-import type { Check, CheckLevel, DesignPoint, Point2, RacingLinePoint } from "@track-studio/engine";
-import { newPointBetween } from "./geometry.js";
-import type { SnapMode } from "./snap.js";
+import type { Area, Check, CheckLevel, DesignPoint, Point2, RacingLinePoint } from "@track-studio/engine";
+import { insertionFor, newPointBetween } from "./geometry.js";
+import { snapInsertion, type SnapMode } from "./snap.js";
 
 export type DesignerMode = "quick" | "advanced";
 
@@ -50,6 +50,16 @@ export function snapModeFor(mode: DesignerMode, ev: { shiftKey: boolean; altKey:
 export function insertPoint(mode: DesignerMode, points: DesignPoint[], after: number, at: Point2): DesignPoint[] {
   const np: DesignPoint = mode === "quick" ? { x: at[0], z: at[1] } : newPointBetween(points[after], points[(after + 1) % points.length], at);
   return [...points.slice(0, after + 1), np, ...points.slice(after + 1)];
+}
+
+/**
+ * Pressing on a straight: a new corner there (snapped along the straight), index `i`, and the history group the drag
+ * that follows must use, so adding the corner and dragging it are one undo step.
+ */
+export function pressOnStraight(mode: DesignerMode, points: DesignPoint[], p: Point2, snap: SnapMode, area: Area, lw: number, now: number) {
+  const { after, at: projected } = insertionFor(points, p);
+  const at = snapInsertion(projected, points, after, snap, area, lw);
+  return { points: insertPoint(mode, points, after, at), i: after + 1, at, group: `drag:insert:${now}` };
 }
 
 /** Move corner `i`, keeping everything else about it. */

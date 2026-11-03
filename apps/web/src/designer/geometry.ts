@@ -11,6 +11,7 @@ import {
   headingDeg,
   laneRings,
   racingLine,
+  rostrumPosition,
   SAMPLE,
   type Area,
   type BuiltFeature,
@@ -23,6 +24,7 @@ import {
   type Obstacle,
   type Point2,
   type RcTrack,
+  type RostrumPlacement,
   type StartLine,
 } from "@track-studio/engine";
 
@@ -238,9 +240,17 @@ export function newPointBetween(a: DesignPoint, b: DesignPoint, at: Point2): Des
 }
 
 // ---------------------------------------------------------------------------------------------- starting loop
+type Insets = Record<"e" | "w" | "n" | "s", number>;
+/** the starter loop's sides can't come closer together than this */
+const MIN_SPAN = 2; // m
+/** how many times a side may step in by a lane to get out of an obstacle's way */
+const MAX_STEPS_IN = 6;
+
 /**
- * A simple loop to reshape: a rounded rectangle just inside the area, shrunk until it clears the obstacles and stays
- * in the area (checked with the engine).
+ * A simple loop to reshape: four corners on the lane grid, so the lanes run flush inside the area's walls. Where that
+ * clashes with an obstacle (or anything else the engine calls an error), one side at a time steps in by a whole lane,
+ * whichever clears most and keeps most of the loop, until it bakes clean. If it never does, the loop with the fewest
+ * errors is kept, so the designer still starts and the checks show the clash.
  */
 export function starterLoop(area: Area, obstacles: Obstacle[] = [], laneWidth = 2): DesignPoint[] {
   const doc = (points: DesignPoint[]): RcTrack => ({
@@ -253,30 +263,51 @@ export function starterLoop(area: Area, obstacles: Obstacle[] = [], laneWidth = 
     obstacles,
     design: { laneWidth, points },
   });
-  let fallback: DesignPoint[] | null = null;
-  for (let inset = laneWidth / 2 + 0.5; inset < Math.min(area.length, area.width) / 2; inset += 0.5) {
-    const hx = Math.floor((area.length / 2 - inset) / GRID) * GRID, hz = Math.floor((area.width / 2 - inset) / GRID) * GRID;
-    if (hx < 1 || hz < 1) break;
-    const r = Math.max(1, Math.min(2.5, hz / 2));
-    const points: DesignPoint[] = [
-      { x: -hx, z: -hz, radius: r },
-      { x: hx, z: -hz, radius: r },
-      { x: hx, z: hz, radius: r },
-      { x: -hx, z: hz, radius: r },
+  const X = area.length / 2 - laneWidth / 2, Z = area.width / 2 - laneWidth / 2;
+  const loop = (k: Insets): DesignPoint[] | null => {
+    const e = r3(X - k.e * laneWidth), w = r3(-X + k.w * laneWidth), n = r3(Z - k.n * laneWidth), s = r3(-Z + k.s * laneWidth);
+    if (e - w < MIN_SPAN || n - s < MIN_SPAN) return null;
+    const radius = Math.max(1, Math.min(2.5, (n - s) / 4));
+    return [
+      { x: w, z: s, radius },
+      { x: e, z: s, radius },
+      { x: e, z: n, radius },
+      { x: w, z: n, radius },
     ];
-    fallback ??= points;
-    const errors = bakeBuilt(doc(points)).checks.filter((c) => c.level === "error");
-    if (!errors.length) return points;
+  };
+  const errors = (points: DesignPoint[]) => bakeBuilt(doc(points)).checks.filter((c) => c.level === "error").length;
+  const size = (p: DesignPoint[]) => (p[1].x - p[0].x) * (p[2].z - p[1].z);
+
+  let cur: Insets = { e: 0, w: 0, n: 0, s: 0 };
+  const flush = loop(cur);
+  if (!flush) return [{ x: -2, z: -1, radius: 1 }, { x: 2, z: -1, radius: 1 }, { x: 2, z: 1, radius: 1 }, { x: -2, z: 1, radius: 1 }];
+  let best = { points: flush, errors: errors(flush) };
+  for (let step = 0; step < MAX_STEPS_IN && best.errors > 0; step++) {
+    let next: { k: Insets; points: DesignPoint[]; errors: number } | null = null;
+    for (const side of ["e", "w", "n", "s"] as const) {
+      const k = { ...cur, [side]: cur[side] + 1 };
+      const points = loop(k);
+      if (!points) continue;
+      const n = errors(points);
+      if (!next || n < next.errors || (n === next.errors && size(points) > size(next.points))) next = { k, points, errors: n };
+    }
+    if (!next) break;
+    cur = next.k;
+    if (next.errors < best.errors) best = next;
   }
-  return fallback ?? [{ x: -2, z: -1, radius: 1 }, { x: 2, z: -1, radius: 1 }, { x: 2, z: 1, radius: 1 }, { x: -2, z: 1, radius: 1 }];
+  return best.points;
 }
 
-/** A starting design: the starter loop, with the start line in the middle of its first straight. */
-export function starterDesign(area: Area, obstacles: Obstacle[] = [], laneWidth = 2): Design {
+/** A starting design: the starter loop, with the start line in the middle of the straight nearest the rostrum. */
+export function starterDesign(area: Area, obstacles: Obstacle[] = [], rostrum: RostrumPlacement = {}, laneWidth = 2): Design {
   const points = starterLoop(area, obstacles, laneWidth);
-  const { corners } = racingLine(points, laneWidth);
-  const c0 = corners[0], c1 = corners[1];
-  const straight = Math.hypot(c1.start[0] - c0.end[0], c1.start[1] - c0.end[1]);
-  const distance = Math.round((c0.r * c0.th + straight / 2) / GRID) * GRID;
-  return { laneWidth, points, features: [], start: { distance } };
+  const live = liveGeometry({ laneWidth, points });
+  const r = rostrumPosition(area, rostrum.side, rostrum.offset);
+  const mids = points.map((a, k): Point2 => {
+    const b = points[(k + 1) % points.length];
+    return [(a.x + b.x) / 2, (a.z + b.z) / 2];
+  });
+  const mid = mids.reduce((m, q) => (Math.hypot(q[0] - r[0], q[1] - r[1]) < Math.hypot(m[0] - r[0], m[1] - r[1]) ? q : m));
+  const distance = wrapDistance(nearestOnLine(live, mid).s, live.total);
+  return { laneWidth, points, features: [], start: { distance }, rostrum: { side: "south", ...rostrum } };
 }

@@ -27,10 +27,10 @@ import * as fmt from "../lib/format.js";
 import { useMediaQuery, useStored } from "../lib/hooks.js";
 import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
-import { insertionFor, liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
+import { liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory } from "./history.js";
-import { allows, checkCounts, wheelEdit, deletePoint, insertPoint, MODE_KEY, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, type DesignerMode } from "./mode.js";
-import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
+import { allows, checkCounts, wheelEdit, deletePoint, MODE_KEY, movePoint, pressOnStraight, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, type DesignerMode } from "./mode.js";
+import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { useBake } from "./useBake.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -321,9 +321,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     | { kind: "mitre"; i: number; offset: Point2 }
     | { kind: "feature"; i: number; ds: number }
     | { kind: "start"; ds: number };
-  const startDrag = (e: React.PointerEvent, svg: SVGSVGElement, d: DragKind, opts: { threshold?: boolean; onClick?: () => void } = {}) => {
+  const startDrag = (e: React.PointerEvent, svg: SVGSVGElement, d: DragKind, opts: { threshold?: boolean; onClick?: () => void; group?: string } = {}) => {
     e.stopPropagation();
-    const group = `drag:${d.kind}:${Date.now()}`;
+    const group = opts.group ?? `drag:${d.kind}:${Date.now()}`;
     const x0 = e.clientX, y0 = e.clientY;
     let started = !opts.threshold;
     const move = (ev: PointerEvent) => {
@@ -440,12 +440,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       return;
     }
     // on a straight: add a point there (and drag it if the pointer moves)
-    const { after, at: projected } = insertionFor(pts, p);
-    const at = snapInsertion(projected, pts, after, modeFor(e), draftRef.current.area, draftRef.current.design.laneWidth ?? 2);
-    const i = after + 1;
-    setPoints((list) => insertPoint(viewRef.current, list, after, at), `drag:insert:${Date.now()}`);
-    setSel({ kind: "point", i });
-    startDrag(e, svg, { kind: "point", i, offset: [at[0] - p[0], at[1] - p[1]] }, { threshold: true });
+    const ins = pressOnStraight(viewRef.current, pts, p, modeFor(e), draftRef.current.area, draftRef.current.design.laneWidth ?? 2, Date.now());
+    update((d) => ({ ...d, design: { ...d.design, points: ins.points } }), ins.group);
+    setSel({ kind: "point", i: ins.i });
+    startDrag(e, svg, { kind: "point", i: ins.i, offset: [ins.at[0] - p[0], ins.at[1] - p[1]] }, { threshold: true, group: ins.group });
   };
 
   const onFeatureDown = (e: React.PointerEvent<SVGPolygonElement>, i: number) => {

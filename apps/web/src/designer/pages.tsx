@@ -41,7 +41,7 @@ export function NewTrackPage() {
           ))}
         </div>
       )}
-      <h2 className="section-h">From a blank area</h2>
+      <h2 className="section-h">Start blank</h2>
       <form className="panel blank-form" onSubmit={blank}>
         <label className="nfield">
           <span>Name</span>
@@ -106,11 +106,11 @@ export function NewDesignPage() {
         area: v.area,
         obstacles: v.obstacles ?? [],
         basedOn: { venueTemplate: v.id, revision: v.revision },
-        design: { ...starterDesign(v.area, v.obstacles ?? []), rostrum: { side: "south", ...v.rostrum } },
+        design: starterDesign(v.area, v.obstacles ?? [], v.rostrum),
       };
     }
     const area = { length: Math.min(100, Math.max(5, L)), width: Math.min(100, Math.max(5, W)) };
-    return { info: { name }, area, obstacles: [], basedOn: null, design: { ...starterDesign(area), rostrum: { side: "south" } } };
+    return { info: { name }, area, obstacles: [], basedOn: null, design: starterDesign(area) };
   }, [venueId, venue.data, L, W, name]);
 
   if (venue.error) return venue.error instanceof ApiError && venue.error.status === 404 ? <NotFound what="venue" /> : <div className="wrap page"><Message kind="error">{venue.error.message}</Message></div>;
