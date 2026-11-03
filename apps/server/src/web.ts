@@ -8,8 +8,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
 import type { DB } from "./db.js";
 import { HttpError } from "./errors.js";
-import { themeHead } from "./theme.js";
-import { describeTrack, PREVIEW_WIDTH, previewHeight } from "./previews.js";
+import { CARD_HEIGHT, CARD_WIDTH } from "./card.js";
+import { themeHead, type ThemeSync } from "./theme.js";
+import { describeTrack, PREVIEW_WIDTH, previewHeight, trackCard } from "./previews.js";
 import { getTrackDoc, getTrackRow, getVenueDoc, getVenueRow, previewUrl, publicRevision, type TrackRow } from "./store.js";
 
 export type WebMode = "dev" | "static" | "off";
@@ -50,12 +51,14 @@ interface Page {
   embed?: boolean;
 }
 
-function trackPage(db: DB, config: Config, row: TrackRow, path: string, revision?: number): Page {
+function trackPage(db: DB, config: Config, theme: ThemeSync, row: TrackRow, path: string, revision?: number): Page {
   const rev = revision ?? publicRevision(row);
   const doc = getTrackDoc(db, row, rev);
   const hash = db.prepare("SELECT preview_hash FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(row.id, rev) as string;
   const pageUrl = `${config.baseUrl}/t/${row.id}`;
   const image = `${config.baseUrl}${previewUrl(row.id, rev, hash)}`;
+  // link previews get the card (name, status, figures and plan); the page itself shows the plan
+  const card = `${config.baseUrl}${trackCard(db, theme, row, rev).url}`;
   const title = doc.info.name;
   const description = describeTrack(row);
   const height = previewHeight(doc.area);
@@ -67,14 +70,14 @@ function trackPage(db: DB, config: Config, row: TrackRow, path: string, revision
     `<meta property="og:title" content="${esc(title)}">`,
     `<meta property="og:description" content="${esc(description)}">`,
     `<meta property="og:url" content="${esc(pageUrl)}">`,
-    `<meta property="og:image" content="${esc(image)}">`,
-    `<meta property="og:image:width" content="${PREVIEW_WIDTH}">`,
-    `<meta property="og:image:height" content="${height}">`,
-    `<meta property="og:image:alt" content="${esc(alt)}">`,
+    `<meta property="og:image" content="${esc(card)}">`,
+    `<meta property="og:image:width" content="${CARD_WIDTH}">`,
+    `<meta property="og:image:height" content="${CARD_HEIGHT}">`,
+    `<meta property="og:image:alt" content="${esc(`${title}: ${description}`)}">`,
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta name="twitter:title" content="${esc(title)}">`,
     `<meta name="twitter:description" content="${esc(description)}">`,
-    `<meta name="twitter:image" content="${esc(image)}">`,
+    `<meta name="twitter:image" content="${esc(card)}">`,
     `<link rel="canonical" href="${esc(pageUrl)}">`,
   ].join("\n");
   // shown until the app starts (and to anything that doesn't run scripts)
@@ -103,7 +106,7 @@ function venuePage(db: DB, config: Config, id: string): Page {
 const plain = (title: string, status = 200): Page => ({ title, head: "", body: "", status });
 
 /** Which page a path is, with its head. Unknown ids give the app's page with a 404 status. */
-function pageFor(db: DB, config: Config, path: string, query: Record<string, string | undefined>): Page {
+function pageFor(db: DB, config: Config, theme: ThemeSync, path: string, query: Record<string, string | undefined>): Page {
   const notFound = (): Page => ({ ...plain("Not found · Track Studio", 404), body: "<h1>Not found</h1>" });
   try {
     let m: RegExpExecArray | null;
@@ -116,7 +119,7 @@ function pageFor(db: DB, config: Config, path: string, query: Record<string, str
     }
     if ((m = /^\/(t|embed)\/([\w-]{1,64})\/?$/.exec(path))) {
       const rev = query.r && /^\d{1,9}$/.test(query.r) ? Number(query.r) : undefined;
-      return trackPage(db, config, getTrackRow(db, m[2]), path, rev);
+      return trackPage(db, config, theme, getTrackRow(db, m[2]), path, rev);
     }
     if ((m = /^\/v\/([\w-]{1,64})\/?$/.exec(path))) return venuePage(db, config, m[1]);
     return notFound();
@@ -205,7 +208,7 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
   const serve = async (req: FastifyRequest, reply: FastifyReply) => {
     const [path, qs] = req.url.split("?");
     const query = Object.fromEntries(new URLSearchParams(qs ?? "")) as Record<string, string | undefined>;
-    const page = pageFor(db, config, path, query);
+    const page = pageFor(db, config, app.theme, path, query);
     pageHeaders(reply, config, { embed: !!page.embed, strict: web.mode === "static" });
     reply.header("cache-control", "no-cache");
     const themed = { ...page, head: `${themeHead(app.theme.current())}\n${page.head}` };

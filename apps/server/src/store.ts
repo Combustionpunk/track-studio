@@ -5,7 +5,6 @@ import {
   bake,
   fits,
   ORIENTS,
-  previewSvg,
   validateTrack,
   validateVenue,
   type FitResult,
@@ -15,6 +14,7 @@ import {
 } from "@track-studio/engine";
 import type { User } from "./auth.js";
 import type { DB } from "./db.js";
+import { drawPreview } from "./drawing.js";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "./errors.js";
 
 // ------------------------------------------------------------------ input limits
@@ -271,7 +271,7 @@ export function revisionColumns(doc: RcTrack) {
 
 /** Changes whenever the drawn preview changes; goes into preview URLs so year-long caching is safe. */
 export function previewHash(doc: RcTrack): string {
-  return createHash("sha256").update(previewSvg(doc)).digest("hex").slice(0, 12);
+  return createHash("sha256").update(drawPreview(doc)).digest("hex").slice(0, 12);
 }
 
 const SET_REVISION_COLUMNS = `UPDATE track_revisions SET name = @name, lap_length = @lap, corners = @corners, size_length = @sizeL,

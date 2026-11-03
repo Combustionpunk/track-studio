@@ -6,6 +6,7 @@ import { registerAuth, requireOrganiser } from "./auth.js";
 import type { Config } from "./config.js";
 import { openDb, type DB } from "./db.js";
 import { HttpError } from "./errors.js";
+import { prepareFonts } from "./fonts.js";
 import { registerPreviews } from "./previews.js";
 import { registerRoutes } from "./routes.js";
 import { backfillRevisions } from "./store.js";
@@ -39,11 +40,13 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
     trustProxy: true,
   });
   const db = opts.db ?? openDb(config.dataDir);
-  backfillRevisions(db); // summary columns for revisions saved before migration 003
+  backfillRevisions(db); // summary columns for revisions saved before migration 003 (and preview hashes after 004)
   app.decorate("db", db);
   app.decorate("config", config);
   const theme = new ThemeSync({ forumUrl: config.forumUrl, fetch: opts.themeFetch, log: app.log, cacheFile: join(config.dataDir, "theme-cache.json") });
   app.decorate("theme", theme);
+  // Inter and Oswald for the PNG previews (DejaVu Sans if they can't be prepared)
+  await prepareFonts(config.dataDir).catch((e: Error) => app.log.warn({ err: e.message }, "preview fonts unavailable; using DejaVu Sans"));
   app.addHook("onClose", async () => {
     theme.stop();
     if (!opts.db) db.close();
@@ -71,7 +74,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
 
   registerAuth(app, config, db);
   registerRoutes(app, db);
-  registerPreviews(app, config, db);
+  registerPreviews(app, config, db, theme);
   await registerWeb(app, config, db, opts.web ?? { mode: "off", root: "", dist: "" });
   app.get("/healthz", async () => ({ ok: true }));
   // what the web app needs to know about this server

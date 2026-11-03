@@ -1,34 +1,43 @@
-// PNG previews (engine SVG -> resvg) cached in DATA_DIR. URLs carry ?v=<hash of the drawing>, so they can be cached
-// for a year and still refresh as soon as a track's drawing changes. The pages that show them are in web.ts.
+// PNG previews (the engine's plan renderer -> resvg) cached in DATA_DIR: the plan picture, fit thumbnails and the
+// link-preview card. URLs carry ?v=<hash of the drawing>, so they can be cached for a year and still refresh as soon
+// as a drawing changes. The pages that show them are in web.ts.
 import { Resvg } from "@resvg/resvg-js";
-import { fittedPreviewDoc, ORIENTS, previewSvg, type RcTrack } from "@track-studio/engine";
+import { fittedPreviewDoc, ORIENTS, planHeight, planScene, planSvg, type RcTrack } from "@track-studio/engine";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import type { FastifyInstance, FastifyReply } from "fastify";
+import { cardSvg } from "./card.js";
 import type { Config } from "./config.js";
 import type { DB } from "./db.js";
+import { drawPreview, PREVIEW_WIDTH } from "./drawing.js";
 import { notFound } from "./errors.js";
+import { previewFontFiles } from "./fonts.js";
 import { fitTrack, getTrackDoc, getTrackRow, getVenueDoc, type TrackRow } from "./store.js";
+import type { ThemeSync } from "./theme.js";
 
-export const PREVIEW_WIDTH = 1200;
+export { PREVIEW_WIDTH } from "./drawing.js";
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const SHORT = "public, max-age=300";
 
-/** Same proportions as the engine's SVG: area plus a 2.5 m margin on every side. */
-export function previewHeight(area: { length: number; width: number }): number {
-  return Math.round((PREVIEW_WIDTH * (area.width + 5)) / (area.length + 5));
-}
+/** Same proportions as the plan picture: area plus a 2.5 m margin on every side. */
+export const previewHeight = (area: { length: number; width: number }) => planHeight(area, PREVIEW_WIDTH);
 
-// Bundled font, so previews look the same on every host (slim containers have no fonts at all)
-const FONT_FILE = join(dirname(createRequire(import.meta.url).resolve("dejavu-fonts-ttf/package.json")), "ttf", "DejaVuSans.ttf");
-
+/** SVG -> PNG at the SVG's own size, with Inter and Oswald (and DejaVu Sans as the fallback). */
 export function renderPng(svg: string): Buffer {
   const resvg = new Resvg(svg, {
-    fitTo: { mode: "width", value: PREVIEW_WIDTH },
-    font: { fontFiles: [FONT_FILE], loadSystemFonts: false, defaultFontFamily: "DejaVu Sans", sansSerifFamily: "DejaVu Sans" },
+    font: { fontFiles: previewFontFiles(), loadSystemFonts: false, defaultFontFamily: "DejaVu Sans", sansSerifFamily: "DejaVu Sans" },
   });
   return resvg.render().asPng();
+}
+
+const hash12 = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 12);
+
+/** The link-preview card of a revision, as SVG, with its URL (?v= is a hash of the card itself). */
+export function trackCard(db: DB, theme: ThemeSync, row: TrackRow, revision: number): { svg: string; url: string } {
+  const doc = getTrackDoc(db, row, revision);
+  const svg = cardSvg(doc, doc.info.status ?? "draft", theme.current().colors);
+  return { svg, url: `/p/${row.id}/${revision}/card.png?v=${hash12(svg)}` };
 }
 
 /** "94 m lap · 9 corners · 22 × 12 m · Sports hall B · approved" — of the public revision. */
@@ -72,7 +81,7 @@ export function sweepPreviews(db: DB, dataDir: string, trackId: string): number 
   return removed;
 }
 
-export function registerPreviews(app: FastifyInstance, config: Config, db: DB): void {
+export function registerPreviews(app: FastifyInstance, config: Config, db: DB, theme: ThemeSync): void {
   const cacheDir = join(config.dataDir, "previews");
   const revisionHash = (row: TrackRow, revision: number) => {
     const h = db.prepare("SELECT preview_hash FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(row.id, revision) as string | undefined;
@@ -88,7 +97,7 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB): 
     const revision = Number(m[1]);
     const row = getTrackRow(db, id);
     const hash = revisionHash(row, revision);
-    return sendPng(reply, join(cacheDir, id, `${revision}-${hash}.png`), hash, (req.query as { v?: string }).v, () => previewSvg(getTrackDoc(db, row, revision)));
+    return sendPng(reply, join(cacheDir, id, `${revision}-${hash}.png`), hash, (req.query as { v?: string }).v, () => drawPreview(getTrackDoc(db, row, revision)));
   });
 
   // /p/:id/:rev/fit/:venueId/:k.png?v=<hash>.<venue revision> — the track placed as it fits the venue
@@ -107,7 +116,19 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB): 
     const out = join(cacheDir, id, `fit-${revision}-${venueId}-${answer.venue.revision}-${k}-${hash}.png`);
     return sendPng(reply, out, version, (req.query as { v?: string }).v, () => {
       const track: RcTrack = getTrackDoc(db, row, revision);
-      return previewSvg(fittedPreviewDoc(track, getVenueDoc(db, venueId, answer.venue.revision), fit));
+      return planSvg(planScene(fittedPreviewDoc(track, getVenueDoc(db, venueId, answer.venue.revision), fit)), { width: PREVIEW_WIDTH });
     });
+  });
+
+  // /p/:id/:rev/card.png?v=<hash of the card> — the Open Graph image: 1200 × 630, name, status, figures and plan
+  app.get("/p/:id/:rev/card.png", async (req, reply) => {
+    const { id, rev } = req.params as { id: string; rev: string };
+    if (!/^\d{1,9}$/.test(rev) || !/^[\w-]{1,64}$/.test(id)) throw notFound("Preview");
+    const row = getTrackRow(db, id);
+    const revision = Number(rev);
+    revisionHash(row, revision); // 404 for a revision that doesn't exist
+    const card = trackCard(db, theme, row, revision);
+    const version = card.url.split("?v=")[1];
+    return sendPng(reply, join(cacheDir, id, `card-${revision}-${version}.png`), version, (req.query as { v?: string }).v, () => card.svg);
   });
 }
