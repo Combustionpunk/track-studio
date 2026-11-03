@@ -43,8 +43,44 @@
   --shadow-pop: 0 8px 30px rgb(0 0 0 / 0.45);
 
   --radius: 10px;
+
+  /* The design system's names (docs/design/tokens.json), on top of the synced colours so they follow the forum.
+     Derived shades are blends of text over bg, the way Discourse derives its own. */
+  --bg-raised: color-mix(in srgb, var(--text) 6%, var(--bg));
+  --bg-sunken: var(--selected);
+  --bg-hover: var(--hover);
+  --header: var(--header-bg);
+  --line: color-mix(in srgb, var(--text) 15%, var(--bg));
+  --line-strong: color-mix(in srgb, var(--text) 55%, var(--bg));
+  --text-muted: color-mix(in srgb, var(--text) 83%, var(--bg));
+  --on-accent: var(--selected);
+  --on-danger: #1d1d1d;
+  --danger-soft: color-mix(in srgb, var(--danger) 18%, var(--bg));
+  /* Track Studio's own: the forum's success colour is the warning amber, so approved and passed get a green */
+  --positive: #6fcf97;
+  --positive-soft: #33503f;
+  --shadow-float: 0 8px 24px rgb(0 0 0 / 0.4);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+  --control-height: 36px;
+  --touch-target: 44px;
+
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-heading: "Oswald", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 /* Inter (body) and Oswald (headings, figures): variable fonts, Latin + Latin Extended, self-hosted (SIL OFL, see fonts/). */

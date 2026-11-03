@@ -121,15 +121,15 @@ describe("track card", () => {
   it("plan, name, badge, meta and three figures; the whole card links to the track", () => {
     const h = html(<TrackCard track={summary()} />);
     expect(h).toContain('class="ts-card');
-    expect(h).toMatch(/<a [^>]*href="\/t\/winter-3"[^>]*class="ts-card__link"/);
+    expect(h).toContain('<a class="ts-card__link" href="/t/winter-3"');
     expect(h).toContain('class="ts-card__plan"');
     expect(h).toContain("ts-badge--approved");
     const t = text(h);
     expect(t).toContain("Winter Carpet Layout 3");
     expect(t).toContain("by yeti · Misfits Main Hall · revision 4");
-    expect(t).toContain("38.4 m Lap");
-    expect(t).toContain("12 Corners");
-    expect(t).toContain("22 × 12 m Size");
+    expect(t).toContain("Lap 38.4 m");
+    expect(t).toContain("Corners 12");
+    expect(t).toContain("Size 22 × 12 m");
   });
 
   it("shows a newer revision in progress, and venue-less tracks", () => {
@@ -207,7 +207,7 @@ describe("library page", () => {
 });
 
 describe("checks summary", () => {
-  const c = (level: Check["level"], message: string): Check => ({ level, code: "x", message }) as Check;
+  const c = (level: Check["level"], message: string): Check => ({ level, code: "x", message }) as unknown as Check;
   it("plain words for each case", () => {
     expect(checksSummary([])).toBe("No problems.");
     expect(checksSummary([c("warning", "Corner 3 is tight")])).toBe("No errors. 1 warning: Corner 3 is tight.");
@@ -261,10 +261,10 @@ describe("track page", () => {
     const b = doc.built!;
     const t = text(h);
     expect(h).toContain('class="ts-figures ts-figures--key"');
-    expect(t).toContain(`${(Math.round(b.lapLength * 10) / 10).toFixed(1)} m Lap length`);
-    expect(t).toContain(`${b.stats.corners} Corners`);
-    expect(t).toContain(`${doc.area.length} × ${doc.area.width} m Track area`);
-    expect(t).toContain(`${b.features.length} Jumps`);
+    expect(t).toContain(`Lap length ${b.lapLength.toFixed(1)} m`);
+    expect(t).toContain(`Corners ${b.stats.corners}`);
+    expect(t).toContain(`Track area ${doc.area.length} × ${doc.area.width} m`);
+    expect(t).toContain(`Jumps ${b.features.length}`);
   });
 
   it("checks: summary line and one row per problem", () => {
@@ -339,7 +339,7 @@ describe("styles", () => {
   const tsx = ["src/components/Header.tsx", "src/components/TrackCard.tsx", "src/components/bits.tsx", "src/components/states.tsx", "src/components/LibraryResults.tsx", "src/components/ChecksList.tsx", "src/components/FitPanel.tsx", "src/pages/Library.tsx", "src/pages/TrackPage.tsx", "src/pages/NotFound.tsx"];
 
   it("every ts- class the library and track page use is styled", () => {
-    const used = new Set(tsx.flatMap((f) => [...readFileSync(join(WEB, f), "utf8").matchAll(/\bts-[a-z0-9-]+(?:__[a-z0-9-]+)?(?:--[a-z0-9-]+)?/g)].map((m) => m[0])));
+    const used = new Set(tsx.flatMap((f) => [...readFileSync(join(WEB, f), "utf8").matchAll(/\bts-[a-z0-9-]+(?:__[a-z0-9-]+)?(?:--[a-z0-9-]+)?/g)].map((m) => m[0].replace(/-+$/, "")))); // ts-badge--${status} → ts-badge
     const missing = [...used].filter((c) => !new RegExp(`\\.${c.replace(/-/g, "\\-")}(?![\\w-])`).test(css));
     expect(missing).toEqual([]);
   });

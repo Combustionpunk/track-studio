@@ -7,8 +7,8 @@ import * as fmt from "../lib/format.js";
 import { useApi } from "../lib/hooks.js";
 import { rostrumPos, transformBuilt } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
-import { Loading, Message } from "./bits.js";
 import { PlanView } from "./PlanView.js";
+import { EmptyState, ErrorAlert, Skeleton } from "./states.js";
 
 export function FitPanel({ trackId, built, initialVenue, initialOrientation }: { trackId: string; built: Built; initialVenue?: string; initialOrientation?: string }) {
   const { me, loginUrl } = useSession();
@@ -45,29 +45,56 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
     }
   };
 
+  const venueName = venues.data?.venues.find((x) => x.id === venueId)?.name ?? v?.info.name ?? "this venue";
   return (
-    <section className="panel fit-panel" aria-labelledby="fit-h">
-      <h2 id="fit-h">Fit to a venue</h2>
-      <label className="field">
-        <span>Venue</span>
-        <select value={venueId} onChange={(e) => setVenueId(e.target.value)}>
-          <option value="">Choose a venue…</option>
+    <section className="ts-panel ts-fit" id="fit-panel" aria-labelledby="fit-h">
+      <h2 id="fit-h" className="ts-heading">
+        Fit to a venue
+      </h2>
+      <div className="ts-field">
+        <label className="ts-label" htmlFor="fit-venue">
+          Venue
+        </label>
+        <select id="fit-venue" className="ts-input" value={venueId} onChange={(e) => setVenueId(e.target.value)} disabled={!venues.data}>
+          <option value="">{venues.data ? "Choose a venue…" : venues.error ? "Venues unavailable" : "Loading venues…"}</option>
           {venues.data?.venues.map((x) => (
             <option key={x.id} value={x.id}>
               {x.name}
             </option>
           ))}
         </select>
-      </label>
-      {venueId && (fit.loading || venue.loading) && <Loading what="Searching" />}
-      {fit.error && <Message kind="error">{fit.error.message}</Message>}
-      {fit.data && !fit.loading && results.length === 0 && <Message>Doesn't fit this venue in any orientation.</Message>}
-      {results.length > 0 && v && (
+      </div>
+      {venues.error && (
+        <ErrorAlert title="Couldn't load the venues." onRetry={venues.reload}>
+          {venues.error.message}.
+        </ErrorAlert>
+      )}
+      {venueId && (fit.loading || venue.loading) && !fit.error && !venue.error && (
+        <div className="ts-fit__loading" aria-busy="true" aria-label={`Checking how it fits ${venueName}`}>
+          <Skeleton className="ts-skeleton--line ts-skeleton--short" />
+          <Skeleton className="ts-plan-well ts-skeleton--fit" />
+        </div>
+      )}
+      {(fit.error || venue.error) && (
+        <ErrorAlert
+          title={`Couldn't check how it fits ${venueName}.`}
+          onRetry={() => {
+            fit.reload();
+            venue.reload();
+          }}
+        >
+          {(fit.error ?? venue.error)!.message}.
+        </ErrorAlert>
+      )}
+      {fit.data && !fit.loading && results.length === 0 && (
+        <EmptyState title={`Doesn't fit ${venueName}`}>No way round fits this hall, in any orientation. Try another venue, or make a smaller version in the designer.</EmptyState>
+      )}
+      {results.length > 0 && v && !fit.loading && (
         <>
-          <fieldset className="fit-options">
-            <legend>Fits as</legend>
+          <fieldset className="ts-fieldset ts-fit__options">
+            <legend className="ts-label">Fits as</legend>
             {results.map((r) => (
-              <label key={r.orientation} className={r === chosen ? "on" : ""}>
+              <label key={r.orientation} className="ts-fit-chip">
                 <input type="radio" name="orientation" value={r.orientation} checked={r === chosen} onChange={() => setOrientation(r.orientation)} />
                 <span>{r.orientation}</span>
                 <small>{fmt.spare(r)}</small>
@@ -81,22 +108,24 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
               built={{ ...placed, rostrum: { ...placed.rostrum, ...xz(rostrumPos(v.area, v.rostrum?.side, v.rostrum?.offset)), side: v.rostrum?.side ?? "south" } }}
               layers={{ lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: false, obstacles: true, grid: true, rostrum: true }}
               label={`${chosen.orientation} in ${v.info.name}`}
-              className="fit-plan"
+              className="ts-plan-well fit-plan"
             />
           )}
-          <p className="hint">
+          <p className="ts-help">
             Preview: the copy is re-built for {v.info.name} ({fmt.size(v.area)} area), with its obstacles and rostrum.
           </p>
-          {error && <Message kind="error">{error}</Message>}
-          {me ? (
-            <button type="button" className="btn btn-primary" onClick={makeCopy} disabled={busy}>
-              {busy ? "Making copy…" : `Make a copy for ${v.info.name}`}
-            </button>
-          ) : (
-            <a className="btn" href={loginUrl()}>
-              Log in to make a copy
-            </a>
-          )}
+          {error && <ErrorAlert title="Couldn't make the copy.">{error}</ErrorAlert>}
+          <div>
+            {me ? (
+              <button type="button" className="ts-btn" onClick={makeCopy} disabled={busy}>
+                {busy ? "Making copy…" : `Make a copy for ${v.info.name}`}
+              </button>
+            ) : (
+              <a className="ts-btn" href={loginUrl()}>
+                Log in to make a copy
+              </a>
+            )}
+          </div>
         </>
       )}
     </section>

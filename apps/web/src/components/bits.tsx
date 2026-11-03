@@ -6,7 +6,7 @@ import type { TrackStatus } from "../lib/api.js";
 import { areaBounds, rostrumPos } from "../lib/plan.js";
 
 export function StatusBadge({ status }: { status: TrackStatus }) {
-  return <span className={`badge badge-${status}`}>{STATUS_LABEL[status]}</span>;
+  return <span className={status === "draft" ? "ts-badge" : `ts-badge ts-badge--${status}`}>{STATUS_LABEL[status]}</span>;
 }
 
 export function CopyButton({ text, label, className }: { text: string; label: string; className?: string }) {
@@ -21,7 +21,7 @@ export function CopyButton({ text, label, className }: { text: string; label: st
     setTimeout(() => setState("idle"), 1800);
   };
   return (
-    <button type="button" className={className ?? "btn"} onClick={copy} aria-live="polite">
+    <button type="button" className={className ?? "ts-btn"} onClick={copy} aria-live="polite">
       {state === "done" ? "Copied" : state === "failed" ? "Copy failed" : label}
     </button>
   );
