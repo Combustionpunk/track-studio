@@ -6,7 +6,7 @@ import { registerAuth, requireOrganiser } from "./auth.js";
 import type { Config } from "./config.js";
 import { openDb, type DB } from "./db.js";
 import { HttpError } from "./errors.js";
-import { prepareFonts } from "./fonts.js";
+import { previewFontFiles, SERVER_FONTS_DIR } from "./fonts.js";
 import { registerPreviews } from "./previews.js";
 import { registerRoutes } from "./routes.js";
 import { backfillRevisions, refreshPreviewHashes } from "./store.js";
@@ -44,8 +44,8 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   app.decorate("config", config);
   const theme = new ThemeSync({ forumUrl: config.forumUrl, fetch: opts.themeFetch, log: app.log, cacheFile: join(config.dataDir, "theme-cache.json") });
   app.decorate("theme", theme);
-  // Inter and Oswald for the PNG previews (DejaVu Sans if they can't be prepared)
-  await prepareFonts(config.dataDir).catch((e: Error) => app.log.warn({ err: e.message }, "preview fonts unavailable; using DejaVu Sans"));
+  // Inter and Oswald for the PNG previews (DejaVu Sans if they're missing)
+  if (previewFontFiles().length === 1) app.log.warn({ dir: SERVER_FONTS_DIR }, "preview fonts missing; using DejaVu Sans");
   backfillRevisions(db); // summary columns for revisions saved before migration 003
   const refreshed = refreshPreviewHashes(db); // the drawing or fonts changed: new picture URLs
   if (refreshed) app.log.info({ revisions: refreshed }, "preview hashes refreshed");
