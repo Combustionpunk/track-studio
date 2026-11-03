@@ -107,6 +107,13 @@ describe("Open Graph card", () => {
       expect(el, label).toMatch(/font-family="Inter\b/);
       expect(el, label).toMatch(/font-weight="600"/);
     }
+    // every text is at a weight apps/server/fonts has: Oswald 500/600, Inter 400 (the default) or 600
+    for (const card of [svg, cardSvg(doc, "draft", colors)])
+      for (const [el] of card.matchAll(/<text [^>]*>/g)) {
+        const weight = /font-weight="(\d+)"/.exec(el)?.[1] ?? "400";
+        if (/font-family="Oswald/.test(el)) expect(["500", "600"], el).toContain(weight);
+        else expect(["400", "600"], el).toContain(weight);
+      }
   });
 
   it("uses the theme's colours for the frame and the fixed plan palette for the plan", () => {
