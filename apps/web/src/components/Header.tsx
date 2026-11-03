@@ -1,5 +1,5 @@
-import { LoaderCircle, RefreshCw } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { LoaderCircle, Menu, RefreshCw, X } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import logoSvg from "../brand/logo.svg?raw";
 import { refreshTheme } from "../lib/api.js";
@@ -9,38 +9,45 @@ export function Header() {
   const { me, config, ready, logout, loginUrl } = useSession();
   const loc = useLocation();
   const here = loc.pathname + loc.search;
+  // phones: navigation and the user's controls fold behind the menu button; any navigation closes it
+  const [open, setOpen] = useState(false);
+  useEffect(() => setOpen(false), [loc.pathname]);
   return (
-    <header className="site-header">
-      <div className="wrap header-row">
-        <Link to="/" className="brand">
-          {/* inline (our own file), so the logo takes the theme's colours */}
-          <span className="brand-logo" dangerouslySetInnerHTML={{ __html: logoSvg }} />
-          <span className="brand-app">Track Studio</span>
-        </Link>
-        <nav aria-label="Main">
-          <NavLink to="/" end>
+    <header className="ts-header" data-open={open || undefined}>
+      <Link to="/" className="ts-brand">
+        {/* inline (our own file), so the logo takes the theme's colours */}
+        <span className="brand-logo" dangerouslySetInnerHTML={{ __html: logoSvg }} />
+        <span className="ts-brand__app">Track Studio</span>
+      </Link>
+      <button type="button" className="ts-btn ts-btn--quiet ts-btn--touch ts-header__menu" aria-label="Menu" aria-expanded={open} aria-controls="main-nav" onClick={() => setOpen((o) => !o)}>
+        {open ? <X size={20} aria-hidden /> : <Menu size={20} aria-hidden />}
+      </button>
+      <div className="ts-header__fold" id="main-nav">
+        <nav className="ts-nav" aria-label="Main">
+          {/* the library and its track pages */}
+          <Link to="/" aria-current={inLibrary(loc.pathname) ? "page" : undefined}>
             Library
-          </NavLink>
+          </Link>
           <NavLink to="/v">Venues</NavLink>
           <NavLink to="/new">New track</NavLink>
         </nav>
-        <div className="header-user">
+        <div className="ts-header__end">
           {!ready ? null : me ? (
             <>
               {me.avatarUrl && <img src={me.avatarUrl.replace("{size}", "48")} alt="" width={24} height={24} className="avatar" />}
-              {me.organiser && <RefreshTheme />}
-              <span className="who">
-                {me.username}
-                {me.organiser && <small> · organiser</small>}
+              <span>
+                Signed in as {me.username}
+                {me.organiser && " · organiser"}
               </span>
-              <button type="button" className="btn btn-quiet" onClick={() => logout()}>
+              {me.organiser && <RefreshTheme />}
+              <button type="button" className="ts-btn ts-btn--quiet" onClick={() => logout()}>
                 Log out
               </button>
             </>
           ) : (
             <>
               {config?.devLogin && <DevLogin returnPath={here} />}
-              <a className="btn btn-primary" href={loginUrl(here)}>
+              <a className="ts-btn" href={loginUrl(here)}>
                 Log in with the forum
               </a>
             </>
@@ -50,6 +57,8 @@ export function Header() {
     </header>
   );
 }
+
+const inLibrary = (path: string) => path === "/" || (path.startsWith("/t/") && !path.endsWith("/edit"));
 
 /** Organisers (track-admins, forum admins): fetch the forum's colours now instead of waiting for the hourly sync. */
 function RefreshTheme() {
@@ -73,7 +82,7 @@ function RefreshTheme() {
   };
   return (
     <>
-      <button type="button" className="btn btn-quiet btn-icon" onClick={go} disabled={state.busy} title="Refresh theme now (fetch the forum's colours)">
+      <button type="button" className="ts-btn ts-btn--quiet ts-btn--icon" onClick={go} disabled={state.busy} title="Refresh theme now (fetch the forum's colours)">
         {state.busy ? <LoaderCircle size={18} aria-hidden className="spin" /> : <RefreshCw size={18} aria-hidden />}
         <span className="sr-only">Refresh theme now</span>
       </button>
@@ -99,7 +108,7 @@ function DevLogin({ returnPath }: { returnPath: string }) {
       <label>
         <input type="checkbox" checked={organiser} onChange={(e) => setOrganiser(e.target.checked)} /> org
       </label>
-      <button type="submit" className="btn btn-quiet">
+      <button type="submit" className="ts-btn ts-btn--quiet">
         Dev login
       </button>
     </form>
