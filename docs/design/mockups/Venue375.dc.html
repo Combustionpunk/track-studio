@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Venue on a phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Oswald:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#fdd459}a:hover{color:#ffe28a}
+</style>
+</helmet>
+<div style="width: 375px; height: 1100px; box-sizing: border-box; background: #3d4147; color: #d9d9d9; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 22px; display: flex; flex-direction: column">
+  <!-- Phone header as in Library375.dc.html. -->
+  <header style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #36393e; border-bottom: 1px solid #54585d">
+    <a href="Library375.dc.html" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: #d9d9d9"><img src="../assets/loop-mark.svg" width="28" height="28" alt=""><span style="font-family: Oswald, 'Arial Narrow', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 0.04em">RC MISFITS <span style="font-weight: 500; color: #fdd459">TRACK STUDIO</span></span></a>
+    <button type="button" aria-label="Menu" style="margin-left: auto; width: 44px; height: 44px; border: 0; border-radius: 6px; background: transparent; color: #d9d9d9">[menu]</button>
+  </header>
+  <main style="padding: 16px; display: flex; flex-direction: column; gap: 16px">
+    <a href="#" style="font-size: 13px; text-decoration: none">← Venues</a>
+    <div>
+      <h1 style="margin: 0; font-family: Oswald, 'Arial Narrow', sans-serif; font-weight: 500; font-size: 28px; line-height: 34px">Misfits Main Hall</h1>
+      <span style="font-size: 13px; color: #bebfc1">Revision 7 · 14 tracks use it</span>
+    </div>
+    <!-- Venue plan, view only: area, 5 m grid, rostrum, obstacles. -->
+    <div role="img" aria-label="Plan of Misfits Main Hall" style="aspect-ratio: 240 / 152; border-radius: 10px; background: #2b2e32; border: 1px solid #54585d"></div>
+    <dl style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; padding: 16px; background: #464a50; border: 1px solid #54585d; border-radius: 10px; font-size: 14px">
+      <dt style="color: #bebfc1">Track area</dt><dd style="margin: 0">22.0 × 12.0 m</dd>
+      <dt style="color: #bebfc1">Rostrum</dt><dd style="margin: 0">South wall, 7.0 m from the west corner</dd>
+      <dt style="color: #bebfc1">Obstacles</dt><dd style="margin: 0">Pillar (0.5 m radius), fire door keep-clear (2.0 × 1.0 m)</dd>
+      <dt style="color: #bebfc1">Forum venue</dt><dd style="margin: 0"><a href="#">Misfits Main Hall on the forum</a></dd>
+    </dl>
+    <div style="display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 6px; background: #272727; font-size: 14px; line-height: 20px"><span style="color: #fdd459">[monitor]</span>Editing a venue works on a laptop or tablet.</div>
+    <a href="Library375.dc.html" style="display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 6px; border: 1px solid #939597; color: #d9d9d9; text-decoration: none; font-weight: 600; font-size: 14px">See the 14 tracks for this venue</a>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>
