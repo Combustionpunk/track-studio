@@ -318,17 +318,18 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .btn-sm { padding: 5px 10px; font-size: 0.87rem; font-weight: 600; }
 .btn-icon:disabled { cursor: default; opacity: 0.45; }
 .ve-edit-btn { align-self: flex-start; }
-.venue-editor { display: flex; flex-direction: column; min-height: calc(100vh - 57px); }
+.venue-editor { display: flex; flex-direction: column; height: calc(100vh - 57px); min-height: 600px; } /* 57px: the site header */
 .ve-bar { display: flex; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .ve-title { min-width: 0; }
 .ve-title h1 { font-size: 2rem; line-height: 1.2; }
 .ve-title .crumbs { margin: 0 0 2px; }
 .ve-sub, .ve-state { font-size: 0.87rem; color: var(--muted); }
 .ve-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-.ve-actions .btn-icon { width: 36px; height: 36px; justify-content: center; border-color: var(--border-strong); background: transparent; }
+.ve-actions .btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; border-color: var(--border-strong); background: transparent; }
+.btn-icon svg { flex: none; }
 .ve-msg { padding: 0 24px; }
 .ve-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 380px minmax(0, 1fr); }
-.ve-form { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; background: var(--surface); border-right: 1px solid var(--border); min-width: 0; }
+.ve-form { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; background: var(--surface); border-right: 1px solid var(--border); min-width: 0; min-height: 0; overflow-y: auto; }
 .ve-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .ve-field { display: grid; gap: 4px; align-content: start; min-width: 0; }
 .ve-field.wide { grid-column: span 2; }
@@ -362,8 +363,8 @@ textarea.ve-input { height: auto; padding: 6px 12px; resize: vertical; }
 .ve-check.ok { background: var(--positive-soft); color: var(--positive); }
 .ve-check.warn { background: var(--selected); color: var(--warning); border: 1px solid var(--warning); }
 .ve-note { margin: 0; font-size: 0.87rem; line-height: 1.4; color: var(--muted); }
-.ve-plan-wrap { position: relative; min-width: 0; padding: 24px; background: var(--selected); display: flex; }
-.ve-plan { flex: 1; min-height: 520px; border-radius: var(--radius); }
+.ve-plan-wrap { position: relative; min-width: 0; min-height: 0; padding: 24px; background: var(--selected); display: flex; }
+.ve-plan { flex: 1; min-height: 0; border-radius: var(--radius); }
 .ve-hint { position: absolute; left: 24px; top: 20px; padding: 6px 10px; border-radius: 6px; background: var(--header-bg); box-shadow: var(--shadow-pop); font-size: 0.87rem; pointer-events: none; max-width: calc(100% - 110px); }
 .ve-narrow { display: none; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 6px; background: var(--selected); font-size: 0.93rem; line-height: 1.4; margin: 12px 0; }
 .ve-narrow-icon { color: var(--accent); flex: none; margin-top: 2px; }
@@ -387,6 +388,7 @@ textarea.ve-input { height: auto; padding: 6px 12px; resize: vertical; }
 }
 /* phones: venue details only (editing needs a laptop or tablet) */
 @media (max-width: 760px) {
+  .venue-editor { height: auto; min-height: 0; }
   .ve-grid, .ve-actions, .ve-edit-btn { display: none; }
   .ve-narrow { display: flex; }
   .ve-bar { padding: 16px; }

@@ -3,7 +3,7 @@
 // revision; tracks keep the revision they were drawn on (basedOn), new designs use the latest.
 import type { Obstacle, Point2, RcVenue, Side } from "@track-studio/engine";
 import { CircleAlert, CircleCheck, Monitor, Redo2, Trash2, Undo2 } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { Message } from "../components/bits.js";
 import { PlanView } from "../components/PlanView.js";
@@ -58,6 +58,9 @@ function planPoint(svg: SVGSVGElement, clientX: number, clientY: number): Point2
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
+/** Number fields report text that isn't a number (it doesn't reach the draft, so Save must wait). */
+const BadFieldCtx = createContext<(id: string, bad: boolean) => void>(() => {});
+
 const sideWord = (side: Side) => (side === "north" || side === "south" ? "west" : "south");
 
 export function VenueEditor({ initial, base: initialBase }: Props) {
@@ -75,7 +78,19 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
 
   const problems = useMemo(() => draftProblems(draft), [draft]);
   const outside = useMemo(() => outsideObstacles(draft), [draft]);
-  const blocked = Object.keys(problems).length > 0;
+  const [badFields, setBadFields] = useState<ReadonlySet<string>>(new Set());
+  const reportBad = useCallback(
+    (id: string, bad: boolean) =>
+      setBadFields((cur) => {
+        if (cur.has(id) === bad) return cur;
+        const next = new Set(cur);
+        if (bad) next.add(id);
+        else next.delete(id);
+        return next;
+      }),
+    [],
+  );
+  const blocked = Object.keys(problems).length > 0 || badFields.size > 0;
   const nextRevision = (base?.venue.revision ?? 0) + 1;
 
   const update = useCallback((f: (d: VenueDraft) => VenueDraft, group?: string) => hist.set(f(draftRef.current), group), [hist]);
@@ -304,6 +319,7 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
       </div>
 
       <div className="ve-grid">
+        <BadFieldCtx.Provider value={reportBad}>
         <form
           className="ve-form"
           onSubmit={(e) => {
@@ -394,6 +410,7 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
             Saving makes revision {nextRevision}. Tracks keep the revision they were drawn on; new designs use the latest.
           </p>
         </form>
+        </BadFieldCtx.Provider>
 
         <section className="ve-plan-wrap" aria-label="Venue plan">
           <PlanView
@@ -493,20 +510,29 @@ const show = (v: number | null) => (v === null ? "" : String(v));
 
 /**
  * A number in the draft, edited as text: what's typed stays as typed while it parses to the draft's value, and
- * follows the draft when it changes from elsewhere (a drag, undo). Text that isn't a number doesn't change the draft.
+ * follows the draft at once when it changes from elsewhere (a drag, undo). Text that isn't a number doesn't change
+ * the draft; the field reports it so Save waits until it's fixed.
  */
 function NumberField(props: { label: string; hint?: string; value: number | null; onChange: (v: number) => void; onClear?: () => void; unit?: string; error?: string; wide?: boolean }) {
   const id = useId();
   const { label, hint, value, onChange, onClear, unit, error, wide } = props;
-  const [text, setText] = useState(show(value));
+  const reportBad = useContext(BadFieldCtx);
   // undefined: not a number; null: cleared (optional fields only)
   const parse = (t: string): number | null | undefined => (t.trim() === "" ? (onClear ? null : undefined) : Number.isFinite(Number(t)) ? Number(t) : undefined);
-  useEffect(() => {
+  const [text, setText] = useState(show(value));
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    // the draft changed under the field (adjusting state while rendering, so it never shows a stale value)
+    setShown(value);
     if (parse(text) !== value) setText(show(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }
   const parsed = parse(text);
-  const msg = parsed === undefined ? "Enter a number." : error;
+  const bad = parsed === undefined;
+  useEffect(() => {
+    reportBad(id, bad);
+    return () => reportBad(id, false);
+  }, [id, bad, reportBad]);
+  const msg = bad ? "Enter a number." : error;
   return (
     <div className={`ve-field${wide ? " wide" : ""}`}>
       <label htmlFor={id} className="ve-label">
@@ -525,7 +551,10 @@ function NumberField(props: { label: string; hint?: string; value: number | null
             setText(e.target.value);
             const v = parse(e.target.value);
             if (v === null) onClear?.();
-            else if (v !== undefined && v !== value) onChange(v);
+            else if (v !== undefined && v !== value) {
+              setShown(v);
+              onChange(v);
+            }
           }}
         />
         {unit && <span className="ve-unit">{unit}</span>}
