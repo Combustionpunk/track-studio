@@ -60,7 +60,11 @@ export function draftProblems(d: VenueDraft): Problems {
   }
   const fid = d.info.venue?.id;
   if (fid !== undefined && !(Number.isInteger(fid) && fid > 0)) p.forumId = "Forum venue ID is a whole number.";
-  if (!Number.isFinite(d.rostrum.offset)) p.rostrum = "Rostrum position must be a number.";
+  const { side, offset } = d.rostrum;
+  if (!Number.isFinite(offset)) p.rostrum = "Rostrum position must be a number.";
+  else if (!p.length && !p.width && Math.abs(offset) > wallHalf(d.area, side) + 1e-9) {
+    p.rostrum = `The rostrum must be on its wall: 0 to ${fmtM(2 * wallHalf(d.area, side))} m from the ${cornerWord(side)} corner.`;
+  }
   if (d.obstacles.length > MAX_OBSTACLES) p.obstacles = `At most ${MAX_OBSTACLES} obstacles.`;
   d.obstacles.forEach((o, i) => {
     const msg = obstacleProblem(o);
@@ -82,9 +86,16 @@ function obstacleProblem(o: Obstacle): string | null {
 /** Half the length of the rostrum's wall: how far the offset can go each way. */
 const wallHalf = (area: Area, side: Side) => (side === "north" || side === "south" ? area.length : area.width) / 2;
 
-/** Offset from the wall's centre → metres from its west (north/south walls) or south (east/west walls) corner. */
-export const toCorner = (area: Area, side: Side, offset: number) => tenth(offset + wallHalf(area, side));
-export const fromCorner = (area: Area, side: Side, fromCornerM: number) => tenth(fromCornerM - wallHalf(area, side));
+/** The corner the form measures the rostrum from: west on the north/south walls, south on the east/west walls. */
+export const cornerWord = (side: Side) => (side === "north" || side === "south" ? "west" : "south");
+
+/** Rounding that only removes floating-point noise, so a typed value comes back exactly as typed. */
+const clean = (v: number) => Math.round(v * 1e6) / 1e6 || 0;
+const fmtM = (v: number) => String(clean(v));
+
+/** Offset from the wall's centre → metres from the wall's corner (cornerWord), and back. */
+export const toCorner = (area: Area, side: Side, offset: number) => clean(offset + wallHalf(area, side));
+export const fromCorner = (area: Area, side: Side, fromCornerM: number) => clean(fromCornerM - wallHalf(area, side));
 
 /** The rostrum's offset for a pointer at `p` while it is dragged along its wall. */
 export function rostrumOffsetAt(area: Area, side: Side, p: Point2): number {

@@ -361,6 +361,7 @@ textarea.ve-input { height: auto; padding: 6px 12px; resize: vertical; }
 .ve-check { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; border-radius: 4px; font-size: 0.93rem; }
 .ve-check svg { flex: none; margin-top: 3px; }
 .ve-check.ok { background: var(--positive-soft); color: var(--positive); }
+.ve-check.bad { background: var(--selected); color: var(--danger-text); border: 1px solid var(--danger); }
 .ve-check.warn { background: var(--selected); color: var(--warning); border: 1px solid var(--warning); }
 .ve-note { margin: 0; font-size: 0.87rem; line-height: 1.4; color: var(--muted); }
 .ve-plan-wrap { position: relative; min-width: 0; min-height: 0; padding: 24px; background: var(--selected); display: flex; }

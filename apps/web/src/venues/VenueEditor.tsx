@@ -13,8 +13,10 @@ import * as fmt from "../lib/format.js";
 import { rostrumPos } from "../lib/plan.js";
 import {
   addObstacle,
+  cornerWord,
   draftProblems,
   fromCorner,
+  MAX_OBSTACLES,
   moveObstacle,
   obstacleName,
   obstacleSummary,
@@ -61,7 +63,6 @@ const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isCon
 /** Number fields report text that isn't a number (it doesn't reach the draft, so Save must wait). */
 const BadFieldCtx = createContext<(id: string, bad: boolean) => void>(() => {});
 
-const sideWord = (side: Side) => (side === "north" || side === "south" ? "west" : "south");
 
 export function VenueEditor({ initial, base: initialBase }: Props) {
   const navigate = useNavigate();
@@ -74,7 +75,7 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
   const dirty = JSON.stringify(draft) !== savedJson;
   const [sel, setSel] = useState<Selection>(null);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ kind: "info" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ kind: "info" | "error"; text: string; stale?: boolean } | null>(null);
 
   const problems = useMemo(() => draftProblems(draft), [draft]);
   const outside = useMemo(() => outsideObstacles(draft), [draft]);
@@ -131,7 +132,7 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
       } else if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
         hist.redo();
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current?.kind === "obstacle") {
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current?.kind === "obstacle" && !(e.target instanceof Element && e.target.closest("button, a"))) {
         e.preventDefault();
         deleteObstacle(selRef.current.i);
       } else if (e.key === "Escape") setSel(null);
@@ -163,12 +164,31 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
       setMessage({ kind: "info", text: `Saved as revision ${res.venue.revision}.` });
     } catch (e) {
       const what = base ? `Couldn't save revision ${nextRevision}.` : "Couldn't save the venue.";
-      const why = e instanceof ApiError ? e.message : "The server didn't answer.";
-      setMessage({ kind: "error", text: `${what} ${why}${e instanceof ApiError && e.code === "stale" ? "" : " Your changes are still here; try Save again in a moment."}` });
+      const stale = e instanceof ApiError && e.code === "stale";
+      const why = stale ? "Someone else saved this venue since you opened it." : e instanceof ApiError ? e.message : "The server didn't answer.";
+      setMessage({ kind: "error", text: `${what} ${why} Your changes are still here${stale ? "." : "; try Save again in a moment."}`, stale });
     } finally {
       setSaving(false);
     }
   };
+
+  /** After a stale save: build on the latest revision, keeping this draft (saving then replaces what's in it). */
+  const rebase = async () => {
+    if (!base) return;
+    try {
+      const latest = await api<VenueBase>(`/api/venues/${encodeURIComponent(base.venue.id)}`);
+      setBase(latest);
+      setMessage({ kind: "info", text: `Revision ${latest.venue.revision} is the latest now (saved ${fmt.dateTime(latest.venue.updatedAt)}). Saving makes revision ${latest.venue.revision + 1} from your changes, replacing what's in it; open the venue page in another tab to compare first.` });
+    } catch (e) {
+      setMessage({ kind: "error", text: `Couldn't load the latest revision. ${e instanceof Error ? e.message : ""}` });
+    }
+  };
+
+  // what's stopping Save, in words (fields also show their own messages)
+  const blockers = [
+    ...Object.entries(problems).map(([k, v]) => (k.startsWith("obstacle-") ? `${obstacleName(draft.obstacles[Number(k.slice(9))])}: ${v}` : v)),
+    ...(badFields.size ? ["A number field holds something that isn't a number."] : []),
+  ];
 
   // ------------------------------------------------------------------------------------ dragging
   type Drag = { kind: "move"; i: number; offset: Point2 } | { kind: "resize"; i: number } | { kind: "rostrum"; offset: number };
@@ -299,14 +319,24 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
           <button type="button" className="btn btn-icon" onClick={hist.redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
             <Redo2 size={20} aria-hidden />
           </button>
-          <button type="button" className="btn btn-primary" onClick={save} disabled={saving || blocked || (!!base && !dirty)} title={blocked ? "Fix the fields marked in the form first" : undefined}>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={saving || blocked || (!!base && !dirty)} aria-describedby={blocked ? "ve-blockers" : undefined}>
             {saving ? "Saving…" : base ? `Save as revision ${nextRevision}` : "Save venue"}
           </button>
         </div>
       </div>
       {message && (
         <div className="ve-msg">
-          <Message kind={message.kind}>{message.text}</Message>
+          <Message kind={message.kind}>
+            {message.text}
+            {message.stale && (
+              <>
+                {" "}
+                <button type="button" className="linkish" onClick={rebase}>
+                  Build on the latest revision
+                </button>
+              </>
+            )}
+          </Message>
         </div>
       )}
 
@@ -342,7 +372,7 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
             />
             <NumberField
               label="Rostrum position"
-              hint={`from the ${sideWord(draft.rostrum.side)} corner`}
+              hint={`from the ${cornerWord(draft.rostrum.side)} corner`}
               value={toCorner(draft.area, draft.rostrum.side, draft.rostrum.offset)}
               unit="m"
               error={problems.rostrum}
@@ -365,10 +395,10 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
                 Obstacles
               </span>
               <div className="row">
-                <button type="button" className="btn btn-sm" onClick={() => { update((d) => addObstacle(d, "circle")); setSel({ kind: "obstacle", i: draft.obstacles.length }); }}>
+                <button type="button" className="btn btn-sm" disabled={draft.obstacles.length >= MAX_OBSTACLES} onClick={() => { update((d) => addObstacle(d, "circle")); setSel({ kind: "obstacle", i: draft.obstacles.length }); }}>
                   Add circle
                 </button>
-                <button type="button" className="btn btn-sm" onClick={() => { update((d) => addObstacle(d, "rect")); setSel({ kind: "obstacle", i: draft.obstacles.length }); }}>
+                <button type="button" className="btn btn-sm" disabled={draft.obstacles.length >= MAX_OBSTACLES} onClick={() => { update((d) => addObstacle(d, "rect")); setSel({ kind: "obstacle", i: draft.obstacles.length }); }}>
                   Add rectangle
                 </button>
               </div>
@@ -382,6 +412,9 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
                     <button type="button" className="ve-item-pick" aria-expanded={selected === i} onClick={() => setSel(selected === i ? null : { kind: "obstacle", i })}>
                       <span className="ve-item-name">{obstacleName(o)}</span>
                       <span className="ve-item-sum">{obstacleSummary(o)}</span>
+                      {selected !== i && (problems[`obstacle-${i}`] || outside.includes(i)) && (
+                        <span className="ve-help error">{problems[`obstacle-${i}`] ?? "Sticks out of the track area."}</span>
+                      )}
                     </button>
                     <button type="button" className="btn btn-quiet btn-icon" aria-label={`Delete ${obstacleName(o)}`} title="Delete" onClick={() => deleteObstacle(i)}>
                       <Trash2 size={16} aria-hidden />
@@ -403,6 +436,14 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
               <span>
                 {outside.map((i) => obstacleName(draft.obstacles[i])).join(", ")} {outside.length === 1 ? "sticks" : "stick"} out of the track area. Move {outside.length === 1 ? "it" : "them"} in, or
                 make the area bigger.
+              </span>
+            </div>
+          )}
+          {blockers.length > 0 && (
+            <div className="ve-check bad" id="ve-blockers" role="status">
+              <CircleAlert size={16} aria-hidden />
+              <span>
+                Fix before saving: {blockers.join(" ")}
               </span>
             </div>
           )}

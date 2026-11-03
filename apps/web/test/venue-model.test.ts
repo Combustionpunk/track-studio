@@ -56,6 +56,11 @@ describe("venue documents", () => {
     expect(draftProblems({ ...hall(), info: { name: "Hall", venue: { id: 1.5 } } }).forumId).toBe("Forum venue ID is a whole number.");
     expect(draftProblems({ ...hall(), obstacles: [{ type: "circle", x: 0, z: 0, radius: 0 }] })["obstacle-0"]).toBe("Radius must be more than 0 m.");
     expect(draftProblems({ ...hall(), obstacles: [{ type: "rect", x: 0, z: Number.NaN, length: 1, width: 1 }] })["obstacle-0"]).toBe("Position must be a number.");
+    // the rostrum stays on its wall, also when the area shrinks under it
+    expect(draftProblems({ ...hall(), rostrum: { side: "south", offset: 11 } }).rostrum).toBeUndefined();
+    expect(draftProblems({ ...hall(), rostrum: { side: "south", offset: 19 } }).rostrum).toBe("The rostrum must be on its wall: 0 to 22 m from the west corner.");
+    expect(draftProblems({ ...hall(), area: { length: 22, width: 8 }, rostrum: { side: "east", offset: -5 } }).rostrum).toBe("The rostrum must be on its wall: 0 to 8 m from the south corner.");
+    expect(Object.keys(draftProblems({ ...hall(), obstacles: Array.from({ length: 101 }, () => hall().obstacles[0]) }))).toEqual(["obstacles"]);
   });
 });
 
@@ -66,6 +71,8 @@ describe("rostrum", () => {
     expect(fromCorner(area, "south", 7)).toBe(-4);
     expect(toCorner(area, "east", 0)).toBe(6);
     expect(fromCorner(area, "west", 12)).toBe(6);
+    // what's typed comes back exactly, so the field doesn't rewrite itself mid-entry
+    for (const typed of [5.55, 0.01, 21.99]) expect(toCorner(area, "south", fromCorner(area, "south", typed))).toBe(typed);
   });
 
   it("dragging slides it along its wall, kept on the wall, to 0.1 m", () => {

@@ -28,6 +28,7 @@ describe("venue editing permissions", () => {
   it("organisers and forum admins create and edit; members and visitors can't", async () => {
     const { app, alice, org, admin } = await setup();
     expect((await req(app, "POST", "/api/venues", undefined, newVenue())).statusCode).toBe(401);
+    expect((await req(app, "PUT", "/api/venues/venue-1", undefined, newVenue())).statusCode).toBe(401);
     expect((await req(app, "POST", "/api/venues", alice, newVenue())).statusCode).toBe(403);
     expect((await req(app, "PUT", "/api/venues/venue-1", alice, newVenue())).statusCode).toBe(403);
     expect((await req(app, "POST", "/api/venues", org, newVenue())).statusCode).toBe(201);
