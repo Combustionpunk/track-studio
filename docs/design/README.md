@@ -28,14 +28,18 @@ The approved look for Track Studio v1 (#2, #3). Every UI ticket builds to these 
 
 The mockups were drawn on a design canvas, so each file is HTML wrapped in canvas markup:
 
-- The screen is everything inside `<x-dc>…</x-dc>`. Ignore `<script src="./support.js">`; read the `<script type="text/x-dc">` block at the end only as sample data.
+- The screen is everything inside `<x-dc>…</x-dc>`. Ignore `<script src="./support.js">`; read any `<script type="text/x-dc">` block at the end only as sample data.
 - `<helmet>` holds the font link and page basics.
 - `<sc-for list="{{tracks}}" as="t">` is a repeated row; the sample rows are in the `renderVals()` script at the bottom. `{{t.name}}` is a value from that row.
 - `<sc-if value="{{…}}">` is a conditional block.
 - Styles are inline, with literal hex values. Each one maps to a token in `tokens.json`; in code, always use the token, never the hex. For example, `#3d4147` is `bg`, `#fdd459` is `accent` and `#46564c` is `plan-carpet`.
+- **Placeholders** (to keep these copies short):
+  - `[undo-2]`, `[circle-check]` and the like are **Lucide icon names**: put that Lucide icon there.
+  - `[tabletop symbol]` and similar are the jump symbols drawn in full in `Designer.dc.html`'s palette.
+  - An empty `role="img"` box is a plan. The full plan drawing is in `Track.dc.html` (screen palette) and `BuildSheet.dc.html` (print palette); a comment beside each placeholder says what that view adds, such as corner handles or error marks.
+  - `../assets/loop-mark.svg` is the logo mark.
 - Track names, figures and positions are example content.
 - Plans in the mockups are hand-drawn approximations. In the app, plans are drawn from `built` only (#9).
-- Icons are inline Lucide-style SVGs; in the app use Lucide itself.
 
 ## Rules
 
