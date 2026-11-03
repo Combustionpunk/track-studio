@@ -1,0 +1,82 @@
+/*
+ * Design tokens: the only place (with plan-palette.css) where the web app names a colour or a font.
+ *
+ * The synced block follows the forum's colour scheme. The server puts the current scheme in every page's <head>
+ * (<style id="theme">, see apps/server/src/theme.ts), which overrides these defaults; the defaults are the forum's
+ * Grey Amber scheme, derived the same way, so the first paint matches even if the forum can't be reached. A server
+ * test checks this block against the server's derivation: change both together.
+ */
+:root {
+  color-scheme: dark;
+
+  /* synced:start */
+  --bg: #3d4147;
+  --surface: #43474d;
+  --surface-2: #4d5056;
+  --border: #5c5f64;
+  --text: #d9d9d9;
+  --muted: #c2c2c3;
+  --accent: #fdd459;
+  --accent-ink: #3d4147;
+  --accent-soft: #5a574a;
+  --link: #fdd459;
+  --focus: #fdd459;
+  --header-bg: #36393e;
+  --header-text: #d9d9d9;
+  --highlight: #fdd459;
+  --success: #fdd459;
+  --success-text: #fdd459;
+  --danger: #e45735;
+  --danger-text: #f3b3a4;
+  --hover: #2f2f30;
+  --selected: #272727;
+  /* synced:end */
+
+  /* not synced: levels and states the forum has no colour for */
+  --warning: #ffa45c;
+  --info: #9cc4ff;
+  --st-draft: var(--muted);
+  --st-submitted: var(--warning);
+  --st-approved: var(--success-text);
+  --st-archived: var(--muted);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-pop: 0 8px 30px rgb(0 0 0 / 0.45);
+
+  --radius: 10px;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: "Oswald", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+}
+
+/* Inter (body) and Oswald (headings, figures): variable fonts, Latin + Latin Extended, self-hosted (SIL OFL, see fonts/). */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Oswald";
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: swap;
+  src: url("./fonts/oswald-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Oswald";
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: swap;
+  src: url("./fonts/oswald-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}

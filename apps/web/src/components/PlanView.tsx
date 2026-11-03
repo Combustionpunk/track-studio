@@ -9,6 +9,7 @@ import {
   arrowsAlong,
   CHECK_COLOUR,
   FEATURE_COLOUR,
+  FEATURE_COLOUR_OTHER,
   featureCorners,
   fitView,
   laneRuns,
@@ -347,7 +348,7 @@ export function PlanView(props: PlanViewProps) {
           {layers.features &&
             built?.features.map((f, i) => (
               <g key={i} data-tip={`f${i}`} className="plan-feature">
-                <polygon points={pts(featureCorners(f))} fill={FEATURE_COLOUR[f.type] ?? "#c9a0ff"} />
+                <polygon points={pts(featureCorners(f))} fill={FEATURE_COLOUR[f.type] ?? FEATURE_COLOUR_OTHER} />
                 <path
                   d="M -0.18 -0.25 L 0.18 0 L -0.18 0.25"
                   transform={`translate(${f.x} ${-f.z}) rotate(${-f.heading})`}

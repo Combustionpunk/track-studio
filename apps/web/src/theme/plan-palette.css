@@ -1,0 +1,43 @@
+/*
+ * The plan drawing's own fixed palette: the "carpet" look shared with the PNG previews (packages/engine preview).
+ * Not synced with the forum, so plans read the same everywhere. Feature and check colours are in src/lib/plan.ts.
+ * Controls drawn over the plan (zoom buttons, tooltips) use these too, as they sit on the plan's background.
+ */
+:root {
+  --plan-bg: #1e2a22;
+  --plan-area: #33373c;
+  --plan-area-edge: #8a9096;
+  --plan-carpet: #4a5d51;
+  --plan-pipe: #dfe3e7;
+  --plan-pipe-shared: #ffffff;
+  --plan-line: #ff4fb0;
+  --plan-grid: rgb(255 255 255 / 0.07);
+  --plan-grid5: rgb(255 255 255 / 0.14);
+  --plan-ink: #ffffff;
+  --plan-ink-dark: #111111;
+  --plan-halo: rgb(0 0 0 / 0.8);
+  --plan-arrow: rgb(0 0 0 / 0.55);
+  --plan-obstacle: #b03a3a;
+  --plan-keepout: rgb(176 58 58 / 0.45);
+  --plan-keepout-edge: #ff6060;
+  --plan-rostrum: #6a3da3;
+  --plan-warning: #ffb000;
+
+  /* controls over the plan */
+  --plan-ui-bg: rgb(20 26 22 / 0.82);
+  --plan-ui-bg-strong: rgb(20 26 22 / 0.94);
+  --plan-ui-hover: rgb(60 70 64 / 0.95);
+  --plan-ui-border: rgb(255 255 255 / 0.18);
+  --plan-tip-bg: rgb(15 19 17 / 0.95);
+  --plan-ui-shadow: 0 4px 14px rgb(0 0 0 / 0.4);
+  --plan-dim: rgb(0 0 0 / 0.45);
+
+  /* designer overlays */
+  --ed-control: rgb(255 255 255 / 0.35);
+  --ed-guide: #7fd3ff;
+  --ed-point-edge: #c2187a;
+  --ed-point-hover: #ffd6ec;
+  --ed-hover: rgb(255 255 255 / 0.6);
+  --ed-edges: rgb(255 255 255 / 0.75);
+  --ed-mitre: #ffd166;
+}

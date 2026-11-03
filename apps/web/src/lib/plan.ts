@@ -109,6 +109,8 @@ export function rostrumPos(area: Area, side: Side = "south", offset = 0): Point2
   return rostrumPosition(area, side, offset);
 }
 
+// The plan drawing's fixed colours (with theme/plan-palette.css): not synced with the forum.
+export const FEATURE_COLOUR_OTHER = "#c9a0ff";
 export const FEATURE_COLOUR: Record<string, string> = {
   tabletop: "#ffb347",
   double: "#5ec8ff",
