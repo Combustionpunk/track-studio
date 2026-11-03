@@ -56,9 +56,9 @@ describe("rebake", () => {
 
   it("drops a cached preview whose drawing changed", async () => {
     const { app, config } = await makeApp({ seeded: true });
-    // stored by an older engine whose drawing differed (here: the lap length in the preview's title)
+    // stored by an older engine whose drawing differed (here: the start line in another place)
     const doc = JSON.parse(app.db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ?").pluck().get(CLUB_A) as string) as RcTrack;
-    doc.built!.lapLength = 999;
+    doc.built!.startLine.x += 1;
     app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ?").run(JSON.stringify(doc), CLUB_A);
     setRevisionColumns(app.db, CLUB_A, 1, doc);
     const before = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().track.previewUrl;

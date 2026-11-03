@@ -6,6 +6,7 @@ import {
   bakeBuilt,
   EXPORT_STEP,
   FEATURE_DEFAULTS,
+  featureProfile,
   borders,
   headingDeg,
   laneRings,
@@ -69,15 +70,16 @@ export function liveGeometry(design: Design): Live {
 export function placeFeature(live: Pick<Live, "line" | "s" | "total">, f: DesignFeature): BuiltFeature {
   const [L0, H0] = FEATURE_DEFAULTS[f.type];
   const { p, t, i } = atDistance(live.line.x, live.line.z, live.s, live.total, f.distance);
+  const length = f.length ?? L0, height = f.height ?? H0;
   return {
     type: f.type,
     x: r3(p[0]),
     z: r3(p[1]),
     heading: headingDeg(t),
-    length: f.length ?? L0,
+    length,
     width: r3(live.line.width[i] - 0.08),
-    height: f.height ?? H0,
-    profile: [],
+    height,
+    profile: featureProfile(f.type, length, height), // so the live plan draws the jump's symbol
   };
 }
 

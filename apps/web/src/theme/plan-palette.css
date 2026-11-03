@@ -1,28 +1,29 @@
 /*
- * The plan drawing's own fixed palette: the "carpet" look shared with the PNG previews (packages/engine preview).
- * Not synced with the forum, so plans read the same everywhere. Feature and check colours are in src/lib/plan.ts.
- * Controls drawn over the plan (zoom buttons, tooltips) use these too, as they sit on the plan's background.
+ * The plan's fixed palette (docs/design/tokens.json, plan-*): not synced with the forum, so plans read the same
+ * everywhere. The plan itself is drawn by the engine's renderer with the same values (PLAN_PALETTE in
+ * packages/engine/src/plan.ts; a test keeps the two equal). These variables are for what the web app draws around and
+ * over it: the plan well, the controls and tooltips on it, and the designer's overlays.
  */
 :root {
-  --plan-bg: #1e2a22;
+  --plan-floor: #2b2e32;
   --plan-area: #33373c;
-  --plan-area-edge: #8a9096;
-  --plan-carpet: #4a5d51;
-  --plan-pipe: #dfe3e7;
-  --plan-pipe-shared: #ffffff;
-  --plan-line: #ff4fb0;
-  --plan-grid: rgb(255 255 255 / 0.07);
-  --plan-grid5: rgb(255 255 255 / 0.14);
+  --plan-carpet: #46564c;
+  --plan-pipe: #ecece6;
+  --plan-pipe-shared: #a9b8c2;
+  --plan-line: #fdd459;
+  --plan-jump: #e0b16a;
+  --plan-jump-edge: #6b4a1f;
+  --plan-rostrum: #8a8f96;
+  --plan-obstacle: #b07a7a;
+  --plan-grid: #ffffff1a;
+  --plan-grid-major: #ffffff33;
+  --plan-error: #ff7f5c;
+  --plan-warning: #fdd459;
+
+  /* ink on the plan (labels, the highlight ring, the editor's handles) */
   --plan-ink: #ffffff;
   --plan-ink-dark: #111111;
   --plan-halo: rgb(0 0 0 / 0.8);
-  --plan-arrow: rgb(0 0 0 / 0.55);
-  --plan-obstacle: #b03a3a;
-  --plan-keepout: rgb(176 58 58 / 0.45);
-  --plan-keepout-edge: #ff6060;
-  --plan-rostrum: #6a3da3;
-  --plan-warning: #ffb000;
-  --plan-error: #ff7f5c;
 
   /* controls over the plan */
   --plan-ui-bg: rgb(20 26 22 / 0.82);
