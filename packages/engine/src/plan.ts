@@ -101,6 +101,7 @@ export function jumpSymbol(f: Pick<BuiltFeature, "profile">): JumpSymbol {
     }
   }
   if (start !== null) humps.push({ from: start, to: p[p.length - 1][0] });
+  if (p.length < 2) return { humps: [], takeoffs: [], edges: [], down };
 
   // take-off: the top of a ramp (rising face, then flat or falling)
   const isTop = (i: number) => p[i][1] > 0 && p[i][1] > p[i - 1][1] && p[i][0] > p[i - 1][0] && p[i + 1][1] <= p[i][1];
@@ -121,6 +122,7 @@ function drawJump(f: BuiltFeature, i: number, px: number, tips: boolean): string
   const half = f.width / 2;
   const across = (a: number) => `M${pt(...at(a, -half))} L${pt(...at(a, half))}`;
   const sym = jumpSymbol(f);
+  if (!sym.humps.length) sym.humps.push({ from: 0, to: f.length }); // no profile: the footprint, plain
   const hair = n(px);
   const o: string[] = [`<g class="p-jump" data-type="${f.type}"${tips ? ` data-tip="f${i}"` : ""}>`];
   for (const hp of sym.humps) {
@@ -386,6 +388,11 @@ export interface PlanSvgOptions {
   id?: string;
   /** default true */
   scaleBar?: boolean;
+  /**
+   * output pixels per display pixel (default 1): a 1200 px picture shown at 480 px wants 2.5, so hairlines, chevrons
+   * and labels keep their on-screen size wherever the picture is shown
+   */
+  pixelRatio?: number;
 }
 
 export function planBounds(area: Area, margin = PLAN_MARGIN) {
@@ -405,7 +412,7 @@ export function niceLength(m: number): number {
 export function planInBox(scene: PlanScene, box: { x: number; y: number; w: number; h: number }, opts: Omit<PlanSvgOptions, "width"> = {}): string {
   if (!(box.w > 0 && box.h > 0)) throw new Error("planInBox: box needs a positive width and height");
   const b = planBounds(scene.area);
-  const px = Math.max(b.w / box.w, b.h / box.h);
+  const px = Math.max(b.w / box.w, b.h / box.h) * (opts.pixelRatio ?? 1);
   return `<svg x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" viewBox="${n(b.x0)} ${n(b.y0)} ${n(b.w)} ${n(b.h)}">${planLayers(scene, { px, layers: opts.layers, id: opts.id })}${opts.scaleBar === false ? "" : scaleBar(scene, px)}</svg>`;
 }
 
@@ -429,7 +436,7 @@ function scaleBar(scene: PlanScene, px: number): string {
 export function planSvg(scene: PlanScene, opts: PlanSvgOptions): string {
   if (!(opts.width > 0)) throw new Error("planSvg: width must be positive");
   const b = planBounds(scene.area);
-  const px = b.w / opts.width;
+  const px = (b.w / opts.width) * (opts.pixelRatio ?? 1);
   const height = planHeight(scene.area, opts.width);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${opts.width}" height="${height}" viewBox="${n(b.x0)} ${n(b.y0)} ${n(b.w)} ${n(b.h)}">` +

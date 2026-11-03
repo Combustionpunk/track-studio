@@ -1,8 +1,8 @@
-// Geometry for drawing plans. SVG user units are metres with y = -z (north up), so a plan point (x, z) is drawn at
-// (x, -z). Everything is drawn from `built` (never recomputed from `design`).
-import { rostrumPosition, type Area, type Built, type BuiltFeature, type Point2, type Side } from "@track-studio/engine";
+// View maths and editor geometry for plans. SVG user units are metres with y = -z (north up), so a plan point (x, z)
+// is drawn at (x, -z). The plan drawing itself is the engine's planLayers (packages/engine/src/plan.ts), from `built`.
+import { PLAN_MARGIN, rostrumPosition, type Area, type Built, type BuiltFeature, type Point2, type Side } from "@track-studio/engine";
 
-export const MARGIN = 2.5; // m around the area (room for the rostrum)
+export const MARGIN = PLAN_MARGIN; // m around the area (room for the rostrum)
 
 export interface Bounds {
   x0: number;
@@ -18,7 +18,7 @@ export interface View {
   s: number;
 }
 
-export function areaBounds(area: Area, margin = MARGIN): Bounds {
+export function areaBounds(area: Area, margin = PLAN_MARGIN): Bounds {
   return { x0: -area.length / 2 - margin, y0: -area.width / 2 - margin, x1: area.length / 2 + margin, y1: area.width / 2 + margin };
 }
 
@@ -78,20 +78,9 @@ export function laneRuns(racingLine: Built["racingLine"]): { points: string; w: 
   return runs.map((r) => ({ points: r.pts.join(" "), w: r.w }));
 }
 
-/** Arrows along the racing line every `every` metres: position and angle (degrees, svg space). */
-export function arrowsAlong(racingLine: Built["racingLine"], every = 8) {
-  const out: { x: number; y: number; angle: number }[] = [];
-  let acc = every / 2;
-  for (let i = 0; i < racingLine.length; i++) {
-    const p = racingLine[i], q = racingLine[(i + 1) % racingLine.length];
-    const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
-    acc += d;
-    if (acc >= every) {
-      acc = 0;
-      out.push({ x: (p[0] + q[0]) / 2, y: -(p[1] + q[1]) / 2, angle: (Math.atan2(-(q[1] - p[1]), q[0] - p[0]) * 180) / Math.PI });
-    }
-  }
-  return out;
+/** Both lane rings as one SVG path (filled even-odd: the band between them). */
+export function lanePath(l: NonNullable<Built["lanes"]>): string {
+  return [l.right, l.left].map((ring) => `M${ring.map(([x, z]) => `${x},${-z}`).join("L")}Z`).join("");
 }
 
 /** Corners of a feature's footprint (plan coordinates). */
@@ -108,20 +97,6 @@ export function featureCorners(f: Pick<BuiltFeature, "x" | "z" | "heading" | "le
 export function rostrumPos(area: Area, side: Side = "south", offset = 0): Point2 {
   return rostrumPosition(area, side, offset);
 }
-
-// The plan drawing's fixed colours (with theme/plan-palette.css): not synced with the forum.
-export const FEATURE_COLOUR_OTHER = "#c9a0ff";
-export const FEATURE_COLOUR: Record<string, string> = {
-  tabletop: "#ffb347",
-  double: "#5ec8ff",
-  kicker: "#ffe066",
-  stepup: "#c9a0ff",
-  stepdown: "#c9a0ff",
-  whoops: "#9be38f",
-  bump: "#f7a1c4",
-};
-
-export const CHECK_COLOUR: Record<string, string> = { error: "#ff4d4d", warning: "#ffb000", info: "#7fb2ff" };
 
 // transformBuilt / rostrumPosition live in the engine (the server draws fit thumbnails with them too)
 export { transformBuilt } from "@track-studio/engine";

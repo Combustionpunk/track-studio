@@ -68,7 +68,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 /* cards */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 16px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
-.card-link { display: block; background: var(--plan-bg); }
+.card-link { display: block; background: var(--plan-floor); }
 .card-img { display: block; width: 100%; height: auto; }
 .card-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
 .card-title { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
@@ -143,40 +143,18 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .obstacles span { color: var(--muted); font-size: 0.9rem; }
 .fitting { margin-top: 28px; }
 .fitting h2 { font-size: 1.2rem; margin-bottom: 12px; }
-.venue-thumb { display: block; width: 100%; height: auto; aspect-ratio: 30 / 19; background: var(--plan-bg); }
-.thumb-bg { fill: var(--plan-bg); }
-.thumb-rostrum { fill: var(--plan-rostrum); }
+.venue-thumb { display: block; width: 100%; height: auto; aspect-ratio: 30 / 19; background: var(--plan-floor); }
 .not-found { text-align: center; padding-top: 64px; }
 
 /* plan */
-.plan { position: relative; background: var(--plan-bg); overflow: hidden; user-select: none; touch-action: none; }
+.plan { position: relative; background: var(--plan-floor); overflow: hidden; user-select: none; touch-action: none; }
 .plan-svg { display: block; width: 100%; height: 100%; cursor: grab; }
 .plan-svg:active { cursor: grabbing; }
 .plan-svg:focus-visible { outline-offset: -2px; }
-.plan-area { fill: var(--plan-area); stroke: var(--plan-area-edge); stroke-width: 0.04; }
-.grid1 { stroke: var(--plan-grid); stroke-width: 1; }
-.grid5 { stroke: var(--plan-grid5); stroke-width: 1; }
-.plan-carpet { fill: var(--plan-carpet); stroke: none; }
-.plan-lanes polyline { fill: none; stroke: var(--plan-carpet); stroke-linecap: round; stroke-linejoin: round; }
-.plan-racing polygon { fill: none; stroke: var(--plan-line); stroke-width: 1.5; stroke-dasharray: 7 6; opacity: 0.75; }
-.plan-racing path { fill: none; stroke: var(--plan-line); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }
-.plan-pipes polyline, .plan-pipes polygon { fill: none; stroke: var(--plan-pipe); stroke-width: 0.11; stroke-linejoin: round; stroke-linecap: round; }
-.plan-pipes .shared { stroke: var(--plan-pipe-shared); stroke-width: 0.13; }
-.plan-feature polygon { opacity: 0.92; cursor: help; }
-.plan-feature:hover polygon { opacity: 1; stroke: var(--plan-ink); stroke-width: 0.06; }
-.plan-feature-arrow { fill: none; stroke: var(--plan-arrow); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-.plan-start line { stroke: var(--plan-ink); stroke-width: 0.16; }
-.plan-start line.checker { stroke: var(--plan-ink-dark); stroke-dasharray: 0.16 0.16; }
-.plan-start .plan-start-dir { stroke: var(--plan-ink); stroke-width: 0.1; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.plan-start { cursor: help; }
-.plan-obstacle { fill: var(--plan-obstacle); cursor: help; }
-.plan-keepout { fill: var(--plan-keepout); stroke: var(--plan-keepout-edge); stroke-width: 1.5; stroke-dasharray: 6 4; cursor: help; }
-.plan-label { fill: var(--plan-ink); pointer-events: none; font-family: var(--font-body); }
-.plan-rostrum rect { fill: var(--plan-rostrum); }
-.plan-rostrum text { fill: var(--plan-ink); font-weight: 600; font-family: var(--font-body); letter-spacing: 0.04em; pointer-events: none; }
-.plan-rostrum { cursor: help; }
-.plan-check { fill-opacity: 0.18; stroke-width: 3; cursor: help; }
-.plan-check:hover { fill-opacity: 0.4; }
+/* the drawing comes from the engine's renderer (fixed colours as attributes); hover details on what has them */
+.plan-svg [data-tip] { cursor: help; }
+.plan-svg .p-jump:hover .p-jump-body { stroke: var(--plan-ink); }
+.plan-svg .p-label { pointer-events: none; }
 .plan-highlight { fill: none; stroke: var(--plan-ink); stroke-width: 2.5; stroke-dasharray: 4 4; animation: spin 6s linear infinite; transform-box: fill-box; transform-origin: center; pointer-events: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .plan-highlight { animation: none; } }
@@ -193,7 +171,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .plan-compact .plan-controls button { width: 30px; height: 30px; }
 
 /* embed */
-.embed { height: 100vh; display: flex; flex-direction: column; background: var(--plan-bg); color: var(--plan-ink); }
+.embed { height: 100vh; display: flex; flex-direction: column; background: var(--plan-floor); color: var(--plan-ink); }
 .embed-bar { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; background: var(--header-bg); color: var(--header-text); flex-wrap: wrap; font-size: 0.9rem; }
 .embed-title { color: var(--header-text); font-family: var(--font-heading); font-weight: 500; font-size: 1rem; text-decoration: none; }
 .embed-title:hover { text-decoration: underline; }

@@ -173,6 +173,14 @@ describe("jump symbols", () => {
     expect(jumpSymbol(f("stepdown", [[0, 0], [0, 0.1], [1.111, 0.1], [2, 0]])).down).toEqual([[1.111, 2]]);
   });
 
+  it("a jump without a profile is drawn as its plain footprint", () => {
+    const doc = club();
+    doc.built!.features = [{ ...doc.built!.features[0], profile: [] }];
+    const svg = draw(doc);
+    expect(count(svg, /class="p-jump-body"/g)).toBe(1);
+    expect(count(svg, /class="p-jump-dir"/g)).toBe(1);
+  });
+
   it.each([...all.values()].map((v) => ({ type: v.type, feat: v })))("draws a $type with its outline, edges and a direction chevron", ({ feat }) => {
     const doc = club();
     doc.built!.features = [feat];
@@ -209,6 +217,12 @@ describe("planSvg", () => {
     expect(svg).toMatch(/p-rostrum/);
     expect(svg).not.toMatch(/p-carpet|p-pipe/);
     expect(wellFormed(svg)).toBe(true);
+  });
+
+  it("pixelRatio sizes the hairlines for where the picture is shown", () => {
+    const scene = planScene(club());
+    const lineWidth = (svg: string) => Number(/class="p-line"[^>]*stroke-width="([\d.]+)"/.exec(svg)![1]);
+    expect(lineWidth(planSvg(scene, { width: 1200, pixelRatio: 2 }))).toBeCloseTo(2 * lineWidth(planSvg(scene, { width: 1200 })), 2);
   });
 
   it("needs a positive width", () => {

@@ -916,6 +916,13 @@ export function rostrumPosition(area: { length: number; width: number }, side: S
   return pos[side];
 }
 
+/** A feature's [along, height] profile in metres, along = 0 at the entry edge. */
+export function featureProfile(type: FeatureType, length: number, height: number): Point2[] {
+  const prof = FEATURE_PROFILES[type];
+  const last = prof[prof.length - 1][0];
+  return prof.map(([a, h]) => [r3(last ? (a / last) * length : 0), r3(h * height)] as Point2);
+}
+
 export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   const design = doc.design, area = doc.area;
   const W0 = design.laneWidth ?? 2.0;
@@ -937,9 +944,7 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     const [L0, H0] = FEATURE_DEFAULTS[typ];
     const length = f.length ?? L0, height = f.height ?? H0;
     const { p, t, i } = atDistance(x, z, s, total, f.distance);
-    const prof = FEATURE_PROFILES[typ];
-    const last = prof[prof.length - 1][0];
-    const profile = prof.map(([a, h]) => [r3(last ? (a / last) * length : 0), r3(h * height)] as Point2);
+    const profile = featureProfile(typ, length, height);
     const width = line.width[i] - 0.08;
     feats.push({ type: typ, x: r3(p[0]), z: r3(p[1]), heading: headingDeg(t), length: r3(length), width: r3(width), height: r3(height), profile });
     // check: jump on or landing into a corner
