@@ -1,11 +1,13 @@
 // The plan PNG and the Open Graph card both come from the engine's plan renderer (planSvg / planInBox).
 import { planScene, planSvg, type RcTrack } from "@track-studio/engine";
-import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CARD_HEIGHT, CARD_WIDTH, cardSvg, wrapName } from "../src/card.js";
 import { ROOT_DIR } from "../src/config.js";
-import { previewFontFiles, prepareFonts } from "../src/fonts.js";
+import { FALLBACK_FONT, fontsKey, loadFonts, previewFontFiles, SERVER_FONTS_DIR } from "../src/fonts.js";
+import { renderPng } from "../src/previews.js";
 import { drawPreview } from "../src/drawing.js";
 import { fallbackTheme } from "../src/theme.js";
 import { ALICE, BASE_URL, login, makeApp } from "./helpers.js";
@@ -42,19 +44,38 @@ describe("plan previews use the shared renderer", () => {
 });
 
 describe("fonts for pictures", () => {
-  it("Inter and Oswald come from the web app's own font files, as TrueType for resvg", async () => {
-    const { config } = await makeApp();
-    const files = await prepareFonts(config.dataDir);
-    expect(files.map((f) => f.split("/").pop()).sort()).toEqual(expect.arrayContaining(["inter-latin-wght-normal.ttf", "oswald-latin-wght-normal.ttf"]));
-    for (const f of files) {
-      expect(existsSync(f)).toBe(true);
-      expect(readFileSync(f).subarray(0, 4).toString("hex")).toBe("00010000"); // sfnt (TrueType outlines)
-    }
-    expect(previewFontFiles()).toEqual(expect.arrayContaining(files));
-    // the Latin Extended subsets (same family names, no ASCII) come after the basic Latin ones
-    const names = files.map((f) => f.split("/").pop()!);
-    expect(names.indexOf("oswald-latin-wght-normal.ttf")).toBeLessThan(names.indexOf("oswald-latin-ext-wght-normal.ttf"));
-    expect(names.indexOf("inter-latin-wght-normal.ttf")).toBeLessThan(names.indexOf("inter-latin-ext-wght-normal.ttf"));
+  const name = (f: string) => f.split(/[\\/]/).pop()!;
+
+  it("are static TrueType Inter 400/600 and Oswald 500/600 from apps/server/fonts, then DejaVu Sans", () => {
+    expect(SERVER_FONTS_DIR).toBe(join(ROOT_DIR, "apps", "server", "fonts"));
+    const files = previewFontFiles();
+    expect(files.map(name)).toEqual(["Inter-Regular.ttf", "Inter-SemiBold.ttf", "Oswald-Medium.ttf", "Oswald-SemiBold.ttf", "DejaVuSans.ttf"]);
+    for (const f of files) expect(readFileSync(f).subarray(0, 4).toString("hex"), f).toBe("00010000"); // sfnt, TrueType outlines
+    expect(files.at(-1)).toBe(FALLBACK_FONT);
+    // the licence travels with them
+    for (const f of ["Inter-OFL.txt", "Oswald-OFL.txt"]) expect(readFileSync(join(SERVER_FONTS_DIR, f), "utf8")).toContain("SIL Open Font License, Version 1.1");
+    // no more weights than the card uses
+    expect(readdirSync(SERVER_FONTS_DIR).filter((f) => f.endsWith(".ttf"))).toHaveLength(4);
+  });
+
+  it("the fonts key names the static files, so pictures drawn with the variable fonts refresh", () => {
+    expect(fontsKey()).toBe("Inter-Regular.ttf,Inter-SemiBold.ttf,Oswald-Medium.ttf,Oswald-SemiBold.ttf,DejaVuSans.ttf");
+    expect(fontsKey()).not.toMatch(/wght/);
+  });
+
+  it("falls back to DejaVu Sans alone when the folder is missing", () => {
+    expect(loadFonts(join(ROOT_DIR, "no-such-fonts"))).toEqual([FALLBACK_FONT]);
+  });
+
+  it("resvg draws each weight with its own face (the variable fonts all came out at 400)", () => {
+    const png = (family: string, weight: number) =>
+      renderPng(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="80"><text x="10" y="60" font-size="48" font-family="${family}" font-weight="${weight}">Club A 124</text></svg>`);
+    const hash = (b: Buffer) => createHash("sha256").update(b).digest("hex");
+    expect(hash(png("Oswald", 500))).not.toBe(hash(png("Oswald", 600)));
+    expect(hash(png("Inter", 400))).not.toBe(hash(png("Inter", 600)));
+    // and they are Oswald and Inter, not the fallback
+    expect(hash(png("Oswald", 500))).not.toBe(hash(png("DejaVu Sans", 500)));
+    expect(hash(png("Inter", 400))).not.toBe(hash(png("DejaVu Sans", 400)));
   });
 });
 
@@ -74,6 +95,25 @@ describe("Open Graph card", () => {
     expect(svg).toMatch(/>LAP<\/text>.*>CORNERS<\/text>.*>SIZE<\/text>/);
     expect(svg).toContain('class="p-carpet"'); // the plan, drawn by the shared renderer
     expect(svg).not.toMatch(/var\(--/); // resvg has no CSS variables
+  });
+
+  it("sets the title in Oswald at 500 or 600, the labels and badge in Inter 600", () => {
+    const svg = cardSvg(doc, "approved", colors);
+    const title = /<text [^>]*>Club A<\/text>/.exec(svg)![0];
+    expect(title).toMatch(/font-family="Oswald\b/);
+    expect(title).toMatch(/font-weight="(500|600)"/);
+    for (const label of ["Approved", "LAP"]) {
+      const el = new RegExp(`<text [^>]*>${label}</text>`).exec(svg)![0];
+      expect(el, label).toMatch(/font-family="Inter\b/);
+      expect(el, label).toMatch(/font-weight="600"/);
+    }
+    // every text is at a weight apps/server/fonts has: Oswald 500/600, Inter 400 (the default) or 600
+    for (const card of [svg, cardSvg(doc, "draft", colors)])
+      for (const [el] of card.matchAll(/<text [^>]*>/g)) {
+        const weight = /font-weight="(\d+)"/.exec(el)?.[1] ?? "400";
+        if (/font-family="Oswald/.test(el)) expect(["500", "600"], el).toContain(weight);
+        else expect(["400", "600"], el).toContain(weight);
+      }
   });
 
   it("uses the theme's colours for the frame and the fixed plan palette for the plan", () => {

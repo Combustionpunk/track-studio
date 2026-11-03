@@ -276,7 +276,7 @@ export function previewHash(doc: RcTrack): string {
 }
 
 /**
- * Recompute every revision's preview hash (at start, after the fonts are ready): a new engine or new fonts can change
+ * Recompute every revision's preview hash (at start): a new engine or new fonts can change
  * the drawing without changing the data, and the hash must follow or browsers keep the old picture. ~1 ms a revision.
  */
 export function refreshPreviewHashes(db: DB): number {

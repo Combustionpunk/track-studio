@@ -91,11 +91,12 @@ describe("fit preview", () => {
 });
 
 describe("format", () => {
-  it("shows whole metres for size and lap, precise on request", () => {
+  it("shows whole metres for size, lap to one decimal (design system), precise size on request", () => {
     expect(fmt.size({ length: 22, width: 11.8 })).toBe("22 × 12 m");
     expect(fmt.size({ length: 22, width: 11.8 }, true)).toBe("22 × 11.8 m");
     expect(fmt.size(null)).toBe("—");
-    expect(fmt.lap(124.036)).toBe("124 m");
+    expect(fmt.lap(124.036)).toBe("124.0 m");
+    expect(fmt.lap(38.43)).toBe("38.4 m");
     expect(fmt.corners(1)).toBe("1 corner");
     expect(fmt.spare({ orientation: "x", rotation: 0, mirror: false, shift: [0, 0], spare: [0.1, 0.3] })).toBe("0.1 × 0.3 m spare");
     expect(fmt.slug("Club A @ Hall!")).toBe("club-a-hall");
