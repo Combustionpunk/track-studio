@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { draftFromDoc, SelectionPanel } from "../src/designer/Designer.js";
+import { liveGeometry } from "../src/designer/geometry.js";
 import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import { JumpPalette } from "../src/designer/JumpPalette.js";
 import { addJump, deleteJump, FEATURE_TYPES, jumpsInCorner, moveJump, paletteJumps, QUICK_JUMPS } from "../src/designer/mode.js";
@@ -112,5 +114,32 @@ describe("the corner warning on the jump", () => {
   });
   it("other warnings near a jump don't count", () => {
     expect(jumpsInCorner([{ level: "warning", code: "tight-corner", x: 0, z: 0, message: "" }], [{ x: 0, z: 0 }]).size).toBe(0);
+  });
+});
+
+describe("the selected jump's panel", () => {
+  const t = ref<RcTrack>("examples/club-a.rctrack.json");
+  const draft = draftFromDoc({ ...t, design: { ...t.design, features: [{ type: "kicker", distance: 4 }] } });
+  const panel = (view: "quick" | "advanced", inCorner: number[]) =>
+    renderToStaticMarkup(
+      <SelectionPanel sel={{ kind: "feature", i: 0 }} view={view} draft={draft} live={liveGeometry(draft.design)} update={() => {}} onDelete={() => {}} inCorner={new Set(inCorner)} />,
+    );
+
+  it("says when the jump is on or lands into a corner, in both modes, after the Delete button", () => {
+    for (const view of ["quick", "advanced"] as const) {
+      const h = panel(view, [0]);
+      expect(h).toContain("This kicker is on or lands into a corner.");
+      expect(h.indexOf("Delete kicker")).toBeLessThan(h.indexOf("sel-warning"));
+    }
+  });
+  it("says nothing otherwise, but keeps the status region so the warning is announced when it appears", () => {
+    const h = panel("quick", []);
+    expect(h).not.toContain("corner");
+    expect(h).toContain('role="status"');
+  });
+  it("Quick: a Delete button and no sizing; Advanced: length and height", () => {
+    expect(panel("quick", [])).toContain("Delete kicker");
+    expect(panel("quick", [])).not.toMatch(/Length|Height/);
+    expect(panel("advanced", [])).toMatch(/Length[\s\S]*Height/);
   });
 });

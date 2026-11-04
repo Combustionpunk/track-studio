@@ -567,7 +567,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // problems drawn by the designer (not PlanView), so Quick and Advanced decide what shows; the bake's checks lag the
   // live line by a moment while dragging
   const marks = useMemo(() => (layers.checks ? problemMarks(built.checks, built.racingLine) : []), [layers.checks, built.checks, built.racingLine]);
-  const inCorner = useMemo(() => jumpsInCorner(built.checks, built.features), [built.checks, built.features]);
+  // matched against the bake's own jumps, so a warning stays on its jump while the bake catches up with a drag
+  const inCorner = useMemo(() => {
+    const b = bake.built;
+    return b && b.features.length === built.features.length ? jumpsInCorner(b.checks, b.features) : new Set<number>();
+  }, [bake.built, built.features.length]);
   const overlay = (m: number) => {
     const selPt = sel?.kind === "point" ? pointsList[sel.i] : null;
     const corner = sel?.kind === "point" ? live.corners[sel.i] : null;
@@ -1108,7 +1112,7 @@ function NumberField({ label, value, step, min, max, placeholder, onChange, suff
   );
 }
 
-function SelectionPanel({
+export function SelectionPanel({
   sel,
   view,
   draft,
@@ -1195,21 +1199,26 @@ function SelectionPanel({
     const f = draft.design.features?.[sel.i];
     if (!f) return null;
     const [L0, H0] = FEATURE_DEFAULTS[f.type];
-    const warn = inCorner.has(sel.i) && (
-      <p className="sel-warning" role="status">
-        <TriangleAlert size={16} aria-hidden="true" />
-        <span>This {fmt.FEATURE_LABEL[f.type].toLowerCase()} is on or lands into a corner. Slide it onto a straight.</span>
-      </p>
+    // below the Delete button, so it never moves the button; the status region is always there so it's announced
+    const warn = (
+      <div role="status">
+        {inCorner.has(sel.i) && (
+          <p className="sel-warning">
+            <TriangleAlert size={16} aria-hidden="true" />
+            <span>This {fmt.FEATURE_LABEL[f.type].toLowerCase()} is on or lands into a corner. Slide it onto a straight.</span>
+          </p>
+        )}
+      </div>
     );
     if (view === "quick")
       return (
         <section className="sel-panel" aria-labelledby="sel-h">
           <h2 id="sel-h">{fmt.FEATURE_LABEL[f.type]}</h2>
           <p className="hint">Drag it along the track to move it.</p>
-          {warn}
           <button type="button" className="btn btn-danger" onClick={onDelete}>
             Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
           </button>
+          {warn}
         </section>
       );
     return (
@@ -1231,10 +1240,10 @@ function SelectionPanel({
           <NumberField label="Height" value={f.height} placeholder={String(H0)} step={0.01} min={0} onChange={(v) => setFeature(sel.i, { height: v }, "height")} />
         </div>
         <p className="hint">Drag it along the track. Empty length / height = the usual size.</p>
-        {warn}
         <button type="button" className="btn btn-danger" onClick={onDelete}>
           Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
         </button>
+        {warn}
       </section>
     );
   }

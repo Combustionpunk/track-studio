@@ -179,7 +179,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .palette-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .jump-symbol { flex: none; }
 .jump-symbol path { fill: var(--plan-jump); stroke: var(--plan-jump-edge); }
-.sel-warning { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; margin: 0 0 12px; padding: 8px 12px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font-size: 14px; line-height: 20px; }
+.sel-warning { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; margin: 12px 0 0; padding: 8px 12px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font-size: 14px; line-height: 20px; }
 .sel-warning svg { margin-top: 2px; }
 .palette-help { margin: auto 0 0; font-size: 13px; line-height: 18px; color: var(--muted); }
 .seg-snap { margin: 12px 0 0; gap: 4px 0; }
