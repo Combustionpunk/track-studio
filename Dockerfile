@@ -19,6 +19,8 @@ COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile
 
 COPY reference reference
+# the plan palette tests compare with the design tokens
+COPY docs/design/tokens.json docs/design/tokens.json
 COPY packages/engine packages/engine
 COPY apps/server apps/server
 COPY apps/web apps/web
