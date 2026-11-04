@@ -186,7 +186,7 @@ describe("library results", () => {
   it("Mine with no tracks → invite to start a design", () => {
     const h = html(<LibraryResults {...props} mine list={loadable({ data: { tracks: [] } })} />);
     expect(h).toContain("ts-empty");
-    expect(text(h)).toContain("You haven't drawn a track yet");
+    expect(text(h)).toContain("Nothing of yours here yet");
     expect(h).toMatch(/<a [^>]*href="\/new"[^>]*>.*Start a design<\/a>/);
   });
 

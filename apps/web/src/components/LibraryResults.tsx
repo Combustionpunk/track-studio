@@ -44,8 +44,8 @@ export function LibraryResults({ list, fits, fitVenueName, mine, anyFilter, onCl
     // Mine is the only filter on: nothing of theirs to narrow down, so invite them to start one
     if (mine && !anyFilter)
       return (
-        <EmptyState title="You haven't drawn a track yet" action={newTrack("Start a design")}>
-          Your drafts, submissions and approved tracks show up here. Grab the carpet and some pipes.
+        <EmptyState title="Nothing of yours here yet" action={newTrack("Start a design")}>
+          Your drafts, submissions and approved tracks show up here (archived ones under Archived). Grab the carpet and some pipes.
         </EmptyState>
       );
     if (anyFilter)

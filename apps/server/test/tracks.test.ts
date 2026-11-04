@@ -253,8 +253,18 @@ describe("saving tracks", () => {
     expect(await ids("?author=me&minLap=100")).toEqual([]);
     expect(await ids("?author=me&maxLap=100")).toEqual([a.track.id]);
     expect(await ids("?author=me&venue=venue-2")).toEqual([]);
-    // fits= lists approved tracks only; none of alice's are approved
+    // fits= lists approved tracks only; none of alice's are approved yet
     expect(await ids("?author=me&fits=venue-2")).toEqual([]);
+  });
+
+  it("author=me with fits lists only the user's approved tracks that fit", async () => {
+    const { app, alice, org } = await setup();
+    const a = await createAs(app, alice);
+    expect((await req(app, "POST", `/api/tracks/${a.track.id}/approve`, org)).statusCode).toBe(200);
+    const ids = async (qs: string) => ((await req(app, "GET", `/api/tracks${qs}`, alice)).json().tracks as { id: string }[]).map((t) => t.id);
+    expect(await ids("?fits=venue-2")).toHaveLength(3);
+    expect(await ids("?author=me&fits=venue-2")).toEqual([a.track.id]);
+    expect(await ids("?author=me&fits=venue-3")).toEqual([]);
   });
 
   it("author=me signed out -> 401", async () => {
