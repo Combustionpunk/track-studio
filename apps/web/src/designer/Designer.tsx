@@ -537,14 +537,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setLayNote("Carry on from the end of the lane, or drag back along it to take squares up.");
       return;
     }
-    if (paintCell(g, cur)) return;
+    if (paintCell(g, cur) || !draftRef.current.laying?.length) return; // closed, or the first square was refused
+    const id = e.pointerId; // a second finger never paints (pinch and pan come with #16)
     const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== id) return;
       const c = cellAt(g, planPoint(svg, ev.clientX, ev.clientY));
       if (!c || (cur && same(c, cur))) return;
       cur = c;
       if (paintCell(g, c)) up();
     };
-    const up = () => {
+    const up = (ev?: PointerEvent) => {
+      if (ev && ev.pointerId !== id) return;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
@@ -553,6 +556,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
   };
+  // undo past the close comes back here: nothing of step 2 stays selected or armed
+  useEffect(() => {
+    if (!laying) return;
+    setSel(null);
+    setTool({ kind: "select" });
+  }, [laying]);
 
   // wheel over a corner point: radius; Ctrl+wheel: lane width
   const wheelAcc = useRef({ key: "", px: 0 });

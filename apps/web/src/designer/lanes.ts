@@ -1,7 +1,7 @@
 // Quick mode step 1, "Lay the lanes": paint the lane through squares the size of the lane width, then close the loop
 // into corner points. Pure (no DOM): the designer turns each painted step into one undo step.
 import type { Area, DesignPoint, Obstacle, Point2 } from "@track-studio/engine";
-import { racingLine } from "@track-studio/engine";
+import { PIPE_R, racingLine } from "@track-studio/engine";
 
 /** [column, row] of a grid square, counted from the area's south-west corner */
 export type Cell = [number, number];
@@ -17,8 +17,11 @@ export interface LaneGrid {
   blocked: Set<string>;
 }
 
-/** an obstacle has to reach this far into a square to block it; touching an edge doesn't */
-const OVERLAP = 1e-6; // m
+/**
+ * A square is blocked when an obstacle reaches into it or into the pipe round it: the bake checks obstacles against
+ * the lanes plus half the pipe's thickness (PIPE_R), so a lane square touching an obstacle would fail.
+ */
+const MARGIN = PIPE_R; // m
 
 export const key = (c: Cell) => `${c[0]},${c[1]}`;
 export const same = (a: Cell, b: Cell) => a[0] === b[0] && a[1] === b[1];
@@ -34,7 +37,7 @@ export function laneGrid(area: Area, obstacles: Obstacle[], size: number): LaneG
   for (let c = 0; c < cols; c++)
     for (let r = 0; r < rows; r++) {
       const [x0, z0] = cellCorner(g, [c, r]);
-      if (obstacles.some((o) => overlaps(o, x0, z0, x0 + size, z0 + size))) g.blocked.add(key([c, r]));
+      if (obstacles.some((o) => overlaps(o, x0 - MARGIN, z0 - MARGIN, x0 + size + MARGIN, z0 + size + MARGIN))) g.blocked.add(key([c, r]));
     }
   return g;
 }
@@ -56,7 +59,7 @@ export const isBlocked = (g: LaneGrid, c: Cell) => g.blocked.has(key(c));
 function overlaps(o: Obstacle, x0: number, z0: number, x1: number, z1: number): boolean {
   if (o.type === "circle") {
     const dx = Math.max(x0 - o.x, 0, o.x - x1), dz = Math.max(z0 - o.z, 0, o.z - z1);
-    return Math.hypot(dx, dz) < o.radius - OVERLAP;
+    return Math.hypot(dx, dz) < o.radius;
   }
   const a = ((o.rotation ?? 0) * Math.PI) / 180;
   const u: Point2 = [Math.cos(a), Math.sin(a)], v: Point2 = [-Math.sin(a), Math.cos(a)];
@@ -77,7 +80,7 @@ function overlaps(o: Obstacle, x0: number, z0: number, x1: number, z1: number): 
   return axes.every((ax) => {
     const proj = (ps: Point2[]) => ps.map((p) => p[0] * ax[0] + p[1] * ax[1]);
     const A = proj(rect), B = proj(box);
-    return Math.min(Math.max(...A), Math.max(...B)) - Math.max(Math.min(...A), Math.min(...B)) > OVERLAP;
+    return Math.min(Math.max(...A), Math.max(...B)) > Math.max(Math.min(...A), Math.min(...B));
   });
 }
 

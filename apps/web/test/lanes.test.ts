@@ -112,17 +112,36 @@ describe("the lane-width grid", () => {
     expect(blocked(g)).toEqual(["11,0", "11,1", "3,3", "3,4", "9,3", "9,4"]);
   });
 
-  it("an obstacle only touching a square doesn't block it; a turned one blocks what it reaches", () => {
+  it("an obstacle within the pipes' 4 cm of a square blocks it; a turned one blocks what it reaches", () => {
     const area = { length: 10, width: 10 };
-    // exactly square [2, 2] (x and z −1 to 1): it touches its neighbours' edges but doesn't block them
+    // square [2, 2] is x and z −1 to 1: a box 5 cm short of its edges blocks only it
+    const clear: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 1.9, width: 1.9, label: "Box" }];
+    expect(blocked(laneGrid(area, clear, 2))).toEqual(["2,2"]);
+    // filling it exactly, it touches its neighbours' edges, where their lanes' pipes would sit: they're blocked too
     const touching: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 2, width: 2, label: "Box" }];
-    expect(blocked(laneGrid(area, touching, 2))).toEqual(["2,2"]);
-    const turned: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 2, width: 2, rotation: 45, label: "Box" }]; // a diamond reaching 1.41 m
+    expect(blocked(laneGrid(area, touching, 2))).toEqual(["1,1", "1,2", "1,3", "2,1", "2,2", "2,3", "3,1", "3,2", "3,3"]);
+    const turned: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 1.9, width: 1.9, rotation: 45, label: "Box" }]; // a diamond reaching 1.34 m
     expect(blocked(laneGrid(area, turned, 2))).toEqual(["1,2", "2,1", "2,2", "2,3", "3,2"]);
     const pillar: Obstacle[] = [{ type: "circle", x: -0.5, z: 0.5, radius: 0.4, label: "Pillar" }];
     expect(blocked(laneGrid(area, pillar, 2))).toEqual(["2,2"]);
     const onCorner: Obstacle[] = [{ type: "circle", x: -1, z: -1, radius: 0.3, label: "Pillar" }]; // where four squares meet
     expect(blocked(laneGrid(area, onCorner, 2))).toEqual(["1,1", "1,2", "2,1", "2,2"]);
+  });
+
+  it("so a lane next to an obstacle on a grid line can't be laid touching it, and the lanes the grid allows bake clean", () => {
+    // a 2 × 2 m box filling square [3, 3] of the 22 × 12 hall (x −5 to −3, z 0 to 2)
+    const v = { ...venue("club-hall"), obstacles: [{ type: "rect", x: -4, z: 1, length: 2, width: 2, label: "Box" }] as Obstacle[] };
+    const g = laneGrid(v.area, v.obstacles, 2);
+    expect(g.blocked.has("3,2")).toBe(true); // the square below it, and the one below and left, touching its corner
+    expect(g.blocked.has("2,2")).toBe(true);
+    expect(paintTo(g, last(paintAll(g, [[0, 2], [1, 2]])), [4, 2]).refused).toBe("blocked");
+    // that lane would have put its pipe on the box
+    const touching = toDoc(newDraft({ area: v.area, obstacles: v.obstacles, name: "t" }));
+    touching.design.points = [{ x: -10, z: -5, radius: 1 }, { x: 10, z: -5, radius: 1 }, { x: 10, z: -1, radius: 1 }, { x: -10, z: -1, radius: 1 }];
+    expect(bakeBuilt(touching).checks.map((c) => c.code)).toContain("obstacle");
+    // one row further away is fine
+    const b = bakeBuilt(laidDoc(v, [[0, 0], [10, 0], [10, 1], [0, 1], [0, 0]]));
+    expect(b.checks.filter((c) => c.level === "error")).toEqual([]);
   });
 });
 
