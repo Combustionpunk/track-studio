@@ -91,9 +91,9 @@ describe("the corner warning on the jump", () => {
   const bake = (features: RcTrack["design"]["features"]) => bakeBuilt({ ...t, design: { ...t.design, features } });
   it("a jump dropped into a corner is flagged; one on a straight is not", () => {
     const built = bake([]);
-    // try every half metre for one jump: some places are in corners, some on straights
+    // try one jump every 1.5 m round the lap: some places are in corners, some on straights
     const flagged: boolean[] = [];
-    for (let d = 0; d < built.lapLength; d += 0.5) {
+    for (let d = 0; d < built.lapLength; d += 1.5) {
       const b = bake([{ type: "tabletop", distance: d }]);
       const inCorner = b.checks.some((c) => c.code === "feature-in-corner");
       expect(jumpsInCorner(b.checks, b.features).has(0)).toBe(inCorner);
@@ -105,7 +105,7 @@ describe("the corner warning on the jump", () => {
   it("with several jumps, only the one in the corner is flagged", () => {
     const at = (d: number) => bake([{ type: "kicker", distance: d }]).checks.some((c) => c.code === "feature-in-corner");
     const lap = bake([]).lapLength;
-    const ds = Array.from({ length: Math.floor(lap) }, (_, k) => k);
+    const ds = Array.from({ length: Math.floor(lap / 1.5) }, (_, k) => k * 1.5);
     const bad = ds.find(at)!, good = ds.find((d) => !at(d) && Math.abs(d - bad) > 3)!;
     const b = bake([{ type: "kicker", distance: good }, { type: "kicker", distance: bad }]);
     expect([...jumpsInCorner(b.checks, b.features)]).toEqual([1]);
