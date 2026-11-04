@@ -82,7 +82,8 @@ export interface PlanDrawOptions {
   /** "print": the build sheet's light print palette, with outlines and hatching that survive black-and-white printing */
   palette?: "plan" | "print";
   /** false: leave out the patterns and the track area, so the chosen layers can sit over another drawing (the
-   * designer draws the checks layer alone over its handles this way) */
+   * designer draws the checks layer alone over its handles this way). Only for layers that use no patterns: checks,
+   * racing line, start, dividers, grid and obstacles; lanes, rostrum and print jumps need the patterns. */
   background?: boolean;
 }
 

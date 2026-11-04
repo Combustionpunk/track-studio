@@ -124,6 +124,10 @@ describe("one plan drawing everywhere", () => {
     const d = src("src/designer/Designer.tsx");
     expect(d).toMatch(/planLayers\(/);
     expect(d).not.toMatch(/problemMarks|ed-problem-/);
+    // PlanView leaves the marks to the overlay but keeps their hover details; Advanced tags them for it
+    expect(d).toMatch(/checksInOverlay/);
+    expect(d).toMatch(/background: false, tips: advanced/);
+    expect(src("src/components/PlanView.tsx")).toMatch(/checksInOverlay \? \{ \.\.\.layers, checks: false \}/);
     expect(src("src/designer/mode.ts")).not.toMatch(/problemMarks|ProblemMark/);
   });
 

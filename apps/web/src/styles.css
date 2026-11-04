@@ -277,6 +277,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-start .grip { fill: var(--plan-ink); stroke: var(--plan-ink-dark); stroke-width: 1.5; cursor: grab; }
 .ed-start.on .grip { fill: var(--plan-line); }
 .ed-problems, .ed-problems * { pointer-events: none; }
+.ed-problems-tips circle[data-tip] { pointer-events: stroke; } /* rings show their details; sections leave the lane handle free */
 .ed-label { fill: var(--plan-ink); font-family: var(--font-body); font-weight: 600; paint-order: stroke; stroke: var(--plan-halo); stroke-linejoin: round; pointer-events: none; }
 
 
