@@ -53,7 +53,7 @@ import {
   type DesignerMode,
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
-import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, same, withLaying, type Cell, type LaneGrid, type Refusal } from "./lanes.js";
+import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { useBake } from "./useBake.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -505,7 +505,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   };
 
   // ------------------------------------------------------------------------------------ step 1: lay the lanes
-  const refused = useRef<Refusal | null>(null);
+  // step 1's notes go in the floating hint, not the message bar, so the plan never moves under a drag
+  const [layNote, setLayNote] = useState<string | null>(null);
   /** Paint from the end of the lane to `target`, one undo step per square. True once the loop has closed. */
   const paintCell = (g: LaneGrid, target: Cell): boolean => {
     let d = draftRef.current;
@@ -517,10 +518,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     }
     draftRef.current = d;
     const closed = !d.laying;
-    if (closed) setMessage({ kind: "info", text: "Loop closed. Now shape it: drag the corners, add jumps and move the start line." });
-    else if (r.refused) refused.current !== r.refused && setMessage({ kind: "info", text: REFUSAL_TEXT[r.refused] });
-    else if (r.states.length) setMessage(null);
-    refused.current = r.refused ?? null;
+    if (r.refused) setLayNote(REFUSAL_TEXT[r.refused]);
+    else if (r.states.length) setLayNote(null);
     return closed;
   };
 
@@ -533,10 +532,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!cur) return;
     const cells = draftRef.current.laying ?? [];
     const end = cells[cells.length - 1];
-    refused.current = null;
     // carry on from the end of the lane (or a square next to it); a press anywhere else would lay a long L
     if (end && Math.abs(cur[0] - end[0]) + Math.abs(cur[1] - end[1]) > 1) {
-      setMessage({ kind: "info", text: "Carry on from the end of the lane, or drag back along it to take squares up." });
+      setLayNote("Carry on from the end of the lane, or drag back along it to take squares up.");
       return;
     }
     if (paintCell(g, cur)) return;
@@ -979,15 +977,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {laying ? (
           <aside className="designer-palette" aria-label="Lay the lanes">
             <span className="label">1 · Lay the lanes</span>
-            <p className="palette-help">Press on a square and drag through the squares in driving order. Drag back to take squares up.</p>
-            <p className="palette-help">Come back to the first square (the ring) to close the loop.</p>
+            <p className="lay-help">Press on a square and drag through the squares in driving order. Drag back to take squares up.</p>
+            <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
             <button
               type="button"
               className="palette-btn"
               disabled={!draft.laying?.length}
               onClick={() => {
                 update((d) => withLaying(d, { cells: [], closed: false }));
-                setMessage(null);
+                setLayNote(null);
               }}
               title="Take up the whole lane (Undo brings it back)"
             >
@@ -1050,9 +1048,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           ) : (
             <div className="designer-hint">
               {laying
-                ? draft.laying?.length
+                ? layNote ?? (draft.laying?.length
                   ? "Drag on through the squares. Come back to the ring to close the loop."
-                  : "Press on a square and drag to lay the lane."
+                  : "Press on a square and drag to lay the lane.")
                 : tool.kind === "feature"
                   ? "Click on the racing line to place it."
                   : "Click a straight to add a corner. Drag a corner to move it."}
