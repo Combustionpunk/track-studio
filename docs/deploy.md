@@ -199,8 +199,10 @@ in the automated tests: `apps/server/test/backup.test.ts`, against a local S3 st
 
 ## CI
 
-`.github/workflows/deploy-config.yml` checks the deploy on every PR and push to main that touches the `Dockerfile`,
-`apps/**`, `packages/**`, `reference/**`, `docs/design/tokens.json`, `pnpm-lock.yaml`, `docker-compose.prod.yml`, `deploy/**` or the workflow.
+`.github/workflows/deploy-config.yml` checks the deploy on every PR and push to main that touches anything the image
+is built from (`Dockerfile`, `.dockerignore`, the root `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml` and
+`tsconfig.base.json`, `apps/**`, `packages/**`, `reference/**`, `docs/design/tokens.json`), the deploy files
+(`docker-compose.prod.yml`, `deploy/**`, `.env.example`, this runbook) or the workflow.
 Nothing is pushed to a registry, and the workflow uses no repository secrets.
 
 - **validate**: `docker compose config` on `docker-compose.prod.yml` (with `.env.example`), `caddy validate` on the
@@ -209,8 +211,8 @@ Nothing is pushed to a registry, and the workflow uses no repository secrets.
 - **image**: builds the production image exactly as the droplet does (`docker build .`, which also runs the engine
   and web tests and both typechecks), with the Docker layer cache kept in GitHub Actions, then runs
   `deploy/smoke-image.sh` on it. The script starts the image with `NODE_ENV=production`, a fresh random
-  `SESSION_SECRET` and `DISCOURSE_CONNECT_SECRET` made in the job, and an empty data folder; waits up to 60 s for
-  `/healthz` to answer 200; checks the logo and the Inter and Oswald font files are in the image; seeds the reference
+  `SESSION_SECRET` and `DISCOURSE_CONNECT_SECRET` made in the job, and an empty data folder (a fresh volume at `/data`, deleted afterwards); waits up to 60 s for
+  `/healthz` to answer 200; checks the logo, the card's four Inter and Oswald `.ttf` files and the web app's `.woff2` fonts are in the image; seeds the reference
   tracks inside the container; and fetches one track's link-preview `card.png` (200, `image/png`). On failure it
   prints the container's logs.
 

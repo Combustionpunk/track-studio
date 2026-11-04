@@ -106,7 +106,7 @@ describe("CI image check", () => {
   const smoke = read("deploy/smoke-image.sh");
 
   it("runs on PRs and pushes to main that touch the image's inputs", () => {
-    const paths = ["Dockerfile", "apps/**", "packages/**", "pnpm-lock.yaml", "docker-compose.prod.yml", ".github/workflows/deploy-config.yml"];
+    const paths = ["Dockerfile", "package.json", "pnpm-workspace.yaml", "tsconfig.base.json", "docs/design/tokens.json", "apps/**", "packages/**", "pnpm-lock.yaml", "docker-compose.prod.yml", ".github/workflows/deploy-config.yml"];
     for (const trigger of ["pull_request", "push"]) {
       const listed = block(workflow, "on", trigger).match(/paths: \[(.*)\]/)?.[1].split(/,\s*/) ?? [];
       expect(listed).toEqual(expect.arrayContaining(paths));
@@ -140,8 +140,9 @@ describe("CI image check", () => {
     expect(smoke).toMatch(/SESSION_SECRET="\$\(openssl rand -hex 32\)"/);
     expect(smoke).toMatch(/DISCOURSE_CONNECT_SECRET="\$\(openssl rand -hex 32\)"/);
     expect(smoke).toMatch(/-e NODE_ENV=production/);
-    expect(smoke).toMatch(/DATA_DIR=\/tmp\//);
-    expect(smoke).toMatch(/mktemp -d/);
+    // the image's own /data, on a fresh anonymous volume that cleanup deletes
+    expect(smoke).toMatch(/-e DATA_DIR=\/data --mount type=volume,dst=\/data/);
+    expect(smoke).toMatch(/docker rm -f -v "\$container"/);
   });
 
   it("waits about 60 s for /healthz to return 200 and fails otherwise", () => {
@@ -152,8 +153,7 @@ describe("CI image check", () => {
 
   it("checks the logo and the Inter and Oswald files are in the image", () => {
     expect(smoke).toContain("/app/apps/web/src/brand/logo.svg");
-    expect(smoke).toMatch(/Inter-\*\.ttf/);
-    expect(smoke).toMatch(/Oswald-\*\.ttf/);
+    expect(smoke).toMatch(/for f in Inter-Regular Inter-SemiBold Oswald-Medium Oswald-SemiBold; do test -s "\/app\/apps\/server\/fonts\/\$f\.ttf"/);
     expect(smoke).toMatch(/inter-\*\.woff2/);
     expect(smoke).toMatch(/oswald-\*\.woff2/);
   });
