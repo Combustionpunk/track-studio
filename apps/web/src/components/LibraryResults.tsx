@@ -11,6 +11,9 @@ interface Props {
   /** "fits my venue": the venue id, and its name once known */
   fits?: string;
   fitVenueName?: string;
+  /** "Mine": only the signed-in member's tracks */
+  mine?: boolean;
+  /** any filter other than Mine */
   anyFilter: boolean;
   onClear: () => void;
 }
@@ -22,7 +25,7 @@ const newTrack = (label: string) => (
   </Link>
 );
 
-export function LibraryResults({ list, fits, fitVenueName, anyFilter, onClear }: Props) {
+export function LibraryResults({ list, fits, fitVenueName, mine, anyFilter, onClear }: Props) {
   if (list.error)
     return (
       <ErrorAlert title={fits ? "Couldn't check which tracks fit." : "Couldn't load the tracks."} onRetry={list.reload}>
@@ -36,6 +39,13 @@ export function LibraryResults({ list, fits, fitVenueName, anyFilter, onClear }:
       return (
         <EmptyState title={`No tracks fit ${fitVenueName ?? "this venue"} yet`} action={newTrack("Draw one")}>
           Draw one and be the first. Approved tracks that fit, in any orientation, show up here.
+        </EmptyState>
+      );
+    // Mine is the only filter on: nothing of theirs to narrow down, so invite them to start one
+    if (mine && !anyFilter)
+      return (
+        <EmptyState title="You haven't drawn a track yet" action={newTrack("Start a design")}>
+          Your drafts, submissions and approved tracks show up here. Grab the carpet and some pipes.
         </EmptyState>
       );
     if (anyFilter)

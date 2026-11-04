@@ -5,9 +5,10 @@ import { LibraryResults } from "../components/LibraryResults.js";
 import { qs, type TrackStatus, type TrackSummary, type VenueSummary } from "../lib/api.js";
 import { STATUS_LABEL } from "../lib/format.js";
 import { useApi, useDebounced } from "../lib/hooks.js";
+import { useSession } from "../lib/session.js";
 
 /** Filters live in the URL so a filtered library can be shared as a link. */
-const KEYS = ["q", "venue", "status", "minLap", "maxLap", "minCorners", "maxCorners", "fits"] as const;
+const KEYS = ["q", "venue", "status", "minLap", "maxLap", "minCorners", "maxCorners", "fits", "mine"] as const;
 type Key = (typeof KEYS)[number];
 const STATUSES: TrackStatus[] = ["approved", "submitted", "draft", "archived"];
 
@@ -15,7 +16,9 @@ const plural = (n: number, what: string) => `${n} ${what}${n === 1 ? "" : "s"}`;
 
 export function Library() {
   const [params, setParams] = useSearchParams();
-  const get = (k: Key) => params.get(k) ?? "";
+  const { me, ready } = useSession();
+  // "Mine" needs a member: signed out, a shared ?mine=1 link is ignored
+  const get = (k: Key) => (k === "mine" && !me ? "" : (params.get(k) ?? ""));
   const set = (k: Key, v: string) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v);
@@ -43,8 +46,10 @@ export function Library() {
     minCorners: get("minCorners"),
     maxCorners: get("maxCorners"),
     fits,
+    author: get("mine") ? "me" : undefined,
   });
-  const list = useApi<{ tracks: TrackSummary[] }>(`/api/tracks${query}`);
+  // wait for the session before honouring ?mine=1, rather than flash every track
+  const list = useApi<{ tracks: TrackSummary[] }>(ready || !params.get("mine") ? `/api/tracks${query}` : null);
   const fitVenue = venues.data?.venues.find((v) => v.id === fits);
   const anyFilter = KEYS.some((k) => get(k));
   const folded = KEYS.filter((k) => k !== "q" && get(k)).length;
@@ -121,6 +126,11 @@ export function Library() {
                   </button>
                 );
               })}
+              {me && (
+                <button type="button" className="ts-btn" aria-pressed={!!get("mine")} onClick={() => set("mine", get("mine") ? "" : "1")}>
+                  Mine
+                </button>
+              )}
             </div>
           </fieldset>
           <fieldset className="ts-field ts-fieldset">
@@ -154,7 +164,7 @@ export function Library() {
         )}
       </form>
 
-      <LibraryResults list={list} fits={fits || undefined} fitVenueName={fitVenue?.name} anyFilter={anyFilter} onClear={clear} />
+      <LibraryResults list={list} fits={fits || undefined} fitVenueName={fitVenue?.name} mine={!!get("mine")} anyFilter={KEYS.some((k) => k !== "mine" && get(k))} onClear={clear} />
     </div>
   );
 }
