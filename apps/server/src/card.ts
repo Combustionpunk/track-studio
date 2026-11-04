@@ -82,7 +82,7 @@ export function cardSvg(doc: RcTrack, status: TrackStatus, colors: Tokens): stri
   const logo = logoMarkup(colors);
   const logoW = logo ? Number(/width="(\d+)"/.exec(logo)![1]) : 0;
   if (logo) o.push(logo);
-  o.push(t(logo ? 48 + logoW + 18 : 48, 56, 28, colors.accent, logo ? "TRACK STUDIO" : "RC MISFITS TRACK STUDIO", ` font-family="${DISPLAY}" letter-spacing="1"`));
+  o.push(t(logo ? 48 + logoW + 18 : 48, 56, 28, colors.accent, logo ? "TRACK STUDIO" : "RC MISFITS TRACK STUDIO", ` font-family="${DISPLAY}" font-weight="500" letter-spacing="1"`));
 
   // name, status, figures
   let y = 112;

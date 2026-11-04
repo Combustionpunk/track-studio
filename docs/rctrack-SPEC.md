@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.4)
+# rctrack — shared track format (v1.5)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -62,7 +62,12 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
   each square corner's outer half out to its mitre (see *Borders*). New check code: `obstacle`.
 
 ## Geometry engine (reference: `bake.py`)
-1. **Racing line:** closed polyline through `points`, each corner filleted with its radius (radius shrinks to fit).
+1. **Racing line:** closed polyline through `points`, each corner filleted with its radius. A corner turning θ with
+   radius r takes t = r · tan(θ/2) from each straight next to it. Corners share each straight by what they need: on a
+   straight of length L between corners i and i+1, if t_i + t_{i+1} ≤ L both get what they ask for; otherwise each gets
+   its share in proportion, f = L / (t_i + t_{i+1}). A corner keeps t_i · min(f_in, f_out) over its two straights, and its
+   effective radius is that t / tan(θ/2); `radius-reduced` is raised where it is more than 0.01 m below the radius asked
+   for. *(v1.5; was: t at most half of each straight)*
 2. **Borders:** the lane edges (see *Borders* below).
 3. **Shared dividers:** a border point pairs with the nearest point of another border from a part of the track ≥ 3 m
    away along the line, running roughly parallel (|cos| ≥ 0.9 between the borders' own directions; a collapsed inside
@@ -129,6 +134,11 @@ Import a `.rctrack.json` (file or forum link) and build directly from `built`: a
 features → ramps, startLine → timing line and grid, rostrum → VR/rostrum position.
 
 ## Changes
+- **1.5** — corners share a straight by what each needs (see step 1 of the geometry engine), instead of each taking at
+  most half of it: a sweeper next to a hairpin keeps its radius. `version` stays `1`; re-baking changes `built` only of
+  tracks that had a squeezed corner (radius shrunk to fit: a `radius-reduced` check, if by more than 0.01 m). Those
+  corners get more room, and a corner next to one asking for more than half the straight can now be cut in proportion.
+  A track with no corner shrunk to fit bakes exactly as in 1.4.
 - **1.4** — `outer: "auto"` (now the default when `outer` is missing: square up to 120°, round beyond). `built.lanes`:
   the lane-edge rings, for drawing the carpet. Re-baking changes `built` of tracks with corners sharper than 120° that
   had no explicit `outer` (they were square in 1.3).

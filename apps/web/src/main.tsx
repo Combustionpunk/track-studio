@@ -4,11 +4,13 @@ import { createBrowserRouter, Outlet, RouterProvider, useLocation, useParams } f
 import { EditTrackPage, NewDesignPage, NewTrackPage } from "./designer/pages.js";
 import { Header } from "./components/Header.js";
 import { SessionProvider } from "./lib/session.js";
+import { BuildSheetPage } from "./pages/BuildSheet.js";
 import { Embed } from "./pages/Embed.js";
 import { Library } from "./pages/Library.js";
 import { NotFound } from "./pages/NotFound.js";
 import { TrackPage } from "./pages/TrackPage.js";
 import { VenuePage, Venues } from "./pages/Venues.js";
+import { EditVenuePage, NewVenuePage } from "./venues/pages.js";
 import "./styles.css";
 
 function Layout() {
@@ -38,6 +40,8 @@ function TrackRoute() {
 const router = createBrowserRouter([
   // the embed has no site chrome
   { path: "/embed/:id", element: <Embed /> },
+  // the build sheet prints without the site's chrome
+  { path: "/t/:id/build", element: <BuildSheetPage /> },
   {
     element: <Layout />,
     children: [
@@ -47,7 +51,9 @@ const router = createBrowserRouter([
       { path: "/new", element: <NewTrackPage /> },
       { path: "/new/design", element: <NewDesignPage /> },
       { path: "/v", element: <Venues /> },
+      { path: "/v/new", element: <NewVenuePage /> },
       { path: "/v/:id", element: <VenuePage /> },
+      { path: "/v/:id/edit", element: <EditVenuePage /> },
       { path: "*", element: <NotFound /> },
     ],
   },

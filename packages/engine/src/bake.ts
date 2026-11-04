@@ -17,7 +17,7 @@ import type {
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.4";
+export const GENERATOR = "track-studio-engine 1.5";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -107,6 +107,7 @@ export function racingLine(points: DesignPoint[], defaultWidth: number): { line:
   const n = points.length;
   const W = points.map((p) => p.width ?? defaultWidth);
   const corners: Corner[] = [];
+  const ask: number[] = [];
   for (let i = 0; i < n; i++) {
     const p = points[i];
     const prev = points[(i - 1 + n) % n];
@@ -117,17 +118,11 @@ export function racingLine(points: DesignPoint[], defaultWidth: number): { line:
     ax /= la; az /= la; bx /= lb; bz /= lb;
     const cross = ax * bz - az * bx;
     const th = Math.acos(Math.min(1, Math.max(-1, ax * bx + az * bz)));
-    let r = p.radius ?? 1.0;
-    let t = th > 1e-6 ? r * Math.tan(th / 2) : 0.0;
-    const tmax = 0.5 * Math.min(la, lb);
-    if (t > tmax) {
-      // radius too big for the straights either side: shrink it
-      t = tmax;
-      r = th > 1e-6 ? t / Math.tan(th / 2) : 0.0;
-    }
+    const r = p.radius ?? 1.0;
+    ask.push(th > 1e-6 ? r * Math.tan(th / 2) : 0.0); // length the corner takes from each straight
     corners.push({
-      start: [p.x - ax * t, p.z - az * t],
-      end: [p.x + bx * t, p.z + bz * t],
+      start: [0, 0],
+      end: [0, 0],
       r,
       sign: cross > 0 ? 1 : -1,
       a: [ax, az],
@@ -141,6 +136,25 @@ export function racingLine(points: DesignPoint[], defaultWidth: number): { line:
       strn: 0,
     });
   }
+
+  // Each straight (corner i to i+1) is shared by what the two corners ask for; if they ask for more than its length,
+  // each gets its share in proportion. A corner keeps the smaller of its two shares (rctrack 1.5).
+  const share = corners.map((c, i) => {
+    const d = corners[(i + 1) % n];
+    const need = ask[i] + ask[(i + 1) % n], L = norm(d.P[0] - c.P[0], d.P[1] - c.P[1]);
+    return need > L ? L / need : 1.0;
+  });
+  corners.forEach((c, i) => {
+    let t = ask[i];
+    const f = Math.min(share[(i - 1 + n) % n], share[i]);
+    if (f < 1.0 && t > 0) {
+      // radius too big for the straights either side: shrink it
+      t *= f;
+      c.r = t / Math.tan(c.th / 2);
+    }
+    c.start = [c.P[0] - c.a[0] * t, c.P[1] - c.a[1] * t];
+    c.end = [c.P[0] + c.b[0] * t, c.P[1] + c.b[1] * t];
+  });
 
   const ox: number[] = [], oz: number[] = [], ow: number[] = [], oc: number[] = [];
   for (let i = 0; i < n; i++) {

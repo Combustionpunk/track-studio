@@ -1,13 +1,17 @@
+import { Plus, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Loading, Message } from "../components/bits.js";
-import { TrackCard } from "../components/TrackCard.js";
-import { qs, type TrackSummary, type VenueSummary } from "../lib/api.js";
+import { Link, useSearchParams } from "react-router-dom";
+import { LibraryResults } from "../components/LibraryResults.js";
+import { qs, type TrackStatus, type TrackSummary, type VenueSummary } from "../lib/api.js";
+import { STATUS_LABEL } from "../lib/format.js";
 import { useApi, useDebounced } from "../lib/hooks.js";
 
 /** Filters live in the URL so a filtered library can be shared as a link. */
-const KEYS = ["q", "status", "minLap", "maxLap", "minCorners", "maxCorners", "fits"] as const;
+const KEYS = ["q", "venue", "status", "minLap", "maxLap", "minCorners", "maxCorners", "fits"] as const;
 type Key = (typeof KEYS)[number];
+const STATUSES: TrackStatus[] = ["approved", "submitted", "draft", "archived"];
+
+const plural = (n: number, what: string) => `${n} ${what}${n === 1 ? "" : "s"}`;
 
 export function Library() {
   const [params, setParams] = useSearchParams();
@@ -25,11 +29,14 @@ export function Library() {
     if (dq !== get("q")) set("q", dq);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dq]);
+  // phones: the filters other than search fold away behind a button
+  const [open, setOpen] = useState(false);
 
   const fits = get("fits");
   const venues = useApi<{ venues: VenueSummary[] }>("/api/venues");
   const query = qs({
     q: get("q"),
+    venue: get("venue"),
     status: fits ? undefined : get("status"),
     minLap: get("minLap"),
     maxLap: get("maxLap"),
@@ -40,92 +47,114 @@ export function Library() {
   const list = useApi<{ tracks: TrackSummary[] }>(`/api/tracks${query}`);
   const fitVenue = venues.data?.venues.find((v) => v.id === fits);
   const anyFilter = KEYS.some((k) => get(k));
+  const folded = KEYS.filter((k) => k !== "q" && get(k)).length;
+  const clear = () => {
+    setQ("");
+    setParams(new URLSearchParams(), { replace: true });
+  };
+  const venueOptions = (none: string) => (
+    <>
+      <option value="">{venues.data ? none : venues.error ? "Venues unavailable" : "Loading venues…"}</option>
+      {venues.data?.venues.map((v) => (
+        <option key={v.id} value={v.id}>
+          {v.name}
+        </option>
+      ))}
+    </>
+  );
 
   return (
-    <div className="wrap page">
-      <div className="page-head">
-        <h1>Track library</h1>
-        <p className="lede">Layouts designed by RC Misfits members. Pick a venue to see which approved layouts fit it.</p>
+    <div className="ts-page">
+      <div className="ts-page-head">
+        <div>
+          <h1 className="ts-title">Track library</h1>
+          <p className="ts-page-head__sub" aria-live="polite">
+            {list.data ? plural(list.data.tracks.length, "track") : "Counting tracks"}
+            {venues.data && ` · ${plural(venues.data.venues.length, "venue")}`}
+            {list.data && list.loading && " · updating…"}
+          </p>
+        </div>
+        <Link to="/new" className="ts-btn ts-btn--primary">
+          <Plus size={16} aria-hidden />
+          New track
+        </Link>
       </div>
 
-      <form className="filters" onSubmit={(e) => e.preventDefault()} role="search" aria-label="Filter tracks">
-        <label className="f-search">
-          <span>Search</span>
-          <input type="search" placeholder="Track name" value={q} onChange={(e) => setQ(e.target.value)} />
-        </label>
-        <label>
-          <span>Status</span>
-          <select value={fits ? "approved" : get("status")} onChange={(e) => set("status", e.target.value)} disabled={!!fits}>
-            <option value="">Any (not archived)</option>
-            <option value="draft">Draft</option>
-            <option value="submitted">Submitted</option>
-            <option value="approved">Approved</option>
-            <option value="archived">Archived</option>
-          </select>
-        </label>
-        <fieldset>
-          <legend>Lap (m)</legend>
-          <input type="number" inputMode="numeric" min={0} placeholder="min" aria-label="Minimum lap length" value={get("minLap")} onChange={(e) => set("minLap", e.target.value)} />
-          <span aria-hidden="true">–</span>
-          <input type="number" inputMode="numeric" min={0} placeholder="max" aria-label="Maximum lap length" value={get("maxLap")} onChange={(e) => set("maxLap", e.target.value)} />
-        </fieldset>
-        <fieldset>
-          <legend>Corners</legend>
-          <input type="number" inputMode="numeric" min={0} placeholder="min" aria-label="Minimum corners" value={get("minCorners")} onChange={(e) => set("minCorners", e.target.value)} />
-          <span aria-hidden="true">–</span>
-          <input type="number" inputMode="numeric" min={0} placeholder="max" aria-label="Maximum corners" value={get("maxCorners")} onChange={(e) => set("maxCorners", e.target.value)} />
-        </fieldset>
-        <label className="f-fits">
-          <span>Fits venue</span>
-          <select value={fits} onChange={(e) => set("fits", e.target.value)}>
-            <option value="">— any —</option>
-            {venues.data?.venues.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {anyFilter && (
-          <button
-            type="button"
-            className="btn btn-quiet"
-            onClick={() => {
-              setQ("");
-              setParams(new URLSearchParams(), { replace: true });
-            }}
-          >
-            Clear
-          </button>
+      <form className="ts-filters" onSubmit={(e) => e.preventDefault()} role="search" aria-label="Filter tracks" data-open={open || undefined}>
+        <div className="ts-field ts-filters__search">
+          <label className="ts-label" htmlFor="f-q">
+            Search
+          </label>
+          <div className="ts-filters__searchrow">
+            <input id="f-q" className="ts-input" type="search" placeholder="Track name" value={q} onChange={(e) => setQ(e.target.value)} />
+            <button type="button" className="ts-btn ts-btn--touch ts-filters__toggle" aria-expanded={open} aria-controls="f-more" onClick={() => setOpen((o) => !o)}>
+              <SlidersHorizontal size={16} aria-hidden />
+              Filters{folded ? ` · ${folded}` : ""}
+            </button>
+          </div>
+        </div>
+        <div className="ts-filters__more" id="f-more">
+          <div className="ts-field">
+            <label className="ts-label" htmlFor="f-venue">
+              Venue
+            </label>
+            <select id="f-venue" className="ts-input" value={get("venue")} onChange={(e) => set("venue", e.target.value)} disabled={!venues.data}>
+              {venueOptions("All venues")}
+            </select>
+          </div>
+          <div className="ts-field">
+            <label className="ts-label" htmlFor="f-fits">
+              Fits my venue
+            </label>
+            <select id="f-fits" className="ts-input" value={fits} onChange={(e) => set("fits", e.target.value)} disabled={!venues.data}>
+              {venueOptions("Any size")}
+            </select>
+          </div>
+          <fieldset className="ts-field ts-fieldset">
+            <legend className="ts-label">Status</legend>
+            <div className="ts-toggles">
+              {STATUSES.map((s) => {
+                const on = fits ? s === "approved" : get("status") === s;
+                return (
+                  <button key={s} type="button" className="ts-btn" aria-pressed={on} disabled={!!fits} onClick={() => set("status", on ? "" : s)}>
+                    {STATUS_LABEL[s]}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+          <fieldset className="ts-field ts-fieldset">
+            <legend className="ts-label">Lap (m)</legend>
+            <div className="ts-range">
+              <input className="ts-input" type="number" inputMode="numeric" min={0} placeholder="min" aria-label="Minimum lap length in metres" value={get("minLap")} onChange={(e) => set("minLap", e.target.value)} />
+              <span aria-hidden="true">–</span>
+              <input className="ts-input" type="number" inputMode="numeric" min={0} placeholder="max" aria-label="Maximum lap length in metres" value={get("maxLap")} onChange={(e) => set("maxLap", e.target.value)} />
+            </div>
+          </fieldset>
+          <fieldset className="ts-field ts-fieldset">
+            <legend className="ts-label">Corners</legend>
+            <div className="ts-range">
+              <input className="ts-input" type="number" inputMode="numeric" min={0} placeholder="min" aria-label="Minimum corners" value={get("minCorners")} onChange={(e) => set("minCorners", e.target.value)} />
+              <span aria-hidden="true">–</span>
+              <input className="ts-input" type="number" inputMode="numeric" min={0} placeholder="max" aria-label="Maximum corners" value={get("maxCorners")} onChange={(e) => set("maxCorners", e.target.value)} />
+            </div>
+          </fieldset>
+          {anyFilter && (
+            <button type="button" className="ts-btn ts-btn--quiet" onClick={clear}>
+              <X size={16} aria-hidden />
+              Clear filters
+            </button>
+          )}
+        </div>
+        {venues.error && <p className="ts-help ts-help--error ts-filters__note">Couldn't load the venues, so the venue filters are off. Reload the page to try again.</p>}
+        {fits && (
+          <p className="ts-help ts-filters__note">
+            Approved tracks that fit <strong>{fitVenue?.name ?? fits}</strong>, with every orientation that works and the space left over. Pick one to preview it in the hall.
+          </p>
         )}
       </form>
 
-      {fits && (
-        <p className="fit-note">
-          Approved layouts that fit <strong>{fitVenue?.name ?? fits}</strong>, with every orientation that works and the space left over. Pick one to
-          preview it in the hall.
-        </p>
-      )}
-
-      {list.error ? (
-        <Message kind="error">{list.error.message}</Message>
-      ) : !list.data ? (
-        <Loading what={fits ? "Checking which layouts fit" : "Loading tracks"} />
-      ) : list.data.tracks.length === 0 ? (
-        <Message>{fits ? "No approved layout fits this venue yet." : anyFilter ? "No tracks match these filters." : "No tracks yet."}</Message>
-      ) : (
-        <>
-          <p className="count" aria-live="polite">
-            {list.data.tracks.length} {list.data.tracks.length === 1 ? "track" : "tracks"}
-            {list.loading && " · updating…"}
-          </p>
-          <div className="cards">
-            {list.data.tracks.map((t) => (
-              <TrackCard key={t.id} track={t} fitVenueId={fits || undefined} />
-            ))}
-          </div>
-        </>
-      )}
+      <LibraryResults list={list} fits={fits || undefined} fitVenueName={fitVenue?.name} anyFilter={anyFilter} onClear={clear} />
     </div>
   );
 }

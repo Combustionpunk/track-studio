@@ -1,7 +1,7 @@
-// Display formatting. Stored data is metres; people read whole metres for lap and size.
+// Display formatting. Stored data is metres; lengths read to one decimal ("38.4 m"), sizes in whole metres.
 import type { FitResult, TrackStatus } from "./api.js";
 
-export const lap = (m: number) => `${Math.round(m)} m`;
+export const lap = (m: number) => `${m.toFixed(1)} m`;
 
 /** "22 × 12 m" (whole metres) or "22 × 11.8 m" with precise = true. */
 export function size(s: { length: number; width: number } | null | undefined, precise = false): string {

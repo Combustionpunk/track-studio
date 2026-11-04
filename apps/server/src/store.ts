@@ -79,12 +79,30 @@ interface VenueRow {
   updated_at: string;
 }
 
-export function venueSummary(r: VenueRow) {
-  return { id: r.id, name: r.name, forumVenueId: r.forum_venue_id, ownerId: r.owner_forum_id, revision: r.current_revision, createdAt: r.created_at, updatedAt: r.updated_at };
+// tracks drawn on the venue (any revision of it), as the library lists them: archived ones hidden
+const VENUE_SELECT = `SELECT v.*, (SELECT COUNT(*) FROM tracks t WHERE t.venue_template_id = v.id AND t.status != 'archived') AS track_count FROM venues v`;
+
+interface VenueListRow extends VenueRow {
+  track_count: number;
 }
 
-export function getVenueRow(db: DB, id: string): VenueRow {
-  const r = db.prepare("SELECT * FROM venues WHERE id = ?").get(id) as VenueRow | undefined;
+export function venueSummary(r: VenueListRow) {
+  return {
+    id: r.id,
+    name: r.name,
+    forumVenueId: r.forum_venue_id,
+    ownerId: r.owner_forum_id,
+    revision: r.current_revision,
+    tracks: r.track_count,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export const venuePermissions = (user: User | null) => ({ edit: !!user?.organiser });
+
+export function getVenueRow(db: DB, id: string): VenueListRow {
+  const r = db.prepare(`${VENUE_SELECT} WHERE v.id = ?`).get(id) as VenueListRow | undefined;
   if (!r) throw notFound("Venue");
   return r;
 }
@@ -100,10 +118,32 @@ export function getVenueDoc(db: DB, id: string, revision?: number): RcVenue {
 }
 
 export function listVenues(db: DB) {
-  return (db.prepare("SELECT * FROM venues ORDER BY name").all() as VenueRow[]).map(venueSummary);
+  return (db.prepare(`${VENUE_SELECT} ORDER BY v.name`).all() as VenueListRow[]).map(venueSummary);
 }
 
-/** Accepts {venue: <rcvenue>} or a bare rcvenue document. */
+/** Every revision of a venue, newest first, with enough to tell them apart. */
+export function listVenueRevisions(db: DB, row: VenueRow) {
+  const rows = db
+    .prepare(
+      `SELECT r.revision, r.created_at, r.created_by, r.rcvenue_json, u.username FROM venue_revisions r
+       JOIN users u ON u.forum_id = r.created_by WHERE r.venue_id = ? ORDER BY r.revision DESC`,
+    )
+    .all(row.id) as { revision: number; created_at: string; created_by: number; rcvenue_json: string; username: string }[];
+  return rows.map((r) => {
+    const doc = JSON.parse(r.rcvenue_json) as RcVenue;
+    return {
+      revision: r.revision,
+      createdAt: r.created_at,
+      createdBy: { id: r.created_by, username: r.username },
+      name: doc.info.name,
+      area: doc.area,
+      obstacles: doc.obstacles?.length ?? 0,
+      downloadUrl: `/api/venues/${row.id}/r/${r.revision}.rcvenue.json`,
+    };
+  });
+}
+
+/** Accepts {venue: <rcvenue>, baseRevision?} or a bare rcvenue document. */
 function venueFromBody(body: unknown): Record<string, unknown> {
   const src = isObject(body) && isObject(body.venue) ? body.venue : body;
   if (!isObject(src)) throw badRequest("invalid-venue", "Body must be an rcvenue document or {venue: …}");
@@ -116,6 +156,7 @@ export function createVenue(db: DB, user: User, body: unknown) {
   if (src.id !== undefined && (typeof src.id !== "string" || !/^[A-Za-z0-9][\w-]{0,63}$/.test(src.id))) {
     throw badRequest("invalid-venue", "Venue id must be 1-64 letters, digits, _ or -");
   }
+  if (src.id === "new") throw badRequest("invalid-venue", 'Venue id "new" is reserved (/v/new is the new venue page)');
   const id = typeof src.id === "string" ? src.id : `venue-${randomUUID().slice(0, 8)}`;
   if (db.prepare("SELECT 1 FROM venues WHERE id = ?").get(id)) throw conflict("venue-exists", `Venue ${id} already exists`);
   const doc = { ...src, format: "rcvenue", version: 1, id, revision: 1 };
@@ -133,6 +174,10 @@ export function createVenue(db: DB, user: User, body: unknown) {
 export function updateVenue(db: DB, user: User, id: string, body: unknown) {
   const row = getVenueRow(db, id);
   const src = venueFromBody(body);
+  const baseRevision = isObject(body) && typeof body.baseRevision === "number" ? body.baseRevision : undefined;
+  if (baseRevision !== undefined && baseRevision !== row.current_revision) {
+    throw conflict("stale", `Revision ${row.current_revision} was saved since you started editing revision ${baseRevision}. Reload to see it.`);
+  }
   const revision = row.current_revision + 1;
   const doc = { ...src, format: "rcvenue", version: 1, id, revision };
   assertValidVenue(doc);
@@ -276,7 +321,7 @@ export function previewHash(doc: RcTrack): string {
 }
 
 /**
- * Recompute every revision's preview hash (at start, after the fonts are ready): a new engine or new fonts can change
+ * Recompute every revision's preview hash (at start): a new engine or new fonts can change
  * the drawing without changing the data, and the hash must follow or browsers keep the old picture. ~1 ms a revision.
  */
 export function refreshPreviewHashes(db: DB): number {
