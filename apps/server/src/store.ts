@@ -121,14 +121,14 @@ export function listVenues(db: DB) {
   return (db.prepare(`${VENUE_SELECT} ORDER BY v.name`).all() as VenueListRow[]).map(venueSummary);
 }
 
-/** Every revision of a venue, newest first, with enough to tell them apart. */
+/** Every revision of a venue, newest first, with enough to tell them apart. Authors with no user row (seeded or imported) come back with a null username. */
 export function listVenueRevisions(db: DB, row: VenueRow) {
   const rows = db
     .prepare(
       `SELECT r.revision, r.created_at, r.created_by, r.rcvenue_json, u.username FROM venue_revisions r
-       JOIN users u ON u.forum_id = r.created_by WHERE r.venue_id = ? ORDER BY r.revision DESC`,
+       LEFT JOIN users u ON u.forum_id = r.created_by WHERE r.venue_id = ? ORDER BY r.revision DESC`,
     )
-    .all(row.id) as { revision: number; created_at: string; created_by: number; rcvenue_json: string; username: string }[];
+    .all(row.id) as { revision: number; created_at: string; created_by: number; rcvenue_json: string; username: string | null }[];
   return rows.map((r) => {
     const doc = JSON.parse(r.rcvenue_json) as RcVenue;
     return {
@@ -366,9 +366,9 @@ export function listRevisions(db: DB, row: TrackRow) {
   const rows = db
     .prepare(
       `SELECT r.revision, r.created_at, r.note, r.created_by, r.preview_hash, r.errors, u.username FROM track_revisions r
-       JOIN users u ON u.forum_id = r.created_by WHERE r.track_id = ? ORDER BY r.revision DESC`,
+       LEFT JOIN users u ON u.forum_id = r.created_by WHERE r.track_id = ? ORDER BY r.revision DESC`,
     )
-    .all(row.id) as { revision: number; created_at: string; note: string | null; created_by: number; username: string; preview_hash: string; errors: number }[];
+    .all(row.id) as { revision: number; created_at: string; note: string | null; created_by: number; username: string | null; preview_hash: string; errors: number }[];
   return rows.map((r) => ({
     revision: r.revision,
     createdAt: r.created_at,

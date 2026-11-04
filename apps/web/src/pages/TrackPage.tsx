@@ -303,7 +303,7 @@ export function TrackPage() {
                       </span>
                       <span className="ts-revision__date">{fmt.date(x.createdAt)}</span>
                       <span className="ts-revision__meta">
-                        by {x.createdBy.username}
+                        by {fmt.author(x.createdBy)}
                         {x.note && <> · {x.note}</>}
                       </span>
                     </button>
