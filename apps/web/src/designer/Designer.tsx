@@ -15,6 +15,7 @@ import {
   type Obstacle,
   type Point2,
   type RcTrack,
+  type RostrumPlacement,
   type Side,
 } from "@track-studio/engine";
 import { ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, TriangleAlert, Undo2 } from "lucide-react";
@@ -52,6 +53,7 @@ import {
   type DesignerMode,
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
+import type { Cell } from "./lanes.js";
 import { useBake } from "./useBake.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -74,6 +76,8 @@ export interface Draft {
   obstacles: Obstacle[];
   basedOn: BasedOn | null;
   design: RcTrack["design"];
+  /** step 1 (lay the lanes): the squares painted so far; the design has no points until the loop closes */
+  laying?: Cell[];
 }
 
 export interface DesignerBase {
@@ -101,6 +105,11 @@ export function toDoc(d: Draft, base?: { id: string; revision: number; doc: RcTr
   if (d.info.description) (info as RcTrack["info"]).description = d.info.description;
   else delete (info as RcTrack["info"]).description;
   return { format: "rctrack", version: 1, id: base?.id ?? "new", revision: (base?.revision ?? 0) + 1, info, area: d.area, obstacles: d.obstacles, basedOn: d.basedOn, design: d.design };
+}
+
+/** A new design (from a venue template or a blank area): it opens in step 1 with nothing laid. */
+export function newDraft({ area, obstacles, name, basedOn = null, rostrum, laneWidth = 2 }: { area: Area; obstacles: Obstacle[]; name: string; basedOn?: BasedOn | null; rostrum?: RostrumPlacement; laneWidth?: number }): Draft {
+  return { info: { name }, area, obstacles, basedOn, laying: [], design: { laneWidth, points: [], features: [], start: { distance: 0 }, rostrum: { side: "south", ...rostrum } } };
 }
 
 export function draftFromDoc(doc: RcTrack): Draft {
