@@ -99,4 +99,10 @@ for f in sorted(glob.glob(os.path.join(fixtures, "v12", "*.rctrack.json"))):
     same = all(old[k] == new[k] for k in old if k != "generator")   # (1.4 adds built.lanes)
     print(f"{os.path.basename(f)}: {'same as 1.2' if same else 'DIFFERENT from 1.2'}")
     assert same
+# designs with no squeezed corners must bake exactly as in rctrack 1.4 (v14/: baked by bake.py 1.4)
+for f in sorted(glob.glob(os.path.join(fixtures, "v14", "*.rctrack.json"))):
+    doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
+    same = json.dumps({**old, "generator": ""}) == json.dumps({**new, "generator": ""})
+    print(f"{os.path.basename(f)}: {'same as 1.4' if same else 'DIFFERENT from 1.4'}")
+    assert same
 print(f"{len(out)} fit results; fitting:", sum(1 for r in out.values() if r))

@@ -224,8 +224,8 @@ describe("track page", () => {
     { revision: 4, createdAt: "2026-11-02T10:00:00Z", createdBy: { id: 1, username: "yeti" }, note: null, status: "submitted", previewUrl: "", downloadUrl: "/d/4" },
     { revision: 3, createdAt: "2026-10-19T10:00:00Z", createdBy: { id: 1, username: "yeti" }, note: "wider", status: "approved", previewUrl: "", downloadUrl: "/d/3" },
   ];
-  const page = (c: Permissions, over: Partial<TrackSummary> = {}) => {
-    const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, ...over }), doc, can: c };
+  const page = (c: Permissions, over: Partial<TrackSummary> = {}, d: RcTrack = doc) => {
+    const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, ...over }), doc: d, can: c };
     answers.set("/api/tracks/winter-3", { data: res, loading: false });
     answers.set("/api/tracks/winter-3/revisions", { data: { revisions }, loading: false });
     return html(<TrackPage />, "/t/winter-3");
@@ -268,9 +268,14 @@ describe("track page", () => {
   });
 
   it("checks: summary line and one row per problem", () => {
-    const h = page(can());
+    // club-a has no problems since rctrack 1.5, so give it some
+    const checks: Check[] = [
+      { level: "warning", code: "tight-corner", x: 1, z: 2, message: "Corner radius 0.55 m is tighter than a buggy can turn (0.6 m)" },
+      { level: "info", code: "radius-reduced", x: 1, z: 2, message: "Corner radius reduced to 0.55 m to fit the straights either side" },
+    ];
+    const h = page(can(), {}, { ...doc, built: { ...doc.built!, checks } });
     expect(h).toContain('class="ts-checks"');
-    expect(text(h)).toContain(checksSummary(doc.built!.checks));
+    expect(text(h)).toContain(checksSummary(checks));
   });
 
   it("share and download: forum link, embed, .rctrack.json", () => {

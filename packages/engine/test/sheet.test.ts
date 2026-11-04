@@ -105,7 +105,7 @@ describe("buildSheet", () => {
 
   it("start line: where it is and which way cars leave it", () => {
     const s = buildSheet(ex("club-a.rctrack.json"));
-    expect(s.start.fromWest).toBeCloseTo(4.964, 6);
+    expect(s.start.fromWest).toBeCloseTo(5.028, 6);
     expect(s.start.fromSouth).toBeCloseTo(1.1, 6);
     expect(s.start.heading).toBe("east");
     const b = buildSheet(ex("freeform-at-sports-hall-b.rctrack.json"));
