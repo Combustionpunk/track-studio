@@ -120,6 +120,13 @@ describe("one plan drawing everywhere", () => {
     }
   });
 
+  it("the designer draws problem marks with planLayers in both modes, not a mark drawing of its own (#28)", () => {
+    const d = src("src/designer/Designer.tsx");
+    expect(d).toMatch(/planLayers\(/);
+    expect(d).not.toMatch(/problemMarks|ed-problem-/);
+    expect(src("src/designer/mode.ts")).not.toMatch(/problemMarks|ProblemMark/);
+  });
+
   it("the PNG preview is the same layers the web plan draws, plus the floor and a scale bar", () => {
     const doc = ref<RcTrack>("examples/club-a.rctrack.json");
     const scene = planScene(doc);

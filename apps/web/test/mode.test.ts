@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { draftFromDoc, toDoc } from "../src/designer/Designer.js";
-import { allows, checkCounts, deletePoint, insertPoint, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, wheelEdit } from "../src/designer/mode.js";
+import { allows, checkCounts, deletePoint, insertPoint, movePoint, readMode, snapModeFor, submitBlock, visibleChecks, wheelEdit } from "../src/designer/mode.js";
 import { keepPinned, pinnedCorners, snapCentre } from "../src/designer/snap.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
@@ -116,42 +116,7 @@ describe("checks in Quick and Advanced", () => {
     expect(checkCounts(checks)).toEqual({ errors: 1, warnings: 1 });
   });
 
-  it("draws errors as a section of the lane and warnings as a ring; never info", () => {
-    const t = ref<RcTrack>("examples/club-a.rctrack.json");
-    const b = bakeBuilt(t);
-    const on = b.racingLine[20];
-    const marks = problemMarks(
-      [
-        { level: "error", code: "outside-area", x: on[0], z: on[1], message: "e" },
-        { level: "warning", code: "tight-corner", x: on[0], z: on[1], message: "w" },
-        { level: "info", code: "radius-reduced", x: on[0], z: on[1], message: "i" },
-        { level: "error", code: "obstacle", x: 100, z: 100, message: "far off the lane" },
-      ],
-      b.racingLine,
-    );
-    expect(marks.map((m) => [m.level, m.kind, m.index])).toEqual([
-      ["error", "section", 0],
-      ["warning", "ring", 1],
-      ["error", "ring", 3],
-    ]);
-    const sec = marks[0];
-    if (sec.kind !== "section") throw new Error("expected a section");
-    // about 3 m of lane centred on the problem
-    let len = 0;
-    for (let k = 1; k < sec.points.length; k++) len += Math.hypot(sec.points[k][0] - sec.points[k - 1][0], sec.points[k][1] - sec.points[k - 1][1]);
-    expect(len).toBeGreaterThan(2.4);
-    expect(len).toBeLessThan(3.2);
-    expect(sec.points.some((p) => Math.hypot(p[0] - on[0], p[1] - on[1]) < 1e-9)).toBe(true);
-  });
-
-  it("a section wraps round the start of the line", () => {
-    const t = ref<RcTrack>("examples/club-a.rctrack.json");
-    const b = bakeBuilt(t);
-    const [m] = problemMarks([{ level: "error", code: "outside-area", x: b.racingLine[0][0], z: b.racingLine[0][1], message: "e" }], b.racingLine);
-    if (m.kind !== "section") throw new Error("expected a section");
-    expect(m.points.length).toBeGreaterThan(2);
-    for (let k = 1; k < m.points.length; k++) expect(Math.hypot(m.points[k][0] - m.points[k - 1][0], m.points[k][1] - m.points[k - 1][1])).toBeLessThan(1);
-  });
+  // drawing the problems is the engine's planLayers now (packages/engine/test/plan.test.ts, "problem marks")
 });
 
 describe("Submit", () => {

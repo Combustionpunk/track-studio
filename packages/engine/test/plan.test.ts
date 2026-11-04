@@ -253,3 +253,63 @@ describe("transformBuilt", () => {
     expect(worst).toBeLessThan(0.15);
   });
 });
+
+// Problem marks: the one drawing of a problem, for every plan and for both designer modes (moved from the designer's
+// own problemMarks, #28)
+describe("problem marks", () => {
+  const ONLY_CHECKS = { lanes: false, racingLine: false, dividers: false, features: false, start: false, checks: true, obstacles: false, grid: false, rostrum: false };
+  /** the checks layer alone, as the designer draws it over its handles */
+  const marks = (doc: RcTrack, px = 0.025) => draw(doc, { px, layers: ONLY_CHECKS, background: false, tips: true });
+  const sectionPoints = (svg: string) => /class="p-error" d="([^"]+)"/.exec(svg)![1].slice(1).split(" L").map((p) => p.split(" ").map(Number)).map(([x, y]) => [x, -y]);
+  const lengthOf = (pts: number[][]) => pts.slice(1).reduce((s, p, k) => s + Math.hypot(p[0] - pts[k][0], p[1] - pts[k][1]), 0);
+
+  it("draws an error as a section of the lane, a warning or an off-lane error as a ring, and never info", () => {
+    const doc = club();
+    const on = doc.built!.racingLine[20];
+    doc.built!.checks = [
+      { level: "error", code: "outside-area", x: on[0], z: on[1], message: "e" },
+      { level: "warning", code: "tight-corner", x: on[0], z: on[1], message: "w" },
+      { level: "info", code: "radius-reduced", x: on[0], z: on[1], message: "i" },
+      { level: "error", code: "obstacle", x: 100, z: 100, message: "far off the lane" },
+    ];
+    const svg = marks(doc);
+    expect([...svg.matchAll(/<(\w+) class="(p-error|p-warning)"[^>]*data-tip="(c\d)"/g)].map((m) => [m[2], m[1], m[3]])).toEqual([
+      ["p-error", "path", "c0"],
+      ["p-warning", "circle", "c1"],
+      ["p-error", "circle", "c3"],
+    ]);
+    expect(svg).not.toContain('data-tip="c2"');
+    // about 3 m of lane (±1.5 m) centred on the problem, 3 px wide
+    const sec = sectionPoints(svg);
+    expect(lengthOf(sec)).toBeGreaterThan(2.4);
+    expect(lengthOf(sec)).toBeLessThan(3.2);
+    expect(sec.some((p) => Math.hypot(p[0] - on[0], p[1] - on[1]) < 1e-3)).toBe(true);
+    expect(svg).toMatch(/class="p-error" d="[^"]+" fill="none" stroke="#ff7f5c" stroke-width="0.075"/);
+    // rings: 9 px radius (at least 0.5 m), 2 px for a warning and 3 px for an error
+    expect(svg).toMatch(/<circle class="p-warning" cx="[^"]+" cy="[^"]+" r="0.5" fill="none" stroke="#fdd459" stroke-width="0.05"/);
+    expect(svg).toMatch(/<circle class="p-error" cx="100" cy="-100" r="0.5" fill="none" stroke="#ff7f5c" stroke-width="0.075"/);
+    expect(marks(doc, 0.1)).toMatch(/<circle class="p-warning" [^>]*r="0.9"/);
+  });
+
+  it("a section wraps round the start of the line", () => {
+    const doc = club();
+    const [x, z] = doc.built!.racingLine[0];
+    doc.built!.checks = [{ level: "error", code: "outside-area", message: "e", x, z }];
+    const sec = sectionPoints(marks(doc));
+    expect(sec.length).toBeGreaterThan(2);
+    for (let k = 1; k < sec.length; k++) expect(Math.hypot(sec[k][0] - sec[k - 1][0], sec[k][1] - sec[k - 1][1])).toBeLessThan(1);
+  });
+
+  it("with background: false, draws only the chosen layers (no patterns or track area) to sit over something else", () => {
+    const doc = club();
+    const [x, z] = doc.built!.racingLine[0];
+    doc.built!.checks = [{ level: "error", code: "outside-area", message: "e", x, z }];
+    const svg = marks(doc);
+    expect(wellFormed(svg)).toBe(true);
+    expect(svg).toMatch(/^<path class="p-error"/);
+    expect(svg).not.toMatch(/<defs>|p-area|p-carpet|p-line|p-pipe/);
+    expect(draw(doc)).toMatch(/^<defs>.*p-area/);
+    // the marks are the same as in the full drawing
+    expect(draw(doc)).toContain(draw(doc, { px: 0.025, layers: ONLY_CHECKS, background: false }));
+  });
+});
