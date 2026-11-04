@@ -138,7 +138,7 @@ features → ramps, startLine → timing line and grid, rostrum → VR/rostrum p
   most half of it: a sweeper next to a hairpin keeps its radius. `version` stays `1`; re-baking changes `built` only of
   tracks that had a squeezed corner (radius shrunk to fit: a `radius-reduced` check, if by more than 0.01 m). Those
   corners get more room, and a corner next to one asking for more than half the straight can now be cut in proportion.
-  Every other track bakes exactly as in 1.4.
+  A track with no corner shrunk to fit bakes exactly as in 1.4.
 - **1.4** — `outer: "auto"` (now the default when `outer` is missing: square up to 120°, round beyond). `built.lanes`:
   the lane-edge rings, for drawing the carpet. Re-baking changes `built` of tracks with corners sharper than 120° that
   had no explicit `outer` (they were square in 1.3).
