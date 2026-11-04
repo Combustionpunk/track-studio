@@ -35,6 +35,16 @@ describe("web app pages", () => {
     expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
   });
 
+  it("serves the build sheet page, titled after the track", async () => {
+    const { app } = await makeAppWithWeb(fakeDist());
+    const res = await app.inject({ method: "GET", url: `/t/${SPORTS}/build?paper=a4`, headers: html });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("<title>Build sheet: Freeform example @ Sports hall B · Track Studio</title>");
+    expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
+    const missing = await app.inject({ method: "GET", url: "/t/no-such-track/build", headers: html });
+    expect(missing.statusCode).toBe(404);
+  });
+
   it("embed pages may be framed by the forum only", async () => {
     const { app } = await makeAppWithWeb(fakeDist());
     const res = await app.inject({ method: "GET", url: `/embed/${SPORTS}`, headers: html });
