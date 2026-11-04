@@ -8,8 +8,7 @@ import * as fmt from "../lib/format.js";
 import { useApi } from "../lib/hooks.js";
 import { useSession } from "../lib/session.js";
 import { NotFound } from "../pages/NotFound.js";
-import { Designer, draftFromDoc, type Draft } from "./Designer.js";
-import { starterDesign } from "./geometry.js";
+import { Designer, draftFromDoc, newDraft, type Draft } from "./Designer.js";
 
 export function NewTrackPage() {
   const navigate = useNavigate();
@@ -27,7 +26,7 @@ export function NewTrackPage() {
     <div className="wrap page">
       <div className="page-head">
         <h1>New track</h1>
-        <p className="lede">Start from a venue template — its track area, rostrum and pillars are locked in — or from a blank area. Either way you get a simple loop to reshape.</p>
+        <p className="lede">Start from a venue template — its track area, rostrum and pillars are locked in — or from a blank area. Either way you start by laying the lanes on a grid.</p>
       </div>
       <h2 className="section-h">From a venue</h2>
       {venues.error ? (
@@ -101,16 +100,16 @@ export function NewDesignPage() {
     if (venueId) {
       if (!venue.data) return null;
       const v = venue.data.doc;
-      return {
-        info: { name: venue.data && name === "New track" ? `New track at ${v.info.name}` : name },
+      return newDraft({
+        name: name === "New track" ? `New track at ${v.info.name}` : name,
         area: v.area,
         obstacles: v.obstacles ?? [],
         basedOn: { venueTemplate: v.id, revision: v.revision },
-        design: { ...starterDesign(v.area, v.obstacles ?? []), rostrum: { side: "south", ...v.rostrum } },
-      };
+        rostrum: v.rostrum,
+      });
     }
     const area = { length: Math.min(100, Math.max(5, L)), width: Math.min(100, Math.max(5, W)) };
-    return { info: { name }, area, obstacles: [], basedOn: null, design: { ...starterDesign(area), rostrum: { side: "south" } } };
+    return newDraft({ name, area, obstacles: [] });
   }, [venueId, venue.data, L, W, name]);
 
   if (venue.error) return venue.error instanceof ApiError && venue.error.status === 404 ? <NotFound what="venue" /> : <div className="wrap page"><Message kind="error">{venue.error.message}</Message></div>;
