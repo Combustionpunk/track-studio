@@ -125,6 +125,8 @@ function pageFor(db: DB, config: Config, theme: ThemeSync, path: string, query: 
       const rev = query.r && /^\d{1,9}$/.test(query.r) ? Number(query.r) : undefined;
       return trackPage(db, config, theme, getTrackRow(db, m[2]), path, rev);
     }
+    if (path === "/v/new" || path === "/v/new/") return plain("New venue · Track Studio");
+    if ((m = /^\/v\/([\w-]{1,64})\/edit\/?$/.exec(path))) return plain(`Edit ${getVenueRow(db, m[1]).name} · Track Studio`);
     if ((m = /^\/v\/([\w-]{1,64})\/?$/.exec(path))) return venuePage(db, config, m[1]);
     return notFound();
   } catch (e) {
@@ -218,7 +220,7 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     const themed = { ...page, head: `${themeHead(app.theme.current())}\n${page.head}` };
     return reply.code(page.status).type("text/html; charset=utf-8").send(fillTemplate(await template(req.url), themed));
   };
-  for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/:id"]) app.get(route, serve);
+  for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/new", "/v/:id", "/v/:id/edit"]) app.get(route, serve);
   app.decorate("servePage", serve);
 }
 

@@ -10,6 +10,7 @@ import { Library } from "./pages/Library.js";
 import { NotFound } from "./pages/NotFound.js";
 import { TrackPage } from "./pages/TrackPage.js";
 import { VenuePage, Venues } from "./pages/Venues.js";
+import { EditVenuePage, NewVenuePage } from "./venues/pages.js";
 import "./styles.css";
 
 function Layout() {
@@ -50,7 +51,9 @@ const router = createBrowserRouter([
       { path: "/new", element: <NewTrackPage /> },
       { path: "/new/design", element: <NewDesignPage /> },
       { path: "/v", element: <Venues /> },
+      { path: "/v/new", element: <NewVenuePage /> },
       { path: "/v/:id", element: <VenuePage /> },
+      { path: "/v/:id/edit", element: <EditVenuePage /> },
       { path: "*", element: <NotFound /> },
     ],
   },

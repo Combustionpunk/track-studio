@@ -16,6 +16,7 @@ import {
   getVenueRow,
   listRevisions,
   listTracks,
+  listVenueRevisions,
   listVenues,
   permissions,
   publicRevision,
@@ -23,6 +24,7 @@ import {
   trackSummary,
   updateTrack,
   updateVenue,
+  venuePermissions,
   venueSummary,
   type ListQuery,
   type StatusAction,
@@ -129,7 +131,19 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
 
   app.get("/api/venues/:id", async (req) => {
     const { id } = req.params as { id: string };
-    return { venue: venueSummary(getVenueRow(db, id)), doc: getVenueDoc(db, id) };
+    return { venue: venueSummary(getVenueRow(db, id)), doc: getVenueDoc(db, id), can: venuePermissions(req.user) };
+  });
+
+  app.get("/api/venues/:id/revisions", async (req) => ({ revisions: listVenueRevisions(db, getVenueRow(db, (req.params as { id: string }).id)) }));
+
+  // /api/venues/:id/r/3.rcvenue.json (download) or /r/3 (plain JSON)
+  app.get("/api/venues/:id/r/:file", async (req, reply) => {
+    const { id, file } = req.params as { id: string; file: string };
+    const m = /^(\d{1,9})(\.rcvenue\.json)?$/.exec(file);
+    if (!m) throw notFound("Venue revision");
+    const doc = getVenueDoc(db, id, Number(m[1]));
+    if (m[2]) reply.header("content-disposition", `attachment; filename="${slug(doc.info.name)}-r${doc.revision}.rcvenue.json"`);
+    return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 1));
   });
 
   app.post("/api/venues", async (req, reply) => reply.code(201).send(createVenue(db, requireOrganiser(req), req.body)));
