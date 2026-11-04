@@ -34,6 +34,7 @@ const { LibraryResults } = await import("../src/components/LibraryResults.js");
 const { checksSummary } = await import("../src/components/ChecksList.js");
 const { Library } = await import("../src/pages/Library.js");
 const { TrackPage } = await import("../src/pages/TrackPage.js");
+const fmt = await import("../src/lib/format.js");
 const { SessionContext } = await import("../src/lib/session.js");
 
 vi.stubGlobal("window", { location: { origin: "https://tracks.example", pathname: "/", search: "" } });
@@ -217,12 +218,20 @@ describe("checks summary", () => {
   });
 });
 
+describe("revision authors (#30)", () => {
+  it("a missing username reads Unknown", () => {
+    expect(fmt.author({ id: 1, username: "yeti" })).toBe("yeti");
+    expect(fmt.author({ id: 999, username: null })).toBe("Unknown");
+  });
+});
+
 describe("track page", () => {
   const doc = JSON.parse(readFileSync(join(ROOT, "reference/examples/club-a.rctrack.json"), "utf8")) as RcTrack;
   const can = (over: Partial<Permissions> = {}): Permissions => ({ edit: false, submit: false, approve: false, archive: false, adapt: false, copy: false, ...over });
   const revisions: Revision[] = [
     { revision: 4, createdAt: "2026-11-02T10:00:00Z", createdBy: { id: 1, username: "yeti" }, note: null, status: "submitted", previewUrl: "", downloadUrl: "/d/4" },
     { revision: 3, createdAt: "2026-10-19T10:00:00Z", createdBy: { id: 1, username: "yeti" }, note: "wider", status: "approved", previewUrl: "", downloadUrl: "/d/3" },
+    { revision: 2, createdAt: "2026-10-01T10:00:00Z", createdBy: { id: 999, username: null }, note: "imported", status: "draft", previewUrl: "", downloadUrl: "/d/2" },
   ];
   const page = (c: Permissions, over: Partial<TrackSummary> = {}, d: RcTrack = doc) => {
     const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, ...over }), doc: d, can: c };
@@ -292,6 +301,12 @@ describe("track page", () => {
     expect(t).toContain("Revision 4 · submitted");
     expect(t).toContain("Revision 3 · approved");
     expect(h).toContain('aria-label="Download revision 3"');
+  });
+
+  it("a revision whose author has no user row shows as Unknown (#30)", () => {
+    const t = text(page(can()));
+    expect(t).toContain("by Unknown · imported");
+    expect(page(can())).toContain('aria-label="Download revision 2"');
   });
 
   it("a reader can copy and fit, but not edit, submit, approve or archive", () => {

@@ -92,6 +92,27 @@ describe("venue revisions", () => {
     for (const url of [`/api/venues/${venue.id}/r/9`, `/api/venues/${venue.id}/r/x`, "/api/venues/nope/revisions"]) expect((await req(app, "GET", url)).statusCode, url).toBe(404);
   });
 
+  it("a revision whose author has no user row (seeded or imported) still lists, as an unknown author, and downloads (#30)", async () => {
+    const { app, org } = await setup();
+    const { venue } = (await req(app, "POST", "/api/venues", org, newVenue())).json();
+    await req(app, "PUT", `/api/venues/${venue.id}`, org, { venue: newVenue(), baseRevision: 1 });
+    await req(app, "PUT", `/api/venues/${venue.id}`, org, { venue: newVenue(), baseRevision: 2 });
+    app.db.pragma("foreign_keys = OFF");
+    app.db.prepare("UPDATE venue_revisions SET created_by = 999999 WHERE venue_id = ? AND revision = 2").run(venue.id);
+    app.db.pragma("foreign_keys = ON");
+
+    const revs = (await req(app, "GET", `/api/venues/${venue.id}/revisions`)).json().revisions;
+    expect(revs.map((r: { revision: number }) => r.revision)).toEqual([3, 2, 1]);
+    expect(revs.map((r: { createdBy: unknown }) => r.createdBy)).toEqual([
+      { id: ORGANISER.id, username: "olive" },
+      { id: 999999, username: null },
+      { id: ORGANISER.id, username: "olive" },
+    ]);
+    const dl = await req(app, "GET", revs[1].downloadUrl);
+    expect(dl.statusCode).toBe(200);
+    expect(dl.json().revision).toBe(2);
+  });
+
   it("a save on top of a stale revision is refused", async () => {
     const { app, org } = await setup();
     expect((await req(app, "PUT", "/api/venues/venue-2", org, { venue: newVenue(), baseRevision: 1 })).statusCode).toBe(200);
