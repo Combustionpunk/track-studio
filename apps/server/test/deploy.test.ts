@@ -100,6 +100,71 @@ describe("backup wrapper", () => {
   });
 });
 
+describe("CI image check", () => {
+  const workflow = read(".github/workflows/deploy-config.yml");
+  const job = block(workflow, "jobs", "image");
+  const smoke = read("deploy/smoke-image.sh");
+
+  it("runs on PRs and pushes to main that touch the image's inputs", () => {
+    const paths = ["Dockerfile", "apps/**", "packages/**", "pnpm-lock.yaml", "docker-compose.prod.yml", ".github/workflows/deploy-config.yml"];
+    for (const trigger of ["pull_request", "push"]) {
+      const listed = block(workflow, "on", trigger).match(/paths: \[(.*)\]/)?.[1].split(/,\s*/) ?? [];
+      expect(listed).toEqual(expect.arrayContaining(paths));
+    }
+    expect(block(workflow, "on", "push")).toMatch(/branches: \[main\]/);
+  });
+
+  it("builds the image with the GHA layer cache and pushes nothing", () => {
+    expect(job).toMatch(/uses: docker\/build-push-action@v\d+/);
+    expect(job).toMatch(/cache-from: type=gha/);
+    expect(job).toMatch(/cache-to: type=gha,mode=max/);
+    expect(job).toMatch(/push: false/);
+    expect(job).toMatch(/load: true/);
+    expect(workflow).not.toMatch(/docker\/login-action|docker push/);
+  });
+
+  it("smoke-tests the built image", () => {
+    expect(job).toMatch(/run: deploy\/smoke-image\.sh track-studio:ci/);
+    expect(statSync(join(ROOT_DIR, "deploy/smoke-image.sh")).mode & 0o111).not.toBe(0);
+    expect(smoke).toMatch(/^#!\/usr\/bin\/env bash/);
+    expect(smoke).toMatch(/set -euo pipefail/);
+  });
+
+  it("starts it in production with throwaway secrets made in the job and a temp data folder", () => {
+    expect(smoke).toMatch(/SESSION_SECRET="\$\(openssl rand -hex 32\)"/);
+    expect(smoke).toMatch(/DISCOURSE_CONNECT_SECRET="\$\(openssl rand -hex 32\)"/);
+    expect(smoke).toMatch(/-e NODE_ENV=production/);
+    expect(smoke).toMatch(/DATA_DIR=\/tmp\//);
+    expect(smoke).toMatch(/mktemp -d/);
+  });
+
+  it("waits about 60 s for /healthz to return 200 and fails otherwise", () => {
+    expect(smoke).toMatch(/\/healthz/);
+    expect(smoke).toMatch(/HEALTH_TIMEOUT=60/);
+    expect(smoke).toMatch(/exit 1/);
+  });
+
+  it("checks the logo and the Inter and Oswald files are in the image", () => {
+    expect(smoke).toContain("/app/apps/web/src/brand/logo.svg");
+    expect(smoke).toMatch(/Inter-\*\.ttf/);
+    expect(smoke).toMatch(/Oswald-\*\.ttf/);
+    expect(smoke).toMatch(/inter-\*\.woff2/);
+    expect(smoke).toMatch(/oswald-\*\.woff2/);
+  });
+
+  it("seeds inside the container and fetches a track's card.png as a 200 image/png", () => {
+    expect(smoke).toMatch(/docker exec "\$container" node dist\/seed\.js/);
+    expect(smoke).toMatch(/og:image/);
+    expect(smoke).toMatch(/card\.png/);
+    expect(smoke).toMatch(/image\/png/);
+  });
+
+  it("keeps secrets out of the workflow and the script", () => {
+    expect(workflow).not.toMatch(/\$\{\{\s*secrets\./);
+    expect(`${workflow}\n${smoke}`).not.toMatch(/(SECRET|_KEY)[=:]\s*["']?[0-9a-f]{16,}/i);
+  });
+});
+
 describe("runbook", () => {
   const doc = read("docs/deploy.md");
   it.each([
@@ -112,5 +177,6 @@ describe("runbook", () => {
     ["restore", /## Restore/],
     ["DiscourseConnect", /discourse connect provider secrets/],
     ["allowed iframes", /allowed iframes/],
+    ["CI", /## CI/],
   ])("covers %s", (_name, re) => expect(doc).toMatch(re));
 });

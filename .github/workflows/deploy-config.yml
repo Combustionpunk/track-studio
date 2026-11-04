@@ -1,13 +1,14 @@
-# Validates the production deploy files (compose config, Caddyfile, backup wrapper) and runs the server's
-# deploy tests (health check, S3 signing, backup/restore against a local S3 stub, deploy config).
+# Validates the production deploy files (compose config, Caddyfile, backup wrapper), runs the server's deploy tests
+# (health check, S3 signing, backup/restore against a local S3 stub, deploy config), and builds the production image
+# and smoke-tests it (deploy/smoke-image.sh). Nothing is pushed anywhere.
 name: Deploy config
 
 on:
   pull_request:
-    paths: [docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, apps/server/src/**, apps/server/test/**, .github/workflows/deploy-config.yml]
+    paths: [Dockerfile, .dockerignore, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
   push:
     branches: [main]
-    paths: [docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, apps/server/src/**, apps/server/test/**, .github/workflows/deploy-config.yml]
+    paths: [Dockerfile, .dockerignore, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
 
 permissions:
   contents: read
@@ -40,3 +41,22 @@ jobs:
           COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
       - working-directory: apps/server
         run: pnpm exec vitest run test/health.test.ts test/s3.test.ts test/backup.test.ts test/deploy.test.ts
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n deploy/smoke-image.sh
+      - uses: docker/setup-buildx-action@v3
+      - name: docker build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: track-studio:ci
+          load: true
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: smoke test
+        run: deploy/smoke-image.sh track-studio:ci

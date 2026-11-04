@@ -196,3 +196,23 @@ docker compose run --rm -e DATA_DIR=/tmp/drill track-studio node dist/restore.js
 It downloads and checks the backup into a throwaway folder inside a one-off container. `Restored …` means the backup is
 good. The same round trip (backup a running app's database, restore it into an empty folder, serve the same tracks) is
 in the automated tests: `apps/server/test/backup.test.ts`, against a local S3 stub.
+
+## CI
+
+`.github/workflows/deploy-config.yml` checks the deploy on every PR and push to main that touches the `Dockerfile`,
+`apps/**`, `packages/**`, `reference/**`, `pnpm-lock.yaml`, `docker-compose.prod.yml`, `deploy/**` or the workflow.
+Nothing is pushed to a registry, and the workflow uses no repository secrets.
+
+- **validate**: `docker compose config` on `docker-compose.prod.yml` (with `.env.example`), `caddy validate` on the
+  Caddyfile, and a syntax check of `deploy/backup.sh`.
+- **server-deploy-tests**: the server's health, S3, backup/restore and deploy-config tests.
+- **image**: builds the production image exactly as the droplet does (`docker build .`, which also runs the engine
+  and web tests and both typechecks), with the Docker layer cache kept in GitHub Actions, then runs
+  `deploy/smoke-image.sh` on it. The script starts the image with `NODE_ENV=production`, a fresh random
+  `SESSION_SECRET` and `DISCOURSE_CONNECT_SECRET` made in the job, and an empty data folder; waits up to 60 s for
+  `/healthz` to answer 200; checks the logo and the Inter and Oswald font files are in the image; seeds the reference
+  tracks inside the container; and fetches one track's link-preview `card.png` (200, `image/png`). On failure it
+  prints the container's logs.
+
+A green **image** job means `docker compose up -d --build` on the droplet will build the same commit. To run the smoke
+test on any machine with Docker: `docker build -t track-studio:ci . && deploy/smoke-image.sh track-studio:ci`.
