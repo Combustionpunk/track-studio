@@ -81,6 +81,9 @@ export interface PlanDrawOptions {
   id?: string;
   /** "print": the build sheet's light print palette, with outlines and hatching that survive black-and-white printing */
   palette?: "plan" | "print";
+  /** false: leave out the patterns and the track area, so the chosen layers can sit over another drawing (the
+   * designer draws the checks layer alone over its handles this way) */
+  background?: boolean;
 }
 
 export const PLAN_MARGIN = 2.5; // m around the area (room for the rostrum)
@@ -265,27 +268,29 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
   const o: string[] = [];
 
   // patterns: carpet texture (fine fibres) and the rostrum hatch, sized so they never get finer than a few pixels
-  const tex = Math.max(0.06, 4 * px);
-  const hatch = Math.max(0.25, 6 * px);
-  o.push(
-    `<defs>` +
-      `<pattern id="${id}-carpet-tex" patternUnits="userSpaceOnUse" width="${n(tex)}" height="${n(tex)}">` +
-      `<path d="M0 ${n(tex)} L${n(tex / 2)} ${n(tex / 2)}" stroke="${P["plan-pipe"]}" stroke-opacity="0.07" stroke-width="${n(tex * 0.22)}"/>` +
-      `<path d="M${n(tex / 2)} ${n(tex)} L${n(tex)} ${n(tex / 2)}" stroke="${P["plan-floor"]}" stroke-opacity="0.16" stroke-width="${n(tex * 0.22)}"/>` +
-      `<path d="M0 ${n(tex / 2)} L${n(tex / 2)} 0" stroke="${P["plan-floor"]}" stroke-opacity="0.12" stroke-width="${n(tex * 0.18)}"/>` +
-      `</pattern>` +
-      `<pattern id="${id}-hatch" patternUnits="userSpaceOnUse" width="${n(hatch)}" height="${n(hatch)}" patternTransform="rotate(45)">` +
-      `<path d="M0 0 L0 ${n(hatch)}" stroke="${P["plan-floor"]}" stroke-opacity="0.45" stroke-width="${n(Math.max(0.04, px))}"/>` +
-      `</pattern>` +
-      (print
-        ? `<pattern id="${id}-jump-hatch" patternUnits="userSpaceOnUse" width="${n(Math.max(0.12, 4 * px))}" height="${n(Math.max(0.12, 4 * px))}" patternTransform="rotate(45)">` +
-          `<path d="M0 0 L0 ${n(Math.max(0.12, 4 * px))}" stroke="${P["plan-jump-edge"]}" stroke-width="${n(Math.max(0.015, 0.75 * px))}"/>` +
-          `</pattern>`
-        : "") +
-      `</defs>`,
-  );
+  if (opts.background !== false) {
+    const tex = Math.max(0.06, 4 * px);
+    const hatch = Math.max(0.25, 6 * px);
+    o.push(
+      `<defs>` +
+        `<pattern id="${id}-carpet-tex" patternUnits="userSpaceOnUse" width="${n(tex)}" height="${n(tex)}">` +
+        `<path d="M0 ${n(tex)} L${n(tex / 2)} ${n(tex / 2)}" stroke="${P["plan-pipe"]}" stroke-opacity="0.07" stroke-width="${n(tex * 0.22)}"/>` +
+        `<path d="M${n(tex / 2)} ${n(tex)} L${n(tex)} ${n(tex / 2)}" stroke="${P["plan-floor"]}" stroke-opacity="0.16" stroke-width="${n(tex * 0.22)}"/>` +
+        `<path d="M0 ${n(tex / 2)} L${n(tex / 2)} 0" stroke="${P["plan-floor"]}" stroke-opacity="0.12" stroke-width="${n(tex * 0.18)}"/>` +
+        `</pattern>` +
+        `<pattern id="${id}-hatch" patternUnits="userSpaceOnUse" width="${n(hatch)}" height="${n(hatch)}" patternTransform="rotate(45)">` +
+        `<path d="M0 0 L0 ${n(hatch)}" stroke="${P["plan-floor"]}" stroke-opacity="0.45" stroke-width="${n(Math.max(0.04, px))}"/>` +
+        `</pattern>` +
+        (print
+          ? `<pattern id="${id}-jump-hatch" patternUnits="userSpaceOnUse" width="${n(Math.max(0.12, 4 * px))}" height="${n(Math.max(0.12, 4 * px))}" patternTransform="rotate(45)">` +
+            `<path d="M0 0 L0 ${n(Math.max(0.12, 4 * px))}" stroke="${P["plan-jump-edge"]}" stroke-width="${n(Math.max(0.015, 0.75 * px))}"/>` +
+            `</pattern>`
+          : "") +
+        `</defs>`,
+    );
 
-  o.push(`<rect class="p-area" x="${n(-L / 2)}" y="${n(-W / 2)}" width="${n(L)}" height="${n(W)}" fill="${P["plan-area"]}"${print ? ` stroke="${P["plan-pipe"]}" stroke-width="${n(2 * px)}"` : ""}/>`);
+    o.push(`<rect class="p-area" x="${n(-L / 2)}" y="${n(-W / 2)}" width="${n(L)}" height="${n(W)}" fill="${P["plan-area"]}"${print ? ` stroke="${P["plan-pipe"]}" stroke-width="${n(2 * px)}"` : ""}/>`);
+  }
 
   if (layers.obstacles)
     obstacles.forEach((ob, i) => {

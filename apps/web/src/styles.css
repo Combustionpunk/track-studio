@@ -276,9 +276,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-start line { stroke: transparent; pointer-events: stroke; cursor: grab; }
 .ed-start .grip { fill: var(--plan-ink); stroke: var(--plan-ink-dark); stroke-width: 1.5; cursor: grab; }
 .ed-start.on .grip { fill: var(--plan-line); }
-.ed-problems polyline, .ed-problems circle { fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-.ed-problem-error { stroke: var(--plan-error); }
-.ed-problem-warning { stroke: var(--plan-warning); }
+.ed-problems, .ed-problems * { pointer-events: none; }
 .ed-label { fill: var(--plan-ink); font-family: var(--font-body); font-weight: 600; paint-order: stroke; stroke: var(--plan-halo); stroke-linejoin: round; pointer-events: none; }
 
 

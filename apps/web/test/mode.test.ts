@@ -1,4 +1,4 @@
-import { bakeBuilt, type Check, type DesignPoint, type RcTrack } from "@track-studio/engine";
+import { type Check, type DesignPoint, type RcTrack } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
