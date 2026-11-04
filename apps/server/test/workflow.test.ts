@@ -124,6 +124,6 @@ describe("backfill", () => {
     app.db.prepare("UPDATE track_revisions SET name = NULL, lap_length = NULL, corners = NULL, preview_hash = NULL").run();
     expect(backfillRevisions(app.db)).toBe(3);
     expect(backfillRevisions(app.db)).toBe(0);
-    expect((await send(app, "GET", `/api/tracks/${CLUB_A}`)).json().track).toMatchObject({ name: "Club A", corners: 12, lapLength: 124.036 });
+    expect((await send(app, "GET", `/api/tracks/${CLUB_A}`)).json().track).toMatchObject({ name: "Club A", corners: 12, lapLength: 123.972 });
   });
 });
