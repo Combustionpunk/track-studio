@@ -5,10 +5,10 @@ name: Deploy config
 
 on:
   pull_request:
-    paths: [Dockerfile, .dockerignore, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
+    paths: [Dockerfile, .dockerignore, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, docs/design/tokens.json, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
   push:
     branches: [main]
-    paths: [Dockerfile, .dockerignore, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
+    paths: [Dockerfile, .dockerignore, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, docs/design/tokens.json, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
 
 permissions:
   contents: read

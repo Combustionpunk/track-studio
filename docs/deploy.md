@@ -200,7 +200,7 @@ in the automated tests: `apps/server/test/backup.test.ts`, against a local S3 st
 ## CI
 
 `.github/workflows/deploy-config.yml` checks the deploy on every PR and push to main that touches the `Dockerfile`,
-`apps/**`, `packages/**`, `reference/**`, `pnpm-lock.yaml`, `docker-compose.prod.yml`, `deploy/**` or the workflow.
+`apps/**`, `packages/**`, `reference/**`, `docs/design/tokens.json`, `pnpm-lock.yaml`, `docker-compose.prod.yml`, `deploy/**` or the workflow.
 Nothing is pushed to a registry, and the workflow uses no repository secrets.
 
 - **validate**: `docker compose config` on `docker-compose.prod.yml` (with `.env.example`), `caddy validate` on the

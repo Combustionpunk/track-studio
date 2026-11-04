@@ -123,6 +123,12 @@ describe("CI image check", () => {
     expect(workflow).not.toMatch(/docker\/login-action|docker push/);
   });
 
+  it("gives the build stage the files the tests it runs read", () => {
+    // packages/engine/test/plan.test.ts and apps/web/test/plan.test.ts compare the plan palette with tokens.json
+    const buildStage = read("Dockerfile").split(/^FROM .* AS runtime$/m)[0];
+    expect(buildStage).toMatch(/^COPY docs\/design\/tokens\.json docs\/design\/tokens\.json$/m);
+  });
+
   it("smoke-tests the built image", () => {
     expect(job).toMatch(/run: deploy\/smoke-image\.sh track-studio:ci/);
     expect(statSync(join(ROOT_DIR, "deploy/smoke-image.sh")).mode & 0o111).not.toBe(0);
