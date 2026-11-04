@@ -29,7 +29,28 @@ import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
 import { insertionFor, liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory } from "./history.js";
-import { allows, checkCounts, wheelEdit, deletePoint, insertPoint, MODE_KEY, movePoint, problemMarks, readMode, snapModeFor, submitBlock, visibleChecks, type DesignerMode } from "./mode.js";
+import { JumpPalette } from "./JumpPalette.js";
+import {
+  addJump,
+  allows,
+  checkCounts,
+  deleteJump,
+  deletePoint,
+  FEATURE_TYPES,
+  insertPoint,
+  jumpsInCorner,
+  MODE_KEY,
+  moveJump,
+  movePoint,
+  paletteJumps,
+  problemMarks,
+  readMode,
+  snapModeFor,
+  submitBlock,
+  visibleChecks,
+  wheelEdit,
+  type DesignerMode,
+} from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { useBake } from "./useBake.js";
 
@@ -46,8 +67,6 @@ const GRAB_PX = 14; // a press on the track this close to a corner point grabs t
 const DRAG_START_PX = 3; // movement before a press on a straight becomes a drag
 /** narrower than this, the designer shows a view-only plan */
 export const PHONE_QUERY = "(max-width: 640px)";
-
-export const FEATURE_TYPES: FeatureType[] = ["tabletop", "double", "kicker", "stepup", "stepdown", "whoops", "bump"];
 
 export interface Draft {
   info: { name: string; description?: string };
@@ -147,6 +166,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   });
   const setView = (m: DesignerMode) => {
     setViewState(m);
+    // a step-up, step-down or bump picked in Advanced can't be placed from Quick
+    setTool((t) => (t.kind === "feature" && !paletteJumps(m).includes(t.type) ? { kind: "select" } : t));
     try {
       localStorage.setItem(MODE_KEY, JSON.stringify({ mode: m }));
     } catch {
@@ -255,7 +276,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setPoints((p) => deletePoint(p, s.i));
       setSel(null);
     } else if (s.kind === "feature") {
-      setFeatures((f) => f.filter((_, i) => i !== s.i));
+      setFeatures((f) => deleteJump(f, s.i));
       setSel(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -364,7 +385,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         if (d.kind === "feature") {
           const f = cur.design.features ?? [];
           if (f[d.i]?.distance === s) return;
-          hist.set({ ...cur, design: { ...cur.design, features: f.map((x, i) => (i === d.i ? { ...x, distance: s } : x)) } }, group);
+          hist.set({ ...cur, design: { ...cur.design, features: moveJump(f, d.i, s) } }, group);
         } else if (cur.design.start?.distance !== s) {
           hist.set({ ...cur, design: { ...cur.design, start: { ...cur.design.start, distance: s } } }, group);
         }
@@ -419,9 +440,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (tool.kind === "feature") {
       e.stopPropagation();
       const distance = wrapDistance(hit.s, liveRef.current.total);
-      const i = (draftRef.current.design.features ?? []).length;
-      setFeatures((f) => [...f, { type: tool.type, distance }]);
-      setSel({ kind: "feature", i });
+      const { features, index } = addJump(draftRef.current.design.features ?? [], tool.type, distance);
+      setFeatures(() => features);
+      setSel({ kind: "feature", i: index });
       setTool({ kind: "select" });
       setHoverS(null);
       return;
@@ -546,6 +567,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // problems drawn by the designer (not PlanView), so Quick and Advanced decide what shows; the bake's checks lag the
   // live line by a moment while dragging
   const marks = useMemo(() => (layers.checks ? problemMarks(built.checks, built.racingLine) : []), [layers.checks, built.checks, built.racingLine]);
+  // matched against the bake's own jumps, so a warning stays on its jump while the bake catches up with a drag
+  const inCorner = useMemo(() => {
+    const b = bake.built;
+    return b && b.features.length === built.features.length ? jumpsInCorner(b.checks, b.features) : new Set<number>();
+  }, [bake.built, built.features.length]);
   const overlay = (m: number) => {
     const selPt = sel?.kind === "point" ? pointsList[sel.i] : null;
     const corner = sel?.kind === "point" ? live.corners[sel.i] : null;
@@ -585,7 +611,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           <polygon
             key={i}
             data-handle="feature"
-            className={`ed-feature ${sel?.kind === "feature" && sel.i === i ? "on" : ""}`}
+            className={`ed-feature ${sel?.kind === "feature" && sel.i === i ? "on" : ""} ${layers.checks && inCorner.has(i) ? "warn" : ""}`}
             points={pts(featureCorners(f))}
             onPointerDown={(e) => onFeatureDown(e, i)}
             vectorEffect="non-scaling-stroke"
@@ -843,18 +869,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       <div className="designer-grid">
         <aside className="designer-palette" aria-label="Add to the track">
           <span className="label">Jumps</span>
-          {FEATURE_TYPES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              className="palette-btn"
-              aria-pressed={tool.kind === "feature" && tool.type === t}
-              onClick={() => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t })}
-              title={`Click on the racing line to place a ${fmt.FEATURE_LABEL[t].toLowerCase()}`}
-            >
-              {fmt.FEATURE_LABEL[t]}
-            </button>
-          ))}
+          <JumpPalette
+            jumps={paletteJumps(view)}
+            armed={tool.kind === "feature" ? tool.type : null}
+            onPick={(t) => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t })}
+          />
           <span className="label label-gap">Track</span>
           <button
             type="button"
@@ -923,7 +942,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
         <aside className="designer-side" aria-label="Checks">
           <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
-          <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} />
+          <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
           {advanced && <Shortcuts />}
           <Stats built={built} live={live} view={view} />
         </aside>
@@ -1093,7 +1112,7 @@ function NumberField({ label, value, step, min, max, placeholder, onChange, suff
   );
 }
 
-function SelectionPanel({
+export function SelectionPanel({
   sel,
   view,
   draft,
@@ -1101,6 +1120,7 @@ function SelectionPanel({
   update,
   onDelete,
   fromVenue,
+  inCorner,
 }: {
   sel: Selection;
   view: DesignerMode;
@@ -1109,6 +1129,8 @@ function SelectionPanel({
   update: (fn: (d: Draft) => Draft, group?: string) => void;
   onDelete: () => void;
   fromVenue?: string;
+  /** jumps on or landing into a corner */
+  inCorner: Set<number>;
 }) {
   const setPoint = (i: number, patch: Partial<DesignPoint>, key: string) =>
     update((d) => ({ ...d, design: { ...d.design, points: d.design.points.map((p, k) => (k === i ? { ...p, ...patch } : p)) } }), `${key}:${i}`);
@@ -1177,6 +1199,17 @@ function SelectionPanel({
     const f = draft.design.features?.[sel.i];
     if (!f) return null;
     const [L0, H0] = FEATURE_DEFAULTS[f.type];
+    // below the Delete button, so it never moves the button; the status region is always there so it's announced
+    const warn = (
+      <div role="status">
+        {inCorner.has(sel.i) && (
+          <p className="sel-warning">
+            <TriangleAlert size={16} aria-hidden="true" />
+            <span>This {fmt.FEATURE_LABEL[f.type].toLowerCase()} is on or lands into a corner. Slide it onto a straight.</span>
+          </p>
+        )}
+      </div>
+    );
     if (view === "quick")
       return (
         <section className="sel-panel" aria-labelledby="sel-h">
@@ -1185,6 +1218,7 @@ function SelectionPanel({
           <button type="button" className="btn btn-danger" onClick={onDelete}>
             Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
           </button>
+          {warn}
         </section>
       );
     return (
@@ -1209,6 +1243,7 @@ function SelectionPanel({
         <button type="button" className="btn btn-danger" onClick={onDelete}>
           Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
         </button>
+        {warn}
       </section>
     );
   }

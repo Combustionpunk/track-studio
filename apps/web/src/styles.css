@@ -177,6 +177,10 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .palette-btn { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent; color: var(--text); font: 600 14px var(--font-body); text-align: left; cursor: pointer; }
 .palette-btn:hover { background: var(--hover); }
 .palette-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.jump-symbol { flex: none; }
+.jump-symbol path { fill: var(--plan-jump); stroke: var(--plan-jump-edge); }
+.sel-warning { display: grid; grid-template-columns: 16px 1fr; gap: var(--space-2); align-items: start; margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); font-size: 14px; line-height: 20px; }
+.sel-warning svg { margin-top: 2px; }
 .palette-help { margin: auto 0 0; font-size: 13px; line-height: 18px; color: var(--muted); }
 .seg-snap { margin: 12px 0 0; gap: 4px 0; }
 .seg-snap .label { width: 100%; }
@@ -266,6 +270,8 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-feature { fill: transparent; stroke: transparent; stroke-width: 2; cursor: grab; pointer-events: all; }
 .ed-feature:hover { stroke: var(--ed-hover); }
 .ed-feature.on { stroke: var(--plan-ink); stroke-dasharray: 4 3; }
+.ed-feature.warn { stroke: var(--plan-warning); }
+.ed-feature.warn.on { stroke: var(--plan-ink); stroke-dasharray: 4 3; }
 .ed-ghost { fill: var(--ed-control); stroke: var(--plan-ink); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
 .ed-start line { stroke: transparent; pointer-events: stroke; cursor: grab; }
 .ed-start .grip { fill: var(--plan-ink); stroke: var(--plan-ink-dark); stroke-width: 1.5; cursor: grab; }

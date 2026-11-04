@@ -1,6 +1,6 @@
 // Quick and Advanced designer modes. Both edit the same .rctrack.json; Quick only hides controls and never writes
 // per-corner radius, width or outer values (nor removes ones a track already has).
-import type { Check, CheckLevel, DesignPoint, Point2, RacingLinePoint } from "@track-studio/engine";
+import type { BuiltFeature, Check, CheckLevel, DesignFeature, DesignPoint, FeatureType, Point2, RacingLinePoint } from "@track-studio/engine";
 import { newPointBetween } from "./geometry.js";
 import type { SnapMode } from "./snap.js";
 
@@ -56,6 +56,38 @@ export function insertPoint(mode: DesignerMode, points: DesignPoint[], after: nu
 export const movePoint = (points: DesignPoint[], i: number, q: Point2): DesignPoint[] => points.map((p, k) => (k === i ? { ...p, x: q[0], z: q[1] } : p));
 
 export const deletePoint = (points: DesignPoint[], i: number): DesignPoint[] => points.filter((_, k) => k !== i);
+
+// ---------------------------------------------------------------------------------------------- jumps
+export const FEATURE_TYPES: FeatureType[] = ["tabletop", "double", "kicker", "stepup", "stepdown", "whoops", "bump"];
+
+/** The jumps Quick's palette offers; step-up, step-down and bump stay in Advanced. */
+export const QUICK_JUMPS: FeatureType[] = ["tabletop", "double", "kicker", "whoops"];
+
+export const paletteJumps = (mode: DesignerMode): FeatureType[] => (mode === "quick" ? QUICK_JUMPS : FEATURE_TYPES);
+
+/** Drop a jump at `distance` along the line. Type and distance only, so it takes the engine's default size. */
+export function addJump(features: DesignFeature[], type: FeatureType, distance: number): { features: DesignFeature[]; index: number } {
+  return { features: [...features, { type, distance }], index: features.length };
+}
+
+/** Slide jump `i` along the line, keeping everything else about it. */
+export const moveJump = (features: DesignFeature[], i: number, distance: number): DesignFeature[] =>
+  features.map((f, k) => (k === i ? { ...f, distance } : f));
+
+export const deleteJump = (features: DesignFeature[], i: number): DesignFeature[] => features.filter((_, k) => k !== i);
+
+/** a feature-in-corner check this close to a jump is about that jump (the bake puts it at the jump's centre) */
+const ON_JUMP = 0.25; // m
+
+/** Indexes of the jumps that are on or land into a corner, from the bake's feature-in-corner warnings. */
+export function jumpsInCorner(checks: Check[], features: Pick<BuiltFeature, "x" | "z">[]): Set<number> {
+  const out = new Set<number>();
+  for (const c of checks) {
+    if (c.code !== "feature-in-corner" || c.x === undefined || c.z === undefined) continue;
+    features.forEach((f, i) => Math.hypot(f.x - c.x!, f.z - c.z!) < ON_JUMP && out.add(i));
+  }
+  return out;
+}
 
 // ---------------------------------------------------------------------------------------------- checks
 const ORDER: Record<CheckLevel, number> = { error: 0, warning: 1, info: 2 };
