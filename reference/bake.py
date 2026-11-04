@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.4).
+Reference implementation of the rctrack geometry engine (format v1.5).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.4"
+GENERATOR = "rctrack-bake.py 1.5"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -60,11 +60,19 @@ def racing_line(points, default_width):
         cross = a[0] * b[1] - a[1] * b[0]
         th = math.acos(float(np.clip(a @ b, -1, 1)))
         r = float(points[i].get("radius", 1.0))
-        t = r * math.tan(th / 2) if th > 1e-6 else 0.0
-        tmax = 0.5 * min(la, lb)
-        if t > tmax:                       # radius too big for the straights either side: shrink it
-            t = tmax; r = t / math.tan(th / 2) if th > 1e-6 else 0.0
-        corners.append(dict(start=P[i] - a * t, end=P[i] + b * t, r=r, sign=1 if cross > 0 else -1, a=a, b=b, th=th))
+        t = r * math.tan(th / 2) if th > 1e-6 else 0.0     # length the corner takes from each straight
+        corners.append(dict(r=r, t=t, sign=1 if cross > 0 else -1, a=a, b=b, th=th))
+    # each straight (corner i to i+1) is shared by what the two corners ask for; if they ask for more than its length,
+    # each gets its share in proportion. A corner keeps the smaller of its two shares (rctrack 1.5)
+    share = []
+    for i in range(n):
+        need = corners[i]["t"] + corners[(i + 1) % n]["t"]; L = float(np.linalg.norm(P[(i + 1) % n] - P[i]))
+        share.append(L / need if need > L else 1.0)
+    for i, c in enumerate(corners):
+        f = min(share[i - 1], share[i])
+        if f < 1.0 and c["t"] > 0:         # radius too big for the straights either side: shrink it
+            c["t"] *= f; c["r"] = c["t"] / math.tan(c["th"] / 2)
+        t = c.pop("t"); c.update(start=P[i] - c["a"] * t, end=P[i] + c["b"] * t)
     out = []
     for i in range(n):
         c = corners[i]
