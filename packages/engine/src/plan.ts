@@ -25,7 +25,39 @@ export const PLAN_PALETTE = {
   "plan-warning": "#fdd459",
 } as const;
 
-const P = PLAN_PALETTE;
+/** The fixed print palette for the build sheet: tokens.json's print-* colours (a test keeps them equal). */
+export const PRINT_PALETTE = {
+  "print-paper": "#ffffff",
+  "print-ink": "#1a1a1a",
+  "print-muted": "#555555",
+  "print-carpet": "#e9ece8",
+  "print-grid": "#d6d6d6",
+  "print-grid-major": "#8a8a8a",
+  "print-jump": "#bdbdbd",
+  "print-watermark": "#1a1a1a1f",
+} as const;
+
+type Palette = Record<keyof typeof PLAN_PALETTE, string>;
+
+/** The plan's colour roles in print: black ink on white, so the sheet reads in black and white. */
+const PRINT_ROLES: Palette = {
+  "plan-floor": PRINT_PALETTE["print-paper"],
+  "plan-area": PRINT_PALETTE["print-paper"],
+  "plan-carpet": PRINT_PALETTE["print-carpet"],
+  "plan-pipe": PRINT_PALETTE["print-ink"],
+  "plan-pipe-shared": PRINT_PALETTE["print-muted"],
+  "plan-line": PRINT_PALETTE["print-muted"],
+  "plan-jump": PRINT_PALETTE["print-jump"],
+  "plan-jump-edge": PRINT_PALETTE["print-ink"],
+  "plan-rostrum": PRINT_PALETTE["print-paper"],
+  "plan-obstacle": PRINT_PALETTE["print-paper"],
+  "plan-grid": PRINT_PALETTE["print-grid"],
+  "plan-grid-major": PRINT_PALETTE["print-grid-major"],
+  "plan-error": PRINT_PALETTE["print-ink"],
+  "plan-warning": PRINT_PALETTE["print-ink"],
+};
+
+const P: Palette = PLAN_PALETTE;
 
 export type PlanLayer = "lanes" | "racingLine" | "dividers" | "features" | "start" | "checks" | "obstacles" | "grid" | "rostrum";
 export type PlanLayers = Record<PlanLayer, boolean>;
@@ -47,6 +79,8 @@ export interface PlanDrawOptions {
   tips?: boolean;
   /** prefix for pattern ids, unique per page (default "plan") */
   id?: string;
+  /** "print": the build sheet's light print palette, with outlines and hatching that survive black-and-white printing */
+  palette?: "plan" | "print";
 }
 
 export const PLAN_MARGIN = 2.5; // m around the area (room for the rostrum)
@@ -115,7 +149,7 @@ export function jumpSymbol(f: Pick<BuiltFeature, "profile">): JumpSymbol {
   return { humps, takeoffs, edges, down };
 }
 
-function drawJump(f: BuiltFeature, i: number, px: number, tips: boolean): string {
+function drawJump(f: BuiltFeature, i: number, px: number, tips: boolean, P: Palette, print: boolean, id: string): string {
   const h = (f.heading * Math.PI) / 180;
   const tx = Math.cos(h), tz = Math.sin(h), nx = -tz, nz = tx;
   const at = (along: number, across: number): Point2 => [f.x + tx * (along - f.length / 2) + nx * across, f.z + tz * (along - f.length / 2) + nz * across];
@@ -128,6 +162,7 @@ function drawJump(f: BuiltFeature, i: number, px: number, tips: boolean): string
   for (const hp of sym.humps) {
     const quad = [at(hp.from, -half), at(hp.to, -half), at(hp.to, half), at(hp.from, half)];
     o.push(`<path class="p-jump-body" d="${path(quad, true)}" fill="${P["plan-jump"]}" stroke="${P["plan-jump-edge"]}" stroke-width="${hair}" stroke-linejoin="round"/>`);
+    if (print) o.push(`<path class="p-jump-print-hatch" d="${path(quad, true)}" fill="url(#${id}-jump-hatch)"/>`);
   }
   // downhill faces: hatch lines across, every ~10 cm (at least 3 px apart)
   const step = Math.max(0.1, 3 * px);
@@ -221,6 +256,8 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
   const px = opts.px;
   const layers = { ...ALL_PLAN_LAYERS, ...opts.layers };
   const id = opts.id ?? "plan";
+  const print = opts.palette === "print";
+  const P = print ? PRINT_ROLES : PLAN_PALETTE;
   const tips = !!opts.tips;
   const tip = (k: string) => (tips ? ` data-tip="${k}"` : "");
   const L = area.length, W = area.width;
@@ -240,17 +277,28 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
       `<pattern id="${id}-hatch" patternUnits="userSpaceOnUse" width="${n(hatch)}" height="${n(hatch)}" patternTransform="rotate(45)">` +
       `<path d="M0 0 L0 ${n(hatch)}" stroke="${P["plan-floor"]}" stroke-opacity="0.45" stroke-width="${n(Math.max(0.04, px))}"/>` +
       `</pattern>` +
+      (print
+        ? `<pattern id="${id}-jump-hatch" patternUnits="userSpaceOnUse" width="${n(Math.max(0.12, 4 * px))}" height="${n(Math.max(0.12, 4 * px))}" patternTransform="rotate(45)">` +
+          `<path d="M0 0 L0 ${n(Math.max(0.12, 4 * px))}" stroke="${P["plan-jump-edge"]}" stroke-width="${n(Math.max(0.015, 0.75 * px))}"/>` +
+          `</pattern>`
+        : "") +
       `</defs>`,
   );
 
-  o.push(`<rect class="p-area" x="${n(-L / 2)}" y="${n(-W / 2)}" width="${n(L)}" height="${n(W)}" fill="${P["plan-area"]}"/>`);
+  o.push(`<rect class="p-area" x="${n(-L / 2)}" y="${n(-W / 2)}" width="${n(L)}" height="${n(W)}" fill="${P["plan-area"]}"${print ? ` stroke="${P["plan-pipe"]}" stroke-width="${n(2 * px)}"` : ""}/>`);
 
   if (layers.obstacles)
     obstacles.forEach((ob, i) => {
-      if (ob.type === "circle") o.push(`<circle class="p-obstacle" cx="${n(ob.x)}" cy="${n(-ob.z)}" r="${n(ob.radius)}" fill="${P["plan-obstacle"]}"${tip(`o${i}`)}/>`);
+      if (ob.type === "circle" && print) {
+        const k = ob.radius * Math.SQRT1_2;
+        o.push(
+          `<g class="p-obstacle"${tip(`o${i}`)}><circle cx="${n(ob.x)}" cy="${n(-ob.z)}" r="${n(ob.radius)}" fill="${P["plan-obstacle"]}" stroke="${P["plan-pipe"]}" stroke-width="${n(1.5 * px)}"/>` +
+            `<path d="M${pt(ob.x - k, ob.z - k)} L${pt(ob.x + k, ob.z + k)} M${pt(ob.x - k, ob.z + k)} L${pt(ob.x + k, ob.z - k)}" stroke="${P["plan-pipe"]}" stroke-width="${n(px)}"/></g>`,
+        );
+      } else if (ob.type === "circle") o.push(`<circle class="p-obstacle" cx="${n(ob.x)}" cy="${n(-ob.z)}" r="${n(ob.radius)}" fill="${P["plan-obstacle"]}"${tip(`o${i}`)}/>`);
       else
         o.push(
-          `<rect class="p-keepout" x="${n(ob.x - ob.length / 2)}" y="${n(-ob.z - ob.width / 2)}" width="${n(ob.length)}" height="${n(ob.width)}" transform="rotate(${n(-(ob.rotation ?? 0))} ${n(ob.x)} ${n(-ob.z)})" fill="${P["plan-obstacle"]}" fill-opacity="0.35" stroke="${P["plan-obstacle"]}" stroke-width="${n(1.5 * px)}" stroke-dasharray="${n(6 * px)} ${n(4 * px)}"${tip(`o${i}`)}/>`,
+          `<rect class="p-keepout" x="${n(ob.x - ob.length / 2)}" y="${n(-ob.z - ob.width / 2)}" width="${n(ob.length)}" height="${n(ob.width)}" transform="rotate(${n(-(ob.rotation ?? 0))} ${n(ob.x)} ${n(-ob.z)})" fill="${P["plan-obstacle"]}" fill-opacity="0.35" stroke="${print ? P["plan-pipe"] : P["plan-obstacle"]}" stroke-width="${n(1.5 * px)}" stroke-dasharray="${n(6 * px)} ${n(4 * px)}"${tip(`o${i}`)}/>`,
         );
     });
 
@@ -259,10 +307,10 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
     if (built.lanes) {
       const d = `${path(built.lanes.right, true)} ${path(built.lanes.left, true)}`;
       o.push(`<path class="p-carpet" d="${d}" fill="${P["plan-carpet"]}" fill-rule="evenodd"/>`);
-      o.push(`<path class="p-carpet-tex" d="${d}" fill="url(#${id}-carpet-tex)" fill-rule="evenodd"/>`);
+      if (!print) o.push(`<path class="p-carpet-tex" d="${d}" fill="url(#${id}-carpet-tex)" fill-rule="evenodd"/>`);
     } else {
       const runs = laneRuns(built.racingLine);
-      for (const paint of [P["plan-carpet"], `url(#${id}-carpet-tex)`])
+      for (const paint of print ? [P["plan-carpet"]] : [P["plan-carpet"], `url(#${id}-carpet-tex)`])
         o.push(`<g class="p-carpet" fill="none" stroke="${paint}" stroke-linejoin="round" stroke-linecap="round">${runs.map((r) => `<path d="${r.d}" stroke-width="${n(r.w)}"/>`).join("")}</g>`);
     }
   }
@@ -314,8 +362,8 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
     }
   }
 
-  if (layers.start && built) o.push(drawStart(built, px, tip("start")));
-  if (layers.features && built) built.features.forEach((f, i) => o.push(drawJump(f, i, px, tips)));
+  if (layers.start && built) o.push(drawStart(built, px, tip("start"), P));
+  if (layers.features && built) built.features.forEach((f, i) => o.push(drawJump(f, i, px, tips, P, print, id)));
 
   // pipes at real thickness (at least 1.5 px), a core line inside shared ones
   if (layers.dividers && built) {
@@ -332,7 +380,12 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
     const ew = r.side === "east" || r.side === "west";
     const [a, b] = ew ? [ROSTRUM_SIZE[1], ROSTRUM_SIZE[0]] : ROSTRUM_SIZE;
     const box = `x="${n(r.x - a / 2)}" y="${n(-r.z - b / 2)}" width="${n(a)}" height="${n(b)}"`;
-    o.push(`<g class="p-rostrum"${tip("rostrum")}><rect ${box} fill="${P["plan-rostrum"]}"/><rect ${box} fill="url(#${id}-hatch)"/></g>`);
+    if (print)
+      o.push(
+        `<g class="p-rostrum"><rect ${box} fill="${P["plan-rostrum"]}" stroke="${P["plan-pipe"]}" stroke-width="${n(1.5 * px)}"/>` +
+          `<text x="${n(r.x)}" y="${n(-r.z)}" dy="0.35em" text-anchor="middle" font-size="${n(Math.min(a, b) * 0.45)}" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-pipe"]}"${ew ? ` transform="rotate(-90 ${n(r.x)} ${n(-r.z)})"` : ""}>ROSTRUM</text></g>`,
+      );
+    else o.push(`<g class="p-rostrum"${tip("rostrum")}><rect ${box} fill="${P["plan-rostrum"]}"/><rect ${box} fill="url(#${id}-hatch)"/></g>`);
   }
 
   if (layers.obstacles)
@@ -346,7 +399,7 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
 }
 
 /** Chequered start line across the lane, grid boxes behind it, and a chevron for the direction of travel. */
-function drawStart(built: Built, px: number, tipAttr: string): string {
+function drawStart(built: Built, px: number, tipAttr: string, P: Palette): string {
   const s = built.startLine;
   const h = (s.heading * Math.PI) / 180;
   const t: Point2 = [Math.cos(h), Math.sin(h)], nrm: Point2 = [-t[1], t[0]];

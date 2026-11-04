@@ -46,7 +46,7 @@ describe("colours come from tokens only", () => {
 
   it("every var(--x) the app uses is defined", () => {
     const defined = new Set(TOKEN_FILES.filter((f) => f.endsWith(".css")).flatMap((f) => [...readFileSync(join(WEB, f), "utf8").matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1])));
-    const runtime = new Set(["--plan-ratio"]); // set inline by PlanView
+    const runtime = new Set(["--plan-ratio", "--screen-zoom", "--print-zoom"]); // set inline by PlanView and the build sheet
     const missing = sources.flatMap((f) => [...readFileSync(join(WEB, f), "utf8").matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]).filter((v) => !defined.has(v) && !runtime.has(v)).map((v) => `${f}: ${v}`));
     expect([...new Set(missing)]).toEqual([]);
   });

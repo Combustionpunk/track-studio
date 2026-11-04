@@ -135,6 +135,9 @@ export function TrackPage() {
                 {busy === "copy" ? "Copying…" : "Make my own copy"}
               </button>
             )}
+            <Link className="ts-btn" to={`/t/${track.id}/build${viewing ? `?r=${viewing}` : ""}`}>
+              Build sheet
+            </Link>
             <button type="button" className="ts-btn" onClick={() => setShowFit((s) => !s)} aria-expanded={showFit} aria-controls="fit-panel">
               Fit to a venue
             </button>

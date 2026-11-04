@@ -296,6 +296,59 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .panel .seg .seg-label { width: 100%; margin-bottom: 4px; }
 .snap-info { white-space: nowrap; }
 
+/* build sheet (#17): A3 landscape at 96 dpi (1587 × 1122, SHEET_PX in lib/sheet.ts), print palette only; A4 is the same layout zoomed to fit */
+.sheet-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 14px; padding-bottom: 14px; }
+.sheet-toolbar .seg { margin: 0; }
+.sheet-toolbar .btn-primary { margin-left: auto; }
+.sheet-hint { display: none; margin: 0; width: 100%; font-size: 0.85rem; color: var(--muted); }
+@media (max-width: 560px) { .sheet-hint { display: block; } }
+.sheet-stage { padding: 0 16px 32px; overflow-x: auto; }
+.sheet-zoom { zoom: var(--screen-zoom, 1); width: max-content; margin: 0 auto; box-shadow: var(--shadow-pop); }
+.sheet { position: relative; width: 1587px; height: 1122px; overflow: hidden; padding: 40px 48px; display: flex; flex-direction: column; gap: 20px; background: var(--print-paper); color: var(--print-ink); font: 16px/22px var(--font-body); }
+.sheet-watermark { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.sheet-watermark span { transform: rotate(-24deg); font: 600 300px/1 var(--font-heading); letter-spacing: 0.08em; color: var(--print-watermark); }
+.sheet-head { display: flex; align-items: flex-start; gap: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--print-ink); }
+.sheet-title { display: grid; gap: 4px; min-width: 0; }
+.sheet-kicker { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--print-muted); }
+.sheet h1 { font: 500 40px/46px var(--font-heading); letter-spacing: 0; overflow-wrap: anywhere; }
+.sheet-meta { color: var(--print-muted); }
+.sheet-head-side { margin-left: auto; display: flex; gap: 16px; align-items: center; flex: none; }
+.sheet-banner { padding: 6px 14px; border: 2px solid var(--print-ink); font: 600 22px/30px var(--font-heading); letter-spacing: 0.06em; }
+.sheet-link { display: grid; justify-items: center; gap: 4px; font-size: 12px; line-height: 16px; color: var(--print-muted); }
+.sheet-link svg { width: 88px; height: 88px; fill: var(--print-ink); }
+.sheet-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 32px; }
+.sheet-plan { display: grid; gap: 8px; align-content: start; }
+.sheet-plan svg { display: block; max-width: 100%; height: auto; }
+.sheet-ticks line { stroke: var(--print-grid-major); }
+.sheet-edge text { fill: var(--print-muted); font-family: var(--font-body); }
+.sheet-corners circle { fill: var(--print-ink); }
+.sheet-corners text { fill: var(--print-paper); font-family: var(--font-body); font-weight: 600; }
+.sheet-note { margin: 0; font-size: 14px; line-height: 20px; color: var(--print-muted); }
+.sheet-side { display: grid; gap: 18px; align-content: start; min-height: 0; }
+.sheet-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.sheet-figures dd { margin: 0; font: 500 28px/32px var(--font-heading); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sheet-figures dt { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--print-muted); }
+.sheet-figures div { display: flex; flex-direction: column-reverse; }
+.sheet-corner-tables { display: flex; gap: 12px; align-items: flex-start; }
+.sheet-table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 19px; font-variant-numeric: tabular-nums; }
+.sheet-table caption { text-align: left; font: 500 22px/28px var(--font-heading); padding-bottom: 2px; }
+.sheet-table th { text-align: left; padding: 3px 6px; font-size: 13px; border-bottom: 2px solid var(--print-ink); }
+.sheet-table td { padding: 2px 6px; border-bottom: 1px solid var(--print-grid); }
+.sheet-table .num { text-align: right; }
+.sheet-table .no { font-weight: 600; }
+.sheet-corner-tables .sheet-table { font-size: 14px; }
+.sheet-body-wide { grid-template-columns: minmax(0, 1fr) 520px; }
+.sheet-body-wide .sheet-corner-tables .sheet-table { font-size: 13px; white-space: nowrap; }
+.sheet-body-wide .sheet-corner-tables :is(th, td) { padding-left: 4px; padding-right: 4px; }
+
+@media print {
+  body { background: var(--print-paper); }
+  .sheet-toolbar { display: none; }
+  .sheet-stage { padding: 0; overflow: visible; }
+  .sheet-zoom { zoom: var(--print-zoom, 1); box-shadow: none; margin: 0; }
+  .sheet { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
 /* ---------------------------------------------------------------- venue editor (docs/design/mockups/Venue.dc.html) */
 .btn-sm { padding: 5px 10px; font-size: 0.87rem; font-weight: 600; }
 .btn-icon:disabled { cursor: default; opacity: 0.45; }

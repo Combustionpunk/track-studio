@@ -20,6 +20,16 @@
   --plan-error: #ff7f5c;
   --plan-warning: #fdd459;
 
+  /* the build sheet's print palette (tokens.json print-*; PRINT_PALETTE in the engine, a test keeps them equal) */
+  --print-paper: #ffffff;
+  --print-ink: #1a1a1a;
+  --print-muted: #555555;
+  --print-carpet: #e9ece8;
+  --print-grid: #d6d6d6;
+  --print-grid-major: #8a8a8a;
+  --print-jump: #bdbdbd;
+  --print-watermark: #1a1a1a1f;
+
   /* ink on the plan (labels, the highlight ring, the editor's handles) */
   --plan-ink: #ffffff;
   --plan-ink-dark: #111111;
