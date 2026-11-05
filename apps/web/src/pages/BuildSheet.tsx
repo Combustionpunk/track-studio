@@ -247,13 +247,13 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
             )}
           </table>
           {crossovers.length > 0 && (
-            <table className="sheet-table">
+            <table className="sheet-table sheet-crossover-table">
               <caption>Crossovers</caption>
               <thead>
                 <tr>
                   <th scope="col">No.</th>
                   <th scope="col" className="num">Position (west, south)</th>
-                  <th scope="col">Goes over</th>
+                  <th scope="col">Over</th>
                   <th scope="col" className="num">Size</th>
                 </tr>
               </thead>
@@ -269,7 +269,10 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
               </tbody>
             </table>
           )}
-          <p className="sheet-note">{startText(s)}</p>
+          <p className="sheet-note">
+            {crossovers.length > 0 && "Crossovers: X on the plan. Over is the pass that drives over the bridge, counting from the start line; size is ramp + flat top + ramp × height. "}
+            {startText(s)}
+          </p>
         </aside>
       </div>
     </article>

@@ -363,6 +363,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .sheet-table .num { text-align: right; }
 .sheet-table .no { font-weight: 600; }
 .sheet-corner-tables .sheet-table { font-size: 14px; }
+.sheet-crossover-table td, .sheet-crossover-table th { white-space: nowrap; }
 .sheet-body-wide { grid-template-columns: minmax(0, 1fr) 520px; }
 .sheet-body-wide .sheet-corner-tables .sheet-table { font-size: 13px; white-space: nowrap; }
 .sheet-body-wide .sheet-corner-tables :is(th, td) { padding-left: 4px; padding-right: 4px; }

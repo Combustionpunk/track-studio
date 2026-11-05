@@ -38,13 +38,14 @@ export function jumpRows(s: BuildSheet): { type: string; position: string; size:
   }));
 }
 
-/** The crossovers, X1, X2, … as marked on the plan. */
+/** The crossovers, X1, X2, … as marked on the plan: the pass that goes over (counted from the start line) and the size
+ * as ramp + flat top + ramp × height. */
 export function crossoverRows(s: BuildSheet): { label: string; position: string; over: string; size: string }[] {
   return s.crossovers.map((c) => ({
     label: `X${c.number}`,
     position: `${metres1(c.fromWest)}, ${metres1(c.fromSouth)}`,
-    over: c.over === "first" ? "First time through" : c.over === "second" ? "Second time through" : "Bridges nothing",
-    size: `${trim(c.length)} × ${trim(c.height)} m: ${trim(c.ramp)} m ramps, ${trim(c.top)} m top`,
+    over: c.over === "first" ? "1st pass" : c.over === "second" ? "2nd pass" : "None",
+    size: `${trim(c.ramp)} + ${trim(c.top)} + ${trim(c.ramp)} × ${trim(c.height)} m`,
   }));
 }
 

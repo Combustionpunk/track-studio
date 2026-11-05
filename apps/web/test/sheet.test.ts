@@ -146,9 +146,9 @@ describe("crossovers (#51)", () => {
 
   it("each crossover as printed: position from the south-west corner, the pass that goes over, its size", () => {
     expect(crossoverRows(buildSheet(extra("crossover-figure8")))).toEqual([
-      { label: "X1", position: "12.0 m, 8.0 m", over: "First time through", size: "8 × 0.4 m: 2 m ramps, 4 m top" },
+      { label: "X1", position: "12.0 m, 8.0 m", over: "1st pass", size: "2 + 4 + 2 × 0.4 m" },
     ]);
-    expect(crossoverRows(buildSheet(extra("crossover-low-figure8")))[0].over).toBe("Bridges nothing");
+    expect(crossoverRows(buildSheet(extra("crossover-low-figure8")))[0].over).toBe("None");
     expect(crossoverRows(buildSheet(extra("two-crossings"))).map((r) => r.label)).toEqual(["X1", "X2"]);
   });
 
