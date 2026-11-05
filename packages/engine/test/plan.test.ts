@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { fits, jumpSymbol, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type RcTrack, type RcVenue } from "../src/index.js";
+import { bake, fits, jumpSymbol, reverseDesign, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type Point2, type RcTrack, type RcVenue } from "../src/index.js";
 import { allTracks, examples, readJson, referenceDir, repoRoot, venues } from "./helpers.js";
 
 const club = () => readJson<RcTrack>(join(referenceDir, "examples", "club-a.rctrack.json"));
@@ -75,6 +75,47 @@ describe("planLayers", () => {
     expect(count(svg, /class="p-start-b"/g)).toBeGreaterThanOrEqual(4);
     expect(count(svg, /class="p-gridbox"/g)).toBeGreaterThanOrEqual(4);
     expect(count(svg, /class="p-arrow"/g)).toBeGreaterThan(5);
+  });
+
+  describe("reversed (#36): drawn from the re-baked built", () => {
+    const before = club();
+    const after = bake({ ...before, design: reverseDesign(before.design) });
+    const s = before.built!.startLine;
+    const h = (s.heading * Math.PI) / 180;
+    /** how far along the original start line's direction of travel */
+    const along = (x: number, z: number) => (x - s.x) * Math.cos(h) + (z - s.z) * Math.sin(h);
+    const num = (m: RegExpMatchArray, k: number): Point2 => [Number(m[k]), -Number(m[k + 1])];
+    /** each arrow chevron's direction (base middle to tip) against the original racing line's direction where it is */
+    const arrowDots = (doc: RcTrack) => {
+      const line = before.built!.racingLine;
+      return [...draw(doc).matchAll(/class="p-arrow" d="M([-\d.]+) ([-\d.]+) L([-\d.]+) ([-\d.]+) L([-\d.]+) ([-\d.]+)"/g)].map((m) => {
+        const [a, tip, b] = [num(m, 1), num(m, 3), num(m, 5)];
+        const mid: Point2 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        const k = line.reduce((best, p, i) => (Math.hypot(p[0] - mid[0], p[1] - mid[1]) < Math.hypot(line[best][0] - mid[0], line[best][1] - mid[1]) ? i : best), 0);
+        const q = line[(k + 1) % line.length], p = line[k];
+        return Math.sign((tip[0] - mid[0]) * (q[0] - p[0]) + (tip[1] - mid[1]) * (q[1] - p[1]));
+      });
+    };
+    const boxes = (doc: RcTrack) => [...draw(doc).matchAll(/class="p-gridbox" transform="translate\(([-\d.]+) ([-\d.]+)\)/g)].map((m) => num(m, 1));
+
+    it("direction arrows point the other way", () => {
+      const was = arrowDots(before), now = arrowDots(after);
+      expect(was.length).toBeGreaterThan(5);
+      expect(now.length).toBeGreaterThan(5);
+      expect(was.every((d) => d > 0)).toBe(true);
+      expect(now.every((d) => d < 0)).toBe(true);
+    });
+
+    it("the grid boxes are on the other side of the start line, and so is its chevron", () => {
+      const was = boxes(before), now = boxes(after);
+      expect(was.length).toBeGreaterThanOrEqual(4);
+      expect(now.length).toBeGreaterThanOrEqual(4);
+      for (const [x, z] of was) expect(along(x, z)).toBeLessThan(0);
+      for (const [x, z] of now) expect(along(x, z)).toBeGreaterThan(0);
+      const chevron = (doc: RcTrack) => num(draw(doc).match(/class="p-start-dir" d="M[-\d.]+ [-\d.]+ L([-\d.]+) ([-\d.]+)/)!, 1);
+      expect(along(...chevron(before))).toBeGreaterThan(0);
+      expect(along(...chevron(after))).toBeLessThan(0);
+    });
   });
 
   it("grid boxes sit behind the start line, on the lane, as many as fit on the straight (up to 10)", () => {

@@ -37,6 +37,7 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 - `features[]` — `{type, distance, length?, height?}`; `distance` is metres along the racing line from point 0 to the
   feature's centre. Types: `tabletop, double, kicker, stepup, stepdown, whoops, bump` (defaults in the engine).
 - `start.distance` — start/finish line position along the racing line.
+- Direction of travel is the order of `points`: reversing a track reorders them to `[p0, pn-1, …, p1]` and moves each `distance` so jumps and the start line stay in the same spot (no field for it).
 - `rostrum` — `{side: north/south/east/west, offset}`; offset in metres along that side from its centre.
 
 ## built
