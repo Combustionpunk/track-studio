@@ -609,7 +609,7 @@ def bridge_crossings(cr, features, total):
                 if abs(off) > L / 2: continue
                 need = bridge_span(c, p)
                 if -L / 2 + top0 * L <= off - need / 2 + 1e-9 and off + need / 2 <= -L / 2 + top1 * L + 1e-9:
-                    c["bridge"] = fi; c["over"] = p; c["why"] = None
+                    c["bridge"] = fi; c["over"] = p; c["why"] = None; break
                 elif c["why"] is None:
                     c["why"] = f"the tabletop at {f['distance']:.1f} m is too short to bridge it (flat top needs {need:.1f} m)"
             if c["bridge"] is not None: break

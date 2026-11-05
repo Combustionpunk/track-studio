@@ -1,7 +1,11 @@
 // rctrack 1.3: square / round outer corners, and clean shared-divider transitions.
 import { describe, expect, it } from "vitest";
 import {
+  arclength,
   BEVEL_DIST,
+  crossingZones,
+  findCrossings,
+  inZone,
   bakeBuilt,
   borders,
   dividers,
@@ -137,13 +141,22 @@ describe.each(allTracks)("pipes of $name", ({ path }) => {
     for (const d of b.dividers) expect(polylineLength(d.points, d.closed)).toBeGreaterThanOrEqual(MIN_DIVIDER);
   });
 
-  it("no divider crosses itself", () => {
+  it("no divider crosses itself, except where the track crosses itself (v1.6)", () => {
+    const { line } = racingLine(t.design.points, t.design.laneWidth ?? 2);
+    const { s, total } = arclength(line.x, line.z);
+    const zones = crossingZones(findCrossings(line, s, total, t.design.start?.distance));
+    const at = (p1: Point2, p2: Point2, p3: Point2, p4: Point2): Point2 => {
+      const d1x = p2[0] - p1[0], d1z = p2[1] - p1[1], d2x = p4[0] - p3[0], d2z = p4[1] - p3[1];
+      const ta = ((p3[0] - p1[0]) * d2z - (p3[1] - p1[1]) * d2x) / (d1x * d2z - d1z * d2x);
+      return [p1[0] + d1x * ta, p1[1] + d1z * ta];
+    };
     for (const d of b.dividers) {
       const p = d.points, n = p.length, segs = d.closed ? n : n - 1;
       for (let a = 0; a < segs; a++)
         for (let c = a + 2; c < segs; c++) {
           if (d.closed && a === 0 && c === segs - 1) continue;
-          expect(crosses(p[a], p[(a + 1) % n], p[c], p[(c + 1) % n]), `segments ${a} and ${c}`).toBe(false);
+          const [p1, p2, p3, p4] = [p[a], p[(a + 1) % n], p[c], p[(c + 1) % n]];
+          expect(crosses(p1, p2, p3, p4) && !inZone(at(p1, p2, p3, p4), zones), `segments ${a} and ${c}`).toBe(false);
         }
     }
   });
