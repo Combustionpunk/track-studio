@@ -73,15 +73,15 @@ describe("crossing detection", () => {
 describe("crossover", () => {
   const first = bakeBuilt(track(FIG8)).crossings![0].distances;
 
-  it("goes over the first pass by default, sized from the lane: 2 m ramps, top = lane + 2 × 1 m, 0.3 m high", () => {
+  it("goes over the first pass by default, sized from the lane: 2 m ramps, top = lane + 2 × 1 m, 0.40 m high", () => {
     const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0] }] }));
     expect(codes(b)).toEqual([]);
     const c = b.crossings![0];
     expect(c.over).toBe("first");
     expect(c.bridge).toEqual({ type: "crossover", feature: 0 });
     const f = b.features[0];
-    expect(f).toMatchObject({ type: "crossover", heading: 45, length: 8, height: 0.3 });
-    expect(f.profile).toEqual([[0, 0], [2, 0.3], [6, 0.3], [8, 0]]);
+    expect(f).toMatchObject({ type: "crossover", heading: 45, length: 8, height: 0.4 });
+    expect(f.profile).toEqual([[0, 0], [2, 0.4], [6, 0.4], [8, 0]]);
     expect(Math.hypot(f.x - c.x, f.z - c.z)).toBeLessThan(0.01);
     expect(c.footprint).toHaveLength(4);
   });
@@ -100,18 +100,40 @@ describe("crossover", () => {
       expect(b.features[0].heading).toBe(45); // over the first pass either way
     }
     const far = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0] + 4.5 }] }));
-    expect(codes(far)).toContain("crossing-unbridged");
+    expect(codes(far).filter((c) => c !== "feature-in-corner")).toEqual(["crossover-unused", "crossing-unbridged"]);
   });
 
   it("takes its own ramp, top and height", () => {
-    const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], rampLength: 1.5, topLength: 5, height: 0.25 }] }));
-    expect(b.features[0].profile).toEqual([[0, 0], [1.5, 0.25], [6.5, 0.25], [8, 0]]);
+    const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], rampLength: 1.5, topLength: 5, height: 0.5 }] }));
+    expect(b.features[0].profile).toEqual([[0, 0], [1.5, 0.5], [6.5, 0.5], [8, 0]]);
     expect(codes(b)).toEqual([]);
   });
 
   it("a crossover whose top is too short doesn't bridge it", () => {
     const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], topLength: 3.5 }] }));
     expect(codes(b)).toEqual(["crossing-unbridged"]);
+  });
+
+  it("lower than 0.40 m it doesn't bridge: crossing-too-low, saying how high it is", () => {
+    const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], height: 0.3 }] }));
+    expect(codes(b)).toEqual(["crossing-too-low"]);
+    expect(b.checks[0]).toMatchObject({ level: "error", message: `The crossover at ${first[0].toFixed(1)} m is 0.30 m high; cars need 0.40 m to pass under` });
+    expect(b.crossings![0]).toMatchObject({ over: null, bridge: null, footprint: null });
+    expect(codes(bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], height: 0.4 }] })))).toEqual([]);
+  });
+
+  it("too short and too low is crossing-unbridged (the top is the first thing to fix)", () => {
+    const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], topLength: 3.5, height: 0.3 }] }));
+    expect(codes(b)).toEqual(["crossing-unbridged"]);
+  });
+
+  it("a crossover that bridges no crossing is crossover-unused: away from any, or a second on a claimed one", () => {
+    const away = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0] }, { type: "crossover", distance: first[0] + 20 }] }));
+    const unused = away.checks.filter((c) => c.code !== "feature-in-corner"); // 20 m on is in a lobe
+    expect(unused).toMatchObject([{ code: "crossover-unused", level: "warning", x: away.features[1].x, z: away.features[1].z }]);
+    const second = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0] }, { type: "crossover", distance: first[1] }] }));
+    expect(codes(second)).toEqual(["crossover-unused"]);
+    expect(second.crossings![0].bridge).toEqual({ type: "crossover", feature: 0 });
   });
 
   it("ramps that reach a corner are feature-in-corner", () => {
@@ -133,7 +155,7 @@ describe("tabletop as the bridge", () => {
   const d = bakeBuilt(track(FIG8)).crossings![0].distances;
   // its flat top is 0.8 / 2.2 of its length and must span the 2 m lane plus 1 m each side: 4 m, so a length of 11 m
   const need = ((2 + 2 * BRIDGE_MARGIN) * 2.2) / 0.8;
-  const on = (length: number, distance = d[1]) => bakeBuilt(track(FIG8, { features: [{ type: "tabletop", distance, length }] }));
+  const on = (length: number, distance = d[1], height = 0.4) => bakeBuilt(track(FIG8, { features: [{ type: "tabletop", distance, length, height }] }));
 
   it("bridges the crossing when its flat top spans the under pass's lane plus 1 m each side", () => {
     const b = on(need + 0.01);
@@ -145,6 +167,14 @@ describe("tabletop as the bridge", () => {
     expect(codes(on(need - 0.05))).toEqual(["crossing-unbridged"]);
     expect(codes(on(12, d[1] + 0.6))).toEqual(["crossing-unbridged"]); // 12 m long has 0.18 m to spare each side
     expect(codes(on(12, d[1] + 0.15))).toEqual([]);
+  });
+
+  it("must be at least 0.40 m high: a default-height tabletop in place is crossing-too-low", () => {
+    const low = bakeBuilt(track(FIG8, { features: [{ type: "tabletop", distance: d[1], length: 12 }] }));
+    expect(codes(low)).toEqual(["crossing-too-low"]);
+    expect(low.checks[0].message).toBe(`The tabletop at ${d[1].toFixed(1)} m is 0.14 m high; cars need 0.40 m to pass under`);
+    expect(codes(on(12, d[1], 0.39))).toEqual(["crossing-too-low"]);
+    expect(codes(on(need - 0.05, d[1], 0.3))).toEqual(["crossing-unbridged"]); // too short as well: not in place
   });
 });
 

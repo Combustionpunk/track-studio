@@ -15,7 +15,9 @@ export type CheckCode =
   | "obstacle"
   | "crossing-unbridged"
   | "crossing-angle"
-  | "crossing-too-close";
+  | "crossing-too-close"
+  | "crossing-too-low"
+  | "crossover-unused";
 
 /** [x, z] in metres */
 export type Point2 = [number, number];

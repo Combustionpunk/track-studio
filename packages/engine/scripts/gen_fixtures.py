@@ -91,7 +91,15 @@ EXTRA_TRACKS.update({
                                       lambda k, d: {"type": "crossover", "distance": d[0]}),
     # a tabletop long enough that its flat top (0.364 of its length) spans the 2 m lane + 1 m each side
     "tabletop-figure8": at_crossings(figure8("9", "Figure of eight on a long tabletop"),
-                                     lambda k, d: {"type": "tabletop", "distance": d[1], "length": 12.0}),
+                                     lambda k, d: {"type": "tabletop", "distance": d[1], "length": 12.0, "height": 0.4}),
+    # a bridge needs 0.40 m clearance: a default-height tabletop or a 0.30 m crossover in place is crossing-too-low
+    "tabletop-low-figure8": at_crossings(figure8("13", "Figure of eight on a low tabletop"),
+                                         lambda k, d: {"type": "tabletop", "distance": d[1], "length": 12.0}),
+    "crossover-low-figure8": at_crossings(figure8("14", "Figure of eight on a low crossover"),
+                                          lambda k, d: {"type": "crossover", "distance": d[0], "height": 0.3}),
+    # a second crossover on the bridged crossing bridges nothing: crossover-unused
+    "crossover-unused-figure8": at_crossings(figure8("15", "Figure of eight with a spare crossover"),
+                                             lambda k, d: {"type": "crossover", "distance": d[0]}),
     "unbridged-figure8": figure8("10", "Figure of eight, no bridge"),
     # two diagonals 40° apart: bridged, but more than 30° off square
     "shallow-crossing": at_crossings(track("11", "Shallow crossing", {"length": 24, "width": 10}, {
@@ -105,6 +113,8 @@ EXTRA_TRACKS.update({
         "start": {"distance": 0.0}, "rostrum": {"side": "south"}}),
         lambda k, d: {"type": "crossover", "distance": d[0]}),
 })
+
+EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
 
 EXTRA_VENUES = {
     "rotated-desk": {"format": "rcvenue", "version": 1, "id": "venue-x1", "revision": 2,

@@ -195,7 +195,7 @@
               },
               "height": {
                 "type": "number",
-                "description": "Metres; crossover default 0.3"
+                "description": "Metres; crossover default 0.4 (a bridge needs 0.4 m clearance)"
               },
               "rampLength": {
                 "type": "number",

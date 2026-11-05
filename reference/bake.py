@@ -31,7 +31,8 @@ CORNER_MIN_TURN = math.radians(20)   # smaller changes of direction aren't corne
 CORNER_JOIN_GAP = 3.0  # same-direction turns joined by less straight than this (m) are one corner (hairpins, carousels).
                        # The one setting for the corner count; the TypeScript engine has the same constant.
 CROSSOVER_RAMP = 2.0   # crossover (bridge) defaults: ramp up / down along the over pass (m)...
-CROSSOVER_HEIGHT = 0.3 # ...and the height of its flat top (m)
+CROSSOVER_HEIGHT = 0.4 # ...and the height of its flat top (m)
+BRIDGE_CLEARANCE = 0.4 # a bridge lower than this (m) doesn't bridge: cars can't pass under
 BRIDGE_MARGIN = 1.0    # a bridge's flat top spans the under pass's lane plus this each side (m)
 CROSSING_MIN_ANGLE = 60.0  # crossings sharper than this (deg; i.e. outside 60-120° between the passes) are warned about
 CROSSING_MIN_SEP = 1.0 # the racing line crossing itself less than this far along the lap is numerical noise, not a crossing
@@ -571,7 +572,7 @@ def find_crossings(line, s, total, design):
         if (d[1] - sd) % total < (d[0] - sd) % total: d, t, i = d[::-1], t[::-1], i[::-1]
         angle = math.degrees(math.acos(abs(float(np.clip(t[0] @ t[1], -1, 1)))))   # 0..90°, 90 = square
         out.append(dict(X=X, d=d, t=t, w=(float(line[i[0], 2]), float(line[i[1], 2])), angle=angle,
-                        bridge=None, over=None, claim=None, why=None))
+                        bridge=None, over=None, claim=None, why=None, low=None))
     out.sort(key=lambda c: (c["d"][0] - sd) % total)
     return out
 
@@ -582,7 +583,9 @@ def crossing_zones(cr):
 def bridge_crossings(cr, features, total):
     """Which feature bridges each crossing. A crossover claims the nearest unclaimed crossing within half its length of
     either pass's distance and goes over pass `over` (default first); a tabletop on a pass bridges the crossing if its
-    flat top spans bridge_span. Returns {feature index: (crossing, over)} for the crossovers that claimed one."""
+    flat top spans bridge_span. Either must be at least BRIDGE_CLEARANCE high; one that is in place and long enough but
+    lower sets the crossing's `low` (crossing-too-low). Returns {feature index: (crossing, over)} for the crossovers that
+    claimed one."""
     claimed = {}
     for fi, f in enumerate(features):
         if f["type"] != "crossover": continue
@@ -594,10 +597,11 @@ def bridge_crossings(cr, features, total):
             gap = min(abs(cyc(f["distance"], c["d"][p], total)) for p in (0, 1))
             if gap <= ramp + top / 2 and (best is None or gap < best[0]): best = (gap, c, top)
         if best is None: continue
-        _, c, top = best
+        _, c, top = best; height = crossover_size(f, top)[2]
         claimed[fi] = (c, over); c["claim"] = fi
-        if top >= bridge_span(c, over) - 1e-9: c["bridge"] = fi; c["over"] = over
-        else: c["why"] = f"the crossover's flat top is {top:.1f} m; it needs {bridge_span(c, over):.1f} m"
+        if top < bridge_span(c, over) - 1e-9: c["why"] = f"the crossover's flat top is {top:.1f} m; it needs {bridge_span(c, over):.1f} m"
+        elif height < BRIDGE_CLEARANCE - 1e-9: c["low"] = too_low("crossover", f["distance"], height)
+        else: c["bridge"] = fi; c["over"] = over
     prof = FEATURE_PROFILES["tabletop"]; top0, top1 = prof[1][0] / prof[-1][0], prof[2][0] / prof[-1][0]
     for c in cr:
         if c["bridge"] is not None: continue
@@ -609,18 +613,25 @@ def bridge_crossings(cr, features, total):
                 if abs(off) > L / 2: continue
                 need = bridge_span(c, p)
                 if -L / 2 + top0 * L <= off - need / 2 + 1e-9 and off + need / 2 <= -L / 2 + top1 * L + 1e-9:
-                    c["bridge"] = fi; c["over"] = p; c["why"] = None; break
+                    H = float(f.get("height", FEATURE_DEFAULTS["tabletop"][1]))
+                    if H >= BRIDGE_CLEARANCE - 1e-9: c["bridge"] = fi; c["over"] = p; c["why"] = None; c["low"] = None; break
+                    if c["low"] is None: c["low"] = too_low("tabletop", f["distance"], H)
                 elif c["why"] is None:
                     c["why"] = f"the tabletop at {f['distance']:.1f} m is too short to bridge it (flat top needs {need:.1f} m)"
             if c["bridge"] is not None: break
     return claimed
 
+def too_low(typ, distance, height):
+    return f"The {typ} at {distance:.1f} m is {height:.2f} m high; cars need {BRIDGE_CLEARANCE:.2f} m to pass under"
+
 def crossing_checks(cr, built_feats, design, total, checks):
-    """crossing-unbridged, crossing-angle and crossing-too-close; returns built.crossings."""
+    """crossing-unbridged (or crossing-too-low), crossing-angle and crossing-too-close; returns built.crossings."""
     W0 = design.get("laneWidth", 2.0); out = []; foot = []
     for c in cr:
         X = c["X"]; da, db = c["d"]
-        if c["bridge"] is None:
+        if c["bridge"] is None and c["low"] is not None:   # in place and long enough, but cars can't pass under
+            checks.append({"level": "error", "code": "crossing-too-low", "x": r3(X[0]), "z": r3(X[1]), "message": c["low"]})
+        elif c["bridge"] is None:
             checks.append({"level": "error", "code": "crossing-unbridged", "x": r3(X[0]), "z": r3(X[1]),
                            "message": f"Track crosses itself at {da:.1f} m and {db:.1f} m with no bridge" + (f": {c['why']}" if c["why"] else "")})
         if c["angle"] < CROSSING_MIN_ANGLE:
@@ -681,6 +692,9 @@ def bake(doc):
         if len(span) and np.max(np.abs(line[span % len(line), 3])) > 0:
             checks.append({"level": "warning", "code": "feature-in-corner", "x": r3(p[0]), "z": r3(p[1]),
                            "message": f"{typ} at {dist:.1f} m is on or lands into a corner"})
+        if typ == "crossover" and fi not in claimed:   # away from any crossing, or one already bridged
+            checks.append({"level": "warning", "code": "crossover-unused", "x": r3(p[0]), "z": r3(p[1]),
+                           "message": f"crossover at {dist:.1f} m bridges no crossing"})
     crossings = crossing_checks(cr, feats, design, total, checks)
 
     # start line

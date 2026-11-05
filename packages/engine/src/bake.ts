@@ -45,7 +45,8 @@ export const CORNER_MIN_TURN = radians(20); // smaller changes of direction aren
  */
 export const CORNER_JOIN_GAP = 3.0;
 export const CROSSOVER_RAMP = 2.0; // crossover (bridge) defaults: ramp up / down along the over pass (m)...
-export const CROSSOVER_HEIGHT = 0.3; // ...and the height of its flat top (m)
+export const CROSSOVER_HEIGHT = 0.4; // ...and the height of its flat top (m)
+export const BRIDGE_CLEARANCE = 0.4; // a bridge lower than this (m) doesn't bridge: cars can't pass under
 export const BRIDGE_MARGIN = 1.0; // a bridge's flat top spans the under pass's lane plus this each side (m)
 export const CROSSING_MIN_ANGLE = 60; // crossings sharper than this (deg; i.e. outside 60-120° between the passes) are warned about
 const CROSSING_MIN_SEP = 1.0; // the racing line crossing itself less than this far along the lap is numerical noise
@@ -983,6 +984,8 @@ export interface RawCrossing {
   claim: number | null;
   /** why it isn't bridged, if a feature tried */
   why: string | null;
+  /** a feature in place and long enough, but too low to pass under: the crossing-too-low message */
+  low: string | null;
 }
 
 /**
@@ -1092,7 +1095,7 @@ export function findCrossings(line: Line, s: Float64Array, total: number, startD
     }
     const dot = Math.max(-1, Math.min(1, t[0][0] * t[1][0] + t[0][1] * t[1][1]));
     const angle = degrees(Math.acos(Math.abs(dot))); // 0..90°, 90 = square
-    out.push({ X, d, t, w: [line.width[i[0]], line.width[i[1]]], angle, bridge: null, over: null, claim: null, why: null });
+    out.push({ X, d, t, w: [line.width[i[0]], line.width[i[1]]], angle, bridge: null, over: null, claim: null, why: null, low: null });
   }
   return out.sort((a, b) => key(a.d[0]) - key(b.d[0]));
 }
@@ -1105,7 +1108,8 @@ export function crossingZones(cr: RawCrossing[]): CrossingZone[] {
 /**
  * Which feature bridges each crossing. A crossover claims the nearest unclaimed crossing within half its length of
  * either pass's distance and goes over pass `over` (default first); a tabletop on a pass bridges the crossing if its flat
- * top spans bridgeSpan. Returns the crossovers that claimed one: feature index -> [crossing, over].
+ * top spans bridgeSpan. Either must be at least BRIDGE_CLEARANCE high; one that is in place and long enough but lower sets
+ * the crossing's `low` (crossing-too-low). Returns the crossovers that claimed one: feature index -> [crossing, over].
  */
 export function bridgeCrossings(cr: RawCrossing[], features: DesignFeature[], total: number): Map<number, [RawCrossing, 0 | 1]> {
   const claimed = new Map<number, [RawCrossing, 0 | 1]>();
@@ -1121,11 +1125,14 @@ export function bridgeCrossings(cr: RawCrossing[], features: DesignFeature[], to
     }
     if (!best) return;
     const [, c, top] = best;
+    const height = crossoverSize(f, top)[2];
     claimed.set(fi, [c, over]);
     c.claim = fi;
-    if (top >= bridgeSpan(c, over) - 1e-9) {
+    if (top < bridgeSpan(c, over) - 1e-9) c.why = `the crossover's flat top is ${pyFormat(top, 1)} m; it needs ${pyFormat(bridgeSpan(c, over), 1)} m`;
+    else if (height < BRIDGE_CLEARANCE - 1e-9) c.low = tooLow("crossover", f.distance, height);
+    else {
       c.bridge = fi; c.over = over;
-    } else c.why = `the crossover's flat top is ${pyFormat(top, 1)} m; it needs ${pyFormat(bridgeSpan(c, over), 1)} m`;
+    }
   });
   const prof = FEATURE_PROFILES.tabletop, last = prof[prof.length - 1][0];
   const top0 = prof[1][0] / last, top1 = prof[2][0] / last;
@@ -1140,8 +1147,12 @@ export function bridgeCrossings(cr: RawCrossing[], features: DesignFeature[], to
         if (Math.abs(off) > L / 2) continue;
         const need = bridgeSpan(c, p);
         if (-L / 2 + top0 * L <= off - need / 2 + 1e-9 && off + need / 2 <= -L / 2 + top1 * L + 1e-9) {
-          c.bridge = fi; c.over = p; c.why = null;
-          break;
+          const H = f.height ?? FEATURE_DEFAULTS.tabletop[1];
+          if (H >= BRIDGE_CLEARANCE - 1e-9) {
+            c.bridge = fi; c.over = p; c.why = null; c.low = null;
+            break;
+          }
+          if (c.low === null) c.low = tooLow("tabletop", f.distance, H);
         } else if (c.why === null) c.why = `the tabletop at ${pyFormat(f.distance, 1)} m is too short to bridge it (flat top needs ${pyFormat(need, 1)} m)`;
       }
     }
@@ -1149,12 +1160,19 @@ export function bridgeCrossings(cr: RawCrossing[], features: DesignFeature[], to
   return claimed;
 }
 
-/** crossing-unbridged, crossing-angle and crossing-too-close; returns built.crossings. */
+function tooLow(typ: string, distance: number, height: number): string {
+  return `The ${typ} at ${pyFormat(distance, 1)} m is ${pyFormat(height, 2)} m high; cars need ${pyFormat(BRIDGE_CLEARANCE, 2)} m to pass under`;
+}
+
+/** crossing-unbridged (or crossing-too-low), crossing-angle and crossing-too-close; returns built.crossings. */
 export function crossingChecks(cr: RawCrossing[], feats: BuiltFeature[], features: DesignFeature[], checks: Check[]): Crossing[] {
   const out: Crossing[] = [], foot: Point2[][] = [];
   for (const c of cr) {
     const [X0, X1] = c.X, [da, db] = c.d;
-    if (c.bridge === null) {
+    if (c.bridge === null && c.low !== null) {
+      // in place and long enough, but cars can't pass under
+      checks.push({ level: "error", code: "crossing-too-low", x: r3(X0), z: r3(X1), message: c.low });
+    } else if (c.bridge === null) {
       checks.push({ level: "error", code: "crossing-unbridged", x: r3(X0), z: r3(X1), message: `Track crosses itself at ${pyFormat(da, 1)} m and ${pyFormat(db, 1)} m with no bridge${c.why ? `: ${c.why}` : ""}` });
     }
     if (c.angle < CROSSING_MIN_ANGLE) {
@@ -1231,6 +1249,10 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     for (let k = i0; k < i1; k++) maxCurv = Math.max(maxCurv, Math.abs(line.curvature[k % line.n]));
     if (i1 > i0 && maxCurv > 0) {
       checks.push({ level: "warning", code: "feature-in-corner", x: r3(p[0]), z: r3(p[1]), message: `${typ} at ${pyFormat(dist, 1)} m is on or lands into a corner` });
+    }
+    if (typ === "crossover" && !claimed.has(fi)) {
+      // away from any crossing, or one already bridged
+      checks.push({ level: "warning", code: "crossover-unused", x: r3(p[0]), z: r3(p[1]), message: `crossover at ${pyFormat(dist, 1)} m bridges no crossing` });
     }
   });
   const crossings = crossingChecks(cr, feats, design.features ?? [], checks);
