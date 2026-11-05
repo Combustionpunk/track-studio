@@ -192,6 +192,17 @@ describe("saving tracks", () => {
     expect((await req(app, "POST", "/api/tracks", alice, { track: { design: adapted.design }, fromVenue: "nope" })).statusCode).toBe(404);
   });
 
+  it("starting blank keeps the area sent, with basedOn null and no obstacles (#14)", async () => {
+    const { app, alice } = await setup();
+    const points = [[-10, -5], [10, -5], [10, 5], [-10, 5]].map(([x, z]) => ({ x, z, r: 1 }));
+    const blank = { info: { name: "Blank" }, area: { length: 22, width: 12 }, obstacles: [], basedOn: null, design: { laneWidth: 2, points, features: [], start: { distance: 0 }, rostrum: { side: "south" } } };
+    const { doc: saved } = await createAs(app, alice, { track: blank, note: "First version" });
+    expect(saved.area).toEqual({ length: 22, width: 12 });
+    expect(saved.basedOn).toBeNull();
+    expect(saved.obstacles).toEqual([]);
+    expect(saved.built!.checks.filter((c) => c.severity === "error")).toEqual([]);
+  });
+
   it("invalid tracks -> 400 with details", async () => {
     const { app, alice } = await setup();
     const doc = freeform();
