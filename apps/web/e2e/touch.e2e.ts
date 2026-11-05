@@ -142,6 +142,11 @@ test.describe("tablet touch", () => {
     // Reverse lives in the dock on a tablet, so the bar stays one row
     await expect(dock.getByRole("button", { name: "Reverse direction" })).toBeEnabled();
     await expect(page.locator(".designer-bar").getByRole("button", { name: /Reverse/ })).toHaveCount(0);
+    if (page.viewportSize()!.width >= 1024) {
+      // and at 1024 px the bar is one row: every control in it shares a middle
+      const mids = await page.locator(".designer-bar").locator("button, a").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
+      expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(4);
+    }
     const vw = page.viewportSize()!.width;
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
     const d = (await dock.boundingBox())!;
