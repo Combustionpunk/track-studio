@@ -80,8 +80,9 @@ writes (an `Origin` header other than `BASE_URL`) are refused.
 | | |
 |---|---|
 | `GET /auth/login?return=/path` → forum → `GET /auth/callback` | login; `POST /auth/logout`; `GET /api/me` (user or `null`) |
-| `GET /api/tracks?status=&venue=&minLap=&maxLap=&minCorners=&maxCorners=&q=` | list (archived hidden unless `status=archived`) |
+| `GET /api/tracks?status=&venue=&minLap=&maxLap=&minCorners=&maxCorners=&q=&author=` | list (archived hidden unless `status=archived`) |
 | `GET /api/tracks?fits=<venueId>` | approved tracks (their pinned revision) that fit, each with `fit.results` |
+| `GET /api/tracks?author=me` | only your tracks; combines with every filter above, including `fits`. Signed out → 401; any value but `me` → 400 |
 | `POST /api/tracks` `{track, fromVenue?, note?}` (or a bare rctrack doc) | new draft; server sets id/revision/author/dates/status, re-bakes |
 | `PUT /api/tracks/:id` `{track, note?, baseRevision?}` | new revision (author or organiser), always a draft; `baseRevision` ≠ latest → 409 `stale`. Venue-based tracks keep the template's area/obstacles/rostrum |
 | `POST /api/tracks/:id/copy` `{revision?}` | "Make my own copy": a new draft for you, `info.derivedFrom` credits the original |

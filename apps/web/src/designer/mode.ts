@@ -1,6 +1,6 @@
 // Quick and Advanced designer modes. Both edit the same .rctrack.json; Quick only hides controls and never writes
 // per-corner radius, width or outer values (nor removes ones a track already has).
-import type { BuiltFeature, Check, CheckLevel, DesignFeature, DesignPoint, FeatureType, Point2, RacingLinePoint } from "@track-studio/engine";
+import type { BuiltFeature, Check, CheckLevel, DesignFeature, DesignPoint, FeatureType, Point2 } from "@track-studio/engine";
 import { newPointBetween } from "./geometry.js";
 import type { SnapMode } from "./snap.js";
 
@@ -98,50 +98,6 @@ export const visibleChecks = (checks: Check[], mode: DesignerMode): Check[] =>
 
 export function checkCounts(checks: Check[]) {
   return { errors: checks.filter((c) => c.level === "error").length, warnings: checks.filter((c) => c.level === "warning").length };
-}
-
-export type ProblemMark =
-  | { kind: "section"; level: CheckLevel; index: number; points: Point2[] }
-  | { kind: "ring"; level: CheckLevel; index: number; x: number; z: number };
-
-/** how far either side of the problem an error section runs, along the line */
-const SECTION_HALF = 1.5; // m
-
-/**
- * Problems to draw on the plan: an error is a section of the lane either side of where it is (a ring if it's off the
- * lane), a warning is a ring. Info is never drawn. `index` is the check's place in `checks`.
- */
-export function problemMarks(checks: Check[], racingLine: RacingLinePoint[]): ProblemMark[] {
-  const n = racingLine.length;
-  if (!n) return [];
-  const s: number[] = [0];
-  for (let k = 1; k < n; k++) s.push(s[k - 1] + Math.hypot(racingLine[k][0] - racingLine[k - 1][0], racingLine[k][1] - racingLine[k - 1][1]));
-  const total = s[n - 1] + Math.hypot(racingLine[0][0] - racingLine[n - 1][0], racingLine[0][1] - racingLine[n - 1][1]);
-  const out: ProblemMark[] = [];
-  checks.forEach((c, index) => {
-    if (c.x === undefined || c.z === undefined || c.level === "info") return;
-    const ring: ProblemMark = { kind: "ring", level: c.level, index, x: c.x, z: c.z };
-    if (c.level === "warning") return void out.push(ring);
-    let near = 0, best = Infinity;
-    racingLine.forEach((p, k) => {
-      const d = Math.hypot(p[0] - c.x!, p[1] - c.z!);
-      if (d < best) [near, best] = [k, d];
-    });
-    if (best > racingLine[near][2] / 2 + 0.3) return void out.push(ring);
-    const gap = (k: number) => {
-      const d = Math.abs(s[k] - s[near]);
-      return Math.min(d, total - d);
-    };
-    let a = 0, b = 0;
-    while (a < n - 1 && gap((near - a - 1 + n) % n) <= SECTION_HALF) a++;
-    while (b < n - 1 - a && gap((near + b + 1) % n) <= SECTION_HALF) b++;
-    const points = Array.from({ length: a + b + 1 }, (_, k): Point2 => {
-      const p = racingLine[(near - a + k + n) % n];
-      return [p[0], p[1]];
-    });
-    out.push({ kind: "section", level: c.level, index, points });
-  });
-  return out;
 }
 
 /** a check this close to a corner point is about that corner */

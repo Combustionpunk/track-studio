@@ -2,8 +2,10 @@
 // place and slide jumps and the start line, live checks, undo/redo, save as a new revision, local auto-save.
 // Quick mode (the default) hides the per-corner controls; Advanced shows everything. See mode.ts.
 import {
+  ALL_PLAN_LAYERS,
   FEATURE_DEFAULTS,
   outerStyle,
+  planLayers,
   rostrumPosition,
   type Area,
   type BasedOn,
@@ -13,6 +15,7 @@ import {
   type DesignPoint,
   type FeatureType,
   type Obstacle,
+  type PlanLayers,
   type Point2,
   type RcTrack,
   type RostrumPlacement,
@@ -44,7 +47,6 @@ import {
   moveJump,
   movePoint,
   paletteJumps,
-  problemMarks,
   readMode,
   snapModeFor,
   submitBlock,
@@ -144,6 +146,9 @@ function planPoint(svg: SVGSVGElement, clientX: number, clientY: number): Point2
 const NO_TRACK: RcTrack["design"] = { laneWidth: 2, points: [{ x: -2, z: -1 }, { x: 2, z: -1 }, { x: 2, z: 1 }, { x: -2, z: 1 }] };
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
+
+/** the plan's checks layer on its own (the designer's problem marks) */
+const ONLY_CHECKS = Object.fromEntries(Object.keys(ALL_PLAN_LAYERS).map((k) => [k, k === "checks"])) as PlanLayers;
 
 export function Designer({ mode, initial, base: initialBase, fromVenue, storageKey }: DesignerProps) {
   const navigate = useNavigate();
@@ -639,9 +644,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const pointsList = draft.design.points;
   const lw = draft.design.laneWidth ?? 2;
   const advanced = view === "advanced";
-  // problems drawn by the designer (not PlanView), so Quick and Advanced decide what shows; the bake's checks lag the
-  // live line by a moment while dragging
-  const marks = useMemo(() => (layers.checks ? problemMarks(built.checks, built.racingLine) : []), [layers.checks, built.checks, built.racingLine]);
+  // problems: the shared plan renderer's checks layer alone, drawn over the lane handle rather than under it in
+  // PlanView (info is never drawn, so Quick and Advanced show the same marks; Advanced adds their hover details); the
+  // bake's checks lag the live line by a moment while dragging
+  const problemScene = useMemo(() => ({ area: draft.area, built }), [draft.area, built]);
+  const problems = (m: number) => (layers.checks ? planLayers(problemScene, { px: m, layers: ONLY_CHECKS, background: false, tips: advanced }) : "");
   // matched against the bake's own jumps, so a warning stays on its jump while the bake catches up with a drag
   const inCorner = useMemo(() => {
     const b = bake.built;
@@ -671,15 +678,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {guides.map((g, i) => (
           <line key={i} className="ed-guide" x1={g.from[0]} y1={-g.from[1]} x2={g.to[0]} y2={-g.to[1]} vectorEffect="non-scaling-stroke" />
         ))}
-        <g className="ed-problems" aria-hidden="true">
-          {marks.map((k) =>
-            k.kind === "section" ? (
-              <polyline key={k.index} className={`ed-problem-${k.level}`} points={pts(k.points)} strokeWidth={3 * m} />
-            ) : (
-              <circle key={k.index} className={`ed-problem-${k.level}`} cx={k.x} cy={-k.z} r={Math.max(0.5, 9 * m)} strokeWidth={(k.level === "error" ? 3 : 2) * m} />
-            ),
-          )}
-        </g>
+        <g className={`ed-problems ${advanced ? "ed-problems-tips" : ""}`} aria-hidden="true" dangerouslySetInnerHTML={{ __html: problems(m) }} />
         {corner && corner.r > 0 && corner.th > 1e-6 && advanced && <CornerArc c={corner} />}
         {ghost && <polygon className="ed-ghost" points={pts(ghost)} vectorEffect="non-scaling-stroke" />}
         {built.features.map((f, i) => (
@@ -822,10 +821,6 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     });
     setSel(best);
   };
-  // In Quick, PlanView draws no checks (no info dots): the designer's own marks show errors and warnings. Advanced keeps
-  // PlanView's check dots and their hover details as well.
-  const quickBuilt = useMemo(() => ({ ...built, checks: [] }), [built]);
-  const planBuilt = advanced ? built : quickBuilt;
 
   if (phone) {
     return (
@@ -1068,8 +1063,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           <PlanView
             area={draft.area}
             obstacles={draft.obstacles}
-            built={laying ? undefined : planBuilt}
+            built={laying ? undefined : built}
             rostrum={rostrum}
+            checksInOverlay
             designFeatures={draft.design.features}
             layers={layers}
             onLayersChange={setLayers}

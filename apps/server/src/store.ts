@@ -389,6 +389,8 @@ export interface ListQuery {
   minCorners?: number;
   maxCorners?: number;
   q?: string;
+  /** Forum id of the author; the route only sets it from the session (author=me). */
+  authorId?: number;
 }
 
 /** Filters apply to what the public sees (the approved revision when there is one). */
@@ -401,6 +403,7 @@ export function listTracks(db: DB, f: ListQuery): TrackRow[] {
     args.push(f.status);
   } else where.push("t.status != 'archived'");
   if (f.venue) { where.push("t.venue_template_id = ?"); args.push(f.venue); }
+  if (f.authorId !== undefined) { where.push("t.author_forum_id = ?"); args.push(f.authorId); }
   if (f.minLap !== undefined) { where.push("r.lap_length >= ?"); args.push(f.minLap); }
   if (f.maxLap !== undefined) { where.push("r.lap_length <= ?"); args.push(f.maxLap); }
   if (f.minCorners !== undefined) { where.push("r.corners >= ?"); args.push(f.minCorners); }

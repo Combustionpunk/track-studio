@@ -44,6 +44,9 @@ export interface PlanViewProps {
   className?: string;
   /** extra content in plan space (svg units = metres, y = -z) */
   children?: ReactNode;
+  /** the editor overlay draws the check marks (with their data-tip hooks), so the plan leaves them out but keeps their
+   * hover details */
+  checksInOverlay?: boolean;
   /** editor layer drawn on top; gets the size of one screen pixel in metres (for constant-size handles) */
   overlay?: (mPerPx: number) => ReactNode;
   /** wheel over an element marked data-wheel: return true if handled (then it doesn't zoom) */
@@ -261,7 +264,8 @@ export function PlanView(props: PlanViewProps) {
   const pxStep = 2 ** (Math.round(Math.log2(px) * 4) / 4); // redraw hairlines in ~19% zoom steps, not on every wheel tick
   const uid = useId().replace(/[^\w-]/g, "");
   const scene = useMemo(() => ({ area, obstacles, built, rostrum: props.rostrum }), [area, obstacles, built, props.rostrum]);
-  const drawing = useMemo(() => planLayers(scene, { px: pxStep, layers, tips: interactive, id: `plan${uid}` }), [scene, pxStep, layers, interactive, uid]);
+  const drawn = useMemo(() => (props.checksInOverlay ? { ...layers, checks: false } : layers), [layers, props.checksInOverlay]);
+  const drawing = useMemo(() => planLayers(scene, { px: pxStep, layers: drawn, tips: interactive, id: `plan${uid}` }), [scene, pxStep, drawn, interactive, uid]);
   const scaleBar = v ? niceLength(120 / v.s) : 1;
 
   return (

@@ -15,11 +15,12 @@ const WEB = join(ROOT, "apps/web");
 
 // useApi is replaced by canned answers per path; everything else in hooks is real
 const answers = new Map<string, Partial<Loadable<unknown>>>();
+const requested: (string | null)[] = [];
 vi.mock("../src/lib/hooks.js", async (orig) => {
   const real = await orig<typeof import("../src/lib/hooks.js")>();
   return {
     ...real,
-    useApi: (path: string | null) => ({ data: undefined, error: undefined, loading: path !== null, reload: () => {}, ...(path ? answers.get(path.split("?")[0]) : {}) }),
+    useApi: (path: string | null) => (requested.push(path), { data: undefined, error: undefined, loading: path !== null, reload: () => {}, ...(path ? answers.get(path.split("?")[0]) : {}) }),
   };
 });
 
@@ -87,7 +88,10 @@ const loadable = <T,>(over: Partial<Loadable<T>>): Loadable<T> => ({ data: undef
 /** text content, tags stripped, whitespace collapsed */
 const text = (h: string) => h.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 
-beforeEach(() => answers.clear());
+beforeEach(() => {
+  answers.clear();
+  requested.length = 0;
+});
 
 describe("status badge", () => {
   it("is a pill with the word, one modifier per state", () => {
@@ -179,6 +183,18 @@ describe("library results", () => {
     expect(h).toContain('href="/new"');
   });
 
+  it("Mine with no tracks → invite to start a design", () => {
+    const h = html(<LibraryResults {...props} mine list={loadable({ data: { tracks: [] } })} />);
+    expect(h).toContain("ts-empty");
+    expect(text(h)).toContain("Nothing of yours here yet");
+    expect(h).toMatch(/<a [^>]*href="\/new"[^>]*>.*Start a design<\/a>/);
+  });
+
+  it("Mine plus other filters with no tracks → offer to clear the filters", () => {
+    const h = html(<LibraryResults {...props} mine anyFilter list={loadable({ data: { tracks: [] } })} />);
+    expect(text(h)).toContain("No tracks match these filters");
+  });
+
   it("tracks → a grid of cards", () => {
     const h = html(<LibraryResults {...props} list={loadable({ data: { tracks: [summary(), summary({ id: "b", name: "Club Night" })] } })} />);
     expect(h.match(/class="ts-card"/g)).toHaveLength(2);
@@ -197,6 +213,50 @@ describe("library page", () => {
     for (const label of ["Search", "Venue", "Fits my venue", "Status", "Lap", "Corners"]) expect(t).toContain(label);
     expect(h).toContain('aria-pressed="false"');
     expect(h).toContain("Misfits Main Hall");
+  });
+
+  it("signed in: a Mine toggle beside the status filters, off by default", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    const h = html(<Library />);
+    expect(h).toMatch(/<button [^>]*aria-pressed="false"[^>]*>Mine<\/button>/);
+    expect(h.indexOf(">Mine<")).toBeGreaterThan(h.indexOf(">Archived<"));
+    expect(h.indexOf(">Mine<")).toBeLessThan(h.indexOf("Lap (m)"));
+    expect(requested).toContain("/api/tracks");
+  });
+
+  it("signed out: no Mine toggle, and ?mine=1 is ignored", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    const h = html(<Library />, "/?mine=1", false);
+    expect(text(h)).not.toContain("Mine");
+    expect(requested.filter((p) => p?.startsWith("/api/tracks"))).toEqual(["/api/tracks"]);
+  });
+
+  it("?mine=1 asks for author=me, presses Mine and counts it behind Filters", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    const h = html(<Library />, "/?mine=1&status=draft");
+    expect(h).toMatch(/<button [^>]*aria-pressed="true"[^>]*>Mine<\/button>/);
+    expect(requested).toContain("/api/tracks?status=draft&author=me");
+    expect(text(h)).toContain("Filters · 2");
+  });
+
+  it("Mine stays usable with Fits my venue and combines with it", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    const h = html(<Library />, "/?mine=1&fits=hall");
+    expect(h).toMatch(/<button [^>]*aria-pressed="true"[^>]*>Mine<\/button>/);
+    expect(h).not.toMatch(/<button [^>]*disabled=""[^>]*>Mine<\/button>/);
+    expect(requested).toContain("/api/tracks?fits=hall&author=me");
+  });
+
+  it("?mine=1 waits for the session before asking", () => {
+    const h = renderToStaticMarkup(
+      <SessionContext.Provider value={{ ...session(), me: null, ready: false }}>
+        <MemoryRouter initialEntries={["/?mine=1"]}>
+          <Library />
+        </MemoryRouter>
+      </SessionContext.Provider>,
+    );
+    expect(h).toContain("ts-card--skeleton");
+    expect(requested.filter((p) => p?.startsWith("/api/tracks"))).toEqual([]);
   });
 
   it("the venue list failing still leaves the library usable, and says so", () => {
