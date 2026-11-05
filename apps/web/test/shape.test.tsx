@@ -21,6 +21,7 @@ import {
   insertAfter,
   insertNearTrack,
   isReduced,
+  followTravel,
   keepSelection,
   laneLines,
   placeCorner,
@@ -288,7 +289,7 @@ describe("undo and going back to step 1", () => {
   it("insert, insert-near-track and delete are one undo step each; undo past the first shaping step reopens the loop", () => {
     const d0 = newDraft({ area: clubHall.area, obstacles: [], name: "t" });
     const states = paint(d0, TEST_TRACK);
-    let h: HistoryState<Draft> = { past: [], present: d0, future: [], group: null, at: 0 };
+    let h: HistoryState<Draft> = { past: [], present: d0, future: [], group: null, at: 0, travels: 0 };
     for (const s of states) h = set(h, withLaying(h.present, s));
     expect(designStep(h.present)).toBe(2);
     const closed = h.present;
@@ -307,7 +308,7 @@ describe("undo and going back to step 1", () => {
 
   it("undo or redo that adds or takes away corners lets the selected corner go", () => {
     const d = laid(TEST_TRACK);
-    let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0 };
+    let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0, travels: 0 };
     const added = insertAfter(d.design.points, 1, [3, -3], 2)!;
     h = set(h, { ...d, design: { ...d.design, points: added.points } }, "drag:insert:1");
     const sel = { kind: "point" as const, i: added.index };
@@ -322,9 +323,48 @@ describe("undo and going back to step 1", () => {
     expect(keepSelection({ kind: "start" as const }, h.present.design.points, d.design.points)).toEqual({ kind: "start" });
   });
 
+  describe("undo after inserting a corner, in either mode (#54)", () => {
+    const d = laid(TEST_TRACK);
+    const start: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0, travels: 0 };
+    const seen = (h: HistoryState<Draft>) => ({ travels: h.travels, points: h.present.design.points });
+    // select corner 3, insert after it: the new corner 4 is selected
+    const added = insertAfter(d.design.points, 3, [3, -3], 2)!;
+    const inserted = set(start, { ...d, design: { ...d.design, points: added.points } }, "drag:insert:3");
+    const sel = { kind: "point" as const, i: added.index };
+
+    it("the insert selects the new corner after the selected one, and isn't a travel", () => {
+      expect(added.index).toBe(4);
+      expect(followTravel({ kind: "point" as const, i: 3 }, seen(start), seen(inserted))).toEqual({ kind: "point", i: 3 });
+    });
+
+    it("undo lets the selection go", () => {
+      const undone = historyReducer(inserted, { type: "undo" });
+      expect(undone.travels).toBe(1);
+      expect(followTravel(sel, seen(inserted), seen(undone))).toBeNull();
+      // and so does redo
+      expect(followTravel({ kind: "point" as const, i: 3 }, seen(undone), seen(historyReducer(undone, { type: "redo" })))).toBeNull();
+    });
+
+    it("two undos before a render: judged from the state rendered last, not the one in between", () => {
+      const moved = set(inserted, { ...inserted.present, design: { ...inserted.present.design, points: setApex(inserted.present.design.points, 4, 1.8, 2) } }, "apex:4");
+      const twice = historyReducer(historyReducer(moved, { type: "undo" }), { type: "undo" });
+      expect(twice.present).toBe(d);
+      expect(twice.travels).toBe(2);
+      // the step in between (apex undone) keeps the corner count, the last one (insert undone) doesn't
+      expect(followTravel(sel, seen(moved), seen(twice))).toBeNull();
+    });
+
+    it("undo that keeps the corner count keeps the selection; other selections stay", () => {
+      const moved = set(inserted, { ...inserted.present, design: { ...inserted.present.design, points: setApex(inserted.present.design.points, 4, 1.8, 2) } }, "apex:4");
+      const undone = historyReducer(moved, { type: "undo" });
+      expect(followTravel(sel, seen(moved), seen(undone))).toBe(sel);
+      expect(followTravel({ kind: "start" as const }, seen(inserted), seen(historyReducer(inserted, { type: "undo" })))).toEqual({ kind: "start" });
+    });
+  });
+
   it("a press on the track that adds a corner and drags it on is one undo step", () => {
     const d = laid(TEST_TRACK);
-    let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0 };
+    let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0, travels: 0 };
     const group = "drag:insert:42"; // the designer gives the insert and the drag after it the same group
     const added = insertAfter(d.design.points, 1, [3, -3], 2)!;
     h = set(h, { ...d, design: { ...d.design, points: added.points } }, group);
