@@ -1059,10 +1059,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           type="button"
           className="btn"
           onClick={() => {
-            setSel(null); // corner and jump numbers count the other way now
+            // corner and jump numbers count the other way now
+            setSel(null);
+            setHoverPt(null);
             update(reverseDraft);
           }}
-          disabled={laying}
+          disabled={laying || draft.design.points.length < 3}
           title={laying ? "Close the loop first" : "Drive the same layout the other way round: the start line and jumps stay put and face the new way"}
         >
           <ArrowRightLeft size={18} aria-hidden="true" />

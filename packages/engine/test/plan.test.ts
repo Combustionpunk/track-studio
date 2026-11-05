@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { bake, fits, jumpSymbol, reverseDesign, type Point2, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type RcTrack, type RcVenue } from "../src/index.js";
+import { bake, fits, jumpSymbol, reverseDesign, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type Point2, type RcTrack, type RcVenue } from "../src/index.js";
 import { allTracks, examples, readJson, referenceDir, repoRoot, venues } from "./helpers.js";
 
 const club = () => readJson<RcTrack>(join(referenceDir, "examples", "club-a.rctrack.json"));

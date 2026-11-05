@@ -14,7 +14,6 @@ const PIPE_LENGTH_REL = 0.005;
 const pyMod = (a: number, b: number) => ((a % b) + b) % b;
 const xz = (pts: number[][]): Point2[] => pts.map((p) => [p[0], p[1]]);
 const angleDiff = (a: number, b: number) => Math.abs(pyMod(a - b + 540, 360) - 180);
-/** shoelace: > 0 counter-clockwise */
 /** closed racing line at full sampling, as the bake builds it */
 const dense = (d: Design): Point2[] => {
   const { line } = racingLine(d.points, d.laneWidth ?? 2.0);
@@ -24,6 +23,7 @@ const dense = (d: Design): Point2[] => {
 /** furthest any vertex of `a` is from all of the dividers in `b` */
 const coverage = (a: Divider[], b: Divider[]) =>
   Math.max(...a.flatMap((d) => d.points.map((p) => Math.min(...b.map((e) => distanceToPolyline(p, e.closed ? [...e.points, e.points[0]] : e.points))))));
+/** shoelace: > 0 counter-clockwise */
 const signedArea = (pts: Point2[]) => pts.reduce((a, p, i) => { const q = pts[(i + 1) % pts.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
 
 describe.each(allTracks)("reverse $name", ({ path }) => {
@@ -122,6 +122,20 @@ describe("reverseDesign", () => {
     const r = reverseDesign(design);
     const a = bakeBuilt({ ...doc, design }).startLine, b = bakeBuilt({ ...doc, design: r }).startLine;
     expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeLessThanOrEqual(TOL);
+  });
+
+  it("works when point 0 is not a corner (no arc: distance 0 is point 0 itself)", () => {
+    const doc = readJson<RcTrack>(allTracks[0].path);
+    const p = doc.design.points, last = p[p.length - 1];
+    // a point half-way along the last straight, as point 0: it turns by 0
+    const design: Design = { ...doc.design, points: [{ x: (last.x + p[0].x) / 2, z: (last.z + p[0].z) / 2 }, ...p] };
+    const a = bakeBuilt({ ...doc, design }), b = bakeBuilt({ ...doc, design: reverseDesign(design) });
+    expect(Math.abs(a.lapLength - b.lapLength)).toBeLessThanOrEqual(TOL);
+    expect(a.features.length).toBeGreaterThan(0);
+    for (const [f, e] of [...b.features.map((f, i) => [f, a.features[i]] as const), [b.startLine, a.startLine] as const]) {
+      expect(Math.hypot(f.x - e.x, f.z - e.z)).toBeLessThanOrEqual(TOL);
+      expect(angleDiff(f.heading, e.heading + 180)).toBeLessThan(0.01);
+    }
   });
 
   it("leaves a design with fewer than 3 points as it is", () => {
