@@ -69,7 +69,7 @@ describe("place, move and delete", () => {
 
   it("each is one undo step, including a whole drag", () => {
     type Doc = { features: ReturnType<typeof addJump>["features"] };
-    let h: HistoryState<Doc> = { past: [], present: { features: [] }, future: [], group: null, at: 0 };
+    let h: HistoryState<Doc> = { past: [], present: { features: [] }, future: [], group: null, at: 0, travels: 0 };
     const set = (next: Doc, group?: string, now = 1000) => (h = historyReducer(h, { type: "set", next, group, now }));
     set({ features: addJump(h.present.features, "tabletop", 5).features });
     expect(h.past).toHaveLength(1);
@@ -91,25 +91,20 @@ describe("place, move and delete", () => {
 describe("the corner warning on the jump", () => {
   const t = ref<RcTrack>("examples/club-a.rctrack.json");
   const bake = (features: RcTrack["design"]["features"]) => bakeBuilt({ ...t, design: { ...t.design, features } });
+  // Known places round club-a's lap, each well inside a run of the same result for tabletops and kickers
+  // (found by trying every 1.5 m). A handful keeps this fast on one slow core: each bake is a full bake.
+  const CORNERS = [19.5, 75, 103.5];
+  const STRAIGHTS = [64.5, 94.5, 115];
   it("a jump dropped into a corner is flagged; one on a straight is not", () => {
-    const built = bake([]);
-    // try one jump every 1.5 m round the lap: some places are in corners, some on straights
-    const flagged: boolean[] = [];
-    for (let d = 0; d < built.lapLength; d += 1.5) {
+    for (const d of [...CORNERS, ...STRAIGHTS]) {
       const b = bake([{ type: "tabletop", distance: d }]);
       const inCorner = b.checks.some((c) => c.code === "feature-in-corner");
       expect(jumpsInCorner(b.checks, b.features).has(0)).toBe(inCorner);
-      flagged.push(inCorner);
+      expect(inCorner, `tabletop at ${d} m`).toBe(CORNERS.includes(d));
     }
-    expect(flagged).toContain(true);
-    expect(flagged).toContain(false);
   });
   it("with several jumps, only the one in the corner is flagged", () => {
-    const at = (d: number) => bake([{ type: "kicker", distance: d }]).checks.some((c) => c.code === "feature-in-corner");
-    const lap = bake([]).lapLength;
-    const ds = Array.from({ length: Math.floor(lap / 1.5) }, (_, k) => k * 1.5);
-    const bad = ds.find(at)!, good = ds.find((d) => !at(d) && Math.abs(d - bad) > 3)!;
-    const b = bake([{ type: "kicker", distance: good }, { type: "kicker", distance: bad }]);
+    const b = bake([{ type: "kicker", distance: STRAIGHTS[1] }, { type: "kicker", distance: CORNERS[0] }]);
     expect([...jumpsInCorner(b.checks, b.features)]).toEqual([1]);
   });
   it("other warnings near a jump don't count", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { historyReducer, MERGE_MS, type HistoryState } from "../src/designer/history.js";
 
-const start = (v: number): HistoryState<number> => ({ past: [], present: v, future: [], group: null, at: 0 });
+const start = (v: number): HistoryState<number> => ({ past: [], present: v, future: [], group: null, at: 0, travels: 0 });
 const set = (s: HistoryState<number>, next: number, group?: string, now = 1000) => historyReducer(s, { type: "set", next, group, now });
 
 describe("history", () => {
@@ -17,6 +17,16 @@ describe("history", () => {
     s = set(s, 9); // a new change drops the redo steps
     expect(s.future).toEqual([]);
     expect(historyReducer(start(1), { type: "undo" }).present).toBe(1);
+  });
+
+  it("counts undo and redo steps taken, not edits or steps with nothing to undo", () => {
+    let s = set(set(start(1), 2), 3);
+    expect(s.travels).toBe(0);
+    s = historyReducer(historyReducer(s, { type: "undo" }), { type: "redo" });
+    expect(s.travels).toBe(2);
+    expect(set(s, 4).travels).toBe(2);
+    expect(historyReducer(s, { type: "redo" })).toBe(s);
+    expect(historyReducer(start(1), { type: "undo" }).travels).toBe(0);
   });
 
   it("a drag is one step however long it takes", () => {

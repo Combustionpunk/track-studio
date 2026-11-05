@@ -58,7 +58,7 @@ describe("reverseDraft", () => {
 
   it("is one undo step, and undo puts it back", () => {
     const d = draftFromDoc(club());
-    let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0 };
+    let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0, travels: 0 };
     h = historyReducer(h, { type: "set", next: reverseDraft(h.present), now: 1 });
     expect(h.past).toHaveLength(1);
     expect(h.present.design.points).toEqual(reverseDesign(d.design).points);
