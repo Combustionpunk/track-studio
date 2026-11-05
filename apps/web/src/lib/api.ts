@@ -3,13 +3,8 @@ import type { FitResult, RcTrack, RcVenue, TrackStatus } from "@track-studio/eng
 
 export type { FitResult, RcTrack, RcVenue, TrackStatus };
 
+/** A track's or revision's author; username is null when they have no user row (seeded or imported data, a removed forum account). */
 export interface UserRef {
-  id: number;
-  username: string;
-}
-
-/** Who saved a revision; username is null when they have no user row (a seeded or imported revision). */
-export interface RevisionAuthor {
   id: number;
   username: string | null;
 }
@@ -69,7 +64,7 @@ export interface TrackResponse {
 export interface Revision {
   revision: number;
   createdAt: string;
-  createdBy: RevisionAuthor;
+  createdBy: UserRef;
   note: string | null;
   status: TrackStatus;
   previewUrl: string;
@@ -91,7 +86,7 @@ export interface VenueSummary {
 export interface VenueRevision {
   revision: number;
   createdAt: string;
-  createdBy: RevisionAuthor;
+  createdBy: UserRef;
   name: string;
   area: { length: number; width: number };
   obstacles: number;

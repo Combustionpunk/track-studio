@@ -144,6 +144,11 @@ describe("track card", () => {
     expect(t).toContain("Revision 5 submitted for approval");
   });
 
+  it("a track whose author has no user row shows as Unknown (#46)", () => {
+    const t = text(html(<TrackCard track={summary({ author: { id: 999, username: null } })} />));
+    expect(t).toContain("by Unknown · Misfits Main Hall · revision 4");
+  });
+
   it("in fits mode, lists each orientation with the space left, linking to the fit preview", () => {
     const fit = { revision: 4, results: [{ orientation: "as designed", spare: [2, 1], thumbUrl: "/f/1.png" }, { orientation: "mirrored", spare: [2, 1], thumbUrl: "/f/2.png" }] };
     const h = html(<TrackCard track={summary({ fit } as unknown as Partial<TrackSummary>)} fitVenueId="hall" />);
@@ -339,6 +344,10 @@ describe("track page", () => {
     expect(h).toMatch(/<h1[^>]*>Winter Carpet Layout 3<\/h1>/);
     expect(h).toContain("ts-badge--submitted");
     expect(t).toContain("by yeti · Misfits Main Hall · revision 4");
+  });
+
+  it("a track whose author has no user row shows as Unknown (#46)", () => {
+    expect(text(page(can(), { author: { id: 999, username: null } }))).toContain("by Unknown · Misfits Main Hall · revision 4");
   });
 
   it("key figures in Oswald: lap to one decimal, corners, track area, jumps", () => {

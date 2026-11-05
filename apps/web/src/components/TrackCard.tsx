@@ -30,7 +30,7 @@ export function TrackCard({ track, fitVenueId }: { track: TrackSummary; fitVenue
           <StatusBadge status={status} />
         </div>
         <p className="ts-card__meta">
-          by {track.author.username} ·{" "}
+          by {fmt.author(track.author)} ·{" "}
           {track.venue ? (
             <Link to={`/v/${track.venue.id}`} className="ts-card__venue">
               {track.venue.name ?? track.venue.id}

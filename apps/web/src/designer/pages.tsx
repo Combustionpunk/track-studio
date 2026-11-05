@@ -171,7 +171,7 @@ export function EditTrackPage() {
         {track.status === "archived" ? (
           <p>This track is archived and can't be changed.</p>
         ) : (
-          <p>Only {track.author.username} (the author) and organisers can change this track. You can make your own copy to work on — it stays credited to the original.</p>
+          <p>Only {track.author.username !== null ? `${track.author.username} (the author)` : "the author"} and organisers can change this track. You can make your own copy to work on — it stays credited to the original.</p>
         )}
         {error && <Message kind="error">{error}</Message>}
         <p className="row">

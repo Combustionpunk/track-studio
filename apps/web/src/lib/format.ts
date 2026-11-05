@@ -1,5 +1,5 @@
 // Display formatting. Stored data is metres; lengths read to one decimal ("38.4 m"), sizes in whole metres.
-import type { FitResult, RevisionAuthor, TrackStatus } from "./api.js";
+import type { FitResult, TrackStatus, UserRef } from "./api.js";
 
 export const lap = (m: number) => `${m.toFixed(1)} m`;
 
@@ -18,8 +18,8 @@ export const corners = (n: number) => `${n} corner${n === 1 ? "" : "s"}`;
 
 export const STATUS_LABEL: Record<TrackStatus, string> = { draft: "Draft", submitted: "Submitted", approved: "Approved", archived: "Archived" };
 
-/** A revision's author; seeded or imported revisions may have no user row. */
-export const author = (u: RevisionAuthor) => u.username ?? "Unknown";
+/** A track's or revision's author; seeded or imported data may have no user row. */
+export const author = (u: UserRef) => u.username ?? "Unknown";
 
 export function date(iso: string): string {
   const d = new Date(iso);

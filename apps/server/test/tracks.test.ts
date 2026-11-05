@@ -298,6 +298,45 @@ describe("saving tracks", () => {
     expect(await ids("?author=me&fits=venue-3")).toEqual([]);
   });
 
+  it("a track whose author has no user row still lists, fits and opens, as an unknown author (#46)", async () => {
+    const { app, alice, org } = await setup();
+    const a = await createAs(app, alice);
+    expect((await req(app, "POST", `/api/tracks/${a.track.id}/approve`, org)).statusCode).toBe(200);
+    app.db.pragma("foreign_keys = OFF");
+    app.db.prepare("UPDATE tracks SET author_forum_id = 999999 WHERE id = ?").run(a.track.id);
+    app.db.pragma("foreign_keys = ON");
+    const orphan = { id: 999999, username: null };
+    const find = async (qs: string, cookie?: string) => {
+      const res = await req(app, "GET", `/api/tracks${qs}`, cookie);
+      expect(res.statusCode, res.body).toBe(200);
+      return (res.json().tracks as { id: string; author: unknown; fit?: { results: unknown[] } }[]).find((t) => t.id === a.track.id);
+    };
+
+    expect((await find(""))?.author).toEqual(orphan);
+    const fitted = await find("?fits=venue-2");
+    expect(fitted?.author).toEqual(orphan);
+    expect(fitted?.fit?.results.length).toBeGreaterThan(0);
+    const fit = await req(app, "GET", `/api/tracks/${a.track.id}/fit/venue-2`);
+    expect(fit.statusCode, fit.body).toBe(200);
+    const got = await req(app, "GET", `/api/tracks/${a.track.id}`);
+    expect(got.statusCode, got.body).toBe(200);
+    expect(got.json().track.author).toEqual(orphan);
+    const page = await req(app, "GET", `/t/${a.track.id}`);
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain("by Unknown");
+
+    // author=me: it's nobody's now, and alice's other tracks still list for her
+    expect(await find("?author=me", alice)).toBeUndefined();
+    const b = await createAs(app, alice);
+    const mine = (await req(app, "GET", "/api/tracks?author=me", alice)).json().tracks as { id: string }[];
+    expect(mine.map((t) => t.id)).toEqual([b.track.id]);
+
+    // a copy credits the original without an author
+    const copy = await req(app, "POST", `/api/tracks/${a.track.id}/copy`, alice);
+    expect(copy.statusCode, copy.body).toBe(201);
+    expect(copy.json().doc.info.derivedFrom).toEqual({ id: a.track.id, revision: 1 });
+  });
+
   it("author=me signed out -> 401", async () => {
     const { app } = await setup();
     const res = await req(app, "GET", "/api/tracks?author=me");

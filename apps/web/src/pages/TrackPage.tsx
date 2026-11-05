@@ -111,7 +111,7 @@ export function TrackPage() {
             <StatusBadge status={status} />
           </div>
           <p className="ts-meta">
-            by {track.author.username} · {track.venue ? <Link to={`/v/${track.venue.id}`}>{track.venue.name ?? track.venue.id}</Link> : "No venue"} · revision {rev}
+            by {fmt.author(track.author)} · {track.venue ? <Link to={`/v/${track.venue.id}`}>{track.venue.name ?? track.venue.id}</Link> : "No venue"} · revision {rev}
             {!viewing && <>, saved {fmt.date(track.updatedAt)}</>}
           </p>
           {doc?.info.derivedFrom && (

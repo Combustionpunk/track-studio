@@ -82,7 +82,7 @@ function trackPage(db: DB, config: Config, theme: ThemeSync, row: TrackRow, path
   ].join("\n");
   // shown until the app starts (and to anything that doesn't run scripts)
   const body = `<h1>${esc(title)}</h1>
-<p>${esc(description)} · by ${esc(row.author_username)} · revision ${rev}</p>
+<p>${esc(description)} · by ${esc(row.author_username ?? "Unknown")} · revision ${rev}</p>
 <img src="${esc(image)}" width="${PREVIEW_WIDTH}" height="${height}" alt="${esc(alt)}">
 <p><a href="/api/tracks/${esc(row.id)}/r/${rev}.rctrack.json">Download .rctrack.json</a></p>`;
   return { title: `${title} · Track Studio`, head, body, status: 200, embed: path.startsWith("/embed/") };
