@@ -147,7 +147,11 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 
 /* ---------------------------------------------------------------- new track / designer */
 .section-h { font-size: 1.1rem; margin: 22px 0 10px; }
-.blank-form { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-end; max-width: 760px; }
+.blank-form { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-start; max-width: 760px; }
+.blank-help { flex-basis: 100%; }
+.blank-name { flex: 1 1 200px; }
+.blank-hint { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.blank-go { margin-top: 20px; }
 .start-btn { align-self: flex-start; }
 .narrow { max-width: 680px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -479,6 +483,9 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-input[disabled] { opacity: 0.6; }
 .ts-help { margin: 0; font-size: 13px; line-height: 18px; color: var(--text-muted); }
 .ts-help--error { color: var(--danger-text); }
+.ts-input--invalid { border-color: var(--danger); }
+.ts-unit { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); }
+.ts-unit .ts-input { width: 96px; font-variant-numeric: tabular-nums; }
 
 /* status badge: the word always shows; colour backs it up */
 .ts-badge { display: inline-flex; align-items: center; flex: none; height: 22px; padding: 0 var(--space-2); border-radius: var(--radius-full); border: 1px solid var(--line-strong); font: 600 11px/1 var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
