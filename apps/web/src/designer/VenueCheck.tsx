@@ -21,12 +21,13 @@ export function checkAgainstVenue(design: RcTrack["design"], venue: RcVenue): Ve
   return { venue: { id: venue.id, name: venue.info.name }, fits: fits(track, venue).map((f) => f.orientation), asDrawn: venueCheck(track, venue) };
 }
 
-/** One line on whether it fits: "Fits Sports hall B as drawn.", "Fits Sports hall B rotated 180 or mirrored." … */
+/** One line on whether it fits: "Fits Sports hall B where it's drawn.", "Fits Club hall once moved: as designed or mirrored." … */
 export function fitSummary(r: VenueCheckResult): string {
   if (!r.fits.length) return `Doesn't fit ${r.venue.name} in any orientation.`;
   if (r.fits.includes("as designed") && !r.asDrawn.checks.length) return `Fits ${r.venue.name} where it's drawn.`;
   const list = r.fits.length > 2 ? `${r.fits.slice(0, -1).join(", ")} or ${r.fits[r.fits.length - 1]}` : r.fits.join(" or ");
-  return `Fits ${r.venue.name}: ${list}.`;
+  // fits() slides the track to the best place: when it doesn't fit where it's drawn, say it has to move
+  return `Fits ${r.venue.name}${r.asDrawn.checks.length ? " once moved" : ""}: ${list}.`;
 }
 
 export function VenueCheckPanel({ design, drawnFor, onShow }: { design: RcTrack["design"]; drawnFor?: { venueTemplate: string }; onShow: (x: number, z: number) => void }) {

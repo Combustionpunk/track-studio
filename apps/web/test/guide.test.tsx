@@ -144,7 +144,7 @@ describe("Check against a venue", () => {
     const r = checkAgainstVenue(ref<RcTrack>("examples/freeform-example.rctrack.json").design, sportsHall);
     expect(r.asDrawn.checks.map((c) => c.code)).toContain("obstacle");
     expect(r.fits).toEqual(["rotated 180"]);
-    expect(fitSummary(r)).toBe("Fits Sports hall B: rotated 180.");
+    expect(fitSummary(r)).toBe("Fits Sports hall B once moved: rotated 180.");
   });
 
   it("says when nothing fits", () => {
