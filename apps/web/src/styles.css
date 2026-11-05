@@ -164,7 +164,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .name-input:hover, .name-input:focus { border-color: var(--line-strong); }
 .designer-venue, .save-state { font-size: 13px; color: var(--muted); }
 .steps { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
-.steps li { padding: 4px 10px; border-radius: 999px; }
+.steps li { padding: 4px 10px; border-radius: var(--radius-md); }
 .steps li[aria-current="step"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .mode-toggle { margin-left: auto; display: flex; padding: 2px; border-radius: 6px; background: var(--selected); }
 .mode-toggle button { height: 32px; padding: 0 14px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font: 600 14px var(--font-body); cursor: pointer; }

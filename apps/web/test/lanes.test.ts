@@ -11,6 +11,7 @@ import {
   designStep,
   gridFor,
   isLoop,
+  key,
   laneGrid,
   loopPoints,
   paintTo,
@@ -143,6 +144,27 @@ describe("the lane-width grid", () => {
     const b = bakeBuilt(laidDoc(v, [[0, 0], [10, 0], [10, 1], [0, 1], [0, 0]]));
     expect(b.checks.filter((c) => c.level === "error")).toEqual([]);
   });
+
+  it("a turned rectangle blocks the squares the bake's obstacle check finds, turning counter-clockwise", () => {
+    // 4 × 1 m centred in square [5, 3] of the 22 × 12 hall: at +30° its long side runs south-west to north-east, so
+    // it reaches into [6, 4] and [4, 2]; turned the other way it would reach [6, 2] and [4, 4] instead
+    const box = (rotation: number) => ({ ...venue("club-hall"), obstacles: [{ type: "rect", x: 0, z: 1, length: 4, width: 1, rotation, label: "Box" }] as Obstacle[] });
+    const ne: Cell[] = [[6, 4], [10, 4], [10, 5], [6, 5], [6, 4]]; // a loop with its south-west square at [6, 4]
+    const se: Cell[] = [[6, 2], [6, 0], [10, 0], [10, 2], [6, 2]]; // and one with its north-west square at [6, 2]
+    for (const [rotation, free, hit] of [[30, se, ne], [-30, ne, se]] as const) {
+      const v = box(rotation);
+      const g = laneGrid(v.area, v.obstacles, 2);
+      expect(g.blocked.has(key(hit[0])), `${rotation}°`).toBe(true);
+      expect(paintTo(g, empty, hit[0]).refused).toBe("blocked");
+      // the loop the grid allows bakes clean; the one through the blocked square, laid anyway, hits the obstacle
+      expect(bakeBuilt(laidDoc(v, [...free])).checks.filter((c) => c.level === "error"), `${rotation}°`).toEqual([]);
+      const forced = toDoc(newDraft({ area: v.area, obstacles: v.obstacles, name: "t" }));
+      const open = laneGrid(v.area, [], 2);
+      forced.design.points = loopPoints(open, last(paintAll(open, [...hit])).cells);
+      expect(bakeBuilt(forced).checks.map((c) => c.code), `${rotation}°`).toContain("obstacle");
+    }
+    expect(blocked(laneGrid(box(30).area, box(30).obstacles, 2))).toEqual(["4,2", "4,3", "5,2", "5,3", "5,4", "6,3", "6,4"]);
+  });
 });
 
 describe("painting the lane", () => {
@@ -235,6 +257,24 @@ describe("closing the loop", () => {
       { x: -10, z: -1, radius: 1 },
     ]);
     for (const p of pts) expect(Object.keys(p).sort()).toEqual(["radius", "x", "z"]);
+  });
+
+  it("a loop that starts in the middle of a straight puts no corner on its first square", () => {
+    // an L, started at [3, 0] on the south side: the south straight (the longest) runs through the close
+    const cells: Cell[] = [[3, 0], [10, 0], [10, 2], [5, 2], [5, 5], [0, 5], [0, 0], [3, 0]];
+    const doc = laidDoc(venue("club-hall"), cells);
+    const pts = doc.design.points;
+    expect(pts).toHaveLength(6);
+    expect(pts.some((p) => p.x === -4 && p.z === -5)).toBe(false); // [3, 0]'s centre
+    expect(pts[0]).toEqual({ x: 10, z: -5, radius: 1 }); // the first corner after it, [10, 0]
+    expect(pts[pts.length - 1]).toEqual({ x: -10, z: -5, radius: 1 }); // [0, 0]
+    const b = bakeBuilt(doc);
+    expect(b.checks.filter((c) => c.level === "error")).toEqual([]);
+    // the start line is in the middle of the south straight, x −9 to 9, past the end of the points and round to point 0
+    expect(b.startLine.x).toBeCloseTo(0, 2);
+    expect(b.startLine.z).toBeCloseTo(-5, 2);
+    // 6 quarter turns of r 1 and the straights 2, 8, 4, 8, 8, then half of 18
+    expect(doc.design.start?.distance).toBeCloseTo((6 * Math.PI) / 2 + 30 + 9, 3);
   });
 
   it("radius = half the lane width (an apex radius of 0)", () => {
