@@ -130,6 +130,11 @@ docker compose exec track-studio node dist/rebake.js
 Rolling back: `git checkout <previous commit>` and `docker compose up -d --build`. Migrations only add things, but if a
 bad release damaged data, [restore](#restore) the backup taken before the update.
 
+Rolling back past a release that *removes* fields is different: the rebake overwrites each track's `rctrack_json` in
+place and keeps no copy, so the older code can't get the removed fields back. For the rctrack 1.7 release (#63), check
+out the previous commit, rebuild, then [restore](#restore) the backup taken just before the update. Anything saved
+since that backup is lost, so decide on a rollback soon after the update.
+
 ## Backups
 
 `deploy/backup.sh` runs `node dist/backup.js` inside the running app container. It:
