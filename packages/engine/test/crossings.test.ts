@@ -136,6 +136,19 @@ describe("crossover", () => {
     expect(second.crossings![0].bridge).toEqual({ type: "crossover", feature: 0 });
   });
 
+  it("a low crossover can't lock out a good one listed after it", () => {
+    const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], height: 0.3 }, { type: "crossover", distance: first[0] }] }));
+    expect(b.crossings![0].bridge).toEqual({ type: "crossover", feature: 1 });
+    expect(codes(b)).toEqual(["crossover-unused"]);
+    expect(b.checks[0]).toMatchObject({ x: b.features[0].x, z: b.features[0].z });
+  });
+
+  it("a low crossover on a crossing a tabletop bridges is crossover-unused", () => {
+    const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], height: 0.3 }, { type: "tabletop", distance: first[1], length: 12, height: 0.4 }] }));
+    expect(b.crossings![0].bridge).toEqual({ type: "tabletop", feature: 1 });
+    expect(codes(b)).toEqual(["crossover-unused"]);
+  });
+
   it("ramps that reach a corner are feature-in-corner", () => {
     const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], rampLength: 5 }] }));
     expect(codes(b)).toEqual(["feature-in-corner"]);
@@ -175,6 +188,18 @@ describe("tabletop as the bridge", () => {
     expect(low.checks[0].message).toBe(`The tabletop at ${d[1].toFixed(1)} m is 0.14 m high; cars need 0.40 m to pass under`);
     expect(codes(on(12, d[1], 0.39))).toEqual(["crossing-too-low"]);
     expect(codes(on(need - 0.05, d[1], 0.3))).toEqual(["crossing-unbridged"]); // too short as well: not in place
+  });
+
+  it("a low tabletop doesn't stop a good one on the same crossing bridging it", () => {
+    const tt = (height: number) => ({ type: "tabletop" as const, distance: d[1], length: 12, height });
+    const b = bakeBuilt(track(FIG8, { features: [tt(0.14), tt(0.4)] }));
+    expect(codes(b)).toEqual([]);
+    expect(b.crossings![0].bridge).toEqual({ type: "tabletop", feature: 1 });
+  });
+
+  it("too low wins over a crossover that is too short there", () => {
+    const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: d[0], topLength: 3.5 }, { type: "tabletop", distance: d[1], length: 12 }] }));
+    expect(codes(b)).toEqual(["crossing-too-low"]);
   });
 });
 

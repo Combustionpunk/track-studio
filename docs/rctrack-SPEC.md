@@ -123,7 +123,8 @@ A track may cross itself where a bridge carries one pass over the other.
 - **Bridge span:** a bridge on one pass needs a flat top of `w / sin(angle) + 2 × 1 m` along it, where `w` is the
   other (under) pass's lane width at the crossing: the under pass's lane plus 1 m each side.
 - **Crossover:** claims the nearest crossing (not already claimed) whose first or second distance is within half the
-  crossover's length of its `distance`, and goes over pass `over` (default `"first"`). Defaults: `rampLength` 2 m,
+  crossover's length of its `distance` (crossovers that would bridge the crossing they find claim first, in feature
+  order, then the rest), and goes over pass `over` (default `"first"`). Defaults: `rampLength` 2 m,
   `topLength` the bridge span (so `laneWidth + 2 m` for a square crossing), `height` 0.40 m. It bridges the crossing if
   its top is at least the bridge span and it is at least 0.40 m high (the clearance cars need to pass under). A
   crossover that claims no crossing stays where its `distance` puts it, with a top of `laneWidth + 2 m`.
@@ -133,8 +134,8 @@ A track may cross itself where a bridge carries one pass over the other.
 - **Checks:** a crossing that nothing bridges is an error, `crossing-unbridged` (its message says why a crossover or
   tabletop there doesn't count). If a crossover or tabletop is in place and long enough but lower than 0.40 m, the
   error is `crossing-too-low` instead ("The crossover at 9.0 m is 0.30 m high; cars need 0.40 m to pass under"). A
-  crossover that claims no crossing (away from any, or a second one on a crossing already claimed) is a warning,
-  `crossover-unused`, at the crossover. An angle under 60° (outside 60–120° between the passes) is a warning,
+  crossover that bridges no crossing and isn't the reason for one's error (it claims none: away from any, or a second
+  on one already claimed; or a tabletop bridges the one it claims) is a warning, `crossover-unused`, at the crossover. An angle under 60° (outside 60–120° between the passes) is a warning,
   `crossing-angle`. Two crossings whose footprints overlap are an error, `crossing-too-close`; an unbridged crossing's
   footprint for this is where a default crossover over the first pass would stand. Lanes overlapping anywhere else are
   not checked (as before).
@@ -183,7 +184,7 @@ features → ramps, startLine → timing line and grid, rostrum → VR/rostrum p
   the bridge. A bridge needs 0.40 m clearance: a crossover (default height 0.40 m) or tabletop lower than that
   doesn't bridge. New checks `crossing-unbridged` (error), `crossing-too-low` (error: in place and long enough but
   under 0.40 m), `crossing-angle` (warning), `crossing-too-close` (error) and `crossover-unused` (warning: a crossover
-  that bridges no crossing).
+  that bridges no crossing and isn't the reason for a crossing error).
   Divider loop cutting leaves crossings alone. `version` stays `1`. Tracks that don't cross themselves bake exactly as
   in 1.5 (`built.crossings` is absent), so 1.5 files load and re-bake unchanged; older readers ignore `crossings`,
   but a track with a crossover also has `type: "crossover"` in `built.features`, which readers with a fixed list of

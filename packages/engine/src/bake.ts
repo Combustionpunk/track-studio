@@ -1109,31 +1109,37 @@ export function crossingZones(cr: RawCrossing[]): CrossingZone[] {
  * Which feature bridges each crossing. A crossover claims the nearest unclaimed crossing within half its length of
  * either pass's distance and goes over pass `over` (default first); a tabletop on a pass bridges the crossing if its flat
  * top spans bridgeSpan. Either must be at least BRIDGE_CLEARANCE high; one that is in place and long enough but lower sets
- * the crossing's `low` (crossing-too-low). Returns the crossovers that claimed one: feature index -> [crossing, over].
+ * the crossing's `low` (crossing-too-low). Crossovers that bridge the crossing they find claim first (in feature order),
+ * then the rest, so a low or short one can't lock out a good one. Returns the crossovers that claimed one: feature
+ * index -> [crossing, over].
  */
 export function bridgeCrossings(cr: RawCrossing[], features: DesignFeature[], total: number): Map<number, [RawCrossing, 0 | 1]> {
   const claimed = new Map<number, [RawCrossing, 0 | 1]>();
-  features.forEach((f, fi) => {
-    if (f.type !== "crossover") return;
-    const over: 0 | 1 = f.over === "second" ? 1 : 0;
-    let best: [number, RawCrossing, number] | null = null;
-    for (const c of cr) {
-      if (c.claim !== null) continue;
-      const [ramp, top] = crossoverSize(f, bridgeSpan(c, over));
-      const gap = Math.min(Math.abs(cyc(f.distance, c.d[0], total)), Math.abs(cyc(f.distance, c.d[1], total)));
-      if (gap <= ramp + top / 2 && (best === null || gap < best[0])) best = [gap, c, top];
-    }
-    if (!best) return;
-    const [, c, top] = best;
-    const height = crossoverSize(f, top)[2];
-    claimed.set(fi, [c, over]);
-    c.claim = fi;
-    if (top < bridgeSpan(c, over) - 1e-9) c.why = `the crossover's flat top is ${pyFormat(top, 1)} m; it needs ${pyFormat(bridgeSpan(c, over), 1)} m`;
-    else if (height < BRIDGE_CLEARANCE - 1e-9) c.low = tooLow("crossover", f.distance, height);
-    else {
-      c.bridge = fi; c.over = over;
-    }
-  });
+  for (const sound of [true, false]) {
+    features.forEach((f, fi) => {
+      if (f.type !== "crossover" || claimed.has(fi)) return;
+      const over: 0 | 1 = f.over === "second" ? 1 : 0;
+      let best: [number, RawCrossing, number] | null = null;
+      for (const c of cr) {
+        if (c.claim !== null) continue;
+        const [ramp, top] = crossoverSize(f, bridgeSpan(c, over));
+        const gap = Math.min(Math.abs(cyc(f.distance, c.d[0], total)), Math.abs(cyc(f.distance, c.d[1], total)));
+        if (gap <= ramp + top / 2 && (best === null || gap < best[0])) best = [gap, c, top];
+      }
+      if (!best) return;
+      const [, c, top] = best;
+      const height = crossoverSize(f, top)[2];
+      const short = top < bridgeSpan(c, over) - 1e-9, low = height < BRIDGE_CLEARANCE - 1e-9;
+      if (sound && (short || low)) return;
+      claimed.set(fi, [c, over]);
+      c.claim = fi;
+      if (short) c.why = `the crossover's flat top is ${pyFormat(top, 1)} m; it needs ${pyFormat(bridgeSpan(c, over), 1)} m`;
+      else if (low) c.low = tooLow("crossover", f.distance, height);
+      else {
+        c.bridge = fi; c.over = over;
+      }
+    });
+  }
   const prof = FEATURE_PROFILES.tabletop, last = prof[prof.length - 1][0];
   const top0 = prof[1][0] / last, top1 = prof[2][0] / last;
   for (const c of cr) {
@@ -1222,9 +1228,9 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   (design.features ?? []).forEach((f, fi) => {
     const typ = f.type;
     let length: number, height: number, profile: Point2[], dist = f.distance;
+    const claim = claimed.get(fi);
     if (typ === "crossover") {
       // sits on the crossing it bridges (the over pass's distance), sized for it
-      const claim = claimed.get(fi);
       let ramp: number, top: number;
       if (claim) {
         const [c, over] = claim;
@@ -1250,8 +1256,8 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     if (i1 > i0 && maxCurv > 0) {
       checks.push({ level: "warning", code: "feature-in-corner", x: r3(p[0]), z: r3(p[1]), message: `${typ} at ${pyFormat(dist, 1)} m is on or lands into a corner` });
     }
-    if (typ === "crossover" && !claimed.has(fi)) {
-      // away from any crossing, or one already bridged
+    if (typ === "crossover" && (!claim || (claim[0].bridge !== null && claim[0].bridge !== fi))) {
+      // away from any crossing, a second on one already claimed, or on one a tabletop bridges instead
       checks.push({ level: "warning", code: "crossover-unused", x: r3(p[0]), z: r3(p[1]), message: `crossover at ${pyFormat(dist, 1)} m bridges no crossing` });
     }
   });

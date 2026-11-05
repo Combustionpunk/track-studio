@@ -584,24 +584,28 @@ def bridge_crossings(cr, features, total):
     """Which feature bridges each crossing. A crossover claims the nearest unclaimed crossing within half its length of
     either pass's distance and goes over pass `over` (default first); a tabletop on a pass bridges the crossing if its
     flat top spans bridge_span. Either must be at least BRIDGE_CLEARANCE high; one that is in place and long enough but
-    lower sets the crossing's `low` (crossing-too-low). Returns {feature index: (crossing, over)} for the crossovers that
-    claimed one."""
+    lower sets the crossing's `low` (crossing-too-low). Crossovers that bridge the crossing they find claim first (in
+    feature order), then the rest, so a low or short one can't lock out a good one. Returns {feature index: (crossing,
+    over)} for the crossovers that claimed one."""
     claimed = {}
-    for fi, f in enumerate(features):
-        if f["type"] != "crossover": continue
-        over = 1 if f.get("over", "first") == "second" else 0
-        best = None
-        for c in cr:
-            if c["claim"] is not None: continue
-            ramp, top, _ = crossover_size(f, bridge_span(c, over))
-            gap = min(abs(cyc(f["distance"], c["d"][p], total)) for p in (0, 1))
-            if gap <= ramp + top / 2 and (best is None or gap < best[0]): best = (gap, c, top)
-        if best is None: continue
-        _, c, top = best; height = crossover_size(f, top)[2]
-        claimed[fi] = (c, over); c["claim"] = fi
-        if top < bridge_span(c, over) - 1e-9: c["why"] = f"the crossover's flat top is {top:.1f} m; it needs {bridge_span(c, over):.1f} m"
-        elif height < BRIDGE_CLEARANCE - 1e-9: c["low"] = too_low("crossover", f["distance"], height)
-        else: c["bridge"] = fi; c["over"] = over
+    for sound in (True, False):
+        for fi, f in enumerate(features):
+            if f["type"] != "crossover" or fi in claimed: continue
+            over = 1 if f.get("over", "first") == "second" else 0
+            best = None
+            for c in cr:
+                if c["claim"] is not None: continue
+                ramp, top, _ = crossover_size(f, bridge_span(c, over))
+                gap = min(abs(cyc(f["distance"], c["d"][p], total)) for p in (0, 1))
+                if gap <= ramp + top / 2 and (best is None or gap < best[0]): best = (gap, c, top)
+            if best is None: continue
+            _, c, top = best; height = crossover_size(f, top)[2]
+            short = top < bridge_span(c, over) - 1e-9; low = height < BRIDGE_CLEARANCE - 1e-9
+            if sound and (short or low): continue
+            claimed[fi] = (c, over); c["claim"] = fi
+            if short: c["why"] = f"the crossover's flat top is {top:.1f} m; it needs {bridge_span(c, over):.1f} m"
+            elif low: c["low"] = too_low("crossover", f["distance"], height)
+            else: c["bridge"] = fi; c["over"] = over
     prof = FEATURE_PROFILES["tabletop"]; top0, top1 = prof[1][0] / prof[-1][0], prof[2][0] / prof[-1][0]
     for c in cr:
         if c["bridge"] is not None: continue
@@ -692,7 +696,8 @@ def bake(doc):
         if len(span) and np.max(np.abs(line[span % len(line), 3])) > 0:
             checks.append({"level": "warning", "code": "feature-in-corner", "x": r3(p[0]), "z": r3(p[1]),
                            "message": f"{typ} at {dist:.1f} m is on or lands into a corner"})
-        if typ == "crossover" and fi not in claimed:   # away from any crossing, or one already bridged
+        if typ == "crossover" and (fi not in claimed or claimed[fi][0]["bridge"] not in (None, fi)):
+            # away from any crossing, a second on one already claimed, or on one a tabletop bridges instead
             checks.append({"level": "warning", "code": "crossover-unused", "x": r3(p[0]), "z": r3(p[1]),
                            "message": f"crossover at {dist:.1f} m bridges no crossing"})
     crossings = crossing_checks(cr, feats, design, total, checks)
