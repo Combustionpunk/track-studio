@@ -59,9 +59,6 @@
   "start": {
    "distance": 1.0
   },
-  "rostrum": {
-   "side": "north"
-  },
   "features": [
    {
     "type": "crossover",
@@ -71,7 +68,7 @@
   ]
  },
  "built": {
-  "generator": "rctrack-bake.py 1.6",
+  "generator": "rctrack-bake.py 1.7",
   "lapLength": 55.105,
   "racingLine": [
    [
@@ -1389,12 +1386,6 @@
    "heading": 20.002,
    "width": 2.0,
    "distance": 1.0
-  },
-  "rostrum": {
-   "side": "north",
-   "x": 0.0,
-   "z": 6.5,
-   "eyeHeight": 2.8
   },
   "checks": [
    {

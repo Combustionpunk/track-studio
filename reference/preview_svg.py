@@ -4,11 +4,12 @@ Reference 2D top-down preview, drawn ONLY from the "built" section (what the for
 usage: python3 preview_svg.py track.json out.svg
 """
 import json, sys, math
+from bake import drawing_area
 
 def svg(doc, px_per_m=40):
-    a = doc["area"]; b = doc["built"]
+    a = drawing_area(doc); b = doc["built"]   # 1.7: area is optional, the layout's own drawing area
     L, W = a["length"], a["width"]
-    m = 2.5                                   # margin (m) for the rostrum label
+    m = 2.5                                   # margin (m)
     vw, vh = (L + 2 * m) * px_per_m, (W + 2 * m) * px_per_m
     X = lambda x: (x + L / 2 + m) * px_per_m
     Z = lambda z: (W / 2 + m - z) * px_per_m    # +z (north) is up on the page
@@ -20,14 +21,6 @@ def svg(doc, px_per_m=40):
         o.append(f'<line x1="{X(x):.1f}" y1="{Z(W/2):.1f}" x2="{X(x):.1f}" y2="{Z(-W/2):.1f}" stroke="#ffffff" stroke-opacity="0.05"/>')
     for z in range(-int(W // 2), int(W // 2) + 1):
         o.append(f'<line x1="{X(-L/2):.1f}" y1="{Z(z):.1f}" x2="{X(L/2):.1f}" y2="{Z(z):.1f}" stroke="#ffffff" stroke-opacity="0.05"/>')
-    # fixed obstacles (pillars, exits)
-    for ob in doc.get("obstacles", []):
-        if ob["type"] == "circle":
-            o.append(f'<circle cx="{X(ob["x"]):.1f}" cy="{Z(ob["z"]):.1f}" r="{ob["radius"]*px_per_m:.1f}" fill="#b03a3a"/>')
-        else:
-            o.append(f'<rect x="{X(ob["x"]-ob["length"]/2):.1f}" y="{Z(ob["z"]+ob["width"]/2):.1f}" width="{ob["length"]*px_per_m:.1f}" height="{ob["width"]*px_per_m:.1f}" fill="#b03a3a" fill-opacity="0.45" stroke="#ff6060" stroke-dasharray="6 4" transform="rotate({-ob.get("rotation",0)} {X(ob["x"]):.1f} {Z(ob["z"]):.1f})"/>')
-        if ob.get("label"):
-            o.append(f'<text x="{X(ob["x"]):.1f}" y="{Z(ob["z"])+4:.1f}" fill="#fff" font-size="12" text-anchor="middle">{ob["label"]}</text>')
     # lanes (carpet), when the file has them (rctrack 1.4)
     if b.get("lanes"):
         d = " ".join("M " + " L ".join(f"{X(x):.1f},{Z(z):.1f}" for x, z in ring) + " Z" for ring in (b["lanes"]["right"], b["lanes"]["left"]))
@@ -58,10 +51,6 @@ def svg(doc, px_per_m=40):
         if "x" in c:
             col = {"error": "#ff4040", "warning": "#ffb000"}.get(c["level"], "#7fb2ff")
             o.append(f'<circle cx="{X(c["x"]):.1f}" cy="{Z(c["z"]):.1f}" r="14" fill="none" stroke="{col}" stroke-width="4"/>')
-    # rostrum
-    r = b["rostrum"]
-    o.append(f'<rect x="{X(r["x"])-80:.1f}" y="{Z(r["z"])-14:.1f}" width="160" height="28" rx="4" fill="#6a3da3"/>'
-             f'<text x="{X(r["x"]):.1f}" y="{Z(r["z"])+6:.1f}" fill="#fff" font-size="16" text-anchor="middle">ROSTRUM</text>')
     i = doc["info"]
     o.append(f'<text x="12" y="26" fill="#fff" font-size="20">{i["name"]}  -  {b["lapLength"]:.0f} m lap, {len(b["features"])} features, area {L:g} x {W:g} m</text>')
     o.append("</svg>")

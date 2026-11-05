@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.6).
+Reference implementation of the rctrack geometry engine (format v1.7).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.6"
+GENERATOR = "rctrack-bake.py 1.7"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -659,8 +659,35 @@ def crossing_checks(cr, built_feats, design, total, checks):
                                "message": f"Crossings at {cr[a]['d'][0]:.1f} m and {cr[b]['d'][0]:.1f} m are too close for a bridge each"})
     return out
 
+VENUE_CHECKS = ("outside-area", "obstacle")   # 1.7: checks against a venue belong to the fit (fit.check), not the layout
+
+def upgrade(doc, venue_name=None):
+    """Load a file written before 1.7: a layout belongs to no venue. Drops `obstacles`, `design.rostrum`,
+    `built.rostrum` and the venue checks; `basedOn` becomes `info.drawnFor` (named `venue_name`, else the forum venue's
+    name, else the template id). Returns doc (changed in place)."""
+    based = doc.pop("basedOn", None)
+    doc.pop("obstacles", None)
+    doc["design"].pop("rostrum", None)
+    info = doc.setdefault("info", {})
+    if based and not info.get("drawnFor"):
+        info["drawnFor"] = {"venueTemplate": based["venueTemplate"],
+                            "name": venue_name or (info.get("venue") or {}).get("name") or based["venueTemplate"]}
+    b = doc.get("built")
+    if b:
+        b.pop("rostrum", None)
+        b["checks"] = [c for c in b.get("checks", []) if c["code"] not in VENUE_CHECKS]
+    return doc
+
+def drawing_area(doc):
+    """The box to draw a layout on: its `area` if it has one, else the smallest box centred on the origin, in whole
+    metres, holding `built.size` with at least 0.5 m to spare."""
+    if doc.get("area"): return doc["area"]
+    x0, z0, x1, z1 = doc["built"]["size"]["bbox"]
+    return {"length": 2 * math.ceil(max(-x0, x1) + 0.5), "width": 2 * math.ceil(max(-z0, z1) + 0.5)}
+
 def bake(doc):
-    design = doc["design"]; area = doc["area"]
+    upgrade(doc)
+    design = doc["design"]
     W0 = design.get("laneWidth", 2.0)
     line, corners = racing_line(design["points"], W0)
     xy = line[:, :2]; s, total = arclength(xy)
@@ -707,21 +734,8 @@ def bake(doc):
     sp, st, si = at_distance(xy, s, total, sd)
     start = {"x": r3(sp[0]), "z": r3(sp[1]), "heading": heading_deg(st), "width": r3(line[si, 2]), "distance": r3(sd)}
 
-    # rostrum
-    side = design.get("rostrum", {}).get("side", "south")
-    off = design.get("rostrum", {}).get("offset", 0.0)
-    L, Wd = area["length"], area["width"]
-    pos = {"north": (off, Wd / 2 + 1.5), "south": (off, -Wd / 2 - 1.5), "east": (L / 2 + 1.5, off), "west": (-L / 2 - 1.5, off)}[side]
-    rostrum = {"side": side, "x": r3(pos[0]), "z": r3(pos[1]), "eyeHeight": 2.8}
-
-    # checks: area, radius, width
+    # checks: radius, width (the track only: venue checks are the fit's, fit.check)
     edges = borders(line, corners, design["points"])               # lane edges, right then left
-    for B in edges:
-        out = (np.abs(B[:, 0]) > L / 2 + 0.01) | (np.abs(B[:, 1]) > Wd / 2 + 0.01)
-        if out.any():
-            q = B[np.argmax(out)]
-            checks.append({"level": "error", "code": "outside-area", "x": r3(q[0]), "z": r3(q[1]), "message": "Track goes outside the venue's track area"})
-            break
     for i, c in enumerate(corners):
         if c["th"] > 1e-3 and 0 < c["r"] < MIN_RADIUS:
             checks.append({"level": "warning", "code": "tight-corner", "x": r3(design["points"][i]["x"]), "z": r3(design["points"][i]["z"]),
@@ -732,16 +746,8 @@ def bake(doc):
     if np.min(line[:, 2]) < MIN_WIDTH:
         checks.append({"level": "warning", "code": "narrow-lane", "message": f"Lane narrower than {MIN_WIDTH} m"})
 
-    # footprint + obstacles
+    # footprint
     mask, origin = lane_mask(line, corners, design["points"])
-    obs = doc.get("obstacles", [])
-    if obs:
-        om = obstacle_mask(obs, origin, mask.shape)
-        hit = mask & om
-        if hit.any():
-            r, c = np.argwhere(hit)[0]
-            checks.append({"level": "error", "code": "obstacle", "x": r3(origin[0] + (c + 0.5) * FOOT_CELL),
-                           "z": r3(origin[1] + (r + 0.5) * FOOT_CELL), "message": "Track overlaps a fixed obstacle"})
     footprint = {"cell": FOOT_CELL, "origin": [r3(origin[0]), r3(origin[1])], "rows": mask.shape[0], "cols": mask.shape[1],
                  "bbox": [r3(origin[0]), r3(origin[1]), r3(origin[0] + mask.shape[1] * FOOT_CELL), r3(origin[1] + mask.shape[0] * FOOT_CELL)],
                  "rle": rle(mask)}
@@ -759,7 +765,6 @@ def bake(doc):
         "features": feats,
         **({"crossings": crossings} if crossings else {}),   # v1.6: only when the track crosses itself
         "startLine": start,
-        "rostrum": rostrum,
         "checks": checks,
         "footprint": footprint,
         "lanes": lane_rings(*edges),

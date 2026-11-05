@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Reference "will it fit my venue?" search (rctrack v1.6).
+Reference "will it fit my venue?" search (rctrack v1.7).
 For a track and a venue template, tries 8 orientations (as designed, mirrored, rotated 90/180/270, and
 mirrored + rotated), slides the track's footprint around the venue's area on a 0.1 m grid, and keeps
 positions where it stays inside the area and clear of every obstacle. Can write the adapted track.
+check() tests a layout where it is drawn against a venue: the venue checks (outside-area, obstacle) and the rostrum.
 
 usage: python3 fit.py track.rctrack.json venue.rcvenue.json [adapted-out.rctrack.json]
 """
@@ -52,14 +53,47 @@ def fits(track, venue):
             results.append({"orientation": label, "rotation": rot, "mirror": mirror, "shift": [round(best[1], 2), round(best[2], 2)], "spare": spare})
     return results
 
+ROSTRUM_SETBACK = 1.5   # the rostrum stands this far (m) outside the middle of its side of the area...
+EYE_HEIGHT = 2.8        # ...with the drivers' eyes this high (m)
+
+def rostrum(venue):
+    """Where the venue's rostrum stands: {side, x, z, eyeHeight}, offset metres along its side from the middle."""
+    L, W = venue["area"]["length"], venue["area"]["width"]
+    side = venue.get("rostrum", {}).get("side", "south"); off = venue.get("rostrum", {}).get("offset", 0.0)
+    s = ROSTRUM_SETBACK
+    pos = {"north": (off, W / 2 + s), "south": (off, -W / 2 - s), "east": (L / 2 + s, off), "west": (-L / 2 - s, off)}[side]
+    return {"side": side, "x": bake.r3(pos[0]), "z": bake.r3(pos[1]), "eyeHeight": EYE_HEIGHT}
+
+def check(track, venue):
+    """The layout where it is drawn (venue coordinates) against the venue: {checks, rostrum}. Checks: the lanes go
+    outside the venue's area (`outside-area`), the lanes + pipe thickness overlap a fixed obstacle (`obstacle`)."""
+    pts = track["design"]["points"]; L, W = venue["area"]["length"], venue["area"]["width"]
+    line, corners = bake.racing_line(pts, track["design"].get("laneWidth", 2.0))
+    checks = []
+    for B in bake.borders(line, corners, pts):
+        out = (np.abs(B[:, 0]) > L / 2 + 0.01) | (np.abs(B[:, 1]) > W / 2 + 0.01)
+        if out.any():
+            q = B[np.argmax(out)]
+            checks.append({"level": "error", "code": "outside-area", "x": bake.r3(q[0]), "z": bake.r3(q[1]), "message": "Track goes outside the venue's track area"})
+            break
+    obs = venue.get("obstacles", [])
+    if obs:
+        mask, origin = bake.lane_mask(line, corners, pts)
+        hit = mask & bake.obstacle_mask(obs, origin, mask.shape)
+        if hit.any():
+            r, c = np.argwhere(hit)[0]
+            checks.append({"level": "error", "code": "obstacle", "x": bake.r3(origin[0] + (c + 0.5) * bake.FOOT_CELL),
+                           "z": bake.r3(origin[1] + (r + 0.5) * bake.FOOT_CELL), "message": "Track overlaps a fixed obstacle"})
+    return {"checks": checks, "rostrum": rostrum(venue)}
+
 def adapt(track, venue, fit):
     t = copy.deepcopy(track)
     for p in t["design"]["points"]:
         x, z = transform_pt(p["x"], p["z"], fit["rotation"], fit["mirror"])
         p["x"], p["z"] = round(x + fit["shift"][0], 3), round(z + fit["shift"][1], 3)
-    t["area"] = dict(venue["area"]); t["obstacles"] = venue.get("obstacles", [])
-    t["design"]["rostrum"] = dict(venue.get("rostrum", {"side": "south"}))
-    t["basedOn"] = {"venueTemplate": venue["id"], "revision": venue["revision"]}
+    bake.upgrade(t)   # 1.7: nothing of the venue is copied in but the drawing area and the "drawn for" label
+    t["area"] = dict(venue["area"])
+    t["info"]["drawnFor"] = {"venueTemplate": venue["id"], "name": venue["info"]["name"]}
     t["info"]["venue"] = venue["info"].get("venue")
     t["info"]["derivedFrom"] = {"id": track["id"], "revision": track["revision"], "orientation": fit["orientation"]}
     t["info"]["name"] = f'{track["info"]["name"]} @ {venue["info"]["name"]}'
@@ -75,4 +109,4 @@ if __name__ == "__main__":
     if not res: print("  does not fit")
     if res and len(sys.argv) > 3:
         out = adapt(track, venue, res[0]); json.dump(out, open(sys.argv[3], "w"), indent=1)
-        print("  adapted copy written:", sys.argv[3], "- checks:", [c["code"] for c in out["built"]["checks"]])
+        print("  adapted copy written:", sys.argv[3], "- checks:", [c["code"] for c in out["built"]["checks"] + check(out, venue)["checks"]])

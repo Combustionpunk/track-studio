@@ -50,6 +50,5 @@
 <polyline points="898.0,494.0 900.0,186.0 662.1,184.1 654.5,184.0 654.0,182.7 654.0,260.0 656.0,293.7 655.3,340.0 182.0,340.0 182.3,268.0 180.0,268.0 180.0,186.0 490.0,186.0 498.0,186.3 500.0,188.0" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
 <line x1="301.1" y1="496.0" x2="301.1" y2="576.0" stroke="#ffffff" stroke-width="8"/>
 <line x1="325.1" y1="536.0" x2="401.1" y2="536.0" stroke="#ff4fb0" stroke-width="5" marker-end="url(#a)"/>
-<rect x="460.0" y="26.0" width="160" height="28" rx="4" fill="#6a3da3"/><text x="540.0" y="46.0" fill="#fff" font-size="16" text-anchor="middle">ROSTRUM</text>
 <text x="12" y="26" fill="#fff" font-size="20">Club A  -  124 m lap, 3 features, area 22 x 12 m</text>
 </svg>
