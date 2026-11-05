@@ -1,4 +1,4 @@
-// Routes into the designer: /new (choose a venue or a blank area), /new/design (a new track), /t/:id/edit.
+// Routes into the designer: /new (from a venue or start blank), /new/design (a new track), /t/:id/edit.
 import type { RcTrack, RcVenue } from "@track-studio/engine";
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -8,25 +8,16 @@ import * as fmt from "../lib/format.js";
 import { useApi } from "../lib/hooks.js";
 import { useSession } from "../lib/session.js";
 import { NotFound } from "../pages/NotFound.js";
-import { Designer, draftFromDoc, newDraft, type Draft } from "./Designer.js";
+import { Designer, draftFromDoc, type Draft } from "./Designer.js";
+import { BLANK_MAX, BLANK_MIN, blankArea, blankDraft, blankHref, blankProblems, venueDraft } from "./start.js";
 
 export function NewTrackPage() {
-  const navigate = useNavigate();
   const venues = useApi<{ venues: VenueSummary[] }>("/api/venues");
-  const [name, setName] = useState("");
-  const [length, setLength] = useState("22");
-  const [width, setWidth] = useState("12");
-  const blank = (e: FormEvent) => {
-    e.preventDefault();
-    const L = Number(length), W = Number(width);
-    if (!(L >= 5 && L <= 100 && W >= 5 && W <= 100)) return;
-    navigate(`/new/design?length=${L}&width=${W}${name.trim() ? `&name=${encodeURIComponent(name.trim())}` : ""}`);
-  };
   return (
     <div className="wrap page">
       <div className="page-head">
         <h1>New track</h1>
-        <p className="lede">Start from a venue template — its track area, rostrum and pillars are locked in — or from a blank area. Either way you start by laying the lanes on a grid.</p>
+        <p className="lede">Start from a venue template — its track area, rostrum and pillars are locked in — or start blank on an area you set. Either way you start by laying the lanes on a grid.</p>
       </div>
       <h2 className="section-h">From a venue</h2>
       {venues.error ? (
@@ -40,25 +31,64 @@ export function NewTrackPage() {
           ))}
         </div>
       )}
-      <h2 className="section-h">From a blank area</h2>
-      <form className="panel blank-form" onSubmit={blank}>
-        <label className="nfield">
-          <span>Name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New track" maxLength={80} />
-        </label>
-        <label className="nfield">
-          <span>East–west (m)</span>
-          <input type="number" min={5} max={100} step={0.5} value={length} onChange={(e) => setLength(e.target.value)} required />
-        </label>
-        <label className="nfield">
-          <span>North–south (m)</span>
-          <input type="number" min={5} max={100} step={0.5} value={width} onChange={(e) => setWidth(e.target.value)} required />
-        </label>
-        <button type="submit" className="btn btn-primary">
-          Start drawing
-        </button>
-      </form>
+      <h2 className="section-h">Start blank</h2>
+      <BlankStartForm />
     </div>
+  );
+}
+
+/** Start blank: a name and the track area's length × width. Problems show under each field after the first try. */
+export function BlankStartForm({ initial = { name: "", length: "22", width: "12", tried: false } }: { initial?: { name: string; length: string; width: string; tried: boolean } }) {
+  const navigate = useNavigate();
+  const [name, setName] = useState(initial.name);
+  const [size, setSize] = useState({ length: initial.length, width: initial.width });
+  const [tried, setTried] = useState(initial.tried);
+  const problems = tried ? blankProblems(size) : {};
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setTried(true);
+    if (Object.keys(blankProblems(size)).length) return;
+    navigate(blankHref({ name, length: Number(size.length), width: Number(size.width) }));
+  };
+  return (
+    <form className="panel blank-form" onSubmit={submit} noValidate>
+      <p className="ts-help blank-help">
+        No venue, no obstacles: just the track area, {BLANK_MIN}–{BLANK_MAX} m each way.
+      </p>
+      <div className="ts-field">
+        <label className="ts-label" htmlFor="blank-name">
+          Name
+        </label>
+        <input id="blank-name" className="ts-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="New track" maxLength={80} />
+      </div>
+      {(["length", "width"] as const).map((k) => (
+        <div className="ts-field" key={k}>
+          <label className="ts-label" htmlFor={`blank-${k}`}>
+            {k === "length" ? "Length" : "Width"} <span className="blank-hint">{k === "length" ? "east–west" : "north–south"}</span>
+          </label>
+          <span className="ts-unit">
+            <input
+              id={`blank-${k}`}
+              className={`ts-input${problems[k] ? " ts-input--invalid" : ""}`}
+              inputMode="decimal"
+              value={size[k]}
+              aria-invalid={!!problems[k]}
+              aria-describedby={problems[k] ? `blank-${k}-e` : undefined}
+              onChange={(e) => setSize((s) => ({ ...s, [k]: e.target.value }))}
+            />
+            m
+          </span>
+          {problems[k] && (
+            <p id={`blank-${k}-e`} className="ts-help ts-help--error">
+              {problems[k]}
+            </p>
+          )}
+        </div>
+      ))}
+      <button type="submit" className="btn btn-primary blank-go">
+        Start drawing
+      </button>
+    </form>
   );
 }
 
@@ -94,23 +124,12 @@ export function NewDesignPage() {
   const [params] = useSearchParams();
   const venueId = params.get("venue");
   const venue = useApi<{ venue: VenueSummary; doc: RcVenue }>(venueId ? `/api/venues/${encodeURIComponent(venueId)}` : null);
-  const L = Number(params.get("length")) || 22, W = Number(params.get("width")) || 12;
-  const name = params.get("name") || "New track";
+  const area = blankArea(params);
+  const name = params.get("name") || "";
   const initial = useMemo<Draft | null>(() => {
-    if (venueId) {
-      if (!venue.data) return null;
-      const v = venue.data.doc;
-      return newDraft({
-        name: name === "New track" ? `New track at ${v.info.name}` : name,
-        area: v.area,
-        obstacles: v.obstacles ?? [],
-        basedOn: { venueTemplate: v.id, revision: v.revision },
-        rostrum: v.rostrum,
-      });
-    }
-    const area = { length: Math.min(100, Math.max(5, L)), width: Math.min(100, Math.max(5, W)) };
-    return newDraft({ name, area, obstacles: [] });
-  }, [venueId, venue.data, L, W, name]);
+    if (venueId) return venue.data ? venueDraft(venue.data.doc, name) : null;
+    return blankDraft(area, name || undefined);
+  }, [venueId, venue.data, area.length, area.width, name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (venue.error) return venue.error instanceof ApiError && venue.error.status === 404 ? <NotFound what="venue" /> : <div className="wrap page"><Message kind="error">{venue.error.message}</Message></div>;
   if (!initial) return <div className="wrap page"><Loading what="Loading venue" /></div>;

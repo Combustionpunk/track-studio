@@ -115,7 +115,7 @@ describe("new track page", () => {
     expect(h).toMatch(/<h2[^>]*>Start blank<\/h2>/);
     expect(h).toMatch(/Length[\s\S]*east–west/);
     expect(h).toMatch(/Width[\s\S]*north–south/);
-    expect(h.match(/class="ts-unit">m</g)).toHaveLength(2);
+    expect(h.match(/<span class="ts-unit"><input[^>]*>m<\/span>/g)).toHaveLength(2);
     expect(h).toContain(`${BLANK_MIN}–${BLANK_MAX} m each way`);
     expect(h).not.toContain("ts-help--error");
   });
