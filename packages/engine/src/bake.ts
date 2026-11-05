@@ -5,6 +5,8 @@ import type {
   Built,
   BuiltFeature,
   Check,
+  Crossing,
+  DesignFeature,
   DesignPoint,
   Divider,
   FeatureType,
@@ -17,7 +19,7 @@ import type {
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.5";
+export const GENERATOR = "track-studio-engine 1.6";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -42,6 +44,13 @@ export const CORNER_MIN_TURN = radians(20); // smaller changes of direction aren
  * the corner count — reference/bake.py has the same constant; change both (and `pnpm rebake`) to change the rule.
  */
 export const CORNER_JOIN_GAP = 3.0;
+export const CROSSOVER_RAMP = 2.0; // crossover (bridge) defaults: ramp up / down along the over pass (m)...
+export const CROSSOVER_HEIGHT = 0.4; // ...and the height of its flat top (m)
+export const BRIDGE_CLEARANCE = 0.4; // a bridge lower than this (m) doesn't bridge: cars can't pass under
+export const BRIDGE_MARGIN = 1.0; // a bridge's flat top spans the under pass's lane plus this each side (m)
+export const CROSSING_MIN_ANGLE = 60; // crossings sharper than this (deg; i.e. outside 60-120° between the passes) are warned about
+const CROSSING_MIN_SEP = 1.0; // the racing line crossing itself less than this far along the lap is numerical noise
+const CROSSING_ZONE = 0.2; // divider self-crossings this close to where two lanes cross (m) are the crossing, not a loop to cut
 export const FOOT_CELL = 0.1; // footprint raster cell (m)
 export const PIPE_R = 0.04; // half the pipe thickness, added round the lanes
 export const EYE_HEIGHT = 2.8;
@@ -56,6 +65,7 @@ export const FEATURE_PROFILES: Record<FeatureType, Point2[]> = {
   stepdown: [[0, 0], [0.0, 1], [1.0, 1], [1.8, 0]],
   whoops: [[0, 0], [0.3, 1], [0.6, 0], [0.9, 1], [1.2, 0], [1.5, 1], [1.8, 0]],
   bump: [[0, 0], [0.25, 1], [0.5, 0]],
+  crossover: [[0, 0], [2.0, 1], [6.0, 1], [8.0, 0]], // nominal; the bake sizes each one (crossoverProfile)
 };
 /** [length, height] */
 export const FEATURE_DEFAULTS: Record<FeatureType, [number, number]> = {
@@ -66,6 +76,7 @@ export const FEATURE_DEFAULTS: Record<FeatureType, [number, number]> = {
   stepdown: [1.8, 0.12],
   whoops: [1.8, 0.05],
   bump: [0.5, 0.04],
+  crossover: [8.0, CROSSOVER_HEIGHT],
 };
 
 const norm = (x: number, z: number): number => Math.sqrt(x * x + z * z);
@@ -497,7 +508,7 @@ export interface DividerResult {
   borderZ: Float64Array;
 }
 
-export function dividers(line: Line, corners: Corner[], points: DesignPoint[]): DividerResult {
+export function dividers(line: Line, corners: Corner[], points: DesignPoint[], zones: CrossingZone[] = []): DividerResult {
   const { n, x, z } = line;
   const { s, total } = arclength(x, z);
   const bd = borders(line, corners, points);
@@ -608,7 +619,7 @@ export function dividers(line: Line, corners: Corner[], points: DesignPoint[]): 
   const simplified = runs.map(({ pts, shared }) => {
     const last = pts[pts.length - 1];
     const closed = pts.length >= n && norm(pts[0][0] - last[0], pts[0][1] - last[1]) < 0.2;
-    return { pts: removeLoops(rdp(pts, SIMPLIFY_TOL), closed), shared, closed };
+    return { pts: removeLoops(rdp(pts, SIMPLIFY_TOL), closed, zones), shared, closed };
   });
   // longest first; ends already drawn by a longer divider are trimmed, fragments dropped (order of runs kept)
   const order = simplified.map((_, k) => k).sort((p, q) => polylineLength(simplified[q].pts, simplified[q].closed) - polylineLength(simplified[p].pts, simplified[p].closed));
@@ -645,12 +656,30 @@ function crossing(p1: Point2, p2: Point2, p3: Point2, p4: Point2): Point2 | null
   return null;
 }
 
+/** Where the lanes of a crossing overlap (plus CROSSING_ZONE): centre, each pass's direction and half-width. */
+export interface CrossingZone {
+  C: Point2;
+  t1: Point2;
+  h1: number;
+  t2: Point2;
+  h2: number;
+}
+
+/** Is X where two lanes of the track cross? There a divider crossing itself is the crossing. */
+export function inZone(X: Point2, zones: CrossingZone[]): boolean {
+  for (const { C, t1, h1, t2, h2 } of zones) {
+    const dx = X[0] - C[0], dz = X[1] - C[1];
+    if (Math.abs(dx * t1[1] - dz * t1[0]) <= h1 && Math.abs(dx * t2[1] - dz * t2[0]) <= h2) return true;
+  }
+  return false;
+}
+
 /**
  * Cut out self-crossings. A closed divider keeps the longer of its two parts. An open one is split at the crossing into
  * head, loop and tail, and loses the shortest: a small kink loses its loop, an end poking past a junction loses that
- * stub, and the rest of the pipe stays.
+ * stub, and the rest of the pipe stays. Crossings inside a zone where the track crosses itself stay (v1.6).
  */
-export function removeLoops(input: Point2[], closed: boolean): Point2[] {
+export function removeLoops(input: Point2[], closed: boolean, zones: CrossingZone[] = []): Point2[] {
   let pts = input.slice();
   for (let iter = 0; iter < 100; iter++) {
     const n = pts.length, segs = closed ? n : n - 1;
@@ -659,7 +688,7 @@ export function removeLoops(input: Point2[], closed: boolean): Point2[] {
       for (let b = a + 2; b < segs; b++) {
         if (closed && a === 0 && b === segs - 1) continue;
         const X = crossing(pts[a], pts[(a + 1) % n], pts[b], pts[(b + 1) % n]);
-        if (X) {
+        if (X && !inZone(X, zones)) {
           hit = [a, b, X];
           break outer;
         }
@@ -937,13 +966,256 @@ export function featureProfile(type: FeatureType, length: number, height: number
   return prof.map(([a, h]) => [r3(last ? (a / last) * length : 0), r3(h * height)] as Point2);
 }
 
+// ------------------------------------------------------------------ crossings (v1.6)
+/** One place the racing line crosses itself, while baking. Index 0 / 1 = first / second pass in driving order. */
+export interface RawCrossing {
+  X: Point2;
+  /** both passes' lap distances (from point 0) */
+  d: [number, number];
+  /** unit directions */
+  t: [Point2, Point2];
+  /** lane widths */
+  w: [number, number];
+  /** degrees between the passes, 0..90 */
+  angle: number;
+  bridge: number | null;
+  over: 0 | 1 | null;
+  /** the crossover that claimed it */
+  claim: number | null;
+  /** why it isn't bridged, if a feature tried */
+  why: string | null;
+  /** a feature in place and long enough, but too low to pass under: the crossing-too-low message */
+  low: string | null;
+}
+
+/**
+ * Where the closed racing line crosses itself: both passes' lap distances (from point 0), unit directions and segment
+ * indices, in the order the segments come in the line.
+ */
+export function selfCrossings(line: Line, s: Float64Array, total: number): { X: Point2; d: [number, number]; t: [Point2, Point2]; i: [number, number] }[] {
+  const { n, x, z } = line;
+  const dx = new Float64Array(n), dz = new Float64Array(n), seg = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    dx[i] = x[(i + 1) % n] - x[i]; dz[i] = z[(i + 1) % n] - z[i]; seg[i] = norm(dx[i], dz[i]);
+  }
+  // segments by the 1 m grid cells their bounding boxes touch: only segments sharing a cell can cross
+  // (bake.py tests every pair; the pairs tested here come in the same order, so the result is the same)
+  const CELL = 1.0;
+  let x0 = Infinity, z0 = Infinity;
+  for (let i = 0; i < n; i++) { x0 = Math.min(x0, x[i]); z0 = Math.min(z0, z[i]); }
+  const cells = new Map<number, number[]>();
+  const cellsOf = (i: number, visit: (key: number) => void) => {
+    const c0 = Math.floor((Math.min(x[i], x[i] + dx[i]) - x0) / CELL), c1 = Math.floor((Math.max(x[i], x[i] + dx[i]) - x0) / CELL);
+    const r0 = Math.floor((Math.min(z[i], z[i] + dz[i]) - z0) / CELL), r1 = Math.floor((Math.max(z[i], z[i] + dz[i]) - z0) / CELL);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) visit(r * 100003 + c);
+  };
+  for (let i = 0; i < n; i++) cellsOf(i, (key) => { const b = cells.get(key); if (b) b.push(i); else cells.set(key, [i]); });
+  const seen = new Int32Array(n).fill(-1);
+  const found: { X: Point2; d: [number, number]; t: [Point2, Point2]; i: [number, number] }[] = [];
+  for (let i = 0; i < n - 2; i++) {
+    const loX = Math.min(x[i], x[i] + dx[i]), hiX = Math.max(x[i], x[i] + dx[i]);
+    const loZ = Math.min(z[i], z[i] + dz[i]), hiZ = Math.max(z[i], z[i] + dz[i]);
+    const jEnd = i === 0 ? n - 1 : n; // not the segment itself or its neighbours
+    const near: number[] = [];
+    cellsOf(i, (key) => {
+      for (const j of cells.get(key)!) if (j >= i + 2 && j < jEnd && seen[j] !== i) { seen[j] = i; near.push(j); }
+    });
+    near.sort((p, q) => p - q);
+    for (const j of near) {
+      if (Math.min(x[j], x[j] + dx[j]) > hiX || Math.max(x[j], x[j] + dx[j]) < loX) continue;
+      if (Math.min(z[j], z[j] + dz[j]) > hiZ || Math.max(z[j], z[j] + dz[j]) < loZ) continue;
+      const den = dx[i] * dz[j] - dz[i] * dx[j];
+      if (!(Math.abs(den) > 1e-12)) continue;
+      const wx = x[j] - x[i], wz = z[j] - z[i];
+      const ta = (wx * dz[j] - wz * dx[j]) / den, tb = (wx * dz[i] - wz * dx[i]) / den;
+      // each segment owns its start, not its end, so a crossing on a sample is found once
+      if (!(ta >= -1e-9 && ta < 1 - 1e-9 && tb >= -1e-9 && tb < 1 - 1e-9)) continue;
+      const X: Point2 = [x[i] + dx[i] * ta, z[i] + dz[i] * ta];
+      const da = s[i] + ta * seg[i], db = s[j] + tb * seg[j];
+      let sep = Math.abs(db - da);
+      sep = Math.min(sep, total - sep);
+      if (sep < CROSSING_MIN_SEP) continue;
+      if (found.some((f) => norm(X[0] - f.X[0], X[1] - f.X[1]) < 1e-3)) continue;
+      found.push({ X, d: [pyMod(da, total), pyMod(db, total)], t: [[dx[i] / seg[i], dz[i] / seg[i]], [dx[j] / seg[j], dz[j] / seg[j]]], i: [i, j] });
+    }
+  }
+  return found;
+}
+
+/** Signed distance from b to a along a closed lap, in (-total/2, total/2]. */
+function cyc(a: number, b: number, total: number): number {
+  const d = pyMod(a - b, total);
+  return d > total / 2 ? d - total : d;
+}
+
+/**
+ * Flat-top length a bridge on pass `over` (0 = first, 1 = second) needs: the under pass's lane, crossed at the
+ * crossing's angle, plus BRIDGE_MARGIN each side.
+ */
+export function bridgeSpan(c: Pick<RawCrossing, "w" | "angle">, over: 0 | 1): number {
+  return c.w[1 - over] / Math.max(Math.sin(radians(c.angle)), 0.1) + 2 * BRIDGE_MARGIN;
+}
+
+/** [ramp, top, height] of a crossover: its own values, else the defaults. */
+function crossoverSize(f: DesignFeature, topDefault: number): [number, number, number] {
+  return [f.rampLength ?? CROSSOVER_RAMP, f.topLength ?? topDefault, f.height ?? CROSSOVER_HEIGHT];
+}
+
+function crossoverProfile(ramp: number, top: number, height: number): Point2[] {
+  return [[0, 0], [r3(ramp), r3(height)], [r3(ramp + top), r3(height)], [r3(2 * ramp + top), 0]];
+}
+
+/** Corners of a length × width rectangle centred on (x, z), its length along `heading` (deg). */
+function rect(x: number, z: number, heading: number, length: number, width: number): Point2[] {
+  const a = radians(heading), ux = Math.cos(a), uz = Math.sin(a), vx = -uz, vz = ux;
+  const p = (sl: number, sw: number): Point2 => [x + ux * sl * length / 2 + vx * sw * width / 2, z + uz * sl * length / 2 + vz * sw * width / 2];
+  return [p(-1, -1), p(1, -1), p(1, 1), p(-1, 1)];
+}
+
+/** Separating-axis test for two convex quadrilaterals. */
+function rectsOverlap(A: Point2[], B: Point2[]): boolean {
+  for (const poly of [A, B]) {
+    for (let k = 0; k < 4; k++) {
+      const q = poly[(k + 1) % 4], p = poly[k];
+      const ax = -(q[1] - p[1]), az = q[0] - p[0];
+      const pa = A.map((v) => v[0] * ax + v[1] * az), pb = B.map((v) => v[0] * ax + v[1] * az);
+      if (Math.max(...pa) <= Math.min(...pb) + 1e-9 || Math.max(...pb) <= Math.min(...pa) + 1e-9) return false;
+    }
+  }
+  return true;
+}
+
+/** The racing line's self-crossings, each pass labelled first / second in driving order from the start line. */
+export function findCrossings(line: Line, s: Float64Array, total: number, startDistance = 0): RawCrossing[] {
+  const key = (d: number) => pyMod(d - startDistance, total);
+  const out: RawCrossing[] = [];
+  for (let { X, d, t, i } of selfCrossings(line, s, total)) {
+    if (key(d[1]) < key(d[0])) {
+      d = [d[1], d[0]]; t = [t[1], t[0]]; i = [i[1], i[0]];
+    }
+    const dot = Math.max(-1, Math.min(1, t[0][0] * t[1][0] + t[0][1] * t[1][1]));
+    const angle = degrees(Math.acos(Math.abs(dot))); // 0..90°, 90 = square
+    out.push({ X, d, t, w: [line.width[i[0]], line.width[i[1]]], angle, bridge: null, over: null, claim: null, why: null, low: null });
+  }
+  return out.sort((a, b) => key(a.d[0]) - key(b.d[0]));
+}
+
+/** Where the lanes of each crossing overlap (plus CROSSING_ZONE): divider self-crossings there stay. */
+export function crossingZones(cr: RawCrossing[]): CrossingZone[] {
+  return cr.map((c) => ({ C: c.X, t1: c.t[0], h1: c.w[0] / 2 + CROSSING_ZONE, t2: c.t[1], h2: c.w[1] / 2 + CROSSING_ZONE }));
+}
+
+/**
+ * Which feature bridges each crossing. A crossover claims the nearest unclaimed crossing within half its length of
+ * either pass's distance and goes over pass `over` (default first); a tabletop on a pass bridges the crossing if its flat
+ * top spans bridgeSpan. Either must be at least BRIDGE_CLEARANCE high; one that is in place and long enough but lower sets
+ * the crossing's `low` (crossing-too-low). Crossovers that bridge the crossing they find claim first (in feature order),
+ * then the rest, so a low or short one can't lock out a good one. Returns the crossovers that claimed one: feature
+ * index -> [crossing, over].
+ */
+export function bridgeCrossings(cr: RawCrossing[], features: DesignFeature[], total: number): Map<number, [RawCrossing, 0 | 1]> {
+  const claimed = new Map<number, [RawCrossing, 0 | 1]>();
+  for (const sound of [true, false]) {
+    features.forEach((f, fi) => {
+      if (f.type !== "crossover" || claimed.has(fi)) return;
+      const over: 0 | 1 = f.over === "second" ? 1 : 0;
+      let best: [number, RawCrossing, number] | null = null;
+      for (const c of cr) {
+        if (c.claim !== null) continue;
+        const [ramp, top] = crossoverSize(f, bridgeSpan(c, over));
+        const gap = Math.min(Math.abs(cyc(f.distance, c.d[0], total)), Math.abs(cyc(f.distance, c.d[1], total)));
+        if (gap <= ramp + top / 2 && (best === null || gap < best[0])) best = [gap, c, top];
+      }
+      if (!best) return;
+      const [, c, top] = best;
+      const height = crossoverSize(f, top)[2];
+      const short = top < bridgeSpan(c, over) - 1e-9, low = height < BRIDGE_CLEARANCE - 1e-9;
+      if (sound && (short || low)) return;
+      claimed.set(fi, [c, over]);
+      c.claim = fi;
+      if (short) c.why = `the crossover's flat top is ${pyFormat(top, 1)} m; it needs ${pyFormat(bridgeSpan(c, over), 1)} m`;
+      else if (low) c.low = tooLow("crossover", f.distance, height);
+      else {
+        c.bridge = fi; c.over = over;
+      }
+    });
+  }
+  const prof = FEATURE_PROFILES.tabletop, last = prof[prof.length - 1][0];
+  const top0 = prof[1][0] / last, top1 = prof[2][0] / last;
+  for (const c of cr) {
+    if (c.bridge !== null) continue;
+    for (let fi = 0; fi < features.length && c.bridge === null; fi++) {
+      const f = features[fi];
+      if (f.type !== "tabletop") continue;
+      const L = f.length ?? FEATURE_DEFAULTS.tabletop[0];
+      for (const p of [0, 1] as const) {
+        const off = cyc(c.d[p], f.distance, total); // crossing, from the tabletop's centre
+        if (Math.abs(off) > L / 2) continue;
+        const need = bridgeSpan(c, p);
+        if (-L / 2 + top0 * L <= off - need / 2 + 1e-9 && off + need / 2 <= -L / 2 + top1 * L + 1e-9) {
+          const H = f.height ?? FEATURE_DEFAULTS.tabletop[1];
+          if (H >= BRIDGE_CLEARANCE - 1e-9) {
+            c.bridge = fi; c.over = p; c.why = null; c.low = null;
+            break;
+          }
+          if (c.low === null) c.low = tooLow("tabletop", f.distance, H);
+        } else if (c.why === null) c.why = `the tabletop at ${pyFormat(f.distance, 1)} m is too short to bridge it (flat top needs ${pyFormat(need, 1)} m)`;
+      }
+    }
+  }
+  return claimed;
+}
+
+function tooLow(typ: string, distance: number, height: number): string {
+  return `The ${typ} at ${pyFormat(distance, 1)} m is ${pyFormat(height, 2)} m high; cars need ${pyFormat(BRIDGE_CLEARANCE, 2)} m to pass under`;
+}
+
+/** crossing-unbridged (or crossing-too-low), crossing-angle and crossing-too-close; returns built.crossings. */
+export function crossingChecks(cr: RawCrossing[], feats: BuiltFeature[], features: DesignFeature[], checks: Check[]): Crossing[] {
+  const out: Crossing[] = [], foot: Point2[][] = [];
+  for (const c of cr) {
+    const [X0, X1] = c.X, [da, db] = c.d;
+    if (c.bridge === null && c.low !== null) {
+      // in place and long enough, but cars can't pass under
+      checks.push({ level: "error", code: "crossing-too-low", x: r3(X0), z: r3(X1), message: c.low });
+    } else if (c.bridge === null) {
+      checks.push({ level: "error", code: "crossing-unbridged", x: r3(X0), z: r3(X1), message: `Track crosses itself at ${pyFormat(da, 1)} m and ${pyFormat(db, 1)} m with no bridge${c.why ? `: ${c.why}` : ""}` });
+    }
+    if (c.angle < CROSSING_MIN_ANGLE) {
+      checks.push({ level: "warning", code: "crossing-angle", x: r3(X0), z: r3(X1), message: `Track crosses itself at ${pyFormat(c.angle, 0)}°, more than ${pyFormat(90 - CROSSING_MIN_ANGLE, 0)}° off square` });
+    }
+    let R: Point2[];
+    if (c.bridge !== null) {
+      const bf = feats[c.bridge];
+      R = rect(bf.x, bf.z, bf.heading, bf.length, bf.width);
+    } else R = rect(X0, X1, headingDeg(c.t[0]), 2 * CROSSOVER_RAMP + bridgeSpan(c, 0), c.w[0]); // where a default crossover would stand
+    foot.push(R);
+    out.push({
+      x: r3(X0), z: r3(X1), distances: [r3(da), r3(db)], angle: r3(c.angle),
+      over: c.over === null ? null : c.over === 0 ? "first" : "second",
+      bridge: c.bridge === null ? null : { type: features[c.bridge].type as "crossover" | "tabletop", feature: c.bridge },
+      footprint: c.bridge === null ? null : R.map(([px, pz]) => [r3(px), r3(pz)] as Point2),
+    });
+  }
+  for (let a = 0; a < cr.length; a++) {
+    for (let b = a + 1; b < cr.length; b++) {
+      if (!rectsOverlap(foot[a], foot[b])) continue;
+      const X: Point2 = [(cr[a].X[0] + cr[b].X[0]) / 2, (cr[a].X[1] + cr[b].X[1]) / 2];
+      checks.push({ level: "error", code: "crossing-too-close", x: r3(X[0]), z: r3(X[1]), message: `Crossings at ${pyFormat(cr[a].d[0], 1)} m and ${pyFormat(cr[b].d[0], 1)} m are too close for a bridge each` });
+    }
+  }
+  return out;
+}
+
 export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   const design = doc.design, area = doc.area;
   const W0 = design.laneWidth ?? 2.0;
   const { line, corners } = racingLine(design.points, W0);
   const { x, z } = line;
   const { s, total } = arclength(x, z);
-  const divs = dividers(line, corners, design.points).dividers;
+  const cr = findCrossings(line, s, total, design.start?.distance ?? 0.0);
+  const divs = dividers(line, corners, design.points, crossingZones(cr)).dividers;
+  const claimed = bridgeCrossings(cr, design.features ?? [], total);
   const checks: Check[] = [];
 
   // racing line export, ~EXPORT_STEP spacing
@@ -953,23 +1225,43 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
 
   // features
   const feats: BuiltFeature[] = [];
-  for (const f of design.features ?? []) {
+  (design.features ?? []).forEach((f, fi) => {
     const typ = f.type;
-    const [L0, H0] = FEATURE_DEFAULTS[typ];
-    const length = f.length ?? L0, height = f.height ?? H0;
-    const { p, t, i } = atDistance(x, z, s, total, f.distance);
-    const profile = featureProfile(typ, length, height);
+    let length: number, height: number, profile: Point2[], dist = f.distance;
+    const claim = claimed.get(fi);
+    if (typ === "crossover") {
+      // sits on the crossing it bridges (the over pass's distance), sized for it
+      let ramp: number, top: number;
+      if (claim) {
+        const [c, over] = claim;
+        dist = c.d[over];
+        [ramp, top, height] = crossoverSize(f, bridgeSpan(c, over));
+      } else [ramp, top, height] = crossoverSize(f, W0 + 2 * BRIDGE_MARGIN);
+      length = 2 * ramp + top;
+      profile = crossoverProfile(ramp, top, height);
+    } else {
+      const [L0, H0] = FEATURE_DEFAULTS[typ];
+      length = f.length ?? L0; height = f.height ?? H0;
+      profile = featureProfile(typ, length, height);
+    }
+    const { p, t, i } = atDistance(x, z, s, total, dist);
     const width = line.width[i] - 0.08;
     feats.push({ type: typ, x: r3(p[0]), z: r3(p[1]), heading: headingDeg(t), length: r3(length), width: r3(width), height: r3(height), profile });
     // check: jump on or landing into a corner
-    const i0 = searchSorted(s, pyMod(f.distance - length / 2, total));
-    const i1 = searchSorted(s, pyMod(f.distance + length / 2 + 1.0, total));
+    const i0 = searchSorted(s, pyMod(dist - length / 2, total));
+    let i1 = searchSorted(s, pyMod(dist + length / 2 + 1.0, total));
+    if (typ === "crossover" && i1 < i0) i1 += line.n; // ramps across lap distance 0 (older types keep their 1.5 behaviour)
     let maxCurv = -Infinity;
     for (let k = i0; k < i1; k++) maxCurv = Math.max(maxCurv, Math.abs(line.curvature[k % line.n]));
     if (i1 > i0 && maxCurv > 0) {
-      checks.push({ level: "warning", code: "feature-in-corner", x: r3(p[0]), z: r3(p[1]), message: `${typ} at ${pyFormat(f.distance, 1)} m is on or lands into a corner` });
+      checks.push({ level: "warning", code: "feature-in-corner", x: r3(p[0]), z: r3(p[1]), message: `${typ} at ${pyFormat(dist, 1)} m is on or lands into a corner` });
     }
-  }
+    if (typ === "crossover" && (!claim || (claim[0].bridge !== null && claim[0].bridge !== fi))) {
+      // away from any crossing, a second on one already claimed, or on one a tabletop bridges instead
+      checks.push({ level: "warning", code: "crossover-unused", x: r3(p[0]), z: r3(p[1]), message: `crossover at ${pyFormat(dist, 1)} m bridges no crossing` });
+    }
+  });
+  const crossings = crossingChecks(cr, feats, design.features ?? [], checks);
 
   // start line
   const sd = design.start?.distance ?? 0.0;
@@ -1053,6 +1345,7 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     racingLine: racing,
     dividers: divs,
     features: feats,
+    ...(crossings.length ? { crossings } : {}), // v1.6: only when the track crosses itself
     startLine,
     rostrum,
     checks,

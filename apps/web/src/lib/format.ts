@@ -39,6 +39,7 @@ export const FEATURE_LABEL: Record<string, string> = {
   stepdown: "Step-down",
   whoops: "Whoops",
   bump: "Bump",
+  crossover: "Crossover",
 };
 
 /** Slug for download file names, like the server's. */

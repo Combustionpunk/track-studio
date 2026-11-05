@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forum.rcmisfits.org/schemas/rctrack-v1.json",
-  "title": "RC track design (rctrack v1.5)",
+  "title": "RC track design (rctrack v1.6)",
   "type": "object",
   "required": [
     "format",
@@ -182,7 +182,8 @@
                   "stepup",
                   "stepdown",
                   "whoops",
-                  "bump"
+                  "bump",
+                  "crossover"
                 ]
               },
               "distance": {
@@ -193,7 +194,26 @@
                 "type": "number"
               },
               "height": {
-                "type": "number"
+                "type": "number",
+                "description": "Metres; crossover default 0.4 (a bridge needs 0.4 m clearance)"
+              },
+              "rampLength": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "crossover: ramp up / down along the over pass (m, default 2). v1.6"
+              },
+              "topLength": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "crossover: flat top along the over pass (m, default: the under pass's lane, crossed at the crossing's angle, plus 1 m each side). v1.6"
+              },
+              "over": {
+                "enum": [
+                  "first",
+                  "second"
+                ],
+                "default": "first",
+                "description": "crossover: which pass goes over, in driving order from the start line. v1.6"
               }
             }
           }
@@ -305,6 +325,93 @@
               "profile": {
                 "type": "array",
                 "description": "[along, height] pairs in metres, along = 0 at the entry edge"
+              }
+            }
+          }
+        },
+        "crossings": {
+          "type": "array",
+          "description": "Where the racing line crosses itself; absent when it doesn't. v1.6",
+          "items": {
+            "type": "object",
+            "required": [
+              "x",
+              "z",
+              "distances",
+              "angle",
+              "over",
+              "bridge",
+              "footprint"
+            ],
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              },
+              "distances": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                },
+                "description": "Lap distances (m from point 0) of the first and second pass, in driving order from the start line"
+              },
+              "angle": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 90,
+                "description": "Degrees between the passes, 90 = square"
+              },
+              "over": {
+                "enum": [
+                  "first",
+                  "second",
+                  null
+                ],
+                "description": "The pass that goes over the bridge; null when unbridged"
+              },
+              "bridge": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "type",
+                  "feature"
+                ],
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "crossover",
+                      "tabletop"
+                    ]
+                  },
+                  "feature": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Index into design.features / built.features"
+                  }
+                }
+              },
+              "footprint": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "description": "The bridge's outline [[x, z] x 4], for drawing; null when unbridged"
               }
             }
           }

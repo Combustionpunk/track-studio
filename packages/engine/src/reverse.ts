@@ -7,7 +7,9 @@ import type { Design } from "./types.js";
 /**
  * The same layout driven the other way round: points `[p0, pn-1, …, p1]` (each keeps its own radius, width and
  * outer), and every jump and the start line moved along the new line so each stays in the same physical spot, wrapped
- * into [0, lapLength). Jumps keep their type, length and height, so they now face the new direction of travel.
+ * into [0, lapLength). Jumps keep their type, length and height, so they now face the new direction of travel. A
+ * crossover's `over` counts passes in driving order, so it swaps (`first` ↔ `second`, missing = `first`) to keep the
+ * bridge on the same physical pass.
  *
  * Distances count from the start of point 0's corner arc, which reversed is the end of that arc: a distance d becomes
  * `arc0 - d` (arc0 = the length of point 0's corner), not `lapLength - d`. Does not modify `design`.
@@ -23,6 +25,10 @@ export function reverseDesign(design: Design): Design {
     return r > total - 1e-9 ? 0 : r; // twice reversed comes back to 0, not to a hair under the lap
   };
   const out: Design = { ...design, points: [pts[0], ...pts.slice(1).reverse()], start: { ...design.start, distance: flip(design.start?.distance ?? 0) } };
-  if (design.features) out.features = design.features.map((f) => ({ ...f, distance: flip(f.distance) }));
+  if (design.features) out.features = design.features.map((f) => {
+    const g = { ...f, distance: flip(f.distance) };
+    if (f.type === "crossover") g.over = f.over === "second" ? "first" : "second";
+    return g;
+  });
   return out;
 }

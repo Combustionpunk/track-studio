@@ -12,6 +12,7 @@ const SYMBOL: Record<FeatureType, string> = {
   stepdown: "M2 14 V6 H18 L26 14 Z",
   whoops: "M1 14 Q4 6 7 14 Q10 6 13 14 Q16 6 19 14 Q22 6 25 14 Z",
   bump: "M6 14 Q14 4 22 14 Z",
+  crossover: "M1 14 L8 5 H20 L27 14 Z", // a bridge; placed by the designer in #51, not from the palette
 };
 
 export function JumpSymbol({ type }: { type: FeatureType }) {

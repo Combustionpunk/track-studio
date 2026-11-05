@@ -5,7 +5,7 @@
   test/fixtures/extra/*.rcvenue.json   an extra venue with a rotated obstacle
   test/fixtures/fit-expected.json      fit.fits() for every track x venue (reference + extra)
 usage (from the repo root): python3 packages/engine/scripts/gen_fixtures.py"""
-import glob, json, os, sys
+import glob, json, math, os, sys
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, os.path.join(root, "reference"))
 import bake, fit  # noqa: E402
@@ -71,6 +71,51 @@ EXTRA_TRACKS.update({
         "laneWidth": 2.0, "points": serpentine("round"), "start": {"distance": 3.0}, "rostrum": {"side": "north"}}),
 })
 
+# rctrack 1.6: tracks that cross themselves, on a bridge
+def figure8(slug, name, features=()):
+    """Figure of eight: two diagonals crossing square at the origin, a lobe either side."""
+    pts = [(-6, -6), (6, 6), (10, 6), (10, -6), (6, -6), (-6, 6), (-10, 6), (-10, -6)]
+    return track(slug, name, {"length": 24, "width": 16}, {
+        "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": 1.5} for x, z in pts], "features": list(features),
+        "start": {"distance": 2.0}, "rostrum": {"side": "south"}})
+
+def at_crossings(doc, make):
+    """Features placed on the doc's crossings (as baked without them): make(k, [first, second]) per crossing."""
+    cr = bake.bake(json.loads(json.dumps(doc)))["built"]["crossings"]
+    doc["design"]["features"] = [make(k, c["distances"]) for k, c in enumerate(cr)]
+    return doc
+
+s20 = round(8 * math.tan(math.radians(20)), 3)
+EXTRA_TRACKS.update({
+    "crossover-figure8": at_crossings(figure8("8", "Figure of eight on a crossover"),
+                                      lambda k, d: {"type": "crossover", "distance": d[0]}),
+    # a tabletop long enough that its flat top (0.364 of its length) spans the 2 m lane + 1 m each side
+    "tabletop-figure8": at_crossings(figure8("9", "Figure of eight on a long tabletop"),
+                                     lambda k, d: {"type": "tabletop", "distance": d[1], "length": 12.0, "height": 0.4}),
+    # a bridge needs 0.40 m clearance: a default-height tabletop or a 0.30 m crossover in place is crossing-too-low
+    "tabletop-low-figure8": at_crossings(figure8("13", "Figure of eight on a low tabletop"),
+                                         lambda k, d: {"type": "tabletop", "distance": d[1], "length": 12.0}),
+    "crossover-low-figure8": at_crossings(figure8("14", "Figure of eight on a low crossover"),
+                                          lambda k, d: {"type": "crossover", "distance": d[0], "height": 0.3}),
+    # a second crossover on the bridged crossing bridges nothing: crossover-unused
+    "crossover-unused-figure8": at_crossings(figure8("15", "Figure of eight with a spare crossover"),
+                                             lambda k, d: {"type": "crossover", "distance": d[0]}),
+    "unbridged-figure8": figure8("10", "Figure of eight, no bridge"),
+    # two diagonals 40° apart: bridged, but more than 30° off square
+    "shallow-crossing": at_crossings(track("11", "Shallow crossing", {"length": 24, "width": 10}, {
+        "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": 1.5} for x, z in
+                                     [(-8, -s20), (8, s20), (11, s20), (11, -s20), (8, -s20), (-8, s20), (-11, s20), (-11, -s20)]],
+        "start": {"distance": 1.0}, "rostrum": {"side": "north"}}),
+        lambda k, d: {"type": "crossover", "distance": d[0], "rampLength": 1.5}),
+    # the back straight dips under the main straight twice, 6 m apart: both bridges on the main straight overlap
+    "two-crossings": at_crossings(track("12", "Two crossings", {"length": 22, "width": 14}, {
+        "laneWidth": 2.0, "points": [{"x": x, "z": z} for x, z in [(-10, -2), (10, -2), (10, 5), (3, 5), (3, -6), (-3, -6), (-3, 5), (-10, 5)]],
+        "start": {"distance": 0.0}, "rostrum": {"side": "south"}}),
+        lambda k, d: {"type": "crossover", "distance": d[0]}),
+})
+
+EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
+
 EXTRA_VENUES = {
     "rotated-desk": {"format": "rcvenue", "version": 1, "id": "venue-x1", "revision": 2,
                      "info": {"name": "Hall with desk", "venue": {"id": 99, "name": "Hall with desk"}, "notes": "fixture"},
@@ -104,5 +149,11 @@ for f in sorted(glob.glob(os.path.join(fixtures, "v14", "*.rctrack.json"))):
     doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
     same = json.dumps({**old, "generator": ""}) == json.dumps({**new, "generator": ""})
     print(f"{os.path.basename(f)}: {'same as 1.4' if same else 'DIFFERENT from 1.4'}")
+    assert same
+# tracks that don't cross themselves must bake exactly as in rctrack 1.5 (v15/: baked by bake.py 1.5)
+for f in sorted(glob.glob(os.path.join(fixtures, "v15", "*.rctrack.json"))):
+    doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
+    same = json.dumps({**old, "generator": ""}) == json.dumps({**new, "generator": ""})
+    print(f"{os.path.basename(f)}: {'same as 1.5' if same else 'DIFFERENT from 1.5'}")
     assert same
 print(f"{len(out)} fit results; fitting:", sum(1 for r in out.values() if r))

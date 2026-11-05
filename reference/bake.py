@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.5).
+Reference implementation of the rctrack geometry engine (format v1.6).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.5"
+GENERATOR = "rctrack-bake.py 1.6"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -30,6 +30,13 @@ MIN_WIDTH = 1.4        # narrowest sensible lane (m)
 CORNER_MIN_TURN = math.radians(20)   # smaller changes of direction aren't corners
 CORNER_JOIN_GAP = 3.0  # same-direction turns joined by less straight than this (m) are one corner (hairpins, carousels).
                        # The one setting for the corner count; the TypeScript engine has the same constant.
+CROSSOVER_RAMP = 2.0   # crossover (bridge) defaults: ramp up / down along the over pass (m)...
+CROSSOVER_HEIGHT = 0.4 # ...and the height of its flat top (m)
+BRIDGE_CLEARANCE = 0.4 # a bridge lower than this (m) doesn't bridge: cars can't pass under
+BRIDGE_MARGIN = 1.0    # a bridge's flat top spans the under pass's lane plus this each side (m)
+CROSSING_MIN_ANGLE = 60.0  # crossings sharper than this (deg; i.e. outside 60-120° between the passes) are warned about
+CROSSING_MIN_SEP = 1.0 # the racing line crossing itself less than this far along the lap is numerical noise, not a crossing
+CROSSING_ZONE = 0.2    # divider self-crossings this close to where two lanes cross (m) are the crossing, not a loop to cut
 
 FEATURE_PROFILES = {   # along-track distance (m), height (m), for default length/height; scaled to the feature's values
     "tabletop": [[0, 0], [0.70, 1], [1.50, 1], [2.20, 0]],
@@ -39,9 +46,10 @@ FEATURE_PROFILES = {   # along-track distance (m), height (m), for default lengt
     "stepdown": [[0, 0], [0.0, 1], [1.0, 1], [1.80, 0]],
     "whoops":   [[0, 0], [0.30, 1], [0.60, 0], [0.90, 1], [1.20, 0], [1.50, 1], [1.80, 0]],
     "bump":     [[0, 0], [0.25, 1], [0.50, 0]],
+    "crossover": [[0, 0], [2.0, 1], [6.0, 1], [8.0, 0]],   # nominal; the bake sizes each one (crossover_profile)
 }
 FEATURE_DEFAULTS = {"tabletop": (2.2, 0.14), "double": (2.6, 0.15), "kicker": (0.8, 0.12), "stepup": (1.6, 0.12),
-                    "stepdown": (1.8, 0.12), "whoops": (1.8, 0.05), "bump": (0.5, 0.04)}
+                    "stepdown": (1.8, 0.12), "whoops": (1.8, 0.05), "bump": (0.5, 0.04), "crossover": (8.0, CROSSOVER_HEIGHT)}
 
 def r3(v): return round(float(v), 3)
 
@@ -252,7 +260,7 @@ def _blend(v, half, brk):
         out[i] = sum(v[(i + k) % n] for k in range(-lo, hi + 1)) / (lo + hi + 1)
     return out
 
-def dividers(line, corners, points):
+def dividers(line, corners, points, zones=()):
     from scipy.spatial import cKDTree
     xy = line[:, :2]; n = len(xy)
     s, total = arclength(xy)
@@ -326,7 +334,7 @@ def dividers(line, corners, points):
     simplified = []
     for pts, sh in runs:
         closed = len(pts) >= n and np.linalg.norm(pts[0] - pts[-1]) < 0.2
-        simplified.append((remove_loops(list(rdp(pts, SIMPLIFY_TOL)), closed), sh, closed))
+        simplified.append((remove_loops(list(rdp(pts, SIMPLIFY_TOL)), closed, zones), sh, closed))
     # longest first; ends already drawn by a longer divider are trimmed, fragments dropped (order of runs kept)
     order = sorted(range(len(simplified)), key=lambda k: -polyline_length(simplified[k][0], simplified[k][2]))
     kept = {}
@@ -365,10 +373,17 @@ def _cross(p1, p2, p3, p4):
     if 1e-9 < ta < 1 - 1e-9 and 1e-9 < tb < 1 - 1e-9: return p1 + d1 * ta
     return None
 
-def remove_loops(pts, closed):
+def in_zone(X, zones):
+    """Is X where two lanes of the track cross (crossing_zones)? There a divider crossing itself is the crossing."""
+    for C, t1, h1, t2, h2 in zones:
+        d = X - C
+        if abs(d[0] * t1[1] - d[1] * t1[0]) <= h1 and abs(d[0] * t2[1] - d[1] * t2[0]) <= h2: return True
+    return False
+
+def remove_loops(pts, closed, zones=()):
     """Cut out self-crossings. A closed divider keeps the longer of its two parts. An open one is split at the crossing
     into head, loop and tail, and loses the shortest: a small kink loses its loop, an end poking past a junction loses
-    that stub, and the rest of the pipe stays."""
+    that stub, and the rest of the pipe stays. Crossings inside a zone where the track crosses itself stay (v1.6)."""
     pts = [np.asarray(p, float) for p in pts]
     for _ in range(100):
         n = len(pts); segs = n if closed else n - 1; hit = None
@@ -376,7 +391,7 @@ def remove_loops(pts, closed):
             for b in range(a + 2, segs):
                 if closed and a == 0 and b == segs - 1: continue
                 X = _cross(pts[a], pts[(a + 1) % n], pts[b], pts[(b + 1) % n])
-                if X is not None: hit = (a, b, X); break
+                if X is not None and not in_zone(X, zones): hit = (a, b, X); break
             if hit: break
         if not hit: break
         a, b, X = hit
@@ -487,12 +502,171 @@ def rle(mask):
     runs.append(n)
     return " ".join(map(str, runs))
 
+# ------------------------------------------------------------------ crossings (v1.6)
+def self_crossings(xy, s, total):
+    """Where the closed racing line crosses itself: [(X, d, t, i)] with both passes' lap distances d (from point 0),
+    unit directions t and segment indices i, in the order the segments come in the line."""
+    n = len(xy); P = xy; D = np.roll(xy, -1, 0) - xy
+    lo = np.minimum(P, P + D); hi = np.maximum(P, P + D)
+    seg = np.linalg.norm(D, axis=1)
+    found = []
+    for i in range(n - 2):
+        j = np.arange(i + 2, n - 1 if i == 0 else n)          # not the segment itself or its neighbours
+        j = j[(lo[j, 0] <= hi[i, 0]) & (hi[j, 0] >= lo[i, 0]) & (lo[j, 1] <= hi[i, 1]) & (hi[j, 1] >= lo[i, 1])]
+        if not len(j): continue
+        den = D[i, 0] * D[j, 1] - D[i, 1] * D[j, 0]
+        w = P[j] - P[i]
+        ok = np.abs(den) > 1e-12; den = np.where(ok, den, 1.0)
+        ta = (w[:, 0] * D[j, 1] - w[:, 1] * D[j, 0]) / den; tb = (w[:, 0] * D[i, 1] - w[:, 1] * D[i, 0]) / den
+        # each segment owns its start, not its end, so a crossing on a sample is found once
+        hit = ok & (ta >= -1e-9) & (ta < 1 - 1e-9) & (tb >= -1e-9) & (tb < 1 - 1e-9)
+        for k in np.flatnonzero(hit):
+            jk = int(j[k])
+            X = P[i] + D[i] * ta[k]
+            da = float(s[i] + ta[k] * seg[i]); db = float(s[jk] + tb[k] * seg[jk])
+            sep = abs(db - da); sep = min(sep, total - sep)
+            if sep < CROSSING_MIN_SEP: continue
+            if any(float(np.linalg.norm(X - f[0])) < 1e-3 for f in found): continue
+            found.append((X, (da % total, db % total), (D[i] / seg[i], D[jk] / seg[jk]), (i, jk)))
+    return found
+
+def cyc(a, b, total):
+    """Signed distance from b to a along a closed lap, in (-total/2, total/2]."""
+    d = (a - b) % total
+    return d - total if d > total / 2 else d
+
+def bridge_span(c, over):
+    """Flat-top length a bridge on pass `over` (0 = first, 1 = second) needs: the under pass's lane, crossed at the
+    crossing's angle, plus BRIDGE_MARGIN each side."""
+    w_under = c["w"][1 - over]
+    return w_under / max(math.sin(math.radians(c["angle"])), 0.1) + 2 * BRIDGE_MARGIN
+
+def crossover_size(f, top_default):
+    """(ramp, top, height) of a crossover feature: its own values, else the defaults."""
+    return (float(f.get("rampLength", CROSSOVER_RAMP)), float(f.get("topLength", top_default)),
+            float(f.get("height", CROSSOVER_HEIGHT)))
+
+def crossover_profile(ramp, top, height):
+    return [[r3(0), r3(0)], [r3(ramp), r3(height)], [r3(ramp + top), r3(height)], [r3(2 * ramp + top), r3(0)]]
+
+def rect(x, z, heading, length, width):
+    """Corners of a length x width rectangle centred on (x, z), its length along `heading` (deg)."""
+    a = math.radians(heading); u = np.array([math.cos(a), math.sin(a)]); v = np.array([-u[1], u[0]]); c = np.array([x, z])
+    return [c - u * length / 2 - v * width / 2, c + u * length / 2 - v * width / 2,
+            c + u * length / 2 + v * width / 2, c - u * length / 2 + v * width / 2]
+
+def rects_overlap(A, B):
+    """Separating-axis test for two convex quadrilaterals."""
+    for poly in (A, B):
+        for k in range(4):
+            e = poly[(k + 1) % 4] - poly[k]; ax = np.array([-e[1], e[0]])
+            pa = [float(p @ ax) for p in A]; pb = [float(p @ ax) for p in B]
+            if max(pa) <= min(pb) + 1e-9 or max(pb) <= min(pa) + 1e-9: return False
+    return True
+
+def find_crossings(line, s, total, design):
+    """The racing line's self-crossings, each pass labelled first / second in driving order from the start line."""
+    sd = design.get("start", {}).get("distance", 0.0)
+    out = []
+    for X, d, t, i in self_crossings(line[:, :2], s, total):
+        if (d[1] - sd) % total < (d[0] - sd) % total: d, t, i = d[::-1], t[::-1], i[::-1]
+        angle = math.degrees(math.acos(abs(float(np.clip(t[0] @ t[1], -1, 1)))))   # 0..90°, 90 = square
+        out.append(dict(X=X, d=d, t=t, w=(float(line[i[0], 2]), float(line[i[1], 2])), angle=angle,
+                        bridge=None, over=None, claim=None, why=None, low=None))
+    out.sort(key=lambda c: (c["d"][0] - sd) % total)
+    return out
+
+def crossing_zones(cr):
+    """Where the lanes of each crossing overlap (plus CROSSING_ZONE): (centre, t1, half-width 1, t2, half-width 2)."""
+    return [(c["X"], c["t"][0], c["w"][0] / 2 + CROSSING_ZONE, c["t"][1], c["w"][1] / 2 + CROSSING_ZONE) for c in cr]
+
+def bridge_crossings(cr, features, total):
+    """Which feature bridges each crossing. A crossover claims the nearest unclaimed crossing within half its length of
+    either pass's distance and goes over pass `over` (default first); a tabletop on a pass bridges the crossing if its
+    flat top spans bridge_span. Either must be at least BRIDGE_CLEARANCE high; one that is in place and long enough but
+    lower sets the crossing's `low` (crossing-too-low). Crossovers that bridge the crossing they find claim first (in
+    feature order), then the rest, so a low or short one can't lock out a good one. Returns {feature index: (crossing,
+    over)} for the crossovers that claimed one."""
+    claimed = {}
+    for sound in (True, False):
+        for fi, f in enumerate(features):
+            if f["type"] != "crossover" or fi in claimed: continue
+            over = 1 if f.get("over", "first") == "second" else 0
+            best = None
+            for c in cr:
+                if c["claim"] is not None: continue
+                ramp, top, _ = crossover_size(f, bridge_span(c, over))
+                gap = min(abs(cyc(f["distance"], c["d"][p], total)) for p in (0, 1))
+                if gap <= ramp + top / 2 and (best is None or gap < best[0]): best = (gap, c, top)
+            if best is None: continue
+            _, c, top = best; height = crossover_size(f, top)[2]
+            short = top < bridge_span(c, over) - 1e-9; low = height < BRIDGE_CLEARANCE - 1e-9
+            if sound and (short or low): continue
+            claimed[fi] = (c, over); c["claim"] = fi
+            if short: c["why"] = f"the crossover's flat top is {top:.1f} m; it needs {bridge_span(c, over):.1f} m"
+            elif low: c["low"] = too_low("crossover", f["distance"], height)
+            else: c["bridge"] = fi; c["over"] = over
+    prof = FEATURE_PROFILES["tabletop"]; top0, top1 = prof[1][0] / prof[-1][0], prof[2][0] / prof[-1][0]
+    for c in cr:
+        if c["bridge"] is not None: continue
+        for fi, f in enumerate(features):
+            if f["type"] != "tabletop": continue
+            L = float(f.get("length", FEATURE_DEFAULTS["tabletop"][0]))
+            for p in (0, 1):
+                off = cyc(c["d"][p], f["distance"], total)        # crossing, from the tabletop's centre
+                if abs(off) > L / 2: continue
+                need = bridge_span(c, p)
+                if -L / 2 + top0 * L <= off - need / 2 + 1e-9 and off + need / 2 <= -L / 2 + top1 * L + 1e-9:
+                    H = float(f.get("height", FEATURE_DEFAULTS["tabletop"][1]))
+                    if H >= BRIDGE_CLEARANCE - 1e-9: c["bridge"] = fi; c["over"] = p; c["why"] = None; c["low"] = None; break
+                    if c["low"] is None: c["low"] = too_low("tabletop", f["distance"], H)
+                elif c["why"] is None:
+                    c["why"] = f"the tabletop at {f['distance']:.1f} m is too short to bridge it (flat top needs {need:.1f} m)"
+            if c["bridge"] is not None: break
+    return claimed
+
+def too_low(typ, distance, height):
+    return f"The {typ} at {distance:.1f} m is {height:.2f} m high; cars need {BRIDGE_CLEARANCE:.2f} m to pass under"
+
+def crossing_checks(cr, built_feats, design, total, checks):
+    """crossing-unbridged (or crossing-too-low), crossing-angle and crossing-too-close; returns built.crossings."""
+    W0 = design.get("laneWidth", 2.0); out = []; foot = []
+    for c in cr:
+        X = c["X"]; da, db = c["d"]
+        if c["bridge"] is None and c["low"] is not None:   # in place and long enough, but cars can't pass under
+            checks.append({"level": "error", "code": "crossing-too-low", "x": r3(X[0]), "z": r3(X[1]), "message": c["low"]})
+        elif c["bridge"] is None:
+            checks.append({"level": "error", "code": "crossing-unbridged", "x": r3(X[0]), "z": r3(X[1]),
+                           "message": f"Track crosses itself at {da:.1f} m and {db:.1f} m with no bridge" + (f": {c['why']}" if c["why"] else "")})
+        if c["angle"] < CROSSING_MIN_ANGLE:
+            checks.append({"level": "warning", "code": "crossing-angle", "x": r3(X[0]), "z": r3(X[1]),
+                           "message": f"Track crosses itself at {c['angle']:.0f}°, more than {90 - CROSSING_MIN_ANGLE:.0f}° off square"})
+        if c["bridge"] is not None:
+            bf = built_feats[c["bridge"]]
+            R = rect(bf["x"], bf["z"], bf["heading"], bf["length"], bf["width"])
+        else:   # where a default crossover on the first pass would stand
+            R = rect(X[0], X[1], heading_deg(c["t"][0]), 2 * CROSSOVER_RAMP + bridge_span(c, 0), c["w"][0])
+        foot.append(R)
+        out.append({"x": r3(X[0]), "z": r3(X[1]), "distances": [r3(da), r3(db)], "angle": r3(c["angle"]),
+                    "over": None if c["over"] is None else ("first", "second")[c["over"]],
+                    "bridge": None if c["bridge"] is None else {"type": design["features"][c["bridge"]]["type"], "feature": c["bridge"]},
+                    "footprint": None if c["bridge"] is None else [[r3(p[0]), r3(p[1])] for p in R]})
+    for a in range(len(cr)):
+        for b in range(a + 1, len(cr)):
+            if rects_overlap(foot[a], foot[b]):
+                X = (cr[a]["X"] + cr[b]["X"]) / 2
+                checks.append({"level": "error", "code": "crossing-too-close", "x": r3(X[0]), "z": r3(X[1]),
+                               "message": f"Crossings at {cr[a]['d'][0]:.1f} m and {cr[b]['d'][0]:.1f} m are too close for a bridge each"})
+    return out
+
 def bake(doc):
     design = doc["design"]; area = doc["area"]
     W0 = design.get("laneWidth", 2.0)
     line, corners = racing_line(design["points"], W0)
     xy = line[:, :2]; s, total = arclength(xy)
-    divs, merged, weight = dividers(line, corners, design["points"])
+    cr = find_crossings(line, s, total, design)
+    divs, merged, weight = dividers(line, corners, design["points"], crossing_zones(cr))
+    claimed = bridge_crossings(cr, design.get("features", []), total)
     checks = []
 
     # racing line export, ~EXPORT_STEP spacing
@@ -501,19 +675,32 @@ def bake(doc):
 
     # features
     feats = []
-    for f in design.get("features", []):
-        typ = f["type"]; L0, H0 = FEATURE_DEFAULTS[typ]
-        length = f.get("length", L0); height = f.get("height", H0)
-        p, t, i = at_distance(xy, s, total, f["distance"])
-        prof = [[r3(a / FEATURE_PROFILES[typ][-1][0] * length if FEATURE_PROFILES[typ][-1][0] else 0), r3(h * height)] for a, h in FEATURE_PROFILES[typ]]
+    for fi, f in enumerate(design.get("features", [])):
+        typ = f["type"]; L0, H0 = FEATURE_DEFAULTS[typ]; dist = f["distance"]
+        if typ == "crossover":   # sits on the crossing it bridges (the over pass's distance), sized for it
+            if fi in claimed:
+                c, over = claimed[fi]; dist = c["d"][over]; ramp, top, height = crossover_size(f, bridge_span(c, over))
+            else: ramp, top, height = crossover_size(f, W0 + 2 * BRIDGE_MARGIN)
+            length = 2 * ramp + top; prof = crossover_profile(ramp, top, height)
+        else:
+            length = f.get("length", L0); height = f.get("height", H0)
+            prof = [[r3(a / FEATURE_PROFILES[typ][-1][0] * length if FEATURE_PROFILES[typ][-1][0] else 0), r3(h * height)] for a, h in FEATURE_PROFILES[typ]]
+        p, t, i = at_distance(xy, s, total, dist)
         width = float(line[i, 2]) - 0.08
         feats.append({"type": typ, "x": r3(p[0]), "z": r3(p[1]), "heading": heading_deg(t), "length": r3(length),
                       "width": r3(width), "height": r3(height), "profile": prof})
         # check: jump on or landing into a corner
-        span = np.arange(int(np.searchsorted(s, (f["distance"] - length / 2) % total)), int(np.searchsorted(s, (f["distance"] + length / 2 + 1.0) % total)))
+        i0, i1 = int(np.searchsorted(s, (dist - length / 2) % total)), int(np.searchsorted(s, (dist + length / 2 + 1.0) % total))
+        if typ == "crossover" and i1 < i0: i1 += len(line)   # ramps across lap distance 0 (older types keep their 1.5 behaviour)
+        span = np.arange(i0, i1)
         if len(span) and np.max(np.abs(line[span % len(line), 3])) > 0:
             checks.append({"level": "warning", "code": "feature-in-corner", "x": r3(p[0]), "z": r3(p[1]),
-                           "message": f"{typ} at {f['distance']:.1f} m is on or lands into a corner"})
+                           "message": f"{typ} at {dist:.1f} m is on or lands into a corner"})
+        if typ == "crossover" and (fi not in claimed or claimed[fi][0]["bridge"] not in (None, fi)):
+            # away from any crossing, a second on one already claimed, or on one a tabletop bridges instead
+            checks.append({"level": "warning", "code": "crossover-unused", "x": r3(p[0]), "z": r3(p[1]),
+                           "message": f"crossover at {dist:.1f} m bridges no crossing"})
+    crossings = crossing_checks(cr, feats, design, total, checks)
 
     # start line
     sd = design.get("start", {}).get("distance", 0.0)
@@ -570,6 +757,7 @@ def bake(doc):
         "racingLine": racing,
         "dividers": divs,
         "features": feats,
+        **({"crossings": crossings} if crossings else {}),   # v1.6: only when the track crosses itself
         "startLine": start,
         "rostrum": rostrum,
         "checks": checks,

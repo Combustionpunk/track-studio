@@ -41,6 +41,15 @@ describe.each(allTracks)("bake $name", ({ path }) => {
     for (const d of diff.dividers) expect(d.maxDist).toBeLessThanOrEqual(2 * SIMPLIFY_TOL);
   });
 
+  it("crossings: same bridges, positions and footprints within 1 cm", () => {
+    expect(diff.crossings.count[0]).toBe(diff.crossings.count[1]);
+    expect(diff.crossings.maxPos).toBeLessThanOrEqual(TOL);
+    expect(diff.crossings.maxDistance).toBeLessThanOrEqual(TOL);
+    expect(diff.crossings.maxAngle).toBeLessThanOrEqual(0.1);
+    expect(diff.crossings.maxFootprint).toBeLessThanOrEqual(TOL);
+    expect(diff.crossings.sameBridges).toBe(true);
+  });
+
   it("same check codes", () => {
     expect(diff.checks[0]).toEqual(diff.checks[1]);
   });

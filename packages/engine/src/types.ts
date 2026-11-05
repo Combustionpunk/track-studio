@@ -1,10 +1,10 @@
-// Types for the rctrack (v1.1) and rcvenue (v1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
+// Types for the rctrack (v1.6) and rcvenue (v1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
 // Units: metres. Origin at the centre of the track area, +x east, +z north. Headings in degrees, 0 = +x, CCW.
 
 export type TrackStatus = "draft" | "submitted" | "approved" | "archived";
 export type Surface = "carpet" | "astro" | "clay" | "other";
 export type Side = "north" | "south" | "east" | "west";
-export type FeatureType = "tabletop" | "double" | "kicker" | "stepup" | "stepdown" | "whoops" | "bump";
+export type FeatureType = "tabletop" | "double" | "kicker" | "stepup" | "stepdown" | "whoops" | "bump" | "crossover";
 export type CheckLevel = "error" | "warning" | "info";
 export type CheckCode =
   | "outside-area"
@@ -12,7 +12,12 @@ export type CheckCode =
   | "narrow-lane"
   | "feature-in-corner"
   | "radius-reduced"
-  | "obstacle";
+  | "obstacle"
+  | "crossing-unbridged"
+  | "crossing-angle"
+  | "crossing-too-close"
+  | "crossing-too-low"
+  | "crossover-unused";
 
 /** [x, z] in metres */
 export type Point2 = [number, number];
@@ -96,8 +101,15 @@ export interface DesignFeature {
   type: FeatureType;
   /** centre of the feature, metres along the racing line from point 0 */
   distance: number;
+  /** not used by crossovers (their length is 2 × rampLength + topLength) */
   length?: number;
   height?: number;
+  /** crossover (v1.6): ramp up / down along the over pass (default 2 m) */
+  rampLength?: number;
+  /** crossover: flat top (default: the under pass's lane, crossed at the crossing's angle, plus 1 m each side) */
+  topLength?: number;
+  /** crossover: which pass goes over, in driving order from the start line (default "first") */
+  over?: "first" | "second";
 }
 
 export interface RostrumPlacement {
@@ -151,6 +163,22 @@ export interface BuiltRostrum {
   eyeHeight: number;
 }
 
+/** Where the racing line crosses itself (v1.6). */
+export interface Crossing {
+  x: number;
+  z: number;
+  /** lap distances (m from point 0) of the first and second pass, in driving order from the start line */
+  distances: [number, number];
+  /** degrees between the two passes, 0..90 (90 = square) */
+  angle: number;
+  /** the pass that goes over the bridge; null when unbridged */
+  over: "first" | "second" | null;
+  /** the feature that bridges it: index into design.features / built.features */
+  bridge: { type: "crossover" | "tabletop"; feature: number } | null;
+  /** the bridge's outline [[x, z] × 4], for drawing; null when unbridged */
+  footprint: Point2[] | null;
+}
+
 export interface Check {
   level: CheckLevel;
   code: CheckCode;
@@ -199,6 +227,8 @@ export interface Built {
   racingLine: RacingLinePoint[];
   dividers: Divider[];
   features: BuiltFeature[];
+  /** v1.6: present only when the track crosses itself */
+  crossings?: Crossing[];
   startLine: StartLine;
   rostrum: BuiltRostrum;
   checks: Check[];

@@ -136,6 +136,7 @@ export function transformBuilt(b: Built, fit: Pick<FitResult, "rotation" | "mirr
     dividers: b.dividers.map((d) => ({ ...d, points: d.points.map(([x, z]) => tp(x, z)) })),
     ...(b.lanes ? { lanes: { right: b.lanes.right.map(([x, z]) => tp(x, z)), left: b.lanes.left.map(([x, z]) => tp(x, z)) } } : {}),
     features: b.features.map((f) => ({ ...f, ...xz(tp(f.x, f.z)), heading: th(f.heading) })),
+    ...(b.crossings ? { crossings: b.crossings.map((c) => ({ ...c, ...xz(tp(c.x, c.z)), footprint: c.footprint && c.footprint.map(([x, z]) => tp(x, z)) })) } : {}),
     startLine: { ...b.startLine, ...xz(tp(b.startLine.x, b.startLine.z)), heading: th(b.startLine.heading) },
     checks: b.checks.map((c) => (c.x !== undefined && c.z !== undefined ? { ...c, ...xz(tp(c.x, c.z)) } : c)),
   };

@@ -21,6 +21,9 @@ export interface BuiltDiff {
   size: number;
   /** max distance between the lane rings (Infinity if either side has none) */
   lanes: number;
+  /** crossings (v1.6; none when the key is absent): counts, worst position / lap distance / angle / footprint corner
+   * differences (Infinity if the counts differ or one has a footprint and the other not), same over / bridge */
+  crossings: { count: [number, number]; maxPos: number; maxDistance: number; maxAngle: number; maxFootprint: number; sameBridges: boolean };
 }
 
 const dist = (a: Point2, b: Point2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -56,6 +59,23 @@ export function polylineDistance(a: Point2[], b: Point2[], closed = false): numb
 }
 
 const angleDiff = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+
+function compareCrossings(actual: Built, expected: Built): BuiltDiff["crossings"] {
+  const ca = actual.crossings ?? [], ce = expected.crossings ?? [];
+  const same = ca.length === ce.length;
+  const out = { count: [ca.length, ce.length] as [number, number], maxPos: same ? 0 : Infinity, maxDistance: same ? 0 : Infinity, maxAngle: same ? 0 : Infinity, maxFootprint: same ? 0 : Infinity, sameBridges: same };
+  if (!same) return out;
+  ca.forEach((c, i) => {
+    const e = ce[i];
+    out.maxPos = Math.max(out.maxPos, dist([c.x, c.z], [e.x, e.z]));
+    out.maxDistance = Math.max(out.maxDistance, ...c.distances.map((d, k) => Math.abs(d - e.distances[k])));
+    out.maxAngle = Math.max(out.maxAngle, Math.abs(c.angle - e.angle));
+    if (!c.footprint || !e.footprint) out.maxFootprint = Math.max(out.maxFootprint, c.footprint || e.footprint ? Infinity : 0);
+    else out.maxFootprint = Math.max(out.maxFootprint, ...c.footprint.map((p, k) => dist(p, e.footprint![k])));
+    out.sameBridges &&= c.over === e.over && JSON.stringify(c.bridge) === JSON.stringify(e.bridge);
+  });
+  return out;
+}
 
 export function compareBuilt(actual: Built, expected: Built): BuiltDiff {
   const ra = actual.racingLine, re = expected.racingLine;
@@ -125,6 +145,7 @@ export function compareBuilt(actual: Built, expected: Built): BuiltDiff {
             ...actual.size.bbox.map((v, i) => Math.abs(v - expected.size!.bbox[i])),
           )
         : Infinity,
+    crossings: compareCrossings(actual, expected),
     footprint: {
       bboxMax: Math.max(...fa.bbox.map((v, i) => Math.abs(v - fe.bbox[i]))),
       shape: [fa.rows, fa.cols, fe.rows, fe.cols],
