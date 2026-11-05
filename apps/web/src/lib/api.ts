@@ -28,6 +28,8 @@ export interface TrackSummary {
   /** error-level checks on the latest revision */
   errors: number;
   derivedFrom: { id: string; name: string | null; author: string | null } | null;
+  /** why the track can't be changed (in the library, used by an event); changes are made on a copy */
+  locked: "library" | "event" | null;
   latestPreviewUrl: string;
   lapLength: number;
   corners: number;

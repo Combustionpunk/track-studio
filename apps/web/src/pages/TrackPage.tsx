@@ -1,5 +1,5 @@
 import type { Point2, RcTrack } from "@track-studio/engine";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Lock } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CopyButton, StatusBadge } from "../components/bits.js";
@@ -95,8 +95,10 @@ export function TrackPage() {
     setParams(next, { replace: true });
     setHighlight(null);
   };
-  // one primary action per view: Approve, else Submit, else Edit
-  const primary = can.approve ? "approve" : can.submit ? "submit" : can.edit ? "edit" : undefined;
+  // a locked layout is changed on a copy (#64): Copy and edit stands where Edit was
+  const copyAndEdit = !!track.locked && can.copy;
+  // one primary action per view: Approve, else Submit, else Edit (or Copy and edit)
+  const primary = can.approve ? "approve" : can.submit ? "submit" : can.edit ? "edit" : copyAndEdit ? "copy" : undefined;
   const btn = (key: string, extra = "") => `ts-btn${primary === key ? " ts-btn--primary" : ""}${extra}`;
   const why = blockedByErrors && (can.submit || can.approve) ? "actions-why" : undefined;
   const jumps = b?.features.map((f) => fmt.FEATURE_LABEL[f.type] ?? f.type) ?? [];
@@ -116,10 +118,16 @@ export function TrackPage() {
           </p>
           {doc?.info.derivedFrom && (
             <p className="ts-meta">
-              {doc.info.derivedFrom.orientation ? "Adapted from " : "Copy of "}
+              {doc.info.derivedFrom.orientation ? "Adapted from " : "Based on "}
               <Link to={`/t/${doc.info.derivedFrom.id}`}>{track.derivedFrom?.name ?? "another layout"}</Link>
               {track.derivedFrom?.author && <> by {track.derivedFrom.author}</>} (revision {doc.info.derivedFrom.revision}
               {doc.info.derivedFrom.orientation && <>, {doc.info.derivedFrom.orientation}</>})
+            </p>
+          )}
+          {track.locked && (
+            <p className="ts-meta ts-locked">
+              <Lock size={14} aria-hidden />
+              {track.locked === "event" ? "Locked: used by an event" : "Locked: in the library"}
             </p>
           )}
         </div>
@@ -130,7 +138,12 @@ export function TrackPage() {
                 {track.newerRevision ? `Edit revision ${track.revision}` : "Edit"}
               </Link>
             )}
-            {!can.edit && can.copy && (
+            {copyAndEdit && (
+              <button type="button" className={btn("copy")} onClick={copy} disabled={!!busy} title="This layout can't be changed; edit your own copy, credited to the original">
+                {busy === "copy" ? "Copying…" : "Copy and edit"}
+              </button>
+            )}
+            {!can.edit && !copyAndEdit && can.copy && (
               <button type="button" className="ts-btn" onClick={copy} disabled={!!busy} title="Start your own version of this layout, credited to the original">
                 {busy === "copy" ? "Copying…" : "Make my own copy"}
               </button>

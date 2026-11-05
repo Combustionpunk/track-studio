@@ -170,6 +170,11 @@ export function EditTrackPage() {
         <h1>{track.name}</h1>
         {track.status === "archived" ? (
           <p>This track is archived and can't be changed.</p>
+        ) : track.locked ? (
+          <p>
+            This layout is {track.locked === "event" ? "used by an event" : "in the library"}, so it can't be changed. Copy it and edit the copy — it stays credited to the
+            original.
+          </p>
         ) : (
           <p>Only {track.author.username !== null ? `${track.author.username} (the author)` : "the author"} and organisers can change this track. You can make your own copy to work on — it stays credited to the original.</p>
         )}
@@ -177,7 +182,7 @@ export function EditTrackPage() {
         <p className="row">
           {me ? (
             <button type="button" className="btn btn-primary" onClick={copy} disabled={copying}>
-              {copying ? "Copying…" : "Make my own copy"}
+              {copying ? "Copying…" : track.locked ? "Copy and edit" : "Make my own copy"}
             </button>
           ) : (
             <a className="btn btn-primary" href={loginUrl()}>
