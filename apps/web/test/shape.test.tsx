@@ -354,6 +354,15 @@ describe("undo and going back to step 1", () => {
       expect(followTravel(sel, seen(moved), seen(twice))).toBeNull();
     });
 
+    it("two undos before a render that take a corner away and add one back still let it go", () => {
+      // insert after corner 3, then delete corner 1: back to the same count, the selected index now another corner
+      const deleted = set(inserted, { ...inserted.present, design: { ...inserted.present.design, points: deleteCorner(inserted.present.design.points, 0)! } }, "delete:0");
+      const twice = historyReducer(historyReducer(deleted, { type: "undo" }), { type: "undo" });
+      expect(twice.present.design.points).toHaveLength(deleted.present.design.points.length);
+      expect(followTravel({ kind: "point" as const, i: 3 }, seen(deleted), seen(twice))).toBeNull();
+      expect(followTravel({ kind: "start" as const }, seen(deleted), seen(twice))).toEqual({ kind: "start" });
+    });
+
     it("undo that keeps the corner count keeps the selection; other selections stay", () => {
       const moved = set(inserted, { ...inserted.present, design: { ...inserted.present.design, points: setApex(inserted.present.design.points, 4, 1.8, 2) } }, "apex:4");
       const undone = historyReducer(moved, { type: "undo" });

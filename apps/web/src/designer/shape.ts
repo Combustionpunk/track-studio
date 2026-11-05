@@ -107,9 +107,15 @@ export interface Seen {
   points: DesignPoint[];
 }
 
-/** Undo / redo since `seen` (one or several before a render) that added or took away corners lets a selected corner go. */
-export const followTravel = <S extends { kind: string; i?: number } | null>(sel: S, seen: Seen, now: Seen): S | null =>
-  now.travels === seen.travels ? sel : keepSelection(sel, seen.points, now.points);
+/**
+ * Undo / redo since `seen` that added or took away corners lets a selected corner go. Several steps before a render
+ * could take one away and add another back, so then any change of corners lets it go.
+ */
+export function followTravel<S extends { kind: string; i?: number } | null>(sel: S, seen: Seen, now: Seen): S | null {
+  if (now.travels === seen.travels) return sel;
+  if (now.travels - seen.travels > 1) return sel?.kind === "point" && now.points !== seen.points ? null : sel;
+  return keepSelection(sel, seen.points, now.points);
+}
 
 // ---------------------------------------------------------------------------------------------- moving
 /** The lane lines: through the centres of step 1's lane-width squares, from the area's south-west corner. */
