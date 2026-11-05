@@ -19,6 +19,11 @@ async function setup() {
   return { app, alice, bob, org };
 }
 
+async function setupWithDb() {
+  const { app } = await makeApp({ seeded: true });
+  return { app, db: app.db, alice: await login(app, ALICE), org: await login(app, ORGANISER) };
+}
+
 const req = (app: FastifyInstance, method: "GET" | "POST" | "PUT", url: string, cookie?: string, payload?: unknown) =>
   app.inject({ method, url, headers: cookie ? { cookie } : {}, ...(payload !== undefined ? { payload: payload as object } : {}) });
 
@@ -160,23 +165,79 @@ describe("saving tracks", () => {
     expect((dl.json() as RcTrack).revision).toBe(2);
   });
 
-  it("status workflow; approval pins a revision", async () => {
+  it("status workflow: draft and submitted save as before; approval locks", async () => {
     const { app, alice, org } = await setup();
     const { track } = await createAs(app, alice);
-    expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).json().track).toMatchObject({ status: "approved", approvedRevision: 1 });
-    // a change goes back to draft but the approved revision stays pinned
-    const upd = (await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform() })).json();
-    expect(upd.track).toMatchObject({ status: "draft", revision: 2, approvedRevision: 1 });
-    expect((await req(app, "GET", `/api/tracks/${track.id}/r/1.rctrack.json`)).json().info.status).toBe("approved");
+    expect((await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform() })).json().track).toMatchObject({ status: "draft", revision: 2, locked: null });
     expect((await req(app, "POST", `/api/tracks/${track.id}/submit`, alice)).json().track.status).toBe("submitted");
     expect((await req(app, "POST", `/api/tracks/${track.id}/submit`, alice)).statusCode).toBe(409);
-    expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).json().track).toMatchObject({ status: "approved", approvedRevision: 2 });
+    // a submitted layout still saves; the save takes it back to draft
+    expect((await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform() })).json().track).toMatchObject({ status: "draft", revision: 3 });
+    expect((await req(app, "POST", `/api/tracks/${track.id}/submit`, alice)).json().track.status).toBe("submitted");
+    expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).json().track).toMatchObject({ status: "approved", revision: 3, approvedRevision: 3, locked: "library" });
+    expect((await req(app, "GET", `/api/tracks/${track.id}/r/3.rctrack.json`)).json().info.status).toBe("approved");
     expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).statusCode).toBe(409);
-    expect((await req(app, "POST", `/api/tracks/${track.id}/archive`, org)).json().track.status).toBe("archived");
+    expect((await req(app, "POST", `/api/tracks/${track.id}/archive`, org)).json().track).toMatchObject({ status: "archived", locked: null });
     expect((await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform() })).statusCode).toBe(409);
-    // archived tracks drop out of the default list
+    // archived tracks drop out of the default list but still open
     const list = (await req(app, "GET", "/api/tracks")).json().tracks as { id: string }[];
     expect(list.some((t) => t.id === track.id)).toBe(false);
+    expect((await req(app, "GET", `/api/tracks/${track.id}`)).statusCode).toBe(200);
+  });
+
+  it("saving an approved layout -> 409 layout-locked, no revision added (#64)", async () => {
+    const { app, alice, org } = await setup();
+    const { track } = await createAs(app, alice);
+    expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).statusCode).toBe(200);
+    const got = (await req(app, "GET", `/api/tracks/${track.id}`, alice)).json();
+    expect(got.track.locked).toBe("library");
+    expect(got.can).toMatchObject({ edit: false, copy: true, archive: false });
+    expect((await req(app, "GET", `/api/tracks/${track.id}`, org)).json().can).toMatchObject({ edit: false, approve: false, archive: true });
+    for (const cookie of [alice, org]) {
+      const res = await req(app, "PUT", `/api/tracks/${track.id}`, cookie, { track: freeform(), baseRevision: 1 });
+      expect(res.statusCode, res.body).toBe(409);
+      expect(res.json().error).toBe("layout-locked");
+      expect(res.json().message).toMatch(/copy/i);
+      expect(res.json().details).toEqual({ copy: `/api/tracks/${track.id}/copy` });
+    }
+    const revs = (await req(app, "GET", `/api/tracks/${track.id}/revisions`)).json().revisions as unknown[];
+    expect(revs).toHaveLength(1);
+    expect((await req(app, "GET", `/api/tracks/${track.id}`)).json().track).toMatchObject({ status: "approved", revision: 1, approvedRevision: 1 });
+    // archiving is still allowed
+    expect((await req(app, "POST", `/api/tracks/${track.id}/archive`, org)).json().track.status).toBe("archived");
+  });
+
+  it("copy of a locked layout: a draft for the caller with derivedFrom; the original is unchanged (#64)", async () => {
+    const { app, alice, bob, org } = await setup();
+    const { track } = await createAs(app, alice);
+    await req(app, "POST", `/api/tracks/${track.id}/approve`, org);
+    const before = (await req(app, "GET", `/api/tracks/${track.id}`)).json();
+    for (const [cookie, who] of [[alice, "alice"], [bob, "bob"]] as const) {
+      const res = await req(app, "POST", `/api/tracks/${track.id}/copy`, cookie);
+      expect(res.statusCode, res.body).toBe(201);
+      const copy = res.json();
+      expect(copy.track).toMatchObject({ status: "draft", revision: 1, locked: null, author: { username: who }, derivedFrom: { id: track.id, author: "alice" } });
+      expect(copy.track.id).not.toBe(track.id);
+      expect(copy.doc.info).toMatchObject({ name: `${before.doc.info.name} (copy)`, author: who, status: "draft", derivedFrom: { id: track.id, revision: 1, author: "alice" } });
+      expect(copy.can.edit).toBe(true);
+      // the copy saves
+      expect((await req(app, "PUT", `/api/tracks/${copy.track.id}`, cookie, { track: copy.doc })).json().track).toMatchObject({ revision: 2, derivedFrom: { id: track.id } });
+    }
+    const after = (await req(app, "GET", `/api/tracks/${track.id}`)).json();
+    expect(after.track).toEqual(before.track);
+    expect(after.doc).toEqual(before.doc);
+  });
+
+  it("an approval pinned before #64 with a newer draft keeps both revisions", async () => {
+    const { app, alice, org, db } = await setupWithDb();
+    const { track } = await createAs(app, alice);
+    await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform() });
+    // the old flow: revision 1 approved, revision 2 a draft on top
+    db.prepare("UPDATE tracks SET approved_revision = 1 WHERE id = ?").run(track.id);
+    const got = (await req(app, "GET", `/api/tracks/${track.id}`, alice)).json();
+    expect(got.track).toMatchObject({ status: "draft", revision: 2, approvedRevision: 1, publicRevision: 1, locked: null });
+    expect(got.can.edit).toBe(true);
+    expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).json().track).toMatchObject({ approvedRevision: 2, locked: "library" });
   });
 
   it("starting from a venue template copies area, obstacles, rostrum, basedOn", async () => {

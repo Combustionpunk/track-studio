@@ -190,9 +190,10 @@ export function updateVenue(db: DB, user: User, id: string, body: unknown) {
 }
 
 // ------------------------------------------------------------------ tracks
-// A track has a latest revision (current_revision) and, once approved, a pinned approved revision. What the public
+// A track has a latest revision (current_revision) and, once approved, an approved revision. What the public
 // sees — library, links, embeds, fit searches, meetings — is the approved revision if there is one, else the latest.
-// Editing an approved track adds a newer draft; the approved revision stays public until the new one is approved.
+// An approved track is locked (#64): it can't be saved again, so its approved revision is its latest; changes are
+// made on a copy. Tracks approved before the lock may still have a newer draft on top of the approved revision.
 export interface TrackRow {
   id: string;
   name: string;
@@ -238,6 +239,11 @@ const TRACK_SELECT = `SELECT t.*, u.username AS author_username, v.name AS venue
   LEFT JOIN tracks d ON d.id = t.derived_from_id
   LEFT JOIN users du ON du.forum_id = d.author_forum_id`;
 
+/** Why a track can't be changed: it's in the library ("library"), later also "event" when an event uses it. */
+export type LockReason = "library" | "event";
+
+export const lockReason = (row: Pick<TrackRow, "status">): LockReason | null => (row.status === "approved" ? "library" : null);
+
 /** The revision the public sees. */
 export const publicRevision = (row: Pick<TrackRow, "approved_revision" | "current_revision">) => row.approved_revision ?? row.current_revision;
 
@@ -258,6 +264,8 @@ export function trackSummary(r: TrackRow) {
     publicRevision: r.d_revision,
     /** an approved track with a newer draft/submitted revision in progress */
     newerRevision: r.approved_revision !== null && r.current_revision > r.approved_revision ? { revision: r.current_revision, status: r.status } : null,
+    /** why the track can't be changed (copy it instead), or null when it can */
+    locked: lockReason(r),
     /** error-level checks on the latest revision (submitting is blocked while > 0) */
     errors: r.l_errors,
     lapLength: r.d_lap,
@@ -535,7 +543,7 @@ export function permissions(user: User | null, row: TrackRow) {
   const live = row.status !== "archived";
   const latestApproved = row.approved_revision === row.current_revision;
   return {
-    edit: !!user && live && canEdit(user, row),
+    edit: !!user && live && !lockReason(row) && canEdit(user, row),
     /** allowed to submit (the button may still be blocked by `errors`) */
     submit: !!user && live && user.id === row.author_forum_id && row.status === "draft",
     approve: !!user && live && user.organiser && !latestApproved,
@@ -545,14 +553,14 @@ export function permissions(user: User | null, row: TrackRow) {
   };
 }
 
-/**
- * New revision. Author, provenance and creation date are kept; the new revision is a draft. If the track was
- * approved, the approved revision stays pinned (and public) until a newer one is approved.
- */
+/** New revision. Author, provenance and creation date are kept; the new revision is a draft. Locked tracks are refused. */
 export function updateTrack(db: DB, user: User, id: string, body: unknown) {
   const row = getTrackRow(db, id);
   if (!canEdit(user, row)) throw forbidden("Only the author or an organiser can change this track");
   if (row.status === "archived") throw conflict("archived", "Archived tracks can't be changed");
+  if (lockReason(row)) {
+    throw new HttpError(409, "layout-locked", "This layout is in the library, so it can't be changed. Copy it and edit the copy.", { copy: `/api/tracks/${row.id}/copy` });
+  }
   const { src, note, baseRevision } = trackBody(body);
   if (baseRevision !== undefined && baseRevision !== row.current_revision) {
     throw conflict("stale", `Revision ${row.current_revision} was saved since you started editing revision ${baseRevision}. Reload to see it.`);
