@@ -50,6 +50,10 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
   // ---------------------------------------------------------------- tracks
   app.get("/api/tracks", async (req) => {
     const q = req.query as Record<string, string | undefined>;
+    // author=me is the only author filter: lists aren't searchable by other members' ids (a repeated param is an array)
+    const author: unknown = q.author;
+    if (author !== undefined && author !== "" && author !== "me") throw badRequest("bad-request", "author must be me");
+    const authorId = author === "me" ? requireUser(req).id : undefined;
     if (q.status && !STATUSES.includes(q.status)) throw badRequest("bad-request", `status must be one of ${STATUSES.join(", ")}`);
     const filter: ListQuery = {
       status: q.status,
@@ -59,6 +63,7 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
       minCorners: num(q.minCorners, "minCorners"),
       maxCorners: num(q.maxCorners, "maxCorners"),
       q: q.q || undefined,
+      authorId,
     };
     if (q.fits) {
       const { status: _ignored, ...rest } = filter;
