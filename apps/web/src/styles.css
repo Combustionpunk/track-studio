@@ -693,3 +693,43 @@ select.ts-input { padding: 0 var(--space-2); }
 .sizes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 10px; }
 .sizes .palette-btn { justify-content: space-between; }
 .size-m { font-weight: 400; color: var(--muted); font-size: 13px; }
+
+/* designer on a tablet, Quick mode (#16; mockup docs/design/mockups/DesignerTablet.dc.html): the plan fills the screen,
+   with a dock of 44 px+ controls along the bottom and the panels as a sheet over it. Portrait wraps the dock. */
+/* the designer fills what the site header leaves (its height changes with the width) */
+#root:has(.designer-touch) { display: flex; flex-direction: column; height: 100dvh; }
+#main:has(.designer-touch) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.designer.designer-touch { flex: 1 1 auto; height: auto; min-height: 0; }
+.designer-touch .designer-bar { gap: 8px 12px; padding: 6px 12px; }
+.designer-touch .designer-bar .back, .designer-touch .designer-bar .btn { min-height: var(--touch-target); }
+.designer-touch .designer-bar .back { width: var(--touch-target); height: var(--touch-target); }
+.designer-touch .mode-toggle button { height: 40px; padding: 0 16px; }
+.designer-touch .name-input { height: var(--touch-target); width: 240px; }
+.designer-touch .designer-grid { display: flex; }
+.designer-touch .designer-plan-wrap { flex: 1 1 auto; display: flex; flex-direction: column; }
+.designer-touch .designer-plan { flex: 1 1 auto; height: auto; min-height: 0; -webkit-touch-callout: none; }
+.designer-touch .designer-hint { font-size: 14px; padding: 8px 12px; max-width: calc(100% - 220px); }
+.designer-touch .plan-scale { bottom: auto; top: 56px; }
+.designer-dock { margin: 8px 16px 16px; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border-radius: var(--radius-lg); background: var(--bg-raised); border: 1px solid var(--line); box-shadow: var(--shadow-float); }
+.dock-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; min-width: 48px; padding: 0 14px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: transparent; color: var(--text); font: 600 14px var(--font-body); cursor: pointer; touch-action: manipulation; }
+.dock-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.dock-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.dock-icon { width: 48px; padding: 0; }
+.dock-sep { width: 1px; height: 32px; background: var(--line); }
+.dock-fit { margin-left: auto; }
+.checks-pill { position: absolute; top: 16px; right: 16px; z-index: 4; display: flex; align-items: center; gap: 8px; height: var(--touch-target); padding: 0 14px; border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--header-bg); color: var(--text); font: 600 14px var(--font-body); cursor: pointer; }
+.checks-pill-ok { border-color: var(--positive); background: var(--positive-soft); color: var(--positive); }
+.checks-pill-warning { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.checks-pill-error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger-text); }
+.designer-sheet { position: absolute; top: 72px; right: 16px; z-index: 5; width: min(320px, calc(100% - 32px)); max-height: calc(100% - 172px); overflow-y: auto; padding: 16px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-float); }
+.designer-sheet .sheet-close { position: absolute; top: 6px; right: 6px; width: var(--touch-target); height: var(--touch-target); }
+.designer-sheet h2 { padding-right: 40px; }
+.designer-sheet .palette-btn, .designer-sheet .btn, .designer-sheet input { min-height: var(--touch-target); }
+.ed-press { fill: none; stroke: var(--plan-line); stroke-width: 4; stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: press-fill linear forwards; pointer-events: none; }
+.ed-press.done { stroke-dashoffset: 0; animation: none; }
+@keyframes press-fill { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .ed-press { animation: none; stroke-dashoffset: 50; } .ed-press.done { stroke-dashoffset: 0; } }
+@media (max-width: 900px) {
+  .designer.designer-touch { height: auto; }
+  .designer-touch .designer-plan { height: auto; }
+}

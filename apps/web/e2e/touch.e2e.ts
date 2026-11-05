@@ -24,6 +24,7 @@ async function open(page: Page) {
 class Touch {
   private pts: { x: number; y: number; id: number }[] = [];
   private next = 0;
+  private moved = false;
   constructor(private cdp: CDPSession) {}
   static async on(page: Page) {
     return new Touch(await page.context().newCDPSession(page));
@@ -36,6 +37,7 @@ class Touch {
   }
   /** move every finger to these spots, in `steps` steps */
   async move(to: XY[], steps = 6) {
+    this.moved = true;
     const from = this.pts.map((p) => [p.x, p.y]);
     for (let k = 1; k <= steps; k++) {
       this.pts.forEach((p, i) => {
@@ -45,7 +47,16 @@ class Touch {
       await this.cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: this.pts.map((p) => ({ ...p })) });
     }
   }
+  /**
+   * Lift every finger. After a drag the fingers rest a moment first, as a hand does: lifted mid-movement, Chromium's
+   * emulation takes it as a fling and swallows the next tap (to stop the fling), whatever it lands on.
+   */
   async up() {
+    if (this.moved) {
+      await new Promise((r) => setTimeout(r, 120));
+      await this.cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: this.pts.map((p) => ({ ...p })) });
+    }
+    this.moved = false;
     await this.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     this.pts = [];
   }
@@ -83,7 +94,6 @@ async function cell(page: Page, c: number, r: number): Promise<XY> {
   return screen(page, x, -svgY);
 }
 
-const cells = (page: Page) => page.locator("rect.lay-cell").count();
 const viewBox = (page: Page) => page.locator("svg.plan-svg").getAttribute("viewBox");
 /** corner points in plan coordinates, from their dots */
 const corners = (page: Page) =>
@@ -134,15 +144,15 @@ test.describe("tablet touch", () => {
     await open(page);
     const t = await Touch.on(page);
     await t.drag([await cell(page, 0, 0), await cell(page, 4, 0)]);
-    expect(await cells(page)).toBe(5);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(5);
     await t.drag([await cell(page, 4, 0), await cell(page, 4, 2), await cell(page, 4, 1)]);
-    expect(await cells(page)).toBe(6); // two up, one back
+    await expect(page.locator("rect.lay-cell")).toHaveCount(6); // two up, one back
     await t.drag([await cell(page, 4, 1), await cell(page, 4, 0), await cell(page, 2, 0)]);
-    expect(await cells(page)).toBe(3);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(3);
     await page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: "Undo" }).tap();
-    expect(await cells(page)).toBe(4);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(4);
     await page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: "Start again" }).tap();
-    expect(await cells(page)).toBe(0);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(0);
     await layLoop(page, t);
   });
 
@@ -153,19 +163,19 @@ test.describe("tablet touch", () => {
     await t.down(await cell(page, 3, 2), await cell(page, 6, 3));
     await t.move([await cell(page, 2, 1), await cell(page, 8, 4)]);
     await t.up();
-    expect(await cells(page)).toBe(0);
-    expect(await viewBox(page)).not.toBe(before);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(0);
+    await expect.poll(() => viewBox(page)).not.toBe(before);
     // a pan: both fingers the same way
     const zoomed = await viewBox(page);
     const [a, b] = [await cell(page, 4, 2), await cell(page, 6, 2)];
     await t.down(a, b);
     await t.move([[a[0] + 60, a[1] + 30], [b[0] + 60, b[1] + 30]]);
     await t.up();
-    expect(await cells(page)).toBe(0);
-    expect(await viewBox(page)).not.toBe(zoomed);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(0);
+    await expect.poll(() => viewBox(page)).not.toBe(zoomed);
     // zoom to fit puts it back
     await page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: "Zoom to fit" }).tap();
-    expect(await viewBox(page)).toBe(before);
+    await expect.poll(() => viewBox(page)).toBe(before);
   });
 
   test("step 1: a second finger landing mid-paint takes the painting back", async ({ page }) => {
@@ -173,11 +183,11 @@ test.describe("tablet touch", () => {
     const t = await Touch.on(page);
     await t.down(await cell(page, 0, 0));
     await t.move([await cell(page, 3, 0)]);
-    expect(await cells(page)).toBe(4);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(4);
     await t.down(await cell(page, 5, 4));
     await t.move([await cell(page, 4, 0), await cell(page, 7, 5)]);
     await t.up();
-    expect(await cells(page)).toBe(0);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(0);
   });
 
   test("step 2: drag a corner, drag an apex handle, Undo and Redo", async ({ page }) => {
@@ -277,7 +287,7 @@ test.describe("tablet touch", () => {
     await t.move([[c1[0] - 60, c1[1] + 60], [b[0] + 60, b[1] - 60]]);
     await t.up();
     expect(await corners(page)).toEqual(before);
-    expect(await viewBox(page)).not.toBe(vb);
+    await expect.poll(() => viewBox(page)).not.toBe(vb);
     await expect(page.locator("g.ed-corner")).toHaveCount(4);
   });
 
@@ -286,7 +296,7 @@ test.describe("tablet touch", () => {
     const t = await Touch.on(page);
     await layLoop(page, t);
     await page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: /Tabletop/ }).tap();
-    await t.tap(await screen(page, 0, -5));
+    await t.tap(await screen(page, -5, -5)); // on the south straight, clear of the start line in its middle
     await expect(page.locator("polygon.ed-feature")).toHaveCount(1);
     for (const sel of ["g.ed-corner .ed-hit", "circle.ed-hit-apex", ".ed-hit-feature"]) {
       const b = (await page.locator(sel).first().boundingBox())!;

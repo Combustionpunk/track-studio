@@ -17,7 +17,9 @@ type Action<T> =
   | { type: "set"; next: T; group?: string; now: number }
   | { type: "undo" }
   | { type: "redo" }
-  | { type: "reset"; doc: T };
+  | { type: "reset"; doc: T }
+  /** back to an earlier state as a whole (a touch edit cancelled by a second finger) */
+  | { type: "restore"; state: HistoryState<T> };
 
 export function historyReducer<T>(s: HistoryState<T>, a: Action<T>): HistoryState<T> {
   switch (a.type) {
@@ -35,6 +37,8 @@ export function historyReducer<T>(s: HistoryState<T>, a: Action<T>): HistoryStat
       return { past: [...s.past, s.present], present: s.future[0], future: s.future.slice(1), group: null, at: 0 };
     case "reset":
       return { past: [], present: a.doc, future: [], group: null, at: 0 };
+    case "restore":
+      return a.state;
   }
 }
 
@@ -44,5 +48,6 @@ export function useHistory<T>(initial: T) {
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
   const reset = useCallback((doc: T) => dispatch({ type: "reset", doc }), []);
-  return { present: state.present, set, undo, redo, reset, canUndo: state.past.length > 0, canRedo: state.future.length > 0, prev: state.past[state.past.length - 1], next: state.future[0] };
+  const restore = useCallback((s: HistoryState<T>) => dispatch({ type: "restore", state: s }), []);
+  return { state, present: state.present, set, undo, redo, reset, restore, canUndo: state.past.length > 0, canRedo: state.future.length > 0, prev: state.past[state.past.length - 1], next: state.future[0] };
 }

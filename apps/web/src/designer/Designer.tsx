@@ -1,7 +1,8 @@
 // The track designer: drag corner points, click a straight to add one, wheel for radius / Ctrl+wheel for lane width,
 // place and slide jumps and the start line, live checks, undo/redo, save as a new revision, local auto-save.
 // Quick mode (the default) lays the lanes (step 1, lanes.ts), then shapes the corners by apex radius (step 2, shape.ts);
-// Advanced shows every per-corner control. See mode.ts.
+// Advanced shows every per-corner control. See mode.ts. On a tablet, Quick mode has its own layout (#16): the plan
+// with a dock of 44 px+ controls, pinch and pan with two fingers, long-press a corner for its panel.
 import {
   ALL_PLAN_LAYERS,
   FEATURE_DEFAULTS,
@@ -22,7 +23,7 @@ import {
   type RostrumPlacement,
   type Side,
 } from "@track-studio/engine";
-import { ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, TriangleAlert, Undo2 } from "lucide-react";
+import { ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { CopyButton, Message, StatusBadge } from "../components/bits.js";
@@ -30,10 +31,11 @@ import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useMediaQuery, useStored } from "../lib/hooks.js";
+import { LONG_PRESS_MS, slopFor } from "../lib/touch.js";
 import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
 import { insertionFor, liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
-import { useHistory } from "./history.js";
+import { useHistory, type HistoryState } from "./history.js";
 import { JumpPalette } from "./JumpPalette.js";
 import {
   addJump,
@@ -69,10 +71,11 @@ export const WIDTH_RANGE: [number, number] = [0.8, 5];
 const HANDLE_PX = 5; // centre (racing-line) point handle radius on screen
 const MITRE_PX = 6; // outside-corner handle half-size on screen
 const GRAB_PX = 14; // a press on the track this close to a corner point grabs the point (instead of adding one)
-const DRAG_START_PX = 3; // movement before a press on a straight becomes a drag
 const CORNER_PX = 10; // Quick step 2: numbered corner handle radius on screen
 const APEX_PX = 6; // Quick step 2: apex handle radius on screen
 const TOUCH_PX = 22; // touch screens: handles take a press this far out (44 px across)
+const CORNER_TOUCH_PX = 13; // touch screens: the numbered corner handle, drawn bigger
+const APEX_TOUCH_PX = 8; // touch screens: the apex handle, drawn bigger
 /** how long "1 · Lay the lanes" waits for the second tap that confirms it */
 const CONFIRM_MS = 4000;
 /** narrower than this, the designer shows a view-only plan */
@@ -225,6 +228,18 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [laneSnap, setLaneSnap] = useState(true);
   const laneSnapRef = useRef(laneSnap);
   laneSnapRef.current = laneSnap;
+  /** tablets, in Quick mode: the plan with a dock, and the panels as a sheet over it */
+  const tablet = touch && view === "quick";
+  /** tablet: the sheet over the plan shows the selected corner's panel (opened by a long-press) or the checks */
+  const [sheet, setSheet] = useState<"selection" | "checks" | null>(null);
+  /** a finger held on a corner: the ring fills over LONG_PRESS_MS, then it's selected (`done`) */
+  const [press, setPress] = useState<{ i: number; done: boolean } | null>(null);
+  /** bumped by the dock's zoom-to-fit */
+  const [fitRequest, setFitRequest] = useState(0);
+  /** the one-finger edit going on (a drag, painting), so a second finger can take it back */
+  const edit = useRef<{ cancel: () => void } | null>(null);
+  /** what to put back if a second finger cancels the edit this press starts */
+  const before = () => ({ hist: histRef.current.state as HistoryState<Draft>, sel: selRef.current });
   /** "1 · Lay the lanes" was tapped once: the next tap goes back */
   const [backArmed, setBackArmed] = useState(false);
   useEffect(() => {
@@ -400,16 +415,32 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     | { kind: "apex"; i: number; dd: number }
     | { kind: "feature"; i: number; ds: number }
     | { kind: "start"; ds: number };
-  const startDrag = (e: React.PointerEvent, svg: SVGSVGElement, d: DragKind, opts: { threshold?: boolean; onClick?: () => void; group?: string } = {}) => {
+  const startDrag = (
+    e: React.PointerEvent,
+    svg: SVGSVGElement,
+    d: DragKind,
+    opts: { threshold?: boolean; onClick?: () => void; group?: string; was?: ReturnType<typeof before>; onLongPress?: () => void } = {},
+  ) => {
     e.stopPropagation();
     // an undo group of its own, or the one of what the press did first (an added corner), so both are one undo step
     const group = opts.group ?? `drag:${d.kind}:${Date.now()}`;
     const x0 = e.clientX, y0 = e.clientY;
+    const was = opts.was ?? before();
+    const id = e.pointerId;
     let started = !opts.threshold;
+    // touch: holding still for LONG_PRESS_MS is a long-press, not a tap
+    let longPressed = false;
+    const timer = opts.onLongPress && e.pointerType !== "mouse" && !started ? setTimeout(() => {
+      longPressed = true;
+      opts.onLongPress!();
+    }, LONG_PRESS_MS) : undefined;
     const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== id) return;
       if (!started) {
-        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < DRAG_START_PX) return;
+        if (longPressed || Math.hypot(ev.clientX - x0, ev.clientY - y0) < slopFor(e.pointerType)) return;
         started = true;
+        clearTimeout(timer);
+        setPress(null);
       }
       const p = planPoint(svg, ev.clientX, ev.clientY);
       const cur = draftRef.current;
@@ -471,7 +502,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const origin = draftRef.current.design.points;
     const pinned = (d.kind === "point" && viewRef.current === "advanced") || d.kind === "mitre" ? pinnedCorners(origin, draftRef.current.area, draftRef.current.design.laneWidth ?? 2, d.i) : new Map<number, Point2>();
     if (d.kind === "point" || d.kind === "mitre" || d.kind === "apex") setDragging(d.i);
-    const up = () => {
+    const end = () => {
+      clearTimeout(timer);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
@@ -479,7 +511,20 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setShared(null);
       setSnapInfo(null);
       setDragging(null);
-      if (!started) opts.onClick?.();
+      setPress(null);
+      edit.current = null;
+    };
+    const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== id) return;
+      end();
+      if (!started && !longPressed) opts.onClick?.();
+    };
+    edit.current = {
+      cancel: () => {
+        end();
+        histRef.current.restore(was.hist);
+        setSel(was.sel);
+      },
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -488,19 +533,32 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   const onPointDown = (e: React.PointerEvent<SVGElement>, i: number) => {
     if (e.button !== 0) return;
+    const was = before();
     const svg = svgOf(e.currentTarget);
     const p = planPoint(svg, e.clientX, e.clientY);
     const pt = draftRef.current.design.points[i];
     const again = selRef.current?.kind === "point" && selRef.current.i === i;
     setSel({ kind: "point", i });
     setTool({ kind: "select" });
+    const quick = viewRef.current === "quick";
     // Quick: a tap on the selected corner lets it go, so taps on the floor stop adding after it
-    const onClick = viewRef.current === "quick" && again ? () => setSel(null) : undefined;
-    startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] }, { threshold: viewRef.current === "quick", onClick });
+    const onClick = quick && again ? () => setSel(null) : undefined;
+    // Quick, by touch: hold the corner to select it and open its panel; the ring fills while the finger is down
+    const touchPress = quick && e.pointerType !== "mouse";
+    if (touchPress) setPress({ i, done: false });
+    const onLongPress = touchPress
+      ? () => {
+          setPress({ i, done: true });
+          setSel((selRef.current = { kind: "point", i }));
+          setSheet("selection");
+        }
+      : undefined;
+    startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] }, { threshold: quick, onClick, was, onLongPress });
   };
 
   const onApexDown = (e: React.PointerEvent<SVGElement>, i: number) => {
     if (e.button !== 0) return;
+    const was = before();
     const svg = svgOf(e.currentTarget);
     const pts = draftRef.current.design.points;
     const a = apexOf(pts, i, draftRef.current.design.laneWidth ?? 2);
@@ -510,7 +568,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setTool({ kind: "select" });
     // where on the handle it was pressed, so grabbing it doesn't change the radius
     const dd = alongBisector(a, planPoint(svg, e.clientX, e.clientY)) - alongBisector(a, handlePoint(a, c.r));
-    startDrag(e, svg, { kind: "apex", i, dd }, { threshold: true });
+    startDrag(e, svg, { kind: "apex", i, dd }, { threshold: true, was });
   };
 
   /**
@@ -545,6 +603,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   const onLaneDown = (e: React.PointerEvent<SVGGElement>) => {
     if (e.button !== 0) return;
+    const was = before();
     const svg = svgOf(e.currentTarget);
     const p = planPoint(svg, e.clientX, e.clientY);
     const hit = nearestOnLine(liveRef.current, p);
@@ -569,7 +628,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       e.stopPropagation();
       if (nearPoint) {
         setSel({ kind: "point", i: best });
-        startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true });
+        startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true, was });
         return;
       }
       // with a jump or the start line selected, a press on the track lets it go
@@ -582,7 +641,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       const group = `drag:insert:${Date.now()}`;
       const i = addCornerAt(p, e.altKey, group);
       const at = i === null ? null : draftRef.current.design.points[i];
-      if (i !== null && at) startDrag(e, svg, { kind: "point", i, offset: [at.x - p[0], at.z - p[1]] }, { threshold: true, group });
+      if (i !== null && at) startDrag(e, svg, { kind: "point", i, offset: [at.x - p[0], at.z - p[1]] }, { threshold: true, group, was });
       return;
     }
     if (hit.curvature !== 0 || nearPoint) {
@@ -600,23 +659,25 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     startDrag(e, svg, { kind: "point", i, offset: [at[0] - p[0], at[1] - p[1]] }, { threshold: true });
   };
 
-  const onFeatureDown = (e: React.PointerEvent<SVGPolygonElement>, i: number) => {
+  const onFeatureDown = (e: React.PointerEvent<SVGElement>, i: number) => {
     if (e.button !== 0) return;
+    const was = before();
     const svg = svgOf(e.currentTarget);
     const p = planPoint(svg, e.clientX, e.clientY);
     const f = draftRef.current.design.features![i];
     const s = nearestOnLine(liveRef.current, p).s;
     setSel({ kind: "feature", i });
-    startDrag(e, svg, { kind: "feature", i, ds: s - f.distance }, { threshold: true });
+    startDrag(e, svg, { kind: "feature", i, ds: s - f.distance }, { threshold: true, was });
   };
 
   const onStartDown = (e: React.PointerEvent<SVGElement>) => {
     if (e.button !== 0) return;
+    const was = before();
     const svg = svgOf(e.currentTarget);
     const p = planPoint(svg, e.clientX, e.clientY);
     const s = nearestOnLine(liveRef.current, p).s;
     setSel({ kind: "start" });
-    startDrag(e, svg, { kind: "start", ds: s - (draftRef.current.design.start?.distance ?? 0) }, { threshold: true });
+    startDrag(e, svg, { kind: "start", ds: s - (draftRef.current.design.start?.distance ?? 0) }, { threshold: true, was });
   };
 
   // ------------------------------------------------------------------------------------ step 1: lay the lanes
@@ -641,6 +702,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const onGridDown = (e: React.PointerEvent<SVGRectElement>) => {
     if (e.button !== 0 || !grid) return;
     e.stopPropagation();
+    const was = before();
     const svg = svgOf(e.currentTarget);
     const g = grid;
     let cur = cellAt(g, planPoint(svg, e.clientX, e.clientY));
@@ -653,7 +715,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       return;
     }
     if (paintCell(g, cur) || !draftRef.current.laying?.length) return; // closed, or the first square was refused
-    const id = e.pointerId; // a second finger never paints (pinch and pan come with #16)
+    const id = e.pointerId; // a second finger never paints: it pinches or pans, and takes this painting back
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== id) return;
       const c = cellAt(g, planPoint(svg, ev.clientX, ev.clientY));
@@ -666,6 +728,14 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
+      edit.current = null;
+    };
+    edit.current = {
+      cancel: () => {
+        up();
+        histRef.current.restore(was.hist);
+        setLayNote(null);
+      },
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -676,6 +746,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (sel?.kind === "point" && sel.i >= draft.design.points.length) setSel(null);
     if (sel?.kind === "feature" && sel.i >= (draft.design.features?.length ?? 0)) setSel(null);
   }, [sel, draft.design.points.length, draft.design.features?.length]);
+  // tablet: a jump or the start line opens its panel as soon as it's selected; a corner's waits for a long-press (a tap
+  // on a corner picks where the next corner goes); letting go of the selection closes it
+  useEffect(() => {
+    if (!sel) setSheet((s) => (s === "selection" ? null : s));
+    else if (sel.kind !== "point") setSheet("selection");
+  }, [sel]);
   // undo past the close comes back here: nothing of step 2 stays selected or armed
   useEffect(() => {
     if (!laying) return;
@@ -806,17 +882,20 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           )}
         {ghost && <polygon className="ed-ghost" points={pts(ghost)} vectorEffect="non-scaling-stroke" />}
         {built.features.map((f, i) => (
-          <polygon
-            key={i}
-            data-handle="feature"
-            className={`ed-feature ${sel?.kind === "feature" && sel.i === i ? "on" : ""} ${layers.checks && inCorner.has(i) ? "warn" : ""}`}
-            points={pts(featureCorners(f))}
-            onPointerDown={(e) => onFeatureDown(e, i)}
-            vectorEffect="non-scaling-stroke"
-          />
+          <g key={i}>
+            <polygon
+              data-handle="feature"
+              className={`ed-feature ${sel?.kind === "feature" && sel.i === i ? "on" : ""} ${layers.checks && inCorner.has(i) ? "warn" : ""}`}
+              points={pts(featureCorners(f))}
+              onPointerDown={(e) => onFeatureDown(e, i)}
+              vectorEffect="non-scaling-stroke"
+            />
+            {/* touch screens: a jump takes a press 44 px across, however small it's drawn */}
+            {touch && <circle data-handle="feature" className="ed-hit ed-hit-feature" cx={f.x} cy={-f.z} r={TOUCH_PX * m} onPointerDown={(e) => onFeatureDown(e, i)} />}
+          </g>
         ))}
-        <StartHandle built={built} m={m} on={sel?.kind === "start"} onPointerDown={onStartDown} />
-        {!advanced && pointsList.map((p, i) => <QuickCorner key={i} p={p} i={i} m={m} touch={touch} on={sel?.kind === "point" && sel.i === i} onPointerDown={(e) => onPointDown(e, i)} onDelete={() => {
+        <StartHandle built={built} m={m} touch={touch} on={sel?.kind === "start"} onPointerDown={onStartDown} />
+        {!advanced && pointsList.map((p, i) => <QuickCorner key={i} p={p} i={i} m={m} touch={touch} on={sel?.kind === "point" && sel.i === i} press={press?.i === i ? press : null} onPointerDown={(e) => onPointDown(e, i)} onDelete={() => {
           setSel({ kind: "point", i });
           selRef.current = { kind: "point", i };
           deleteSelection();
@@ -838,7 +917,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                     {reduced ? " (max)" : ""}
                   </text>
                 )}
-                <circle className={`ed-apex ${sel?.kind === "point" && sel.i === i ? "on" : ""}`} cx={h[0]} cy={-h[1]} r={APEX_PX * m} vectorEffect="non-scaling-stroke" />
+                <circle className={`ed-apex ${sel?.kind === "point" && sel.i === i ? "on" : ""}`} cx={h[0]} cy={-h[1]} r={(touch ? APEX_TOUCH_PX : APEX_PX) * m} vectorEffect="non-scaling-stroke" />
                 <circle data-handle="apex" className="ed-hit ed-hit-apex" cx={h[0]} cy={-h[1]} r={(touch ? TOUCH_PX : APEX_PX + 3) * m} onPointerDown={(e) => onApexDown(e, i)} onPointerEnter={() => setHoverPt(i)} onPointerLeave={() => setHoverPt(null)}>
                   <title>{`Corner ${i + 1}: drag in or out to cut the corner back (apex radius ${fmt.metres(apexNow, 1)})`}</title>
                 </circle>
@@ -1016,7 +1095,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   }
 
   return (
-    <div className={`designer designer-${view}`}>
+    <div className={`designer designer-${view} ${tablet ? "designer-touch" : ""}`}>
       <div className="designer-bar">
         <Link to={backTo.to} className="btn btn-quiet btn-icon back" aria-label={backTo.label} title={backTo.label}>
           <ChevronLeft size={20} aria-hidden="true" />
@@ -1048,12 +1127,16 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </button>
           ))}
         </div>
-        <button type="button" className="btn btn-icon" onClick={undo} disabled={!hist.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
-          <Undo2 size={20} aria-hidden="true" />
-        </button>
-        <button type="button" className="btn btn-icon" onClick={redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
-          <Redo2 size={20} aria-hidden="true" />
-        </button>
+        {!tablet && (
+          <>
+            <button type="button" className="btn btn-icon" onClick={undo} disabled={!hist.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
+              <Undo2 size={20} aria-hidden="true" />
+            </button>
+            <button type="button" className="btn btn-icon" onClick={redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
+              <Redo2 size={20} aria-hidden="true" />
+            </button>
+          </>
+        )}
         <span className="save-state" aria-live="polite">
           {dirty ? "Unsaved changes · kept on this device" : base ? `Saved · revision ${base.revision}` : "Not saved yet"}
         </span>
@@ -1144,7 +1227,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       )}
 
       <div className="designer-grid">
-        {laying ? (
+        {tablet ? null : laying ? (
           <aside className="designer-palette" aria-label="Lay the lanes">
             <span className="label">1 · Lay the lanes</span>
             <p className="lay-help">Press on a square and drag through the squares in driving order. Drag back to take squares up.</p>
@@ -1233,12 +1316,14 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   ? "Drag on through the squares. Come back to the ring to close the loop."
                   : "Press on a square and drag to lay the lane.")
                 : tool.kind === "feature"
-                  ? "Click on the racing line to place it."
+                  ? `${tablet ? "Tap" : "Click"} on the racing line to place it.`
                   : advanced
                     ? "Click a straight to add a corner. Drag a corner to move it."
                     : sel?.kind === "point"
                       ? `Tap the floor to add a corner after ${sel.i + 1}. Tap ${sel.i + 1} again to stop.`
-                      : "Drag a corner, or its inside handle to cut it back. Tap the track to add one."}
+                      : tablet
+                        ? "Drag a corner, or its inside handle to cut it back. Hold a corner for its panel."
+                        : "Drag a corner, or its inside handle to cut it back. Tap the track to add one."}
             </div>
           )}
           <PlanView
@@ -1255,6 +1340,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             className="designer-plan"
             overlay={laying ? layOverlay : overlay}
             onHandleWheel={onHandleWheel}
+            controls={!tablet}
+            fitRequest={fitRequest}
+            onSecondFinger={() => {
+              edit.current?.cancel();
+              setPress(null);
+            }}
             onBackgroundClick={(e) => {
               setHighlight(null);
               // Quick step 2: a tap on the floor adds a corner (after the selected one, or into the track it's near)
@@ -1265,9 +1356,83 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               setSel(null);
             }}
           />
+          {tablet && !laying && (
+            <ChecksPill checks={built.checks} pending={bake.pending} open={sheet === "checks"} onToggle={() => setSheet((s) => (s === "checks" ? null : "checks"))} />
+          )}
+          {tablet && !laying && sheet && (sheet === "checks" || sel) && (
+            <div className="designer-sheet" role="dialog" aria-label={sheet === "checks" ? "Checks" : "Selected"}>
+              <button
+                type="button"
+                className="btn btn-quiet btn-icon sheet-close"
+                aria-label="Close"
+                onClick={() => {
+                  if (sheet === "selection" && sel?.kind !== "point") setSel(null);
+                  setSheet(null);
+                }}
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+              {sheet === "checks" ? (
+                <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
+              ) : (
+                <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} touch />
+              )}
+            </div>
+          )}
+          {tablet && (
+            <div className="designer-dock" role="toolbar" aria-label="Designer tools">
+              <button type="button" className="dock-btn dock-icon" onClick={undo} disabled={!hist.canUndo} aria-label="Undo">
+                <Undo2 size={20} aria-hidden="true" />
+              </button>
+              <button type="button" className="dock-btn dock-icon" onClick={redo} disabled={!hist.canRedo} aria-label="Redo">
+                <Redo2 size={20} aria-hidden="true" />
+              </button>
+              <span className="dock-sep" aria-hidden="true" />
+              {laying ? (
+                <button
+                  type="button"
+                  className="dock-btn"
+                  disabled={!draft.laying?.length}
+                  onClick={() => {
+                    update((d) => withLaying(d, { cells: [], closed: false }));
+                    setLayNote(null);
+                  }}
+                >
+                  Start again
+                </button>
+              ) : (
+                <>
+                  <JumpPalette
+                    jumps={paletteJumps(view)}
+                    armed={tool.kind === "feature" ? tool.type : null}
+                    onPick={(t) => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t })}
+                    className="dock-btn"
+                  />
+                  <button
+                    type="button"
+                    className="dock-btn"
+                    aria-pressed={sel?.kind === "start"}
+                    onClick={() => {
+                      setTool({ kind: "select" });
+                      setSel({ kind: "start" });
+                      setHighlight([built.startLine.x, built.startLine.z]);
+                    }}
+                  >
+                    Start line
+                  </button>
+                  <button type="button" className="dock-btn" aria-pressed={laneSnap} onClick={() => setLaneSnap((v) => !v)} title="Corners snap to a lane line within 0.2 m. Turn it off to place them freely.">
+                    Snap
+                  </button>
+                </>
+              )}
+              <button type="button" className="dock-btn dock-icon dock-fit" onClick={() => setFitRequest((n) => n + 1)} aria-label="Zoom to fit">
+                <Scan size={20} aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </section>
 
-        {laying ? (
+        {tablet ? null : laying ? (
           <aside className="designer-side" aria-label="The lane so far">
             <section className="checks-panel" aria-labelledby="ck-h">
               <h2 id="ck-h">Checks</h2>
@@ -1322,13 +1487,32 @@ function Steps({ step, canGoBack, armed, onBack }: { step: 1 | 2; canGoBack: boo
   );
 }
 
+/** Tablet: the checks in a word, top right of the plan; tap for the list. */
+function ChecksPill({ checks, pending, open, onToggle }: { checks: Check[]; pending: boolean; open: boolean; onToggle: () => void }) {
+  const { errors, warnings } = checkCounts(checks);
+  const lvl = errors ? "error" : warnings ? "warning" : "ok";
+  const Icon = errors ? CircleX : warnings ? TriangleAlert : CircleCheck;
+  const text = pending && !errors && !warnings ? "Checking…" : errors ? plural(errors, "error") : warnings ? plural(warnings, "warning") : "No problems";
+  return (
+    <button type="button" className={`checks-pill checks-pill-${lvl}`} aria-expanded={open} onClick={onToggle}>
+      <Icon size={18} aria-hidden="true" />
+      {text}
+    </button>
+  );
+}
+
 const SNAP_LABEL: Record<SnapMode, string> = { lanes: "Lanes", fine: "Fine", free: "Free" };
 
 const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${want.toFixed(2)}→${got.toFixed(2)} m` : `${want.toFixed(2)} m`);
 
-/** Quick step 2: a corner point, numbered in driving order; on touch screens it takes a press 44 px across. */
-function QuickCorner({ p, i, m, touch, on, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
-  const r = (on ? CORNER_PX + 2 : CORNER_PX) * m;
+/**
+ * Quick step 2: a corner point, numbered in driving order; on touch screens it's drawn bigger and takes a press 44 px
+ * across. A finger held on it fills a ring round it (the long-press), which stays full once it's selected.
+ */
+function QuickCorner({ p, i, m, touch, on, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
+  const base = touch ? CORNER_TOUCH_PX : CORNER_PX;
+  const r = (on ? base + 2 : base) * m;
+  const ring = (base + 7) * m;
   // a touch long-press also fires contextmenu: only a mouse's right-click deletes
   const lastPointer = useRef("mouse");
   return (
@@ -1346,9 +1530,22 @@ function QuickCorner({ p, i, m, touch, on, onPointerDown, onDelete, onHover }: {
         if (lastPointer.current === "mouse") onDelete();
       }}
     >
-      <title>{`Corner ${i + 1}: drag to move (Alt: no snapping), right-click to delete`}</title>
+      <title>{touch ? `Corner ${i + 1}: drag to move, hold to open its panel` : `Corner ${i + 1}: drag to move (Alt: no snapping), right-click to delete`}</title>
       {touch && <circle className="ed-hit" cx={p.x} cy={-p.z} r={TOUCH_PX * m} />}
       <circle className="ed-corner-dot" cx={p.x} cy={-p.z} r={r} vectorEffect="non-scaling-stroke" />
+      {press && (
+        // pathLength 100: the dash animation fills the ring over the long-press, starting at the top
+        <circle
+          className={`ed-press ${press.done ? "done" : ""}`}
+          cx={p.x}
+          cy={-p.z}
+          r={ring}
+          pathLength={100}
+          transform={`rotate(-90 ${p.x} ${-p.z})`}
+          style={{ animationDuration: `${LONG_PRESS_MS}ms` }}
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
       <text className="ed-corner-n" x={p.x} y={-p.z} dy={4 * m} fontSize={11 * m} textAnchor="middle">
         {i + 1}
       </text>
@@ -1362,7 +1559,7 @@ function CornerArc({ c }: { c: Live["corners"][number] }) {
   return <path className="ed-arc" d={d} vectorEffect="non-scaling-stroke" />;
 }
 
-function StartHandle({ built, m, on, onPointerDown }: { built: Built; m: number; on: boolean; onPointerDown: (e: React.PointerEvent<SVGElement>) => void }) {
+function StartHandle({ built, m, touch, on, onPointerDown }: { built: Built; m: number; touch: boolean; on: boolean; onPointerDown: (e: React.PointerEvent<SVGElement>) => void }) {
   const s = built.startLine;
   const h = (s.heading * Math.PI) / 180;
   const nx = -Math.sin(h), nz = Math.cos(h);
@@ -1371,6 +1568,7 @@ function StartHandle({ built, m, on, onPointerDown }: { built: Built; m: number;
     <g data-handle="start" className={`ed-start ${on ? "on" : ""}`} onPointerDown={onPointerDown}>
       <line x1={a[0]} y1={-a[1]} x2={b[0]} y2={-b[1]} strokeWidth={Math.max(0.35, 12 * m)} />
       <circle cx={a[0]} cy={-a[1]} r={5 * m} className="grip" vectorEffect="non-scaling-stroke" />
+      {touch && <circle cx={s.x} cy={-s.z} r={TOUCH_PX * m} className="ed-hit" />}
       <title>Start / finish: drag along the track</title>
     </g>
   );
@@ -1522,6 +1720,7 @@ export function SelectionPanel({
   onDelete,
   fromVenue,
   inCorner,
+  touch = false,
 }: {
   sel: Selection;
   view: DesignerMode;
@@ -1532,6 +1731,8 @@ export function SelectionPanel({
   fromVenue?: string;
   /** jumps on or landing into a corner */
   inCorner: Set<number>;
+  /** the tablet's sheet: say what fingers do */
+  touch?: boolean;
 }) {
   const setPoint = (i: number, patch: Partial<DesignPoint>, key: string) =>
     update((d) => ({ ...d, design: { ...d.design, points: d.design.points.map((p, k) => (k === i ? { ...p, ...patch } : p)) } }), `${key}:${i}`);
@@ -1571,7 +1772,7 @@ export function SelectionPanel({
                   </p>
                 )}
               </div>
-              <p className="hint">Drag the corner to move it, or its inside handle to cut it back. Right-click it or press Delete to remove it.</p>
+              <p className="hint">{touch ? "Drag the corner to move it, or its inside handle to cut it back." : "Drag the corner to move it, or its inside handle to cut it back. Right-click it or press Delete to remove it."}</p>
             </>
           ) : (
             <p className="hint">
