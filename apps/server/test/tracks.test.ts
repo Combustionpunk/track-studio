@@ -1,9 +1,13 @@
-import { bakeBuilt, fits, type RcTrack, type RcVenue } from "@track-studio/engine";
+import { bakeBuilt, type FitResult, type RcTrack, type RcVenue } from "@track-studio/engine";
 import type { FastifyInstance } from "fastify";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ROOT_DIR } from "../src/config.js";
 import { ALICE, BOB, login, makeApp, ORGANISER, referenceJson } from "./helpers.js";
 
 const freeform = () => referenceJson<RcTrack>("examples/freeform-example.rctrack.json");
+const fitExpected = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/fit-expected.json"), "utf8")) as Record<string, FitResult[]>;
 const CLUB_A = "7c002509-b640-5e9d-8e79-0ae336a2ae04";
 const FREEFORM = "3b542396-6bd2-55e8-8665-852e74dc54a9";
 
@@ -363,12 +367,15 @@ describe("saving tracks", () => {
 describe("fit + adapt", () => {
   it("fit endpoint matches the engine", async () => {
     const { app } = await setup();
+    // the engine's fit fixture (which the engine's own tests reproduce), so the slow fit search runs once per pair, not twice
+    const venueFiles: Record<string, string> = { "venue-1": "club-hall", "venue-2": "sports-hall-b", "venue-3": "small-hall" };
+    const trackFiles: Record<string, string> = { [CLUB_A]: "club-a", [FREEFORM]: "freeform-example" };
     for (const venueId of ["venue-1", "venue-2", "venue-3"]) {
-      const venue = (await req(app, "GET", `/api/venues/${venueId}`)).json().doc as RcVenue;
       for (const id of [CLUB_A, FREEFORM]) {
-        const track = (await req(app, "GET", `/api/tracks/${id}`)).json().doc as RcTrack;
         const res = (await req(app, "GET", `/api/tracks/${id}/fit/${venueId}`)).json();
-        expect({ ...res, results: res.results.map(({ thumbUrl: _t, ...r }: { thumbUrl: string }) => r) }).toEqual({ track: { id, revision: 1 }, venue: { id: venueId, revision: 1 }, results: fits(track, venue) });
+        const want = fitExpected[`${trackFiles[id]}.rctrack.json | ${venueFiles[venueId]}.rcvenue.json`];
+        expect(want).toBeDefined();
+        expect({ ...res, results: res.results.map(({ thumbUrl: _t, ...r }: { thumbUrl: string }) => r) }).toEqual({ track: { id, revision: 1 }, venue: { id: venueId, revision: 1 }, results: want });
       }
     }
     // cached per track revision + venue revision

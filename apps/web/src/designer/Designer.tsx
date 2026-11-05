@@ -23,7 +23,7 @@ import {
   type RostrumPlacement,
   type Side,
 } from "@track-studio/engine";
-import { ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
+import { ArrowRightLeft, ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { CopyButton, Message, StatusBadge } from "../components/bits.js";
@@ -36,6 +36,7 @@ import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
 import { insertionFor, liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory, type HistoryState } from "./history.js";
+import { reverseDraft } from "./reverse.js";
 import { JumpPalette } from "./JumpPalette.js";
 import {
   addJump,
@@ -1143,6 +1144,21 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </button>
           </>
         )}
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            // corner and jump numbers count the other way now
+            setSel(null);
+            setHoverPt(null);
+            update(reverseDraft);
+          }}
+          disabled={laying || draft.design.points.length < 3}
+          title={laying ? "Close the loop first" : "Drive the same layout the other way round: the start line and jumps stay put and face the new way"}
+        >
+          <ArrowRightLeft size={18} aria-hidden="true" />
+          Reverse direction
+        </button>
         <span className="save-state" aria-live="polite">
           {/* the tablet's bar is one row at 1024 px, as in the mockup: the short form */}
           {dirty ? (tablet ? "Unsaved" : "Unsaved changes · kept on this device") : base ? `Saved · revision ${base.revision}` : "Not saved yet"}

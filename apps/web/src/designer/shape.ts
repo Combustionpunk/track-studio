@@ -97,9 +97,18 @@ export function turnLabel(points: DesignPoint[], i: number): string {
   return `${deg}° ${ax * bz - az * bx > 0 ? "left" : "right"}`;
 }
 
-/** After undo / redo: a selected corner whose index now points somewhere else (corners added or taken away) is let go. */
-export const keepSelection = <S extends { kind: string; i?: number } | null>(sel: S, before: DesignPoint[], after: DesignPoint[]): S | null =>
-  sel?.kind === "point" && before.length !== after.length ? null : sel;
+/**
+ * After undo / redo: a selected corner whose index now points somewhere else (corners added or taken away) is let go.
+ * Undoing or redoing a reverse (#36) renumbers the same corners [p0, pn-1, …, p1], so the selection follows its corner.
+ */
+export function keepSelection<S extends { kind: string; i?: number } | null>(sel: S, before: DesignPoint[], after: DesignPoint[]): S | null {
+  if (sel?.kind !== "point") return sel;
+  if (before.length !== after.length) return null;
+  const n = after.length;
+  const at = (a: DesignPoint, b: DesignPoint) => a.x === b.x && a.z === b.z;
+  const reversed = n >= 3 && after.some((p, k) => !at(p, before[k])) && after.every((p, k) => at(p, before[(n - k) % n]));
+  return reversed ? ({ ...sel, i: (n - sel.i!) % n } as S) : sel;
+}
 
 /** What a selection was last checked against: the corners, and how many undo / redo steps the history had taken. */
 export interface Seen {
