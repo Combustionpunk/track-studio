@@ -10,6 +10,7 @@ import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import { gridFor, paintTo, withLaying, type Cell, type Laying } from "../src/designer/lanes.js";
 import { MODE_KEY } from "../src/designer/mode.js";
 import { reverseDraft } from "../src/designer/reverse.js";
+import { followTravel } from "../src/designer/shape.js";
 import { SessionContext } from "../src/lib/session.js";
 
 // the designer guards leaving with useBlocker, which needs a data router; a static render doesn't
@@ -64,6 +65,22 @@ describe("reverseDraft", () => {
     expect(h.present.design.points).toEqual(reverseDesign(d.design).points);
     h = historyReducer(h, { type: "undo" });
     expect(h.present).toBe(d);
+  });
+
+  it("undo or redo of a reverse keeps a selected corner on the same corner, not the same number", () => {
+    const d = draftFromDoc(club());
+    const n = d.design.points.length;
+    const start: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0, travels: 0 };
+    const seen = (h: HistoryState<Draft>) => ({ travels: h.travels, points: h.present.design.points });
+    const reversed = historyReducer(start, { type: "set", next: reverseDraft(d), now: 1 });
+    const undone = historyReducer(reversed, { type: "undo" });
+    // corner 1 reversed is corner n-1; corner 0 stays corner 0
+    expect(followTravel({ kind: "point" as const, i: n - 1 }, seen(reversed), seen(undone))).toEqual({ kind: "point", i: 1 });
+    expect(followTravel({ kind: "point" as const, i: 0 }, seen(reversed), seen(undone))).toEqual({ kind: "point", i: 0 });
+    const redone = historyReducer(undone, { type: "redo" });
+    expect(followTravel({ kind: "point" as const, i: 2 }, seen(undone), seen(redone))).toEqual({ kind: "point", i: n - 2 });
+    // jumps keep their order, so jump and start selections stay
+    expect(followTravel({ kind: "feature" as const, i: 0 }, seen(reversed), seen(undone))).toEqual({ kind: "feature", i: 0 });
   });
 
   it("saving makes the next revision of the same track, baked the other way round", () => {

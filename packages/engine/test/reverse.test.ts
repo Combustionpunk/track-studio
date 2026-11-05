@@ -1,6 +1,6 @@
 // Reverse the direction of travel (#36): reorder the points, move every distance to the same physical spot, re-bake.
 import { describe, expect, it } from "vitest";
-import { arclength, bakeBuilt, distanceToPolyline, racingLine, reverseDesign, type Design, type Divider, type Point2, type RcTrack } from "../src/index.js";
+import { arclength, bakeBuilt, distanceToPolyline, racingLine, reverseDesign, SIMPLIFY_TOL, type Design, type Divider, type Point2, type RcTrack } from "../src/index.js";
 import { allTracks, readJson } from "./helpers.js";
 
 const TOL = 0.01; // 1 cm
@@ -11,6 +11,8 @@ const TOL = 0.01; // 1 cm
  */
 const PIPE_TOL = 0.15;
 const PIPE_LENGTH_REL = 0.005;
+const RING_TOL = SIMPLIFY_TOL + 0.001; // lane rings are simplified to SIMPLIFY_TOL and rounded to mm
+const INNER_CUSP_TOL = 0.12; // one extra vertex at an inside corner, see the lane edges test
 const pyMod = (a: number, b: number) => ((a % b) + b) % b;
 const xz = (pts: number[][]): Point2[] => pts.map((p) => [p[0], p[1]]);
 const angleDiff = (a: number, b: number) => Math.abs(pyMod(a - b + 540, 360) - 180);
@@ -79,6 +81,21 @@ describe.each(allTracks)("reverse $name", ({ path }) => {
     expect(coverage(after.dividers, before.dividers)).toBeLessThanOrEqual(PIPE_TOL);
     expect(coverage(before.dividers, after.dividers)).toBeLessThanOrEqual(PIPE_TOL);
     expect(Math.abs(after.stats.dividerLength - before.stats.dividerLength)).toBeLessThanOrEqual(before.stats.dividerLength * PIPE_LENGTH_REL);
+  });
+
+  it(`the lane edges are the same rings, sides swapped: the old edges lie within ${SIMPLIFY_TOL * 100} cm of the new`, () => {
+    // driven the other way, the right-hand edge is the old left-hand edge and vice versa. Both rings are simplified to
+    // SIMPLIFY_TOL (and rounded to mm), so that is as close as two bakes of the same edge can be compared.
+    const ring = (pts: Point2[]): Point2[] => [...pts, pts[0]];
+    const offs = (a: Point2[], b: Point2[]) => a.map((p) => distanceToPolyline(p, ring(b)));
+    const l0 = before.lanes!, l1 = after.lanes!;
+    expect(Math.max(...offs(l0.left, l1.right))).toBeLessThanOrEqual(RING_TOL);
+    expect(Math.max(...offs(l0.right, l1.left))).toBeLessThanOrEqual(RING_TOL);
+    // The other way, the new rings can have one extra vertex at an inside corner, where the inner edge's cut-off
+    // cusp settles differently (club-a 11.3 cm, sharp-v 5.9 cm, others under 3 cm); every other vertex is on the old edge.
+    const far = [...offs(l1.right, l0.left), ...offs(l1.left, l0.right)].filter((d) => d > RING_TOL);
+    expect(far.length).toBeLessThanOrEqual(1);
+    expect(Math.max(0, ...far)).toBeLessThanOrEqual(INNER_CUSP_TOL);
   });
 
   it("the racing line is the same loop traversed the other way", () => {
