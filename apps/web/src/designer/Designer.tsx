@@ -1,6 +1,7 @@
 // The track designer: drag corner points, click a straight to add one, wheel for radius / Ctrl+wheel for lane width,
 // place and slide jumps and the start line, live checks, undo/redo, save as a new revision, local auto-save.
-// Quick mode (the default) hides the per-corner controls; Advanced shows everything. See mode.ts.
+// Quick mode (the default) lays the lanes (step 1, lanes.ts), then shapes the corners by apex radius (step 2, shape.ts);
+// Advanced shows every per-corner control. See mode.ts.
 import {
   ALL_PLAN_LAYERS,
   FEATURE_DEFAULTS,
@@ -39,7 +40,6 @@ import {
   allows,
   checkCounts,
   deleteJump,
-  deletePoint,
   FEATURE_TYPES,
   insertPoint,
   jumpsInCorner,
@@ -55,7 +55,8 @@ import {
   type DesignerMode,
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
-import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
+import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
+import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, keepSelection, setApex, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -69,8 +70,15 @@ const HANDLE_PX = 5; // centre (racing-line) point handle radius on screen
 const MITRE_PX = 6; // outside-corner handle half-size on screen
 const GRAB_PX = 14; // a press on the track this close to a corner point grabs the point (instead of adding one)
 const DRAG_START_PX = 3; // movement before a press on a straight becomes a drag
+const CORNER_PX = 10; // Quick step 2: numbered corner handle radius on screen
+const APEX_PX = 6; // Quick step 2: apex handle radius on screen
+const TOUCH_PX = 22; // touch screens: handles take a press this far out (44 px across)
+/** how long "1 · Lay the lanes" waits for the second tap that confirms it */
+const CONFIRM_MS = 4000;
 /** narrower than this, the designer shows a view-only plan */
 export const PHONE_QUERY = "(max-width: 640px)";
+/** touch screens (tablets): bigger handles, and a toggle for free placement since there's no Alt */
+export const TOUCH_QUERY = "(pointer: coarse)";
 
 export interface Draft {
   info: { name: string; description?: string };
@@ -80,6 +88,8 @@ export interface Draft {
   design: RcTrack["design"];
   /** step 1 (lay the lanes): the squares painted so far; the design has no points until the loop closes */
   laying?: Cell[];
+  /** step 2: the squares the loop was laid through, so "1 · Lay the lanes" can reopen it */
+  laid?: Cell[];
 }
 
 export interface DesignerBase {
@@ -194,9 +204,34 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   };
   const viewRef = useRef(view);
   viewRef.current = view;
+  // Quick: undo / redo that adds or takes away corners lets the selection go, so the next tap can't add after the wrong one
+  const histRef = useRef(hist);
+  histRef.current = hist;
+  const travel = useCallback((dir: "undo" | "redo") => {
+    const h = histRef.current;
+    const to = dir === "undo" ? h.prev : h.next;
+    if (!to) return;
+    if (viewRef.current === "quick") setSel((s) => keepSelection(s, h.present.design.points, to.design.points));
+    if (dir === "undo") h.undo();
+    else h.redo();
+  }, []);
+  const undo = useCallback(() => travel("undo"), [travel]);
+  const redo = useCallback(() => travel("redo"), [travel]);
   const phone = useMediaQuery(PHONE_QUERY);
   const phoneRef = useRef(phone);
   phoneRef.current = phone;
+  const touch = useMediaQuery(TOUCH_QUERY);
+  /** Quick step 2: snapping to lane lines (off places corners freely, like holding Alt) */
+  const [laneSnap, setLaneSnap] = useState(true);
+  const laneSnapRef = useRef(laneSnap);
+  laneSnapRef.current = laneSnap;
+  /** "1 · Lay the lanes" was tapped once: the next tap goes back */
+  const [backArmed, setBackArmed] = useState(false);
+  useEffect(() => {
+    if (!backArmed) return;
+    const t = setTimeout(() => setBackArmed(false), CONFIRM_MS);
+    return () => clearTimeout(t);
+  }, [backArmed]);
   const [shared, setShared] = useState<Guide | null>(null);
   const [dragging, setDragging] = useState<number | null>(null);
   const [hoverPt, setHoverPt] = useState<number | null>(null);
@@ -290,11 +325,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const s = selRef.current;
     if (!s) return;
     if (s.kind === "point") {
-      if (draftRef.current.design.points.length <= 3) {
-        setMessage({ kind: "info", text: "A track needs at least 3 corner points." });
+      const left = deleteCorner(draftRef.current.design.points, s.i);
+      if (!left) {
+        setMessage({ kind: "info", text: `A track needs at least ${MIN_CORNERS} corner points.` });
         return;
       }
-      setPoints((p) => deletePoint(p, s.i));
+      setPoints(() => left);
       setSel(null);
     } else if (s.kind === "feature") {
       setFeatures((f) => deleteJump(f, s.i));
@@ -325,11 +361,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
-        if (e.shiftKey) hist.redo();
-        else hist.undo();
+        if (e.shiftKey) redo();
+        else undo();
       } else if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
-        hist.redo();
+        redo();
       } else if ((e.key === "h" || e.key === "H") && !mod && selRef.current?.kind === "point" && allows(viewRef.current, "hairpin")) {
         e.preventDefault();
         const i = selRef.current.i;
@@ -355,17 +391,19 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hist, deleteSelection, toggleOuter]);
+  }, [hist, undo, redo, deleteSelection, toggleOuter]);
 
   // ------------------------------------------------------------------------------------ dragging
   type DragKind =
     | { kind: "point"; i: number; offset: Point2 }
     | { kind: "mitre"; i: number; offset: Point2 }
+    | { kind: "apex"; i: number; dd: number }
     | { kind: "feature"; i: number; ds: number }
     | { kind: "start"; ds: number };
-  const startDrag = (e: React.PointerEvent, svg: SVGSVGElement, d: DragKind, opts: { threshold?: boolean; onClick?: () => void } = {}) => {
+  const startDrag = (e: React.PointerEvent, svg: SVGSVGElement, d: DragKind, opts: { threshold?: boolean; onClick?: () => void; group?: string } = {}) => {
     e.stopPropagation();
-    const group = `drag:${d.kind}:${Date.now()}`;
+    // an undo group of its own, or the one of what the press did first (an added corner), so both are one undo step
+    const group = opts.group ?? `drag:${d.kind}:${Date.now()}`;
     const x0 = e.clientX, y0 = e.clientY;
     let started = !opts.threshold;
     const move = (ev: PointerEvent) => {
@@ -375,7 +413,24 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       }
       const p = planPoint(svg, ev.clientX, ev.clientY);
       const cur = draftRef.current;
-      if (d.kind === "point" || d.kind === "mitre") {
+      if (d.kind === "apex") {
+        // Quick step 2: the handle slides along the corner's inside bisector; only the radius changes
+        const lw = cur.design.laneWidth ?? 2;
+        const a = apexOf(cur.design.points, d.i, lw);
+        if (!a) return;
+        const r = radiusFromDrag(alongBisector(a, p) - d.dd, a.th, a.w);
+        if (r === cur.design.points[d.i].radius) return;
+        hist.set({ ...cur, design: { ...cur.design, points: cur.design.points.map((q, k) => (k === d.i ? { ...q, radius: r } : q)) } }, group);
+      } else if (d.kind === "point" && viewRef.current === "quick") {
+        // Quick step 2: anywhere in the area, onto a lane line within 0.2 m unless Alt or snapping is off
+        const n = cur.design.points.length;
+        const prev = cur.design.points[(d.i - 1 + n) % n], next = cur.design.points[(d.i + 1) % n], me = cur.design.points[d.i];
+        const free = ev.altKey || !laneSnapRef.current;
+        const { p: q, snapped } = placeCorner([p[0] + d.offset[0], p[1] + d.offset[1]], cur.area, cur.design.laneWidth ?? 2, free);
+        setSnapInfo({ mode: free ? "free" : "lanes", tags: snapped ? ["lane line"] : [] });
+        if (tooClose(q, [prev.x, prev.z], [next.x, next.z]) || (q[0] === me.x && q[1] === me.z)) return;
+        hist.set({ ...cur, design: { ...cur.design, points: movePoint(cur.design.points, d.i, q) } }, group);
+      } else if (d.kind === "point" || d.kind === "mitre") {
         const n = cur.design.points.length;
         const prev = cur.design.points[(d.i - 1 + n) % n], next = cur.design.points[(d.i + 1) % n], me = cur.design.points[d.i];
         const raw: Point2 = [p[0] + d.offset[0], p[1] + d.offset[1]];
@@ -414,8 +469,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     };
     // corners whose pipes sit in a hall corner stay there while this point moves
     const origin = draftRef.current.design.points;
-    const pinned = d.kind === "point" || d.kind === "mitre" ? pinnedCorners(origin, draftRef.current.area, draftRef.current.design.laneWidth ?? 2, d.i) : new Map<number, Point2>();
-    if (d.kind === "point" || d.kind === "mitre") setDragging(d.i);
+    const pinned = (d.kind === "point" && viewRef.current === "advanced") || d.kind === "mitre" ? pinnedCorners(origin, draftRef.current.area, draftRef.current.design.laneWidth ?? 2, d.i) : new Map<number, Point2>();
+    if (d.kind === "point" || d.kind === "mitre" || d.kind === "apex") setDragging(d.i);
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -431,14 +486,49 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     window.addEventListener("pointercancel", up);
   };
 
-  const onPointDown = (e: React.PointerEvent<SVGCircleElement>, i: number) => {
+  const onPointDown = (e: React.PointerEvent<SVGElement>, i: number) => {
     if (e.button !== 0) return;
     const svg = svgOf(e.currentTarget);
     const p = planPoint(svg, e.clientX, e.clientY);
     const pt = draftRef.current.design.points[i];
+    const again = selRef.current?.kind === "point" && selRef.current.i === i;
     setSel({ kind: "point", i });
     setTool({ kind: "select" });
-    startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] });
+    // Quick: a tap on the selected corner lets it go, so taps on the floor stop adding after it
+    const onClick = viewRef.current === "quick" && again ? () => setSel(null) : undefined;
+    startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] }, { threshold: viewRef.current === "quick", onClick });
+  };
+
+  const onApexDown = (e: React.PointerEvent<SVGElement>, i: number) => {
+    if (e.button !== 0) return;
+    const svg = svgOf(e.currentTarget);
+    const pts = draftRef.current.design.points;
+    const a = apexOf(pts, i, draftRef.current.design.laneWidth ?? 2);
+    const c = liveRef.current.corners[i];
+    if (!a || !c) return;
+    setSel({ kind: "point", i });
+    setTool({ kind: "select" });
+    // where on the handle it was pressed, so grabbing it doesn't change the radius
+    const dd = alongBisector(a, planPoint(svg, e.clientX, e.clientY)) - alongBisector(a, handlePoint(a, c.r));
+    startDrag(e, svg, { kind: "apex", i, dd }, { threshold: true });
+  };
+
+  /**
+   * Quick step 2, a tap on the floor or the track: a corner straight after the selected one (and select it, so tapping
+   * round lays corners in order); with nothing selected, into the part of the track it's near. One undo step each.
+   */
+  const addCornerAt = (raw: Point2, free: boolean, group = `drag:insert:${Date.now()}`): number | null => {
+    const cur = draftRef.current;
+    const lw = cur.design.laneWidth ?? 2;
+    const { p } = placeCorner(raw, cur.area, lw, free || !laneSnapRef.current);
+    const s = selRef.current;
+    const r = s?.kind === "point" ? insertAfter(cur.design.points, s.i, p, lw) : s ? null : insertNearTrack(cur.design.points, p, nearestOnLine(liveRef.current, raw).dist, lw);
+    if (!r) return null;
+    hist.set({ ...cur, design: { ...cur.design, points: r.points } }, group);
+    draftRef.current = { ...cur, design: { ...cur.design, points: r.points } };
+    setSel((selRef.current = { kind: "point", i: r.index }));
+    setMessage(null);
+    return r.index;
   };
 
   const onMitreDown = (e: React.PointerEvent<SVGRectElement>, i: number) => {
@@ -475,6 +565,26 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     });
     const mPerPx = 1 / (svg.getScreenCTM()?.a ?? 1);
     const nearPoint = Math.hypot(pts[best].x - p[0], pts[best].z - p[1]) <= GRAB_PX * mPerPx;
+    if (viewRef.current === "quick") {
+      e.stopPropagation();
+      if (nearPoint) {
+        setSel({ kind: "point", i: best });
+        startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true });
+        return;
+      }
+      // with a jump or the start line selected, a press on the track lets it go
+      if (selRef.current && selRef.current.kind !== "point") {
+        setSel(null);
+        return;
+      }
+      // a press on the track adds a corner (after the selected one, or into this part of the track) and drags it on,
+      // all one undo step
+      const group = `drag:insert:${Date.now()}`;
+      const i = addCornerAt(p, e.altKey, group);
+      const at = i === null ? null : draftRef.current.design.points[i];
+      if (i !== null && at) startDrag(e, svg, { kind: "point", i, offset: [at.x - p[0], at.z - p[1]] }, { threshold: true, group });
+      return;
+    }
     if (hit.curvature !== 0 || nearPoint) {
       // on a corner, or just missed a point: grab the corner point
       setSel({ kind: "point", i: best });
@@ -561,11 +671,18 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
   };
+  // undo / redo can take the selected corner or jump away: let it go rather than add or delete after the wrong one
+  useEffect(() => {
+    if (sel?.kind === "point" && sel.i >= draft.design.points.length) setSel(null);
+    if (sel?.kind === "feature" && sel.i >= (draft.design.features?.length ?? 0)) setSel(null);
+  }, [sel, draft.design.points.length, draft.design.features?.length]);
   // undo past the close comes back here: nothing of step 2 stays selected or armed
   useEffect(() => {
     if (!laying) return;
     setSel(null);
     setTool({ kind: "select" });
+    setLayNote(null);
+    setBackArmed(false);
   }, [laying]);
 
   // wheel over a corner point: radius; Ctrl+wheel: lane width
@@ -680,6 +797,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         ))}
         <g className={`ed-problems ${advanced ? "ed-problems-tips" : ""}`} aria-hidden="true" dangerouslySetInnerHTML={{ __html: problems(m) }} />
         {corner && corner.r > 0 && corner.th > 1e-6 && advanced && <CornerArc c={corner} />}
+        {!advanced &&
+          live.corners.map((c, i) =>
+            c.th > 1e-3 && c.r > 0 ? (
+              // the sharp corner the arc cuts back: from where the arc starts, to the point, to where it ends
+              <polyline key={`sharp${i}`} className="ed-sharp" points={pts([c.start, c.P, c.end])} vectorEffect="non-scaling-stroke" />
+            ) : null,
+          )}
         {ghost && <polygon className="ed-ghost" points={pts(ghost)} vectorEffect="non-scaling-stroke" />}
         {built.features.map((f, i) => (
           <polygon
@@ -692,7 +816,36 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           />
         ))}
         <StartHandle built={built} m={m} on={sel?.kind === "start"} onPointerDown={onStartDown} />
-        {pointsList.map((p, i) => (
+        {!advanced && pointsList.map((p, i) => <QuickCorner key={i} p={p} i={i} m={m} touch={touch} on={sel?.kind === "point" && sel.i === i} onPointerDown={(e) => onPointDown(e, i)} onDelete={() => {
+          setSel({ kind: "point", i });
+          selRef.current = { kind: "point", i };
+          deleteSelection();
+        }} onHover={(on) => setHoverPt(on ? i : null)} />)}
+        {!advanced &&
+          pointsList.map((p, i) => {
+            const a = apexOf(pointsList, i, lw);
+            const c = live.corners[i];
+            if (!a || !c) return null;
+            const h = handlePoint(a, c.r);
+            const reduced = isReduced(p, c);
+            const showR = reduced || (sel?.kind === "point" && sel.i === i) || dragging === i;
+            const apexNow = Math.max(0, c.r - c.w / 2);
+            return (
+              <g key={`apex${i}`}>
+                {showR && (
+                  <text className="ed-label" x={h[0] + a.b[0] * 18 * m} y={-(h[1] + a.b[1] * 18 * m)} dy={4 * m} fontSize={12 * m} strokeWidth={3 * m} textAnchor="middle">
+                    R {fmt.metres(apexNow, 1)}
+                    {reduced ? " (max)" : ""}
+                  </text>
+                )}
+                <circle className={`ed-apex ${sel?.kind === "point" && sel.i === i ? "on" : ""}`} cx={h[0]} cy={-h[1]} r={APEX_PX * m} vectorEffect="non-scaling-stroke" />
+                <circle data-handle="apex" className="ed-hit ed-hit-apex" cx={h[0]} cy={-h[1]} r={(touch ? TOUCH_PX : APEX_PX + 3) * m} onPointerDown={(e) => onApexDown(e, i)} onPointerEnter={() => setHoverPt(i)} onPointerLeave={() => setHoverPt(null)}>
+                  <title>{`Corner ${i + 1}: drag in or out to cut the corner back (apex radius ${fmt.metres(apexNow, 1)})`}</title>
+                </circle>
+              </g>
+            );
+          })}
+        {advanced && pointsList.map((p, i) => (
           <circle
             key={i}
             data-handle="point"
@@ -874,7 +1027,20 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           {fmt.size(draft.area, true)}
         </span>
         {status && <StatusBadge status={status.status} />}
-        {(view === "quick" || laying) && <Steps step={step} />}
+        {(view === "quick" || laying) && (
+          <Steps
+            step={step}
+            canGoBack={!!draft.laid}
+            armed={backArmed}
+            onBack={() => {
+              if (!backArmed) return setBackArmed(true);
+              setBackArmed(false);
+              setSel(null);
+              update((d) => reopenLaying(d));
+              setLayNote(null);
+            }}
+          />
+        )}
         <div className="mode-toggle" role="group" aria-label="Mode">
           {(["quick", "advanced"] as const).map((m) => (
             <button key={m} type="button" aria-pressed={view === m} onClick={() => setView(m)} title={m === "quick" ? "The essentials: move, add and delete corners, jumps, start line" : "Everything: corner radius, lane widths, outside corners, fine and free snapping, all checks"}>
@@ -882,10 +1048,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </button>
           ))}
         </div>
-        <button type="button" className="btn btn-icon" onClick={hist.undo} disabled={!hist.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
+        <button type="button" className="btn btn-icon" onClick={undo} disabled={!hist.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
           <Undo2 size={20} aria-hidden="true" />
         </button>
-        <button type="button" className="btn btn-icon" onClick={hist.redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
+        <button type="button" className="btn btn-icon" onClick={redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
           <Redo2 size={20} aria-hidden="true" />
         </button>
         <span className="save-state" aria-live="polite">
@@ -1018,6 +1184,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           >
             Start line
           </button>
+          {!advanced && (
+            <button
+              type="button"
+              className="palette-btn"
+              aria-pressed={laneSnap}
+              onClick={() => setLaneSnap((v) => !v)}
+              title="Corners snap to a lane line within 0.2 m. Turn it off (or hold Alt) to place them freely."
+            >
+              Snap to lanes
+            </button>
+          )}
           {advanced && (
             <div className="seg seg-snap" role="radiogroup" aria-label="Snap">
               <span className="label">Snap</span>
@@ -1057,7 +1234,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   : "Press on a square and drag to lay the lane.")
                 : tool.kind === "feature"
                   ? "Click on the racing line to place it."
-                  : "Click a straight to add a corner. Drag a corner to move it."}
+                  : advanced
+                    ? "Click a straight to add a corner. Drag a corner to move it."
+                    : sel?.kind === "point"
+                      ? `Tap the floor to add a corner after ${sel.i + 1}. Tap ${sel.i + 1} again to stop.`
+                      : "Drag a corner, or its inside handle to cut it back. Tap the track to add one."}
             </div>
           )}
           <PlanView
@@ -1074,9 +1255,14 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             className="designer-plan"
             overlay={laying ? layOverlay : overlay}
             onHandleWheel={onHandleWheel}
-            onBackgroundClick={() => {
-              setSel(null);
+            onBackgroundClick={(e) => {
               setHighlight(null);
+              // Quick step 2: a tap on the floor adds a corner (after the selected one, or into the track it's near)
+              if (!laying && view === "quick" && tool.kind === "select" && (sel === null || sel.kind === "point")) {
+                addCornerAt(planPoint(e.currentTarget, e.clientX, e.clientY), e.altKey);
+                return;
+              }
+              setSel(null);
             }}
           />
         </section>
@@ -1111,13 +1297,25 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   );
 }
 
-/** Quick mode's steps; step 2 (#39) shapes the loop step 1 laid. */
-function Steps({ step }: { step: 1 | 2 }) {
+/**
+ * Quick mode's steps: 1 lays the lanes, 2 shapes the loop. From step 2, "1 · Lay the lanes" goes back on a second tap,
+ * throwing the shaping away (Undo brings it back); only for a loop laid here, since a track opened from the library has
+ * no squares to go back to.
+ */
+function Steps({ step, canGoBack, armed, onBack }: { step: 1 | 2; canGoBack: boolean; armed: boolean; onBack: () => void }) {
   return (
     <ol className="steps" aria-label="Steps">
       {(["Lay the lanes", "Shape it"] as const).map((label, i) => (
         <li key={label} aria-current={step === i + 1 ? "step" : undefined}>
-          {i + 1} · {label}
+          {step === 2 && i === 0 && canGoBack ? (
+            <button type="button" className={`step-back ${armed ? "armed" : ""}`} onClick={onBack} title="Go back to laying the lanes: the shaping is thrown away (Undo brings it back)">
+              {armed ? "Tap again to go back" : `1 · ${label}`}
+            </button>
+          ) : (
+            <>
+              {i + 1} · {label}
+            </>
+          )}
         </li>
       ))}
     </ol>
@@ -1127,6 +1325,36 @@ function Steps({ step }: { step: 1 | 2 }) {
 const SNAP_LABEL: Record<SnapMode, string> = { lanes: "Lanes", fine: "Fine", free: "Free" };
 
 const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${want.toFixed(2)}→${got.toFixed(2)} m` : `${want.toFixed(2)} m`);
+
+/** Quick step 2: a corner point, numbered in driving order; on touch screens it takes a press 44 px across. */
+function QuickCorner({ p, i, m, touch, on, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
+  const r = (on ? CORNER_PX + 2 : CORNER_PX) * m;
+  // a touch long-press also fires contextmenu: only a mouse's right-click deletes
+  const lastPointer = useRef("mouse");
+  return (
+    <g
+      data-handle="point"
+      className={`ed-corner ${on ? "on" : ""}`}
+      onPointerDown={(e) => {
+        lastPointer.current = e.pointerType;
+        onPointerDown(e);
+      }}
+      onPointerEnter={() => onHover(true)}
+      onPointerLeave={() => onHover(false)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (lastPointer.current === "mouse") onDelete();
+      }}
+    >
+      <title>{`Corner ${i + 1}: drag to move (Alt: no snapping), right-click to delete`}</title>
+      {touch && <circle className="ed-hit" cx={p.x} cy={-p.z} r={TOUCH_PX * m} />}
+      <circle className="ed-corner-dot" cx={p.x} cy={-p.z} r={r} vectorEffect="non-scaling-stroke" />
+      <text className="ed-corner-n" x={p.x} y={-p.z} dy={4 * m} fontSize={11 * m} textAnchor="middle">
+        {i + 1}
+      </text>
+    </g>
+  );
+}
 
 function CornerArc({ c }: { c: Live["corners"][number] }) {
   // sweep flag: a left turn (counter-clockwise on the plan) is clockwise on screen (y = -z)
@@ -1314,16 +1542,50 @@ export function SelectionPanel({
     const p = draft.design.points[sel.i];
     const c = live.corners[sel.i];
     if (!p) return null;
-    if (view === "quick")
+    if (view === "quick") {
+      const lw = draft.design.laneWidth ?? 2;
+      const turns = !!apexOf(draft.design.points, sel.i, lw);
+      const apex = apexRadius(p, lw);
+      const reduced = !!c && isReduced(p, c);
+      const setTo = (a: number, key: string) => update((d) => ({ ...d, design: { ...d.design, points: setApex(d.design.points, sel.i, a, lw) } }), `${key}:${sel.i}`);
       return (
         <section className="sel-panel" aria-labelledby="sel-h">
           <h2 id="sel-h">Corner {sel.i + 1}</h2>
-          <p className="hint">Drag it to move it. Right-click it or press Delete to remove it.</p>
-          <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= 3}>
+          <p className="sel-turn">{turnLabel(draft.design.points, sel.i)}</p>
+          {turns ? (
+            <>
+              <div className="fields">
+                <NumberField label="Apex radius" value={Math.round(apex * 10) / 10} step={0.1} min={0} max={APEX_MAX} onChange={(v) => v !== undefined && setTo(apexFromField(v), "apex")} />
+              </div>
+              <div className="sizes" role="group" aria-label="Quick sizes">
+                {QUICK_SIZES.map((q) => (
+                  <button key={q.label} type="button" className="palette-btn" aria-pressed={Math.abs(apex - q.apex) < 0.005} onClick={() => setTo(q.apex, `size${q.label}`)} title={`Apex radius ${q.apex.toFixed(1)} m`}>
+                    {q.label} <span className="size-m">{q.apex.toFixed(1)} m</span>
+                  </button>
+                ))}
+              </div>
+              <div role="status">
+                {reduced && c && (
+                  <p className="hint">
+                    Cut back as far as the straights allow: the apex radius is {fmt.metres(Math.max(0, c.r - widthAt(p, lw) / 2), 1)} (max).
+                  </p>
+                )}
+              </div>
+              <p className="hint">Drag the corner to move it, or its inside handle to cut it back. Right-click it or press Delete to remove it.</p>
+            </>
+          ) : (
+            <p className="hint">
+              {turnLabel(draft.design.points, sel.i) === "straight back"
+                ? "This corner turns straight back on itself, so there's nothing to cut back: drag it to open the turn, or delete it."
+                : "This corner is on a straight line: drag it to make a turn, or delete it."}
+            </p>
+          )}
+          <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= MIN_CORNERS}>
             Delete corner
           </button>
         </section>
       );
+    }
     return (
       <section className="sel-panel" aria-labelledby="sel-h">
         <h2 id="sel-h">Corner point {sel.i + 1}</h2>

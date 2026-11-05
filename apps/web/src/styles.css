@@ -665,3 +665,24 @@ select.ts-input { padding: 0 var(--space-2); }
   .ts-figures--key .ts-figure__v { font-size: 26px; line-height: 30px; }
   .ts-revision { min-height: var(--touch-target); }
 }
+
+/* Quick mode step 2: shape it (#39) */
+.ed-sharp { fill: none; stroke: var(--ed-control); stroke-width: 1.2; stroke-dasharray: 4 4; pointer-events: none; }
+.ed-corner { cursor: grab; touch-action: none; }
+.ed-corner:active { cursor: grabbing; }
+.ed-corner-dot { fill: var(--plan-ink); stroke: var(--ed-point-edge); stroke-width: 2; }
+.ed-corner:hover .ed-corner-dot { fill: var(--ed-point-hover); }
+.ed-corner.on .ed-corner-dot { fill: var(--plan-line); stroke: var(--plan-ink); }
+.ed-corner-n { fill: var(--plan-ink-dark); font-family: var(--font-body); font-weight: 700; pointer-events: none; }
+.ed-corner.on .ed-corner-n { fill: var(--plan-ink); }
+.ed-hit { fill: transparent; stroke: none; pointer-events: all; touch-action: none; }
+.ed-hit-apex { cursor: move; }
+.ed-apex { fill: var(--plan-halo); stroke: var(--ed-guide); stroke-width: 2; pointer-events: none; }
+.ed-apex.on { fill: var(--ed-guide); }
+.step-back { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.step-back.armed { color: var(--danger-text); font-weight: 600; text-decoration: none; }
+@media (pointer: coarse) { .step-back { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; } }
+.sel-turn { margin: -4px 0 8px; font-size: 14px; color: var(--muted); }
+.sizes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 10px; }
+.sizes .palette-btn { justify-content: space-between; }
+.size-m { font-weight: 400; color: var(--muted); font-size: 13px; }
