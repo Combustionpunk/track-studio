@@ -1,7 +1,7 @@
 // Crossovers in the designer (#51): placing one on a crossing, swapping which pass goes over, turning a tabletop too
 // low to drive under into a crossover, the hints on crossing checks, and keeping each bridge on its pass when the start
 // line moves (the passes are named first / second in driving order from the start line).
-import { BRIDGE_MARGIN, bridgeCrossings, CROSSOVER_RAMP, FEATURE_DEFAULTS, findCrossings, type BuiltFeature, type Check, type Crossing, type Design, type DesignFeature, type FeatureType, type Point2 } from "@track-studio/engine";
+import { BRIDGE_CLEARANCE, BRIDGE_MARGIN, bridgeCrossings, CROSSOVER_RAMP, FEATURE_DEFAULTS, findCrossings, type BuiltFeature, type Check, type Crossing, type Design, type DesignFeature, type FeatureType, type Point2 } from "@track-studio/engine";
 import type { Live } from "./geometry.js";
 
 /** a crossover dropped this close to a crossing (m, on the plan) snaps onto it */
@@ -118,7 +118,8 @@ export function bridgeAt(c: Pick<Check, "x" | "z">, features: BuiltFeature[]): n
 /** What to do about a crossing error, as a sentence; `bridge` is the type of the feature on the crossing, if any. */
 export function crossingHint(c: Pick<Check, "code">, bridge: FeatureType | null): string | null {
   if (c.code === "crossing-unbridged") return "Add a crossover (or a long tabletop) here.";
-  if (c.code === "crossing-too-low") return bridge === "crossover" ? "Too low to drive under: raise it to 0.40 m in Advanced." : "Too low to drive under: use a Crossover, or raise it to 0.40 m in Advanced.";
+  const raise = `raise it to ${BRIDGE_CLEARANCE.toFixed(2)} m in Advanced.`;
+  if (c.code === "crossing-too-low") return bridge === "crossover" ? `Too low to drive under: ${raise}` : `Too low to drive under: use a Crossover, or ${raise}`;
   return null;
 }
 

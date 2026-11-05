@@ -5,6 +5,7 @@
 // with a dock of 44 px+ controls, pinch and pan with two fingers, long-press a corner for its panel.
 import {
   ALL_PLAN_LAYERS,
+  BRIDGE_CLEARANCE,
   CROSSOVER_HEIGHT,
   CROSSOVER_RAMP,
   FEATURE_DEFAULTS,
@@ -1968,7 +1969,7 @@ export function SelectionPanel({
               <NumberField label="Along the line" value={f.distance} step={0.05} onChange={(v) => v !== undefined && setFeature(sel.i, { distance: wrapDistance(v, live.total) }, "distance")} />
               <NumberField label="Ramp length" value={f.rampLength} placeholder={String(CROSSOVER_RAMP)} step={0.05} min={0.2} onChange={(v) => setFeature(sel.i, { rampLength: v }, "ramp")} />
               <NumberField label="Top length" value={f.topLength} placeholder="auto" step={0.05} min={0.2} onChange={(v) => setFeature(sel.i, { topLength: v }, "top")} />
-              <NumberField label="Height" value={f.height} placeholder={String(CROSSOVER_HEIGHT)} step={0.01} min={0} onChange={(v) => setFeature(sel.i, { height: v }, "height")} />
+              <NumberField label="Height" value={f.height} placeholder={String(CROSSOVER_HEIGHT)} step={0.01} min={BRIDGE_CLEARANCE} onChange={(v) => setFeature(sel.i, { height: v }, "height")} />
             </div>
           )}
           <button type="button" className="btn" onClick={swap} title="The other pass goes over the bridge">
@@ -1976,7 +1977,7 @@ export function SelectionPanel({
           </button>
           <p className="hint">
             {view === "advanced"
-              ? "Drag it along the track; it sits on the crossing it's near. Empty top length = the under lane plus 1 m each side; cars need 0.40 m to pass under."
+              ? "Drag it along the track; it sits on the crossing it's near. `Empty top length = the under lane plus 1 m each side; cars need ${BRIDGE_CLEARANCE.toFixed(2)} m to pass under.`
               : "Drag it along the track; it sits on the crossing it's near."}
           </p>
           <button type="button" className="btn btn-danger" onClick={onDelete}>
