@@ -110,7 +110,7 @@ EXTRA_TRACKS.update({
     # the back straight dips under the main straight twice, 6 m apart: both bridges on the main straight overlap
     "two-crossings": at_crossings(track("12", "Two crossings", {"length": 22, "width": 14}, {
         "laneWidth": 2.0, "points": [{"x": x, "z": z} for x, z in [(-10, -2), (10, -2), (10, 5), (3, 5), (3, -6), (-3, -6), (-3, 5), (-10, 5)]],
-        "start": {"distance": 0.0}, "rostrum": {"side": "south"}}),
+        "start": {"distance": 3.0}, "rostrum": {"side": "south"}}),
         lambda k, d: {"type": "crossover", "distance": d[0]}),
 })
 
