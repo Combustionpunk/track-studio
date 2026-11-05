@@ -8,6 +8,12 @@ export interface UserRef {
   username: string;
 }
 
+/** Who saved a revision; username is null when they have no user row (a seeded or imported revision). */
+export interface RevisionAuthor {
+  id: number;
+  username: string | null;
+}
+
 export type FitResultWithThumb = FitResult & { thumbUrl: string };
 
 export interface TrackSummary {
@@ -63,7 +69,7 @@ export interface TrackResponse {
 export interface Revision {
   revision: number;
   createdAt: string;
-  createdBy: UserRef;
+  createdBy: RevisionAuthor;
   note: string | null;
   status: TrackStatus;
   previewUrl: string;
@@ -85,7 +91,7 @@ export interface VenueSummary {
 export interface VenueRevision {
   revision: number;
   createdAt: string;
-  createdBy: UserRef;
+  createdBy: RevisionAuthor;
   name: string;
   area: { length: number; width: number };
   obstacles: number;

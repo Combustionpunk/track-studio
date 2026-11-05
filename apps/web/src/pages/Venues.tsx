@@ -209,7 +209,7 @@ function VenueRevisions({ id, current, revs, error }: { id: string; current: num
               <span className="rev-btn">
                 <span className="rev-n">r{r.revision}</span>
                 <span className="rev-meta">
-                  {fmt.date(r.createdAt)} · {r.createdBy.username} · {fmt.size(r.area, true)} · {r.obstacles === 1 ? "1 obstacle" : `${r.obstacles} obstacles`}
+                  {fmt.date(r.createdAt)} · {fmt.author(r.createdBy)} · {fmt.size(r.area, true)} · {r.obstacles === 1 ? "1 obstacle" : `${r.obstacles} obstacles`}
                   {r.revision === current ? " · latest" : ""}
                 </span>
               </span>

@@ -1,5 +1,5 @@
 // Library, track page and header (#10): layout, states and actions, rendered to HTML on the server side.
-import type { Check, RcTrack } from "@track-studio/engine";
+import type { Check, RcTrack, RcVenue } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Permissions, Revision, TrackResponse, TrackSummary } from "../src/lib/api.js";
+import type { Permissions, Revision, TrackResponse, TrackSummary, VenueRevision, VenueSummary } from "../src/lib/api.js";
 import type { Loadable } from "../src/lib/hooks.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -35,6 +35,8 @@ const { LibraryResults } = await import("../src/components/LibraryResults.js");
 const { checksSummary } = await import("../src/components/ChecksList.js");
 const { Library } = await import("../src/pages/Library.js");
 const { TrackPage } = await import("../src/pages/TrackPage.js");
+const { VenuePage } = await import("../src/pages/Venues.js");
+const fmt = await import("../src/lib/format.js");
 const { SessionContext } = await import("../src/lib/session.js");
 
 vi.stubGlobal("window", { location: { origin: "https://tracks.example", pathname: "/", search: "" } });
@@ -277,12 +279,35 @@ describe("checks summary", () => {
   });
 });
 
+describe("revision authors (#30)", () => {
+  it("a missing username reads Unknown", () => {
+    expect(fmt.author({ id: 1, username: "yeti" })).toBe("yeti");
+    expect(fmt.author({ id: 999, username: null })).toBe("Unknown");
+  });
+});
+
+describe("venue page", () => {
+  const doc = JSON.parse(readFileSync(join(ROOT, "reference/venues/club-hall.rcvenue.json"), "utf8")) as RcVenue;
+  const venue: VenueSummary = { id: "winter-3", name: "Club Hall", forumVenueId: null, ownerId: 1, revision: 3, tracks: 0, createdAt: "2026-10-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z" };
+  const rev = (revision: number, createdBy: VenueRevision["createdBy"]): VenueRevision => ({ revision, createdAt: "2026-11-02T10:00:00Z", createdBy, name: "Club Hall", area: { length: 22, width: 12 }, obstacles: 1, downloadUrl: `/d/${revision}` });
+
+  it("a revision whose author has no user row shows as Unknown (#30)", () => {
+    answers.set("/api/venues/winter-3", { data: { venue, doc, can: { edit: false } }, loading: false });
+    answers.set("/api/venues/winter-3/revisions", { data: { revisions: [rev(3, { id: 1, username: "yeti" }), rev(2, { id: 999, username: null }), rev(1, { id: 1, username: "yeti" })] }, loading: false });
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    const h = html(<VenuePage />, "/v/winter-3");
+    expect(text(h)).toMatch(/r2 .*· Unknown · 22 × 12/);
+    for (const n of [3, 2, 1]) expect(h).toContain(`aria-label="Download revision ${n}"`);
+  });
+});
+
 describe("track page", () => {
   const doc = JSON.parse(readFileSync(join(ROOT, "reference/examples/club-a.rctrack.json"), "utf8")) as RcTrack;
   const can = (over: Partial<Permissions> = {}): Permissions => ({ edit: false, submit: false, approve: false, archive: false, adapt: false, copy: false, ...over });
   const revisions: Revision[] = [
     { revision: 4, createdAt: "2026-11-02T10:00:00Z", createdBy: { id: 1, username: "yeti" }, note: null, status: "submitted", previewUrl: "", downloadUrl: "/d/4" },
     { revision: 3, createdAt: "2026-10-19T10:00:00Z", createdBy: { id: 1, username: "yeti" }, note: "wider", status: "approved", previewUrl: "", downloadUrl: "/d/3" },
+    { revision: 2, createdAt: "2026-10-01T10:00:00Z", createdBy: { id: 999, username: null }, note: "imported", status: "draft", previewUrl: "", downloadUrl: "/d/2" },
   ];
   const page = (c: Permissions, over: Partial<TrackSummary> = {}, d: RcTrack = doc) => {
     const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, ...over }), doc: d, can: c };
@@ -352,6 +377,12 @@ describe("track page", () => {
     expect(t).toContain("Revision 4 · submitted");
     expect(t).toContain("Revision 3 · approved");
     expect(h).toContain('aria-label="Download revision 3"');
+  });
+
+  it("a revision whose author has no user row shows as Unknown (#30)", () => {
+    const t = text(page(can()));
+    expect(t).toContain("by Unknown · imported");
+    expect(page(can())).toContain('aria-label="Download revision 2"');
   });
 
   it("a reader can copy and fit, but not edit, submit, approve or archive", () => {

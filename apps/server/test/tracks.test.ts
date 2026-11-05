@@ -136,6 +136,26 @@ describe("saving tracks", () => {
     expect(r1.info.name).toBe("Freeform example");
   });
 
+  it("a revision whose author has no user row (seeded or imported) still lists, as an unknown author, and downloads (#30)", async () => {
+    const { app, alice } = await setup();
+    const { track } = await createAs(app, alice);
+    for (const note of ["second", "third"]) await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform(), note });
+    app.db.pragma("foreign_keys = OFF");
+    app.db.prepare("UPDATE track_revisions SET created_by = 999999 WHERE track_id = ? AND revision = 2").run(track.id);
+    app.db.pragma("foreign_keys = ON");
+
+    const revs = (await req(app, "GET", `/api/tracks/${track.id}/revisions`)).json().revisions;
+    expect(revs.map((r: { revision: number }) => r.revision)).toEqual([3, 2, 1]);
+    expect(revs.map((r: { createdBy: unknown }) => r.createdBy)).toEqual([
+      { id: ALICE.id, username: "alice" },
+      { id: 999999, username: null },
+      { id: ALICE.id, username: "alice" },
+    ]);
+    const dl = await req(app, "GET", revs[1].downloadUrl);
+    expect(dl.statusCode).toBe(200);
+    expect((dl.json() as RcTrack).revision).toBe(2);
+  });
+
   it("status workflow; approval pins a revision", async () => {
     const { app, alice, org } = await setup();
     const { track } = await createAs(app, alice);
