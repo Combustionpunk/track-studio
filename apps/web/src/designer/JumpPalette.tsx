@@ -22,17 +22,17 @@ export function JumpSymbol({ type }: { type: FeatureType }) {
   );
 }
 
-export function JumpPalette({ jumps, armed, onPick }: { jumps: FeatureType[]; armed: FeatureType | null; onPick: (t: FeatureType) => void }) {
+export function JumpPalette({ jumps, armed, onPick, className = "palette-btn", verb = "Click" }: { jumps: FeatureType[]; armed: FeatureType | null; onPick: (t: FeatureType) => void; className?: string; verb?: "Click" | "Tap" }) {
   return (
     <>
       {jumps.map((t) => (
         <button
           key={t}
           type="button"
-          className="palette-btn"
+          className={className}
           aria-pressed={armed === t}
           onClick={() => onPick(t)}
-          title={`Click on the racing line to place a ${FEATURE_LABEL[t].toLowerCase()}`}
+          title={`${verb} on the racing line to place a ${FEATURE_LABEL[t].toLowerCase()}`}
         >
           <JumpSymbol type={t} />
           {FEATURE_LABEL[t]}

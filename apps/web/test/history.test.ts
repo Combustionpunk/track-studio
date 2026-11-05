@@ -29,6 +29,15 @@ describe("history", () => {
     expect(historyReducer(start(1), { type: "undo" }).travels).toBe(0);
   });
 
+  it("restoring an earlier state isn't an undo / redo step", () => {
+    const was = set(start(1), 2);
+    const s = historyReducer(historyReducer(was, { type: "undo" }), { type: "redo" });
+    const r = historyReducer(set(s, 3), { type: "restore", state: was });
+    expect(r.present).toBe(2);
+    expect(r.past).toEqual([1]);
+    expect(r.travels).toBe(2);
+  });
+
   it("a drag is one step however long it takes", () => {
     let s = start(0);
     for (let i = 1; i <= 50; i++) s = set(s, i, "drag:p3:1", 1000 + i * 1000);

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Designer, draftFromDoc, newDraft, toDoc, type Draft } from "../src/designer/Designer.js";
+import { Designer, draftFromDoc, newDraft, toDoc, TOUCH_QUERY, type Draft } from "../src/designer/Designer.js";
 import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import { gridFor, paintTo, withLaying, type Cell, type Laying } from "../src/designer/lanes.js";
 import { MODE_KEY } from "../src/designer/mode.js";
@@ -114,6 +114,19 @@ describe("the Reverse direction button", () => {
     expect(html).toContain(`designer designer-${mode}`);
     const bar = html.slice(html.indexOf('class="designer-bar"'), html.indexOf('class="save-state"'));
     const b = button(bar);
+    expect(b).toBeDefined();
+    expect(b).toMatch(/<svg[^>]*lucide/);
+    expect(b).not.toMatch(/disabled/);
+  });
+
+  it("is in the dock, not the bar, on a tablet in Quick mode", () => {
+    vi.stubGlobal("localStorage", { getItem: (k: string) => (k === MODE_KEY ? JSON.stringify({ mode: "quick" }) : null), setItem: () => {}, removeItem: () => {} });
+    vi.stubGlobal("window", { matchMedia: (q: string) => ({ matches: q === TOUCH_QUERY }) });
+    const html = render(draftFromDoc(club()));
+    expect(html).toContain("designer-touch");
+    expect(button(html.slice(0, html.indexOf('class="save-state"')))).toBeUndefined();
+    const dock = html.slice(html.indexOf('aria-label="Designer tools"'));
+    const b = dock.match(/<button[^>]*aria-label="Reverse direction"[^>]*>(?:(?!<\/button>).)*<\/button>/)?.[0];
     expect(b).toBeDefined();
     expect(b).toMatch(/<svg[^>]*lucide/);
     expect(b).not.toMatch(/disabled/);

@@ -1,11 +1,13 @@
 // Interactive 2D plan drawn from `built` (+ area, obstacles). Pan by dragging, zoom with the wheel / pinch /
-// double-click / buttons, toggle layers, hover jumps, checks and obstacles for details.
+// double-click / buttons, toggle layers, hover jumps, checks and obstacles for details. Two fingers pinch and pan
+// wherever they land, handles included, and nothing under them gets the touch (#16).
 import { niceLength, planLayers, type Area, type Built, type Check, type DesignFeature, type Obstacle, type PlanLayer, type Point2, type Side } from "@track-studio/engine";
 import { Layers as LayersIcon, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { FEATURE_LABEL, metres } from "../lib/format.js";
 import { useElementSize } from "../lib/hooks.js";
 import { areaBounds, fitView, pan, viewBox, zoomAt, type View } from "../lib/plan.js";
+import { Fingers, pinchView, TAP_SLOP_PX, type Spot } from "../lib/touch.js";
 
 export type LayerKey = PlanLayer;
 export type Layers = Record<LayerKey, boolean>;
@@ -53,12 +55,18 @@ export interface PlanViewProps {
   onHandleWheel?: (e: WheelEvent, el: Element) => boolean;
   /** click (no drag) on the plan where there's no handle; the event says where */
   onBackgroundClick?: (e: React.PointerEvent<SVGSVGElement>) => void;
+  /** a second finger landed: whatever the first finger started (a drag, painting) should be taken back */
+  onSecondFinger?: () => void;
+  /** changing it fits the plan to the box again (an outside zoom-to-fit button) */
+  fitRequest?: number;
+  /** the zoom / fit / layers buttons on the plan (off where the page has its own) */
+  controls?: boolean;
 }
 
 const MAX_SCALE = 400; // px per metre
 
 export function PlanView(props: PlanViewProps) {
-  const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children, overlay, onHandleWheel, onBackgroundClick } = props;
+  const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children, overlay, onHandleWheel, onBackgroundClick, onSecondFinger, fitRequest, controls = true } = props;
   const [boxRef, box] = useElementSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const bounds = useMemo(() => areaBounds(area), [area]);
@@ -82,6 +90,11 @@ export function PlanView(props: PlanViewProps) {
     moved.current = false;
     if (fitted) setView(fitted);
   }, [fitted]);
+
+  useEffect(() => {
+    if (fitRequest) reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitRequest]);
 
   const zoomBy = useCallback(
     (factor: number, px = box.width / 2, py = box.height / 2) => {
@@ -127,15 +140,77 @@ export function PlanView(props: PlanViewProps) {
     };
   }, [zoomBy, compact, interactive, onHandleWheel]);
 
-  // drag to pan, two fingers to pinch
+  // in an editor, touches on the plan are all handled as pointer events; the click a browser sends after a tap would
+  // land on whatever the tap just opened under the finger (a panel's Delete button), so touches there make none
+  // (plans you only look at keep it, for double-tap zoom)
+  const hasView = !!v, editing = !!overlay;
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || !interactive || !editing) return;
+    const noClick = (e: TouchEvent) => e.cancelable && e.preventDefault();
+    el.addEventListener("touchend", noClick, { passive: false });
+    return () => el.removeEventListener("touchend", noClick);
+  }, [interactive, hasView, editing]);
+
+  // drag to pan (one finger or the mouse, on empty floor)
   const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pressedAt = useRef<Spot>({ x: 0, y: 0 });
   const dragged = useRef(false);
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!interactive || e.button > 0) return;
     if ((e.target as Element).closest("[data-handle]")) return; // the editor's handles take this pointer
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    pressedAt.current = { x: e.clientX, y: e.clientY };
     dragged.current = false;
+  };
+
+  // two fingers: pinch and pan, seen in the capture phase so it works over handles too; once a second finger lands,
+  // nothing else on the plan gets these fingers until they're all up
+  const fingers = useRef(new Fingers());
+  const spots = useRef(new Map<number, Spot>());
+  const onTouchDown = (e: React.PointerEvent) => {
+    if (!interactive || e.pointerType !== "touch") return;
+    if (e.isPrimary) {
+      // no other finger is down: forget any whose lift we never saw (it lifted off the plan after its handle went)
+      fingers.current = new Fingers();
+      spots.current.clear();
+    }
+    const second = fingers.current.press(e.pointerId);
+    const r = e.currentTarget.getBoundingClientRect();
+    spots.current.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top });
+    if (second) {
+      pointers.current.clear(); // a one-finger pan stops
+      dragged.current = true; // and lifting the fingers isn't a tap
+      setTip(null);
+      onSecondFinger?.();
+    }
+    if (fingers.current.multi) e.stopPropagation();
+  };
+  const onTouchMove = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    const before = spots.current.get(e.pointerId);
+    if (!before) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const now = { x: e.clientX - r.left, y: e.clientY - r.top };
+    // follow a lone finger too, so a pinch that starts mid-drag starts from where the fingers are
+    spots.current.set(e.pointerId, now);
+    if (!fingers.current.multi) return;
+    e.stopPropagation();
+    const other = [...spots.current.entries()].find(([id]) => id !== e.pointerId)?.[1];
+    if (!other) return; // the finger left after a pinch: nothing
+    moved.current = true;
+    setView((cur) => (cur ? pinchView(cur, [before, other], [now, other], box.width, box.height, minScale, MAX_SCALE) : cur));
+  };
+  const onTouchUp = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    const multi = fingers.current.multi;
+    fingers.current.lift(e.pointerId);
+    spots.current.delete(e.pointerId);
+    if (multi) {
+      pointers.current.delete(e.pointerId);
+      e.stopPropagation();
+    }
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -145,18 +220,14 @@ export function PlanView(props: PlanViewProps) {
       const next = { x: e.clientX, y: e.clientY };
       if (ps.size === 1) {
         const dx = next.x - prev.x, dy = next.y - prev.y;
-        if (dragged.current || Math.hypot(dx, dy) > 2) {
+        // a finger wobbles: a touch is a tap until it has moved TAP_SLOP_PX from where it landed
+        const starts = e.pointerType === "mouse" ? Math.hypot(dx, dy) > 2 : Math.hypot(next.x - pressedAt.current.x, next.y - pressedAt.current.y) > TAP_SLOP_PX;
+        if (dragged.current || starts) {
           dragged.current = true;
           moved.current = true;
           setTip(null);
           setView((cur) => (cur ? pan(cur, dx, dy) : cur));
         } else return;
-      } else if (ps.size === 2) {
-        const [a, b] = [...ps.entries()].map(([id, p]) => (id === e.pointerId ? next : p));
-        const [pa, pb] = [...ps.values()];
-        const d0 = Math.hypot(pa.x - pb.x, pa.y - pb.y), d1 = Math.hypot(a.x - b.x, a.y - b.y);
-        if (d0 > 0) zoomBy(d1 / d0, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
-        dragged.current = true;
       }
       ps.set(e.pointerId, next);
       return;
@@ -273,6 +344,10 @@ export function PlanView(props: PlanViewProps) {
       ref={boxRef}
       className={`plan ${compact ? "plan-compact" : ""} ${className ?? ""}`}
       style={{ "--plan-ratio": `${bounds.x1 - bounds.x0} / ${bounds.y1 - bounds.y0}` } as React.CSSProperties}
+      onPointerDownCapture={onTouchDown}
+      onPointerMoveCapture={onTouchMove}
+      onPointerUpCapture={onTouchUp}
+      onPointerCancelCapture={onTouchUp}
     >
       {v && (
         <svg
@@ -299,7 +374,7 @@ export function PlanView(props: PlanViewProps) {
         </svg>
       )}
 
-      {interactive && v && (
+      {interactive && v && controls && (
         <>
           <div className="plan-controls" role="toolbar" aria-label="Plan view">
             <button type="button" onClick={() => zoomBy(1.5)} aria-label="Zoom in" title="Zoom in (+)">
