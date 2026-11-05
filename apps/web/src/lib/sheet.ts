@@ -29,11 +29,22 @@ export function cornerRows(s: BuildSheet): CornerRow[] {
   }));
 }
 
+/** The jumps; crossovers have their own table. */
 export function jumpRows(s: BuildSheet): { type: string; position: string; size: string }[] {
-  return s.jumps.map((j) => ({
+  return s.jumps.filter((j) => j.type !== "crossover").map((j) => ({
     type: FEATURE_LABEL[j.type] ?? j.type,
     position: `${metres1(j.fromWest)}, ${metres1(j.fromSouth)}`,
     size: `${trim(j.length)} × ${trim(j.height)} m`,
+  }));
+}
+
+/** The crossovers, X1, X2, … as marked on the plan. */
+export function crossoverRows(s: BuildSheet): { label: string; position: string; over: string; size: string }[] {
+  return s.crossovers.map((c) => ({
+    label: `X${c.number}`,
+    position: `${metres1(c.fromWest)}, ${metres1(c.fromSouth)}`,
+    over: c.over === "first" ? "First time through" : c.over === "second" ? "Second time through" : "Bridges nothing",
+    size: `${trim(c.length)} × ${trim(c.height)} m: ${trim(c.ramp)} m ramps, ${trim(c.top)} m top`,
   }));
 }
 

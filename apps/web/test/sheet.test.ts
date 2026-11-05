@@ -3,7 +3,7 @@ import { buildSheet, fromSouthWest, PRINT_PALETTE, type RcTrack } from "@track-s
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { cornerRows, figures, jumpRows, metres1, paperFrom, PAPER, qrModules, SHEET_PX, sheetPlan, sheetStatus, shortLink, startText } from "../src/lib/sheet.js";
+import { cornerRows, crossoverRows, figures, jumpRows, metres1, paperFrom, PAPER, qrModules, SHEET_PX, sheetPlan, sheetStatus, shortLink, startText } from "../src/lib/sheet.js";
 
 const REF = join(__dirname, "..", "..", "..", "reference", "examples");
 const fixtures = readdirSync(REF).filter((f) => f.endsWith(".rctrack.json")).map((name) => ({ name, doc: JSON.parse(readFileSync(join(REF, name), "utf8")) as RcTrack }));
@@ -137,5 +137,30 @@ describe("plan and link", () => {
   it("the print colours in the web app are the engine's print palette (tokens.json print-*)", () => {
     const css = readFileSync(join(__dirname, "..", "src/theme/plan-palette.css"), "utf8");
     for (const [name, value] of Object.entries(PRINT_PALETTE)) expect(css, name).toContain(`--${name}: ${value};`);
+  });
+});
+
+describe("crossovers (#51)", () => {
+  const EXTRA = join(__dirname, "..", "..", "..", "packages", "engine", "test", "fixtures", "extra");
+  const extra = (name: string) => JSON.parse(readFileSync(join(EXTRA, `${name}.rctrack.json`), "utf8")) as RcTrack;
+
+  it("each crossover as printed: position from the south-west corner, the pass that goes over, its size", () => {
+    expect(crossoverRows(buildSheet(extra("crossover-figure8")))).toEqual([
+      { label: "X1", position: "12.0 m, 8.0 m", over: "First time through", size: "8 × 0.4 m: 2 m ramps, 4 m top" },
+    ]);
+    expect(crossoverRows(buildSheet(extra("crossover-low-figure8")))[0].over).toBe("Bridges nothing");
+    expect(crossoverRows(buildSheet(extra("two-crossings"))).map((r) => r.label)).toEqual(["X1", "X2"]);
+  });
+
+  it("crossovers have their own table, not the jumps'; a bridging tabletop stays a jump", () => {
+    expect(jumpRows(buildSheet(extra("crossover-figure8")))).toEqual([]);
+    expect(jumpRows(buildSheet(extra("tabletop-figure8"))).map((j) => j.type)).toEqual(["Tabletop"]);
+    expect(crossoverRows(buildSheet(club))).toEqual([]);
+  });
+
+  it("the print plan draws the bridge, in ink", () => {
+    const p = sheetPlan(extra("crossover-figure8"), 1039, 740);
+    expect(p.svg).toContain('class="p-crossing"');
+    expect(p.svg).toMatch(new RegExp(`class="p-bridge"[^>]*stroke="${PRINT_PALETTE["print-ink"]}"`));
   });
 });
