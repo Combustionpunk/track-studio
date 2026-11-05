@@ -337,14 +337,25 @@ test.describe("tablet touch", () => {
     const t = await Touch.on(page);
     await layLoop(page, t);
     await page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: /Tabletop/ }).tap();
-    await t.tap(await screen(page, -5, -5)); // on the south straight, clear of the start line in its middle
+    // on the north straight, under where its panel opens: the tap mustn't go on to press the panel's Delete
+    await t.tap(await screen(page, 8, 5));
     await expect(page.locator("polygon.ed-feature")).toHaveCount(1);
+    await expect(page.locator(".designer-sheet")).toBeVisible();
+    await page.waitForTimeout(400);
+    await expect(page.locator("polygon.ed-feature")).toHaveCount(1);
+    await page.locator(".designer-sheet").getByRole("button", { name: "Close" }).tap();
     for (const sel of ["g.ed-corner .ed-hit", "circle.ed-hit-apex", ".ed-hit-feature"]) {
       const b = (await page.locator(sel).first().boundingBox())!;
       expect(b.width, sel).toBeGreaterThanOrEqual(43.5);
     }
-    // a jump selected by touch opens its panel, with Delete
+    // a jump selected by touch opens its panel, with Delete; the tap that selects it never clicks what opens under it
+    await page.evaluate(() => {
+      (window as unknown as { clicks: number }).clicks = 0;
+      window.addEventListener("click", () => (window as unknown as { clicks: number }).clicks++, true);
+    });
     await t.tap(await centreOf(page, ".ed-hit-feature"));
+    await expect(page.locator(".designer-sheet")).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { clicks: number }).clicks)).toBe(0);
     await expect(page.locator(".designer-sheet").getByRole("button", { name: "Delete tabletop" })).toBeVisible();
   });
 });

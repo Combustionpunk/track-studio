@@ -140,6 +140,18 @@ export function PlanView(props: PlanViewProps) {
     };
   }, [zoomBy, compact, interactive, onHandleWheel]);
 
+  // in an editor, touches on the plan are all handled as pointer events; the click a browser sends after a tap would
+  // land on whatever the tap just opened under the finger (a panel's Delete button), so touches there make none
+  // (plans you only look at keep it, for double-tap zoom)
+  const hasView = !!v, editing = !!overlay;
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || !interactive || !editing) return;
+    const noClick = (e: TouchEvent) => e.cancelable && e.preventDefault();
+    el.addEventListener("touchend", noClick, { passive: false });
+    return () => el.removeEventListener("touchend", noClick);
+  }, [interactive, hasView, editing]);
+
   // drag to pan (one finger or the mouse, on empty floor)
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pressedAt = useRef<Spot>({ x: 0, y: 0 });

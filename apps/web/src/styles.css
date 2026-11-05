@@ -705,6 +705,7 @@ select.ts-input { padding: 0 var(--space-2); }
 .designer-touch .designer-bar .back { width: var(--touch-target); height: var(--touch-target); }
 .designer-touch .mode-toggle button { height: var(--touch-target); padding: 0 16px; }
 .designer-touch .name-input { height: var(--touch-target); width: 240px; }
+.designer-touch .steps li { display: flex; align-items: center; }
 .designer-touch .designer-grid { display: flex; }
 .designer-touch .designer-plan-wrap { flex: 1 1 auto; display: flex; flex-direction: column; }
 .designer-touch .designer-plan { flex: 1 1 auto; height: auto; min-height: 0; -webkit-touch-callout: none; }

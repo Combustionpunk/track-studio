@@ -1108,7 +1108,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           <ChevronLeft size={20} aria-hidden="true" />
         </Link>
         <input className="name-input" aria-label="Track name" value={draft.info.name} maxLength={80} onChange={(e) => update((d) => ({ ...d, info: { ...d.info, name: e.target.value } }), "name")} />
-        <span className="designer-venue">
+        <span className="designer-venue" hidden={tablet}>
           {venueName ? `${venueName} · ` : ""}
           {fmt.size(draft.area, true)}
         </span>
@@ -1145,7 +1145,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </>
         )}
         <span className="save-state" aria-live="polite">
-          {dirty ? "Unsaved changes · kept on this device" : base ? `Saved · revision ${base.revision}` : "Not saved yet"}
+          {/* the tablet's bar is one row at 1024 px, as in the mockup: the short form */}
+          {dirty ? (tablet ? "Unsaved" : "Unsaved changes · kept on this device") : base ? `Saved · revision ${base.revision}` : "Not saved yet"}
         </span>
         {me ? (
           <button type="button" className={`btn ${showSubmit ? "" : "btn-primary"}`} onClick={() => setSaveOpen((o) => !o)} disabled={saving || laying || (!dirty && mode === "edit")} aria-expanded={saveOpen} title={laying ? "Close the loop first" : undefined}>
