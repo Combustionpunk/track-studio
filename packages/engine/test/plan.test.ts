@@ -159,7 +159,7 @@ describe("jump symbols", () => {
   for (const { path } of [...allTracks]) for (const feat of readJson<RcTrack>(path).built?.features ?? []) if (!all.has(feat.type)) all.set(feat.type, feat);
 
   it("the fixtures cover every jump type", () => {
-    expect([...all.keys()].sort()).toEqual(["bump", "double", "kicker", "stepdown", "stepup", "tabletop", "whoops"]);
+    expect([...all.keys()].sort()).toEqual(["bump", "crossover", "double", "kicker", "stepdown", "stepup", "tabletop", "whoops"]);
   });
 
   it("splits the profile into humps on the ground: a double has two, whoops three", () => {
