@@ -41,6 +41,7 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
   `length`: `distance` is at the crossing (either pass's distance finds it; the bake puts it on the over pass), `over`
   is `"first"` (the default) or `"second"`, the pass that goes over, in driving order from the start line.
 - `start.distance` — start/finish line position along the racing line.
+- Direction of travel is the order of `points`: reversing a track reorders them to `[p0, pn-1, …, p1]` and moves each `distance` so jumps and the start line stay in the same spot (no field for it).
 - `rostrum` — `{side: north/south/east/west, offset}`; offset in metres along that side from its centre.
 
 ## built
