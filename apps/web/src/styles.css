@@ -163,6 +163,9 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .name-input { width: 280px; max-width: 100%; height: 36px; padding: 0 10px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text); font: 500 20px var(--font-heading); }
 .name-input:hover, .name-input:focus { border-color: var(--line-strong); }
 .designer-venue, .save-state { font-size: 13px; color: var(--muted); }
+.steps { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); }
+.steps li { padding: 4px 10px; border-radius: var(--radius-md); }
+.steps li[aria-current="step"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .mode-toggle { margin-left: auto; display: flex; padding: 2px; border-radius: 6px; background: var(--selected); }
 .mode-toggle button { height: 32px; padding: 0 14px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font: 600 14px var(--font-body); cursor: pointer; }
 .mode-toggle button[aria-pressed="true"] { background: var(--surface); color: var(--text); }
@@ -182,6 +185,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .sel-warning { display: grid; grid-template-columns: 16px 1fr; gap: var(--space-2); align-items: start; margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); font-size: 14px; line-height: 20px; }
 .sel-warning svg { margin-top: 2px; }
 .palette-help { margin: auto 0 0; font-size: 13px; line-height: 18px; color: var(--muted); }
+.lay-help { margin: 0; font-size: 13px; line-height: 18px; color: var(--muted); }
 .seg-snap { margin: 12px 0 0; gap: 4px 0; }
 .seg-snap .label { width: 100%; }
 .seg-snap button { padding: 4px 9px; font-size: 13px; }
@@ -298,6 +302,15 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-edges { fill: none; stroke: var(--ed-edges); stroke-width: 1.2; stroke-dasharray: 5 4; pointer-events: none; }
 .ed-shared { stroke: var(--ed-mitre); stroke-width: 6; stroke-linecap: round; opacity: 0.75; pointer-events: none; }
 .ed-badge { fill: var(--plan-warning); font-family: var(--font-body); font-weight: 700; paint-order: stroke; stroke: var(--plan-halo); stroke-linejoin: round; pointer-events: none; }
+/* Quick mode step 1: the lane-width grid and the lane painted through it */
+.lay-hit { fill: transparent; pointer-events: all; cursor: crosshair; touch-action: none; }
+.lay-grid { fill: none; stroke: var(--ed-control); stroke-width: 1; pointer-events: none; }
+.lay-cell { fill: var(--plan-carpet); pointer-events: none; }
+.lay-blocked { pointer-events: none; }
+.lay-hatch { stroke: var(--plan-obstacle); }
+.lay-line { fill: none; stroke: var(--plan-line); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.lay-first { fill: none; stroke: var(--plan-line); stroke-width: 3; pointer-events: none; }
+.lay-end { fill: none; stroke: var(--ed-guide); stroke-width: 2; pointer-events: none; }
 .panel .seg .seg-label { width: 100%; margin-bottom: 4px; }
 .snap-info { white-space: nowrap; }
 

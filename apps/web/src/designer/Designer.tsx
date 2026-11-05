@@ -18,10 +18,11 @@ import {
   type PlanLayers,
   type Point2,
   type RcTrack,
+  type RostrumPlacement,
   type Side,
 } from "@track-studio/engine";
 import { ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, TriangleAlert, Undo2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { CopyButton, Message, StatusBadge } from "../components/bits.js";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
@@ -54,6 +55,7 @@ import {
   type DesignerMode,
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
+import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { useBake } from "./useBake.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -76,6 +78,8 @@ export interface Draft {
   obstacles: Obstacle[];
   basedOn: BasedOn | null;
   design: RcTrack["design"];
+  /** step 1 (lay the lanes): the squares painted so far; the design has no points until the loop closes */
+  laying?: Cell[];
 }
 
 export interface DesignerBase {
@@ -103,6 +107,11 @@ export function toDoc(d: Draft, base?: { id: string; revision: number; doc: RcTr
   if (d.info.description) (info as RcTrack["info"]).description = d.info.description;
   else delete (info as RcTrack["info"]).description;
   return { format: "rctrack", version: 1, id: base?.id ?? "new", revision: (base?.revision ?? 0) + 1, info, area: d.area, obstacles: d.obstacles, basedOn: d.basedOn, design: d.design };
+}
+
+/** A new design (from a venue template or a blank area): it opens in step 1 with nothing laid. */
+export function newDraft({ area, obstacles, name, basedOn = null, rostrum, laneWidth = 2 }: { area: Area; obstacles: Obstacle[]; name: string; basedOn?: BasedOn | null; rostrum?: RostrumPlacement; laneWidth?: number }): Draft {
+  return { info: { name }, area, obstacles, basedOn, laying: [], design: { laneWidth, points: [], features: [], start: { distance: 0 }, rostrum: { side: "south", ...rostrum } } };
 }
 
 export function draftFromDoc(doc: RcTrack): Draft {
@@ -133,6 +142,9 @@ function planPoint(svg: SVGSVGElement, clientX: number, clientY: number): Point2
   return [p.x, -p.y];
 }
 
+/** what the live geometry is worked out from while laying the lanes (nothing of it is drawn: there's no track yet) */
+const NO_TRACK: RcTrack["design"] = { laneWidth: 2, points: [{ x: -2, z: -1 }, { x: 2, z: -1 }, { x: 2, z: 1 }, { x: -2, z: 1 }] };
+
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
 /** the plan's checks layer on its own (the designer's problem marks) */
@@ -161,6 +173,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [snap, setSnap] = useStored<{ mode: SnapMode }>("designer-snap", { mode: "lanes" });
   const snapRef = useRef(snap.mode);
   snapRef.current = snap.mode;
+  const hatchId = `hatch${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const [snapInfo, setSnapInfo] = useState<{ mode: SnapMode; tags: SnapTag[] } | null>(null);
   const [view, setViewState] = useState<DesignerMode>(() => {
     try {
@@ -190,8 +203,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   /** Shift = fine, Alt = free, otherwise the toolbar's mode; lanes only in Quick */
   const modeFor = (ev: { shiftKey: boolean; altKey: boolean }): SnapMode => snapModeFor(viewRef.current, ev, snapRef.current);
 
-  const live = useMemo(() => liveGeometry(draft.design), [draft.design]);
-  const doc = useMemo(() => toDoc(draft, base), [draft, base]);
+  const step = designStep(draft);
+  const laying = step === 1;
+  const grid = useMemo(() => (laying ? gridFor(draft) : null), [laying, draft.area, draft.obstacles, draft.design.laneWidth]); // eslint-disable-line react-hooks/exhaustive-deps
+  const live = useMemo(() => liveGeometry(laying ? NO_TRACK : draft.design), [laying, draft.design]);
+  const doc = useMemo(() => (laying ? null : toDoc(draft, base)), [laying, draft, base]);
   const bake = useBake(doc);
   const rostrum = useMemo(() => {
     const side = (draft.design.rostrum?.side ?? "south") as Side;
@@ -303,7 +319,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       if (mod && e.key.toLowerCase() === "s") {
         // save works from anywhere, also while typing in a field
         e.preventDefault();
-        if (!phoneRef.current) setSaveOpen(true);
+        if (!phoneRef.current && !draftRef.current.laying) setSaveOpen(true);
         return;
       }
       if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
@@ -492,6 +508,65 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setSel({ kind: "start" });
     startDrag(e, svg, { kind: "start", ds: s - (draftRef.current.design.start?.distance ?? 0) }, { threshold: true });
   };
+
+  // ------------------------------------------------------------------------------------ step 1: lay the lanes
+  // step 1's notes go in the floating hint, not the message bar, so the plan never moves under a drag
+  const [layNote, setLayNote] = useState<string | null>(null);
+  /** Paint from the end of the lane to `target`, one undo step per square. True once the loop has closed. */
+  const paintCell = (g: LaneGrid, target: Cell): boolean => {
+    let d = draftRef.current;
+    if (!d.laying) return true;
+    const r = paintTo(g, { cells: d.laying, closed: false }, target);
+    for (const st of r.states) {
+      d = withLaying(d, st);
+      hist.set(d);
+    }
+    draftRef.current = d;
+    const closed = !d.laying;
+    if (r.refused) setLayNote(REFUSAL_TEXT[r.refused]);
+    else if (r.states.length) setLayNote(null);
+    return closed;
+  };
+
+  const onGridDown = (e: React.PointerEvent<SVGRectElement>) => {
+    if (e.button !== 0 || !grid) return;
+    e.stopPropagation();
+    const svg = svgOf(e.currentTarget);
+    const g = grid;
+    let cur = cellAt(g, planPoint(svg, e.clientX, e.clientY));
+    if (!cur) return;
+    const cells = draftRef.current.laying ?? [];
+    const end = cells[cells.length - 1];
+    // carry on from the end of the lane (or a square next to it); a press anywhere else would lay a long L
+    if (end && Math.abs(cur[0] - end[0]) + Math.abs(cur[1] - end[1]) > 1) {
+      setLayNote("Carry on from the end of the lane, or drag back along it to take squares up.");
+      return;
+    }
+    if (paintCell(g, cur) || !draftRef.current.laying?.length) return; // closed, or the first square was refused
+    const id = e.pointerId; // a second finger never paints (pinch and pan come with #16)
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== id) return;
+      const c = cellAt(g, planPoint(svg, ev.clientX, ev.clientY));
+      if (!c || (cur && same(c, cur))) return;
+      cur = c;
+      if (paintCell(g, c)) up();
+    };
+    const up = (ev?: PointerEvent) => {
+      if (ev && ev.pointerId !== id) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
+  // undo past the close comes back here: nothing of step 2 stays selected or armed
+  useEffect(() => {
+    if (!laying) return;
+    setSel(null);
+    setTool({ kind: "select" });
+  }, [laying]);
 
   // wheel over a corner point: radius; Ctrl+wheel: lane width
   const wheelAcc = useRef({ key: "", px: 0 });
@@ -686,6 +761,46 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     );
   };
 
+  const layOverlay = (m: number) => {
+    if (!grid) return null;
+    const g = grid;
+    const cells = draft.laying ?? [];
+    const box = (c: Cell) => {
+      const [x, z] = cellCorner(g, c);
+      return { x, y: -(z + g.size), width: g.size, height: g.size };
+    };
+    const [x0, z0] = g.origin;
+    const W = g.cols * g.size, H = g.rows * g.size;
+    let lines = "";
+    for (let c = 0; c <= g.cols; c++) lines += `M${x0 + c * g.size} ${-z0}V${-(z0 + H)}`;
+    for (let r = 0; r <= g.rows; r++) lines += `M${x0} ${-(z0 + r * g.size)}H${x0 + W}`;
+    const centres = cells.map((c) => cellCentre(g, c));
+    const end = cells[cells.length - 1];
+    return (
+      <g className="lay">
+        <defs>
+          <pattern id={hatchId} patternUnits="userSpaceOnUse" width={0.35} height={0.35} patternTransform="rotate(45)">
+            <line x1={0} y1={0} x2={0} y2={0.35} className="lay-hatch" strokeWidth={0.1} />
+          </pattern>
+        </defs>
+        {[...g.blocked].map((k) => {
+          const c = k.split(",").map(Number) as Cell;
+          return <rect key={k} className="lay-blocked" {...box(c)} fill={`url(#${hatchId})`} />;
+        })}
+        {cells.map((c) => (
+          <rect key={`${c[0]},${c[1]}`} className="lay-cell" {...box(c)} />
+        ))}
+        <path className="lay-grid" d={lines} vectorEffect="non-scaling-stroke" />
+        {end && <rect className="lay-end" {...box(end)} vectorEffect="non-scaling-stroke" />}
+        {centres.length > 1 && <polyline className="lay-line" points={pts(centres)} vectorEffect="non-scaling-stroke" />}
+        {centres[0] && <circle className="lay-first" cx={centres[0][0]} cy={-centres[0][1]} r={Math.min(g.size / 4, 9 * m)} vectorEffect="non-scaling-stroke" />}
+        <rect data-handle="grid" className="lay-hit" x={x0} y={-(z0 + H)} width={W} height={H} onPointerDown={onGridDown}>
+          <title>{cells.length ? "Drag on from the end of the lane; drag back to take squares up" : "Press on a square and drag to lay the lane"}</title>
+        </rect>
+      </g>
+    );
+  };
+
   // ------------------------------------------------------------------------------------ layout
   const status = base?.track;
   const showSubmit = !!me && mode === "edit" && !!base?.can.submit;
@@ -727,10 +842,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               <p>Changes you haven't saved stay in this browser until you save them.</p>
             )}
           </div>
-          <PlanView area={draft.area} obstacles={draft.obstacles} built={built} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
+          <PlanView area={draft.area} obstacles={draft.obstacles} built={laying ? undefined : built} rostrum={rostrum} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
           <dl className="figures">
             <div>
-              <dd>{fmt.metres(live.total)}</dd>
+              <dd>{laying ? "—" : fmt.metres(live.total)}</dd>
               <dt>Lap</dt>
             </div>
             <div>
@@ -759,6 +874,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           {fmt.size(draft.area, true)}
         </span>
         {status && <StatusBadge status={status.status} />}
+        {(view === "quick" || laying) && <Steps step={step} />}
         <div className="mode-toggle" role="group" aria-label="Mode">
           {(["quick", "advanced"] as const).map((m) => (
             <button key={m} type="button" aria-pressed={view === m} onClick={() => setView(m)} title={m === "quick" ? "The essentials: move, add and delete corners, jumps, start line" : "Everything: corner radius, lane widths, outside corners, fine and free snapping, all checks"}>
@@ -776,7 +892,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           {dirty ? "Unsaved changes · kept on this device" : base ? `Saved · revision ${base.revision}` : "Not saved yet"}
         </span>
         {me ? (
-          <button type="button" className={`btn ${showSubmit ? "" : "btn-primary"}`} onClick={() => setSaveOpen((o) => !o)} disabled={saving || (!dirty && mode === "edit")} aria-expanded={saveOpen}>
+          <button type="button" className={`btn ${showSubmit ? "" : "btn-primary"}`} onClick={() => setSaveOpen((o) => !o)} disabled={saving || laying || (!dirty && mode === "edit")} aria-expanded={saveOpen} title={laying ? "Close the loop first" : undefined}>
             {saving ? "Saving…" : mode === "new" ? "Save track" : "Save revision"}
           </button>
         ) : (
@@ -789,7 +905,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             Submit track
           </button>
         )}
-        {saveOpen && me && (
+        {saveOpen && me && !laying && (
           <form
             className="save-pop"
             onSubmit={(e) => {
@@ -862,6 +978,25 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       )}
 
       <div className="designer-grid">
+        {laying ? (
+          <aside className="designer-palette" aria-label="Lay the lanes">
+            <span className="label">1 · Lay the lanes</span>
+            <p className="lay-help">Press on a square and drag through the squares in driving order. Drag back to take squares up.</p>
+            <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
+            <button
+              type="button"
+              className="palette-btn"
+              disabled={!draft.laying?.length}
+              onClick={() => {
+                update((d) => withLaying(d, { cells: [], closed: false }));
+                setLayNote(null);
+              }}
+              title="Take up the whole lane (Undo brings it back)"
+            >
+              Start again
+            </button>
+          </aside>
+        ) : (
         <aside className="designer-palette" aria-label="Add to the track">
           <span className="label">Jumps</span>
           <JumpPalette
@@ -906,6 +1041,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             {tool.kind === "feature" ? `Click on the racing line to place the ${fmt.FEATURE_LABEL[tool.type].toLowerCase()}. Esc to cancel.` : "Pick a jump, then click on the racing line to place it."}
           </p>
         </aside>
+        )}
 
         <section className="designer-plan-wrap" aria-label="Plan">
           {snapInfo ? (
@@ -914,12 +1050,21 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               {snapInfo.tags.length > 0 && <> · {snapInfo.tags.join(" · ")}</>}
             </div>
           ) : (
-            <div className="designer-hint">{tool.kind === "feature" ? "Click on the racing line to place it." : "Click a straight to add a corner. Drag a corner to move it."}</div>
+            <div className="designer-hint">
+              {laying
+                ? layNote ?? (draft.laying?.length
+                  ? "Drag on through the squares. Come back to the ring to close the loop."
+                  : "Press on a square and drag to lay the lane.")
+                : tool.kind === "feature"
+                  ? "Click on the racing line to place it."
+                  : "Click a straight to add a corner. Drag a corner to move it."}
+            </div>
           )}
           <PlanView
             area={draft.area}
             obstacles={draft.obstacles}
-            built={built}
+            built={laying ? undefined : built}
+            rostrum={rostrum}
             checksInOverlay
             designFeatures={draft.design.features}
             layers={layers}
@@ -927,7 +1072,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             highlight={highlight}
             label={`Designer plan of ${draft.info.name}`}
             className="designer-plan"
-            overlay={overlay}
+            overlay={laying ? layOverlay : overlay}
             onHandleWheel={onHandleWheel}
             onBackgroundClick={() => {
               setSel(null);
@@ -936,14 +1081,46 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           />
         </section>
 
-        <aside className="designer-side" aria-label="Checks">
-          <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
-          <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
-          {advanced && <Shortcuts />}
-          <Stats built={built} live={live} view={view} />
-        </aside>
+        {laying ? (
+          <aside className="designer-side" aria-label="The lane so far">
+            <section className="checks-panel" aria-labelledby="ck-h">
+              <h2 id="ck-h">Checks</h2>
+              <p className="hint">The track is checked once the loop is closed.</p>
+            </section>
+            <dl className="figures designer-stats">
+              <div>
+                <dd>{draft.laying?.length ?? 0}</dd>
+                <dt>Squares</dt>
+              </div>
+              <div>
+                <dd>{fmt.metres(grid?.size ?? 2, 1)}</dd>
+                <dt>Lane width</dt>
+              </div>
+            </dl>
+          </aside>
+        ) : (
+          <aside className="designer-side" aria-label="Checks">
+            <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
+            <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
+            {advanced && <Shortcuts />}
+            <Stats built={built} live={live} view={view} />
+          </aside>
+        )}
       </div>
     </div>
+  );
+}
+
+/** Quick mode's steps; step 2 (#39) shapes the loop step 1 laid. */
+function Steps({ step }: { step: 1 | 2 }) {
+  return (
+    <ol className="steps" aria-label="Steps">
+      {(["Lay the lanes", "Shape it"] as const).map((label, i) => (
+        <li key={label} aria-current={step === i + 1 ? "step" : undefined}>
+          {i + 1} · {label}
+        </li>
+      ))}
+    </ol>
   );
 }
 
