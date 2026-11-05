@@ -995,12 +995,30 @@ export function selfCrossings(line: Line, s: Float64Array, total: number): { X: 
   for (let i = 0; i < n; i++) {
     dx[i] = x[(i + 1) % n] - x[i]; dz[i] = z[(i + 1) % n] - z[i]; seg[i] = norm(dx[i], dz[i]);
   }
+  // segments by the 1 m grid cells their bounding boxes touch: only segments sharing a cell can cross
+  // (bake.py tests every pair; the pairs tested here come in the same order, so the result is the same)
+  const CELL = 1.0;
+  let x0 = Infinity, z0 = Infinity;
+  for (let i = 0; i < n; i++) { x0 = Math.min(x0, x[i]); z0 = Math.min(z0, z[i]); }
+  const cells = new Map<number, number[]>();
+  const cellsOf = (i: number, visit: (key: number) => void) => {
+    const c0 = Math.floor((Math.min(x[i], x[i] + dx[i]) - x0) / CELL), c1 = Math.floor((Math.max(x[i], x[i] + dx[i]) - x0) / CELL);
+    const r0 = Math.floor((Math.min(z[i], z[i] + dz[i]) - z0) / CELL), r1 = Math.floor((Math.max(z[i], z[i] + dz[i]) - z0) / CELL);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) visit(r * 100003 + c);
+  };
+  for (let i = 0; i < n; i++) cellsOf(i, (key) => { const b = cells.get(key); if (b) b.push(i); else cells.set(key, [i]); });
+  const seen = new Int32Array(n).fill(-1);
   const found: { X: Point2; d: [number, number]; t: [Point2, Point2]; i: [number, number] }[] = [];
   for (let i = 0; i < n - 2; i++) {
     const loX = Math.min(x[i], x[i] + dx[i]), hiX = Math.max(x[i], x[i] + dx[i]);
     const loZ = Math.min(z[i], z[i] + dz[i]), hiZ = Math.max(z[i], z[i] + dz[i]);
     const jEnd = i === 0 ? n - 1 : n; // not the segment itself or its neighbours
-    for (let j = i + 2; j < jEnd; j++) {
+    const near: number[] = [];
+    cellsOf(i, (key) => {
+      for (const j of cells.get(key)!) if (j >= i + 2 && j < jEnd && seen[j] !== i) { seen[j] = i; near.push(j); }
+    });
+    near.sort((p, q) => p - q);
+    for (const j of near) {
       if (Math.min(x[j], x[j] + dx[j]) > hiX || Math.max(x[j], x[j] + dx[j]) < loX) continue;
       if (Math.min(z[j], z[j] + dz[j]) > hiZ || Math.max(z[j], z[j] + dz[j]) < loZ) continue;
       const den = dx[i] * dz[j] - dz[i] * dx[j];
