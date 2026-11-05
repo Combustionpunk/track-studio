@@ -178,7 +178,9 @@ features → ramps, startLine → timing line and grid, rostrum → VR/rostrum p
   distances, angle, over pass, bridging feature and footprint; a long enough tabletop on the crossing also counts as
   the bridge. New checks `crossing-unbridged` (error), `crossing-angle` (warning) and `crossing-too-close` (error).
   Divider loop cutting leaves crossings alone. `version` stays `1`. Tracks that don't cross themselves bake exactly as
-  in 1.5 (`built.crossings` is absent), so 1.5 files load and re-bake unchanged; older readers ignore `crossings`.
+  in 1.5 (`built.crossings` is absent), so 1.5 files load and re-bake unchanged; older readers ignore `crossings`,
+  but a track with a crossover also has `type: "crossover"` in `built.features`, which readers with a fixed list of
+  feature types must skip or draw as a generic ramp.
 - **1.5** — corners share a straight by what each needs (see step 1 of the geometry engine), instead of each taking at
   most half of it: a sweeper next to a hairpin keeps its radius. `version` stays `1`; re-baking changes `built` only of
   tracks that had a squeezed corner (radius shrunk to fit: a `radius-reduced` check, if by more than 0.01 m). Those

@@ -118,6 +118,15 @@ describe("crossover", () => {
     const b = bakeBuilt(track(FIG8, { features: [{ type: "crossover", distance: first[0], rampLength: 5 }] }));
     expect(codes(b)).toEqual(["feature-in-corner"]);
   });
+
+  it("ramps that run across lap distance 0 are still checked for corners", () => {
+    const seam: [number, number][] = [[0, 0], ...FIG8.slice(1), FIG8[0]]; // the lap starts on the crossing
+    const d = bakeBuilt(track(seam)).crossings![0].distances[0];
+    expect(d).toBeLessThan(1);
+    expect(codes(bakeBuilt(track(seam, { features: [{ type: "crossover", distance: d }] })))).toEqual([]);
+    const b = bakeBuilt(track(seam, { features: [{ type: "crossover", distance: d, rampLength: 5 }] }));
+    expect(codes(b)).toEqual(["feature-in-corner"]);
+  });
 });
 
 describe("tabletop as the bridge", () => {

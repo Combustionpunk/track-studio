@@ -1225,7 +1225,8 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     feats.push({ type: typ, x: r3(p[0]), z: r3(p[1]), heading: headingDeg(t), length: r3(length), width: r3(width), height: r3(height), profile });
     // check: jump on or landing into a corner
     const i0 = searchSorted(s, pyMod(dist - length / 2, total));
-    const i1 = searchSorted(s, pyMod(dist + length / 2 + 1.0, total));
+    let i1 = searchSorted(s, pyMod(dist + length / 2 + 1.0, total));
+    if (typ === "crossover" && i1 < i0) i1 += line.n; // ramps across lap distance 0 (older types keep their 1.5 behaviour)
     let maxCurv = -Infinity;
     for (let k = i0; k < i1; k++) maxCurv = Math.max(maxCurv, Math.abs(line.curvature[k % line.n]));
     if (i1 > i0 && maxCurv > 0) {

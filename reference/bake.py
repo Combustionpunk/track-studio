@@ -675,7 +675,9 @@ def bake(doc):
         feats.append({"type": typ, "x": r3(p[0]), "z": r3(p[1]), "heading": heading_deg(t), "length": r3(length),
                       "width": r3(width), "height": r3(height), "profile": prof})
         # check: jump on or landing into a corner
-        span = np.arange(int(np.searchsorted(s, (dist - length / 2) % total)), int(np.searchsorted(s, (dist + length / 2 + 1.0) % total)))
+        i0, i1 = int(np.searchsorted(s, (dist - length / 2) % total)), int(np.searchsorted(s, (dist + length / 2 + 1.0) % total))
+        if typ == "crossover" and i1 < i0: i1 += len(line)   # ramps across lap distance 0 (older types keep their 1.5 behaviour)
+        span = np.arange(i0, i1)
         if len(span) and np.max(np.abs(line[span % len(line), 3])) > 0:
             checks.append({"level": "warning", "code": "feature-in-corner", "x": r3(p[0]), "z": r3(p[1]),
                            "message": f"{typ} at {dist:.1f} m is on or lands into a corner"})
