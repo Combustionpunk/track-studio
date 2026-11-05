@@ -69,7 +69,7 @@ describe("place, move and delete", () => {
 
   it("each is one undo step, including a whole drag", () => {
     type Doc = { features: ReturnType<typeof addJump>["features"] };
-    let h: HistoryState<Doc> = { past: [], present: { features: [] }, future: [], group: null, at: 0 };
+    let h: HistoryState<Doc> = { past: [], present: { features: [] }, future: [], group: null, at: 0, travels: 0 };
     const set = (next: Doc, group?: string, now = 1000) => (h = historyReducer(h, { type: "set", next, group, now }));
     set({ features: addJump(h.present.features, "tabletop", 5).features });
     expect(h.past).toHaveLength(1);

@@ -223,7 +223,7 @@ describe("painting the lane", () => {
   it("each painted step is one undo step", () => {
     const d0 = newDraft({ area: venue("club-hall").area, obstacles: [], name: "t" });
     const grid = gridFor(d0);
-    let h: HistoryState<Draft> = { past: [], present: d0, future: [], group: null, at: 0 };
+    let h: HistoryState<Draft> = { past: [], present: d0, future: [], group: null, at: 0, travels: 0 };
     const states = paintAll(grid, [[0, 0], [2, 0], [2, 1], [3, 1], [3, 0]]); // paint, gap-fill, back-track
     states.push(...paintAll(grid, [[2, 2], [0, 2], [0, 0]], last(states))); // and close
     expect(last(states).closed).toBe(true);

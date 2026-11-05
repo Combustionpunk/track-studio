@@ -130,7 +130,7 @@ describe("obstacles", () => {
 
 describe("undo and redo", () => {
   it("form edits and drags are steps in one history", () => {
-    const start: HistoryState<VenueDraft> = { past: [], present: hall(), future: [], group: null, at: 0 };
+    const start: HistoryState<VenueDraft> = { past: [], present: hall(), future: [], group: null, at: 0, travels: 0 };
     const set = (s: HistoryState<VenueDraft>, next: VenueDraft, group?: string, now = 1000) => historyReducer(s, { type: "set", next, group, now });
     // a drag is one step however many moves it makes
     let s = set(start, { ...s0(start), obstacles: [moveObstacle(s0(start).obstacles[0], [1, 1]), s0(start).obstacles[1]] }, "drag:o0:1");
