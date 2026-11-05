@@ -56,7 +56,7 @@ import {
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
-import { alongBisector, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, setApex, turnLabel, widthAt } from "./shape.js";
+import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, keepSelection, setApex, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -204,6 +204,19 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   };
   const viewRef = useRef(view);
   viewRef.current = view;
+  // Quick: undo / redo that adds or takes away corners lets the selection go, so the next tap can't add after the wrong one
+  const histRef = useRef(hist);
+  histRef.current = hist;
+  const travel = useCallback((dir: "undo" | "redo") => {
+    const h = histRef.current;
+    const to = dir === "undo" ? h.prev : h.next;
+    if (!to) return;
+    if (viewRef.current === "quick") setSel((s) => keepSelection(s, h.present.design.points, to.design.points));
+    if (dir === "undo") h.undo();
+    else h.redo();
+  }, []);
+  const undo = useCallback(() => travel("undo"), [travel]);
+  const redo = useCallback(() => travel("redo"), [travel]);
   const phone = useMediaQuery(PHONE_QUERY);
   const phoneRef = useRef(phone);
   phoneRef.current = phone;
@@ -348,11 +361,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
-        if (e.shiftKey) hist.redo();
-        else hist.undo();
+        if (e.shiftKey) redo();
+        else undo();
       } else if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault();
-        hist.redo();
+        redo();
       } else if ((e.key === "h" || e.key === "H") && !mod && selRef.current?.kind === "point" && allows(viewRef.current, "hairpin")) {
         e.preventDefault();
         const i = selRef.current.i;
@@ -378,7 +391,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hist, deleteSelection, toggleOuter]);
+  }, [hist, undo, redo, deleteSelection, toggleOuter]);
 
   // ------------------------------------------------------------------------------------ dragging
   type DragKind =
@@ -668,6 +681,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!laying) return;
     setSel(null);
     setTool({ kind: "select" });
+    setLayNote(null);
+    setBackArmed(false);
   }, [laying]);
 
   // wheel over a corner point: radius; Ctrl+wheel: lane width
@@ -1033,10 +1048,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </button>
           ))}
         </div>
-        <button type="button" className="btn btn-icon" onClick={hist.undo} disabled={!hist.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
+        <button type="button" className="btn btn-icon" onClick={undo} disabled={!hist.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
           <Undo2 size={20} aria-hidden="true" />
         </button>
-        <button type="button" className="btn btn-icon" onClick={hist.redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
+        <button type="button" className="btn btn-icon" onClick={redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
           <Redo2 size={20} aria-hidden="true" />
         </button>
         <span className="save-state" aria-live="polite">
@@ -1540,7 +1555,7 @@ export function SelectionPanel({
           {turns ? (
             <>
               <div className="fields">
-                <NumberField label="Apex radius" value={Math.round(apex * 10) / 10} step={0.1} min={0} max={APEX_MAX} onChange={(v) => v !== undefined && setTo(v, "apex")} />
+                <NumberField label="Apex radius" value={Math.round(apex * 10) / 10} step={0.1} min={0} max={APEX_MAX} onChange={(v) => v !== undefined && setTo(apexFromField(v), "apex")} />
               </div>
               <div className="sizes" role="group" aria-label="Quick sizes">
                 {QUICK_SIZES.map((q) => (
@@ -1559,7 +1574,11 @@ export function SelectionPanel({
               <p className="hint">Drag the corner to move it, or its inside handle to cut it back. Right-click it or press Delete to remove it.</p>
             </>
           ) : (
-            <p className="hint">This corner is on a straight line: drag it to make a turn, or delete it.</p>
+            <p className="hint">
+              {turnLabel(draft.design.points, sel.i) === "straight back"
+                ? "This corner turns straight back on itself, so there's nothing to cut back: drag it to open the turn, or delete it."
+                : "This corner is on a straight line: drag it to make a turn, or delete it."}
+            </p>
           )}
           <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= MIN_CORNERS}>
             Delete corner

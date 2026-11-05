@@ -12,6 +12,7 @@ import { movePoint } from "../src/designer/mode.js";
 import {
   alongBisector,
   APEX_MAX,
+  apexFromField,
   apexOf,
   apexRadius,
   deleteCorner,
@@ -20,6 +21,7 @@ import {
   insertAfter,
   insertNearTrack,
   isReduced,
+  keepSelection,
   laneLines,
   placeCorner,
   QUICK_SIZES,
@@ -150,6 +152,11 @@ describe("apex radius in numbers", () => {
     expect(turnLabel(SQUARE, 1)).toBe("90° left");
     expect(turnLabel([...SQUARE].reverse(), 1)).toBe("90° right");
     expect(turnLabel([{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 20, z: -10 }, { x: 0, z: -10 }], 1)).toBe("45° right");
+    // the same cut-offs as the apex handle: a reversal has no left or right, and no handle
+    const back: DesignPoint[] = [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 5, z: 0 }];
+    expect(turnLabel(back, 1)).toBe("straight back");
+    expect(apexOf(back, 1, 2)).toBeNull();
+    expect(turnLabel([{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 20, z: 0 }], 1)).toBe("straight on");
   });
 
   it("shows (max) when the engine cut the radius down to fit, by #37's rule", () => {
@@ -186,6 +193,25 @@ describe("the selected corner's panel (Quick)", () => {
     expect(h).toMatch(/aria-pressed="true"[^>]*>Medium/);
     expect(h).not.toContain("(max)");
     expect(h).not.toMatch(/Radius<|Lane width|Outside corner/); // no Advanced controls
+  });
+
+  it("writes a typed apex radius to 0.1 m, as the field shows it", () => {
+    expect(apexFromField(4.55)).toBe(4.6);
+    expect(apexFromField(1.84)).toBe(1.8);
+    const d = laid(TEST_TRACK);
+    const pts = setApex(d.design.points, 0, apexFromField(4.55), 2);
+    expect(pts[0].radius).toBe(5.6);
+    expect(panel({ ...d, design: { ...d.design, points: pts } }, 0)).toMatch(/Apex radius[\s\S]*value="4.6"/);
+  });
+
+  it("a corner that turns straight back says so, rather than \"on a straight line\"", () => {
+    const d = laid(TEST_TRACK);
+    const pts: DesignPoint[] = [{ x: -8, z: -4, radius: 1 }, { x: 8, z: -4, radius: 1 }, { x: 0, z: -4, radius: 1 }, { x: 0, z: 4, radius: 1 }];
+    const h = panel({ ...d, design: { ...d.design, points: pts } }, 1);
+    expect(h).toContain("straight back");
+    expect(h).toContain("turns straight back on itself");
+    expect(h).not.toContain("on a straight line");
+    expect(h).not.toMatch(/180° (left|right)/);
   });
 
   it("says when the corner is cut back as far as the straights allow, with the apex it got", () => {
@@ -279,6 +305,23 @@ describe("undo and going back to step 1", () => {
     expect(h.present.laying).toEqual(states[states.length - 2].cells);
   });
 
+  it("undo or redo that adds or takes away corners lets the selected corner go", () => {
+    const d = laid(TEST_TRACK);
+    let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0 };
+    const added = insertAfter(d.design.points, 1, [3, -3], 2)!;
+    h = set(h, { ...d, design: { ...d.design, points: added.points } }, "drag:insert:1");
+    const sel = { kind: "point" as const, i: added.index };
+    // undoing the insert: the same index is now a different corner, so it isn't kept
+    const undone = historyReducer(h, { type: "undo" });
+    expect(keepSelection(sel, h.present.design.points, undone.present.design.points)).toBeNull();
+    const redone = historyReducer(undone, { type: "redo" });
+    expect(keepSelection(sel, undone.present.design.points, redone.present.design.points)).toBeNull();
+    // undoing a radius change keeps it: it's still the same corner
+    const sized = set(h, { ...h.present, design: { ...h.present.design, points: setApex(h.present.design.points, 2, 1.8, 2) } }, "apex:2");
+    expect(keepSelection(sel, sized.present.design.points, historyReducer(sized, { type: "undo" }).present.design.points)).toBe(sel);
+    expect(keepSelection({ kind: "start" as const }, h.present.design.points, d.design.points)).toEqual({ kind: "start" });
+  });
+
   it("a press on the track that adds a corner and drags it on is one undo step", () => {
     const d = laid(TEST_TRACK);
     let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0 };
@@ -351,6 +394,21 @@ describe("the Board's test", () => {
     expect(b.checks.filter((c) => c.level !== "info")).toEqual([]);
     expect(b.checks.filter((c) => c.code === "radius-reduced")).toEqual([]);
     // it really is a 4.5 m apex: the racing line's corner keeps its full radius
+    expect(racingLine(doc.design.points, 2).corners[bl].r).toBeCloseTo(5.5, 6);
+  });
+
+  it("…and with the hairpin pair sharing the sweeper's 8 m straight, it still fits with no problems", () => {
+    // the hairpin at square 4: its first corner is 8 m along the south straight from the sweeper (the case #37's rule was for)
+    const d = laid([[0, 0], [4, 0], [4, 3], [5, 3], [5, 0], [10, 0], [10, 5], [0, 5], [0, 0]]);
+    const pts = d.design.points;
+    const bl = pts.findIndex((p) => p.x === -10 && p.z === -5);
+    expect(bl).toBeGreaterThanOrEqual(0);
+    const next = pts[(bl + 1) % pts.length];
+    expect(Math.hypot(next.x - pts[bl].x, next.z - pts[bl].z)).toBe(8);
+    const doc = toDoc({ ...d, design: { ...d.design, points: setApex(pts, bl, 4.5, 2) } });
+    const b = bakeBuilt(doc);
+    expect(b.checks.filter((c) => c.level !== "info")).toEqual([]);
+    expect(b.checks.filter((c) => c.code === "radius-reduced")).toEqual([]);
     expect(racingLine(doc.design.points, 2).corners[bl].r).toBeCloseTo(5.5, 6);
   });
 });

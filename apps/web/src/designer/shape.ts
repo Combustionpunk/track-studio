@@ -70,6 +70,9 @@ export function radiusFromDrag(d: number, th: number, w: number): number {
 /** r = apex + w/2, the apex kept in 0…APEX_MAX (to the centimetre). */
 export const radiusForApex = (apex: number, w: number) => r3(Math.round(clamp(apex, 0, APEX_MAX) * 100) / 100 + w / 2);
 
+/** A typed apex radius, to the 0.1 m the field shows. */
+export const apexFromField = (v: number) => Math.round(v * 10) / 10;
+
 /** The apex radius a point asks for (never below 0: a radius under w/2 still clips the corner point's apex). */
 export const apexRadius = (p: DesignPoint, laneWidth: number) => Math.max(0, r3((p.radius ?? 1) - widthAt(p, laneWidth) / 2));
 
@@ -86,10 +89,17 @@ export function turnLabel(points: DesignPoint[], i: number): string {
   const n = points.length;
   const p = points[i], prev = points[(i - 1 + n) % n], next = points[(i + 1) % n];
   const ax = p.x - prev.x, az = p.z - prev.z, bx = next.x - p.x, bz = next.z - p.z;
-  const deg = Math.round((Math.abs(Math.atan2(ax * bz - az * bx, ax * bx + az * bz)) * 180) / Math.PI);
-  if (deg === 0) return "straight on";
+  const th = Math.abs(Math.atan2(ax * bz - az * bx, ax * bx + az * bz));
+  // the same cut-offs as apexOf, so the label agrees with whether the corner has a handle
+  if (th < MIN_TURN) return "straight on";
+  if (th > Math.PI - MIN_TURN) return "straight back";
+  const deg = Math.min(179, Math.max(1, Math.round((th * 180) / Math.PI)));
   return `${deg}° ${ax * bz - az * bx > 0 ? "left" : "right"}`;
 }
+
+/** After undo / redo: a selected corner whose index now points somewhere else (corners added or taken away) is let go. */
+export const keepSelection = <S extends { kind: string; i?: number } | null>(sel: S, before: DesignPoint[], after: DesignPoint[]): S | null =>
+  sel?.kind === "point" && before.length !== after.length ? null : sel;
 
 // ---------------------------------------------------------------------------------------------- moving
 /** The lane lines: through the centres of step 1's lane-width squares, from the area's south-west corner. */
