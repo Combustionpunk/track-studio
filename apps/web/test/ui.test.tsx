@@ -35,6 +35,7 @@ const { LibraryResults } = await import("../src/components/LibraryResults.js");
 const { checksSummary } = await import("../src/components/ChecksList.js");
 const { Library } = await import("../src/pages/Library.js");
 const { TrackPage } = await import("../src/pages/TrackPage.js");
+const { EditTrackPage } = await import("../src/designer/pages.js");
 const { VenuePage } = await import("../src/pages/Venues.js");
 const fmt = await import("../src/lib/format.js");
 const { SessionContext } = await import("../src/lib/session.js");
@@ -420,6 +421,15 @@ describe("track page", () => {
     expect(h).not.toContain('href="/t/winter-3/edit"');
     expect(t).toContain("Archive");
     expect(text(page(can({ copy: true }), { status: "approved", locked: "event" }))).toContain("Locked: used by an event");
+  });
+
+  it("opening the designer on a locked layout offers Copy and edit instead (#64)", () => {
+    page(can({ copy: true }), { status: "approved", approvedRevision: 4, locked: "library" });
+    const h = html(<EditTrackPage />, "/t/winter-3/edit");
+    expect(text(h)).toContain("This layout is in the library, so it can't be changed. Copy it and edit the copy");
+    expect(h).toMatch(/<button type="button" class="btn btn-primary"[^>]*>Copy and edit</);
+    page(can({ copy: true }), { status: "draft", locked: null });
+    expect(text(html(<EditTrackPage />, "/t/winter-3/edit"))).toContain("Make my own copy");
   });
 
   it("an unlocked layout shows no lock note", () => {

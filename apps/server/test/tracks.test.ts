@@ -198,7 +198,7 @@ describe("saving tracks", () => {
       expect(res.statusCode, res.body).toBe(409);
       expect(res.json().error).toBe("layout-locked");
       expect(res.json().message).toMatch(/copy/i);
-      expect(res.json().details).toEqual({ copy: `/api/tracks/${track.id}/copy` });
+      expect(res.json().details).toEqual({ reason: "library", copy: `/api/tracks/${track.id}/copy` });
     }
     const revs = (await req(app, "GET", `/api/tracks/${track.id}/revisions`)).json().revisions as unknown[];
     expect(revs).toHaveLength(1);
@@ -224,6 +224,9 @@ describe("saving tracks", () => {
       expect((await req(app, "PUT", `/api/tracks/${copy.track.id}`, cookie, { track: copy.doc })).json().track).toMatchObject({ revision: 2, derivedFrom: { id: track.id } });
     }
     const after = (await req(app, "GET", `/api/tracks/${track.id}`)).json();
+    // a long name keeps its "(copy)"
+    const long = await createAs(app, alice, { track: { ...freeform(), info: { ...freeform().info, name: "L".repeat(80) } } });
+    expect((await req(app, "POST", `/api/tracks/${long.track.id}/copy`, bob)).json().doc.info.name).toBe(`${"L".repeat(73)} (copy)`);
     expect(after.track).toEqual(before.track);
     expect(after.doc).toEqual(before.doc);
   });

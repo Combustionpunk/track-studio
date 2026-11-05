@@ -34,6 +34,7 @@ read user id, username, avatar, groups) -> signed session cookie. Roles from for
 - `POST /api/tracks` (new, from template or blank) · `PUT /api/tracks/:id` (new revision; server re-validates + re-bakes; refused once approved)
 - `POST /api/tracks/:id/submit` · `/approve` · `/archive` (approve/archive: organisers)
 - `GET /api/tracks/:id/fit/:venueId` -> fit results · `POST /api/tracks/:id/adapt/:venueId` -> new adapted track
+- `POST /api/tracks/:id/copy` -> a new draft for the caller, credited with `info.derivedFrom` (how a locked track is changed)
 - `GET /api/venues` · `GET /api/venues/:id` · `POST/PUT /api/venues` (organisers)
 - `GET /p/:id/:rev.png` — preview image (cached, rendered from the engine's SVG with resvg)
 

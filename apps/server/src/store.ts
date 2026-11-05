@@ -558,8 +558,10 @@ export function updateTrack(db: DB, user: User, id: string, body: unknown) {
   const row = getTrackRow(db, id);
   if (!canEdit(user, row)) throw forbidden("Only the author or an organiser can change this track");
   if (row.status === "archived") throw conflict("archived", "Archived tracks can't be changed");
-  if (lockReason(row)) {
-    throw new HttpError(409, "layout-locked", "This layout is in the library, so it can't be changed. Copy it and edit the copy.", { copy: `/api/tracks/${row.id}/copy` });
+  const locked = lockReason(row);
+  if (locked) {
+    const where = locked === "event" ? "used by an event" : "in the library";
+    throw new HttpError(409, "layout-locked", `This layout is ${where}, so it can't be changed. Copy it and edit the copy.`, { reason: locked, copy: `/api/tracks/${row.id}/copy` });
   }
   const { src, note, baseRevision } = trackBody(body);
   if (baseRevision !== undefined && baseRevision !== row.current_revision) {
@@ -639,7 +641,7 @@ export function copyTrack(db: DB, user: User, id: string, revision?: number) {
     revision: 1,
     info: {
       ...src.info,
-      name: `${src.info.name} (copy)`.slice(0, 80),
+      name: `${src.info.name.slice(0, 73)} (copy)`,
       author: user.username,
       created: t,
       modified: t,
