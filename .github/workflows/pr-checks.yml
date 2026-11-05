@@ -1,0 +1,22 @@
+# Repo-hygiene checks on every PR. No secrets; only scripts from the repo's own checkout are run.
+name: PR checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: No screenshots added or changed (docs/agents/mechanic.md, "Screenshots")
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: scripts/check-screenshots.sh "origin/$BASE_REF"

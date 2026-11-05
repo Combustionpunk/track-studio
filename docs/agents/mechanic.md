@@ -22,17 +22,31 @@ Nobody can see your session, so keep the Board informed on GitHub:
 2. Branch from an up-to-date `main`: `<type>/<issue>-<slug>`.
 3. Build it test-first with Vitest. Every acceptance criterion should have a test.
 4. Run `pnpm typecheck`, `pnpm test` (including the reference comparisons) and `pnpm build`. All must pass.
-5. For UI changes, check it in the browser (`pnpm seed`, then `pnpm dev`) at 1200px and 375px if Playwright is available on CT 102, and compare with the mockup. If not, say "not checked in a browser" in the PR.
+5. For UI changes, check it in the browser (`pnpm seed`, then `pnpm dev`) at 1200px and 375px if Playwright is available on CT 102, and compare with the mockup. If not, say "not checked in a browser" in the PR. Put screenshots in the PR as described under [Screenshots](#screenshots).
 6. Run a cold self-review in a separate subagent against the issue, `CLAUDE.md` and the spec, and fix what it finds.
 7. Complete the PR description:
    - "Closes #N" and a short summary;
    - the acceptance criteria as a checklist;
    - **decisions and assumptions** you made, including any differences from the mockup;
    - **track format or data changes** (spec version, schema, fixtures, database);
-   - **deploy notes** and test results.
+   - **deploy notes** and test results;
+   - if it has screenshots, that the final commit removed them.
 8. Mark it ready (`gh pr ready N`) and label it `needs-testing`. While there is no Tester, label it `board` instead, with a summary of 10 lines or fewer.
 
 If you stop for a product decision: comment on the issue, label it `board`, remove `in-progress`, and leave any draft PR as a draft.
+
+## Screenshots
+
+`gh` can't upload images, so screenshots go through the PR branch and are removed before it merges:
+
+1. Commit them to the PR branch under `docs/screenshots/<issue>-<slug>/`.
+2. Link them in the PR body by the SHA of the commit that added them, never the branch name:
+   `https://raw.githubusercontent.com/Combustionpunk/track-studio/<commit-sha>/docs/screenshots/<issue>-<slug>/<file>.png`.
+   GitHub keeps a PR's commits (`refs/pull/N/head`) after the branch is deleted, so these links keep working; branch links break.
+3. In the PR's final commit, remove the `docs/screenshots/<issue>-<slug>/` folder, and say in the PR body that this was done.
+4. If you retake screenshots, commit them, update the links to the new SHA, and remove them again.
+
+`scripts/check-screenshots.sh` (run on every PR by `.github/workflows/pr-checks.yml`) fails while the PR adds or changes anything under `docs/screenshots/` compared with its base; run it before `gh pr ready`. The folders already on main stay as they are.
 
 ## When a PR comes back `tests-failed`
 
