@@ -23,7 +23,7 @@ import {
   type Side,
 } from "@track-studio/engine";
 import { ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, TriangleAlert, Undo2 } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { CopyButton, Message, StatusBadge } from "../components/bits.js";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
@@ -56,7 +56,7 @@ import {
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
-import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, keepSelection, setApex, turnLabel, widthAt } from "./shape.js";
+import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -204,19 +204,16 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   };
   const viewRef = useRef(view);
   viewRef.current = view;
-  // Quick: undo / redo that adds or takes away corners lets the selection go, so the next tap can't add after the wrong one
-  const histRef = useRef(hist);
-  histRef.current = hist;
-  const travel = useCallback((dir: "undo" | "redo") => {
-    const h = histRef.current;
-    const to = dir === "undo" ? h.prev : h.next;
-    if (!to) return;
-    if (viewRef.current === "quick") setSel((s) => keepSelection(s, h.present.design.points, to.design.points));
-    if (dir === "undo") h.undo();
-    else h.redo();
-  }, []);
-  const undo = useCallback(() => travel("undo"), [travel]);
-  const redo = useCallback(() => travel("redo"), [travel]);
+  const { undo, redo } = hist;
+  // undo / redo that adds or takes away corners lets the selection go (both modes), so the next edit or insert can't land
+  // on the wrong corner. Judged from the history state against what was last rendered, so two undos before a render count.
+  const seenRef = useRef<Seen>({ travels: hist.travels, points: draft.design.points });
+  useLayoutEffect(() => {
+    const seen = seenRef.current;
+    const now = { travels: hist.travels, points: draft.design.points };
+    seenRef.current = now;
+    if (now.travels !== seen.travels) setSel((s) => followTravel(s, seen, now));
+  }, [hist.travels, draft.design.points]);
   const phone = useMediaQuery(PHONE_QUERY);
   const phoneRef = useRef(phone);
   phoneRef.current = phone;
