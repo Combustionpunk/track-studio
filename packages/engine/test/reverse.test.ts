@@ -127,7 +127,7 @@ describe.each(allTracks)("reverse $name", ({ path }) => {
   });
 });
 
-const crossingTracks = allTracks.filter(({ path }) => readJson<RcTrack>(path).built.crossings?.length);
+const crossingTracks = allTracks.filter(({ path }) => readJson<RcTrack>(path).built?.crossings?.length);
 
 describe.each(crossingTracks)("reverse $name: crossings", ({ path }) => {
   const doc = readJson<RcTrack>(path);
