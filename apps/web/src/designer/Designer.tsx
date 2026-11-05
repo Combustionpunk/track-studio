@@ -1543,7 +1543,8 @@ function QuickCorner({ p, i, m, touch, on, press, onPointerDown, onDelete, onHov
       {touch && <circle className="ed-hit" cx={p.x} cy={-p.z} r={TOUCH_PX * m} />}
       <circle className="ed-corner-dot" cx={p.x} cy={-p.z} r={r} vectorEffect="non-scaling-stroke" />
       {press && (
-        // pathLength 100: the dash animation fills the ring over the long-press, starting at the top
+        // pathLength 100: the dash animation fills the ring over the long-press, from the top (a stroke in plan units:
+        // non-scaling strokes ignore pathLength)
         <circle
           className={`ed-press ${press.done ? "done" : ""}`}
           cx={p.x}
@@ -1551,8 +1552,8 @@ function QuickCorner({ p, i, m, touch, on, press, onPointerDown, onDelete, onHov
           r={ring}
           pathLength={100}
           transform={`rotate(-90 ${p.x} ${-p.z})`}
+          strokeWidth={4 * m}
           style={{ animationDuration: `${LONG_PRESS_MS}ms` }}
-          vectorEffect="non-scaling-stroke"
         />
       )}
       <text className="ed-corner-n" x={p.x} y={-p.z} dy={4 * m} fontSize={11 * m} textAnchor="middle">
