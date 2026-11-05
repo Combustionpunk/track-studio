@@ -201,6 +201,8 @@ interface Layable {
   area: Area;
   obstacles: Obstacle[];
   laying?: Cell[];
+  /** the squares of the closed loop, kept in step 2 so "1 · Lay the lanes" can reopen it */
+  laid?: Cell[];
   design: { laneWidth?: number; points: DesignPoint[]; start?: { distance?: number } };
 }
 
@@ -211,9 +213,21 @@ export const gridFor = (d: Pick<Layable, "area" | "obstacles" | "design">) => la
 
 /** The draft after a painted step: still laying, or (closed) the loop's corner points and on to step 2. */
 export function withLaying<D extends Layable>(d: D, lay: Laying): D {
-  if (!lay.closed) return { ...d, laying: lay.cells };
+  if (!lay.closed) {
+    const { laid: _, ...rest } = d;
+    return { ...rest, laying: lay.cells } as D;
+  }
   const { laying: _, ...rest } = d;
   const lw = d.design.laneWidth ?? 2;
   const points = loopPoints(gridFor(d), lay.cells);
-  return { ...rest, design: { ...d.design, points, start: { ...d.design.start, distance: startOnLongestStraight(points, lw) } } } as D;
+  return { ...rest, laid: lay.cells, design: { ...d.design, points, start: { ...d.design.start, distance: startOnLongestStraight(points, lw) } } } as D;
+}
+
+/**
+ * Back to step 1 from step 2 ("1 · Lay the lanes", confirmed): the loop's squares reopen, one step from closing, as
+ * after undoing the close, and the shaping is thrown away. A track that wasn't laid here starts from no squares.
+ */
+export function reopenLaying<D extends Layable>(d: D): D {
+  const { laid, ...rest } = d;
+  return { ...rest, laying: laid ?? [], design: { ...d.design, points: [] } } as D;
 }

@@ -80,6 +80,8 @@ export interface Draft {
   design: RcTrack["design"];
   /** step 1 (lay the lanes): the squares painted so far; the design has no points until the loop closes */
   laying?: Cell[];
+  /** step 2: the squares the loop was laid through, so "1 · Lay the lanes" can reopen it */
+  laid?: Cell[];
 }
 
 export interface DesignerBase {
