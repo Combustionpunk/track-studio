@@ -4,7 +4,14 @@ import {
   arclength,
   atDistance,
   bakeBuilt,
+  BRIDGE_MARGIN,
+  bridgeCrossings,
+  bridgeSpan,
+  crossingChecks,
+  CROSSOVER_HEIGHT,
+  CROSSOVER_RAMP,
   EXPORT_STEP,
+  findCrossings,
   FEATURE_DEFAULTS,
   featureProfile,
   borders,
@@ -15,6 +22,7 @@ import {
   type Area,
   type BuiltFeature,
   type Corner,
+  type Crossing,
   type Design,
   type DesignFeature,
   type DesignPoint,
@@ -48,6 +56,10 @@ export interface Live {
   startLine: StartLine;
   /** lane-edge rings, as built.lanes */
   lanes: Lanes;
+  /** where the line crosses itself and what bridges it, as built.crossings (empty when it doesn't) */
+  crossings: Crossing[];
+  /** design.laneWidth: an unclaimed crossover's flat top spans it */
+  laneWidth: number;
 }
 
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -58,8 +70,16 @@ export function liveGeometry(design: Design): Live {
   const { s, total } = arclength(line.x, line.z);
   const racing: [number, number, number][] = [];
   for (let i = 0; i < line.n; i += STEP) racing.push([line.x[i], line.z[i], line.width[i]]);
-  const live = { line, s, total, corners, racing } as Live;
-  live.features = (design.features ?? []).map((f) => placeFeature(live, f));
+  const live = { line, s, total, corners, racing, laneWidth: design.laneWidth ?? 2.0 } as Live;
+  // a crossover sits on the crossing it claims, on the over pass, sized for it (as the bake places it)
+  const features = design.features ?? [];
+  const cr = findCrossings(line, s, total, design.start?.distance ?? 0);
+  const claimed = bridgeCrossings(cr, features, total);
+  live.features = features.map((f, fi) => {
+    const claim = f.type === "crossover" ? claimed.get(fi) : undefined;
+    return claim ? placeFeature(live, { ...f, distance: claim[0].d[claim[1]] }, bridgeSpan(claim[0], claim[1])) : placeFeature(live, f);
+  });
+  live.crossings = cr.length ? crossingChecks(cr, live.features, features, []) : [];
   const sd = design.start?.distance ?? 0;
   const st = atDistance(line.x, line.z, s, total, sd);
   live.startLine = { x: st.p[0], z: st.p[1], heading: headingDeg(st.t), width: line.width[st.i], distance: sd };
@@ -67,20 +87,22 @@ export function liveGeometry(design: Design): Live {
   return live;
 }
 
-export function placeFeature(live: Pick<Live, "line" | "s" | "total">, f: DesignFeature): BuiltFeature {
-  const [L0, H0] = FEATURE_DEFAULTS[f.type];
+/** Where a feature goes and its size; a crossover's flat top defaults to `top` (the span of the crossing it bridges). */
+export function placeFeature(live: Pick<Live, "line" | "s" | "total"> & Partial<Pick<Live, "laneWidth">>, f: DesignFeature, top?: number): BuiltFeature {
   const { p, t, i } = atDistance(live.line.x, live.line.z, live.s, live.total, f.distance);
-  const length = f.length ?? L0, height = f.height ?? H0;
-  return {
-    type: f.type,
-    x: r3(p[0]),
-    z: r3(p[1]),
-    heading: headingDeg(t),
-    length,
-    width: r3(live.line.width[i] - 0.08),
-    height,
-    profile: featureProfile(f.type, length, height), // so the live plan draws the jump's symbol
-  };
+  let length: number, height: number, profile: Point2[];
+  if (f.type === "crossover") {
+    const ramp = f.rampLength ?? CROSSOVER_RAMP, flat = f.topLength ?? top ?? (live.laneWidth ?? 2.0) + 2 * BRIDGE_MARGIN;
+    height = f.height ?? CROSSOVER_HEIGHT;
+    length = r3(2 * ramp + flat);
+    profile = [[0, 0], [r3(ramp), r3(height)], [r3(ramp + flat), r3(height)], [length, 0]];
+  } else {
+    const [L0, H0] = FEATURE_DEFAULTS[f.type];
+    length = f.length ?? L0;
+    height = f.height ?? H0;
+    profile = featureProfile(f.type, length, height); // so the live plan draws the jump's symbol
+  }
+  return { type: f.type, x: r3(p[0]), z: r3(p[1]), heading: headingDeg(t), length, width: r3(live.line.width[i] - 0.08), height, profile };
 }
 
 /** Nearest point of the racing line: distance along it, how far away, and the dense sample index. */

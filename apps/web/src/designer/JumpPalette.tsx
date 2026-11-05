@@ -12,7 +12,7 @@ const SYMBOL: Record<FeatureType, string> = {
   stepdown: "M2 14 V6 H18 L26 14 Z",
   whoops: "M1 14 Q4 6 7 14 Q10 6 13 14 Q16 6 19 14 Q22 6 25 14 Z",
   bump: "M6 14 Q14 4 22 14 Z",
-  crossover: "M1 14 L8 5 H20 L27 14 Z", // a bridge; placed by the designer in #51, not from the palette
+  crossover: "M1 14 L8 4 H20 L27 14 H21 V9 H7 V14 Z", // ramp up, flat top, ramp down, with the under pass beneath
 };
 
 export function JumpSymbol({ type }: { type: FeatureType }) {
@@ -33,7 +33,7 @@ export function JumpPalette({ jumps, armed, onPick, className = "palette-btn", v
           className={className}
           aria-pressed={armed === t}
           onClick={() => onPick(t)}
-          title={`${verb} on the racing line to place a ${FEATURE_LABEL[t].toLowerCase()}`}
+          title={t === "crossover" ? `${verb} where the track crosses itself to bridge it with a crossover` : `${verb} on the racing line to place a ${FEATURE_LABEL[t].toLowerCase()}`}
         >
           <JumpSymbol type={t} />
           {FEATURE_LABEL[t]}
