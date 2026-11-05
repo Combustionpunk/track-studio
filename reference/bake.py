@@ -680,9 +680,9 @@ def upgrade(doc, venue_name=None):
 
 def drawing_area(doc):
     """The box to draw a layout on: its `area` if it has one, else the smallest box centred on the origin, in whole
-    metres, holding `built.size` with at least 0.5 m to spare."""
+    metres, holding `built.size` (or the footprint) with at least 0.5 m to spare."""
     if doc.get("area"): return doc["area"]
-    x0, z0, x1, z1 = doc["built"]["size"]["bbox"]
+    b = doc["built"]; x0, z0, x1, z1 = (b.get("size") or b["footprint"])["bbox"]   # (files baked before 1.2 have no size)
     return {"length": 2 * math.ceil(max(-x0, x1) + 0.5), "width": 2 * math.ceil(max(-z0, z1) + 0.5)}
 
 def bake(doc):

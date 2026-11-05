@@ -470,7 +470,11 @@ function saveRevision(db: DB, user: User, input: RcTrack, opts: SaveOptions, exi
     throw badRequest("invalid-track", `The design could not be built: ${(e as Error).message}`);
   }
   const t = now();
-  const cols = { id: doc.id, name: doc.info.name, status: opts.status, venue: doc.info.drawnFor?.venueTemplate ?? null, derived: doc.info.derivedFrom?.id ?? null, revision: doc.revision, ...builtColumns(doc), t };
+  // drawnFor is a label (the client may send it): it counts towards a venue only if that template exists, under its name
+  const drawnFor = doc.info.drawnFor;
+  const venueName = drawnFor ? (db.prepare("SELECT name FROM venues WHERE id = ?").pluck().get(drawnFor.venueTemplate) as string | undefined) : undefined;
+  if (drawnFor && venueName) doc.info.drawnFor = { venueTemplate: drawnFor.venueTemplate, name: venueName };
+  const cols = { id: doc.id, name: doc.info.name, status: opts.status, venue: venueName ? drawnFor!.venueTemplate : null, derived: doc.info.derivedFrom?.id ?? null, revision: doc.revision, ...builtColumns(doc), t };
   db.transaction(() => {
     if (existing) {
       db.prepare(
@@ -601,6 +605,7 @@ function assertNoErrors(db: DB, row: TrackRow, what: string) {
   if (row.l_errors === 0) return;
   const doc = getTrackDoc(db, row, row.current_revision);
   const errors = doc.built!.checks.filter((c) => c.level === "error");
+  if (!errors.length) return; // a 1.6 revision not yet re-baked: its count included venue checks, which upgrading drops
   throw new HttpError(409, "has-errors", `Fix the errors before ${what}: ${errors.map((c) => c.message).join("; ")}`, errors);
 }
 

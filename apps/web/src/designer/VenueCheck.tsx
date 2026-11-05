@@ -35,7 +35,8 @@ export function VenueCheckPanel({ design, drawnFor, onShow }: { design: RcTrack[
   const venues = useApi<{ venues: VenueSummary[] }>("/api/venues");
   const list = venues.data?.venues ?? [];
   const [chosen, setChosen] = useState<string>(drawnFor?.venueTemplate ?? "");
-  const venueId = chosen || list[0]?.id || "";
+  // the venue picked, else the one it's drawn for, else the first (a template that's gone isn't offered)
+  const venueId = list.some((v) => v.id === chosen) ? chosen : (list[0]?.id ?? "");
   const [state, setState] = useState<{ result?: VenueCheckResult; of?: RcTrack["design"]; busy?: boolean; error?: string }>({});
   useEffect(() => {
     if (!chosen && drawnFor) setChosen(drawnFor.venueTemplate);

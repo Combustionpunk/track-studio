@@ -16,7 +16,8 @@ the layout) and to check a layout against a venue (the fit search, which says wh
   build sheets — draws `built` directly, so they can never disagree.
 - **Engine can improve without breaking files.** Consumers never recompute geometry, so the engine can be refined
   (e.g. smoother divider merging) and old files keep working; re-saving a design simply refreshes `built`.
-- **Metres, top-down plan.** Origin at the centre of the drawing area (`area`, or the venue the layout was drawn for), **+x east (right on the plan), +z north (up on
+- **Metres, top-down plan.** Origin at the centre of the drawing area (`area`; a layout without one is drawn on a box
+  centred on the origin, see `area` below), **+x east (right on the plan), +z north (up on
   the plan)**, heights in metres. Headings in degrees: 0 = +x, counter-clockwise towards +z.
 
 ## Top level
@@ -197,8 +198,8 @@ Import a `.rctrack.json` (file or forum link) and build directly from `built`: a
 → hall, dividers → pipes, features → ramps, startLine → timing line and grid. **Rostrum** *(v1.7)*: a layout has none.
 A consumer that needs one (the sim) asks the player for the side, N/S/E/W, when loading the layout (standing 1.5 m
 outside the middle of that side, eyes 2.8 m up). When the layout is loaded through an event or a venue, the side and
-position default to that venue's rostrum, from the fit result (`venueCheck(...).rostrum`, in the adapted copy's
-coordinates).
+position default to that venue's rostrum, which the fit check reports with its results (`venueCheck(...).rostrum`, in
+the venue's coordinates: for a copy adapted to the venue, these are the layout's own).
 
 ## Changes
 - **1.7** — a layout belongs to no venue: venue features move out of the layout. Removed: `obstacles`,

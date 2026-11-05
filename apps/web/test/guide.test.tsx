@@ -20,10 +20,10 @@ vi.mock("../src/lib/hooks.js", async (orig) => {
 });
 vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useBlocker: () => ({ state: "unblocked" }) }));
 // the plan draws once it has measured itself (not in a static render): record what it's given instead
-const plans: { obstacles?: { label?: string }[]; rostrum?: unknown }[] = [];
+const plans: { area?: unknown; obstacles?: { label?: string }[]; rostrum?: unknown }[] = [];
 vi.mock("../src/components/PlanView.js", async (orig) => ({
   ...(await orig<typeof import("../src/components/PlanView.js")>()),
-  PlanView: (p: { obstacles?: { label?: string }[]; rostrum?: unknown }) => (plans.push(p), null),
+  PlanView: (p: { area?: unknown; obstacles?: { label?: string }[]; rostrum?: unknown }) => (plans.push(p), null),
 }));
 
 const { Designer, draftFromDoc, toDoc, SelectionPanel } = await import("../src/designer/Designer.js");
@@ -85,6 +85,15 @@ describe("the venue guide", () => {
     inMode("quick");
     render(draft);
     expect(plans.every((p) => p.obstacles?.length === 0)).toBe(true);
+  });
+
+  it("the guide's area is live too: a template made bigger since is the area drawn on", () => {
+    answers.set("/api/venues/venue-2", { data: { doc: { ...sportsHall, area: { length: 30, width: 16 } } }, loading: false });
+    inMode("advanced");
+    const html = render(draftFromDoc(adapted()));
+    expect(plans.length).toBeGreaterThan(0);
+    for (const p of plans) expect(p.area).toEqual({ length: 30, width: 16 });
+    expect(html).toContain("30 × 16 m");
   });
 
   it("no guide when the template is gone, and none for a blank draft", () => {

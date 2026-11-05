@@ -72,6 +72,30 @@ describe("approved tracks are protected", () => {
   });
 });
 
+describe("rctrack 1.7 on the server (#63)", () => {
+  it("drawnFor naming a template that doesn't exist is kept as a label but counts towards no venue", async () => {
+    const { app, alice } = await setup();
+    const doc = freeform();
+    const { track, doc: saved } = (await send(app, "POST", "/api/tracks", alice, { track: { ...doc, info: { name: "Mine", drawnFor: { venueTemplate: "nope", name: "Somewhere" } } } })).json();
+    expect(saved.info.drawnFor).toEqual({ venueTemplate: "nope", name: "Somewhere" });
+    expect(track.venueTemplateId).toBeNull();
+    // a real one is named after the template
+    const real = (await send(app, "POST", "/api/tracks", alice, { track: { ...doc, info: { name: "Mine", drawnFor: { venueTemplate: "venue-2", name: "whatever" } } } })).json();
+    expect(real.doc.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
+    expect(real.track.venueTemplateId).toBe("venue-2");
+  });
+
+  it("a 1.6 revision whose only errors were venue checks can be submitted before the rebake", async () => {
+    const { app, alice } = await setup();
+    const { track, doc } = (await send(app, "POST", "/api/tracks", alice, { track: freeform() })).json();
+    // as rctrack 1.6 stored it: an obstacle error in built.checks, counted in the error column
+    const old = { ...doc, obstacles: [{ type: "circle", x: 0, z: 0, radius: 1 }], built: { ...doc.built, checks: [{ level: "error", code: "obstacle", message: "Track overlaps a fixed obstacle" }] } };
+    app.db.prepare("UPDATE track_revisions SET rctrack_json = ?, errors = 1 WHERE track_id = ?").run(JSON.stringify(old), track.id);
+    app.db.prepare("UPDATE tracks SET status = 'draft' WHERE id = ?").run(track.id);
+    expect((await send(app, "POST", `/api/tracks/${track.id}/submit`, alice)).statusCode).toBe(200);
+  });
+});
+
 describe("errors block submitting", () => {
   it("on the server, for submit and approve; warnings are fine", async () => {
     const { app, alice, org } = await setup();

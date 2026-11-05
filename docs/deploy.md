@@ -117,7 +117,10 @@ docker compose ps                     # (healthy) again
 docker image prune -f                 # drop the old image layers
 ```
 
-If the update changed the engine (its release notes or PR say "rebake"), refresh every stored track afterwards:
+If the update changed the engine (its release notes or PR say "rebake"), refresh every stored track afterwards. The
+rctrack 1.7 release (#63, layouts stand alone) needs it: the rebake drops each stored revision's obstacles, rostrum and
+`basedOn` and re-bakes it, so the dry run lists every track as changed (none of them with "RACING LINE CHANGED"). Until
+then, 1.6 revisions are upgraded as they're read, but the library's error counts still include the old venue checks.
 
 ```sh
 docker compose exec track-studio node dist/rebake.js --dry-run   # see what would change

@@ -262,9 +262,14 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // the venue it's drawn for, loaded live as a guide (area and obstacles shown, never saved); none if it's gone
   const guide = useApi<{ doc: RcVenue }>(draft.info.drawnFor ? `/api/venues/${encodeURIComponent(draft.info.drawnFor.venueTemplate)}` : null).data?.doc ?? null;
   const guideObstacles = useMemo(() => guide?.obstacles ?? [], [guide]);
-  const grid = useMemo(() => (laying ? gridFor(draft, guideObstacles) : null), [laying, draft.area, guideObstacles, draft.design.laneWidth]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the draft as drawn and saved: on the guide's area while there is one (the template may have changed since)
+  const area = guide?.area ?? draft.area;
+  const drawn = useMemo(() => (area === draft.area ? draft : { ...draft, area }), [draft, area]);
+  const areaRef = useRef(area);
+  areaRef.current = area;
+  const grid = useMemo(() => (laying ? gridFor(drawn, guideObstacles) : null), [laying, drawn.area, guideObstacles, draft.design.laneWidth]); // eslint-disable-line react-hooks/exhaustive-deps
   const live = useMemo(() => liveGeometry(laying ? NO_TRACK : draft.design), [laying, draft.design]);
-  const doc = useMemo(() => (laying ? null : toDoc(draft, base)), [laying, draft, base]);
+  const doc = useMemo(() => (laying ? null : toDoc(drawn, base)), [laying, drawn, base]);
   const bake = useBake(doc);
   // what to draw: the worker's bake, with the cheap parts (line, jumps, start) taken from the live geometry
   const built: Built = useMemo(() => {
@@ -704,7 +709,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!d.laying) return true;
     const r = paintTo(g, { cells: d.laying, closed: false }, target);
     for (const st of r.states) {
-      d = withLaying(d, st);
+      d = withLaying({ ...d, area: areaRef.current }, st); // laid on the grid's area (the guide's, while there is one)
       hist.set(d);
     }
     draftRef.current = d;
@@ -810,7 +815,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!me) return;
     setSaving(true);
     setMessage(null);
-    const { built: _b, ...unbaked } = toDoc(draft, base);
+    const { built: _b, ...unbaked } = toDoc(drawn, base);
     try {
       if (mode === "new") {
         const res = await post<TrackResponse>("/api/tracks", { track: unbaked, note: note || "First version", ...(fromVenue ? { fromVenue: fromVenue.id } : {}) });
@@ -856,7 +861,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // problems: the shared plan renderer's checks layer alone, drawn over the lane handle rather than under it in
   // PlanView (info is never drawn, so Quick and Advanced show the same marks; Advanced adds their hover details); the
   // bake's checks lag the live line by a moment while dragging
-  const problemScene = useMemo(() => ({ area: draft.area, built }), [draft.area, built]);
+  const problemScene = useMemo(() => ({ area, built }), [area, built]);
   const problems = (m: number) => (layers.checks ? planLayers(problemScene, { px: m, layers: ONLY_CHECKS, background: false, tips: advanced }) : "");
   // matched against the bake's own jumps, so a warning stays on its jump while the bake catches up with a drag
   const inCorner = useMemo(() => {
@@ -1091,7 +1096,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               <p>Changes you haven't saved stay in this browser until you save them.</p>
             )}
           </div>
-          <PlanView area={draft.area} obstacles={guideObstacles} built={laying ? undefined : built} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
+          <PlanView area={area} obstacles={guideObstacles} built={laying ? undefined : built} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
           <dl className="figures">
             <div>
               <dd>{laying ? "—" : fmt.metres(live.total)}</dd>
@@ -1120,7 +1125,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         <input className="name-input" aria-label="Track name" value={draft.info.name} maxLength={80} onChange={(e) => update((d) => ({ ...d, info: { ...d.info, name: e.target.value } }), "name")} />
         <span className="designer-venue" hidden={tablet}>
           {venueName ? `${venueName} · ` : ""}
-          {fmt.size(draft.area, true)}
+          {fmt.size(area, true)}
         </span>
         {status && <StatusBadge status={status.status} />}
         {(view === "quick" || laying) && (
@@ -1351,7 +1356,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </div>
           )}
           <PlanView
-            area={draft.area}
+            area={area}
             obstacles={guideObstacles}
             built={laying ? undefined : built}
             checksInOverlay
@@ -1401,7 +1406,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
                 </>
               ) : (
-                <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} touch />
+                <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} touch />
               )}
             </div>
           )}
@@ -1485,7 +1490,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           <aside className="designer-side" aria-label="Checks">
             <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
             <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
-            <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
+            <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
             {advanced && <Shortcuts />}
             <Stats built={built} live={live} view={view} />
           </aside>
