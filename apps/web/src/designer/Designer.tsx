@@ -356,6 +356,16 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** drive the layout the other way round: the bar's button, or the dock's on a tablet */
+  const reverse = () => {
+    // corner and jump numbers count the other way now
+    setSel(null);
+    setHoverPt(null);
+    update(reverseDraft);
+  };
+  const canReverse = !laying && draft.design.points.length >= 3;
+  const reverseTitle = laying ? "Close the loop first" : "Drive the same layout the other way round: the start line and jumps stay put and face the new way";
+
   /** O: flip the corner to the opposite of what it looks like now (square <-> round) */
   const toggleOuter = useCallback((i: number) => {
     const p = draftRef.current.design.points[i];
@@ -1144,21 +1154,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </button>
           </>
         )}
-        <button
-          type="button"
-          className="btn"
-          onClick={() => {
-            // corner and jump numbers count the other way now
-            setSel(null);
-            setHoverPt(null);
-            update(reverseDraft);
-          }}
-          disabled={laying || draft.design.points.length < 3}
-          title={laying ? "Close the loop first" : "Drive the same layout the other way round: the start line and jumps stay put and face the new way"}
-        >
-          <ArrowRightLeft size={18} aria-hidden="true" />
-          Reverse direction
-        </button>
+        {!tablet && (
+          <button type="button" className="btn" onClick={reverse} disabled={!canReverse} title={reverseTitle}>
+            <ArrowRightLeft size={18} aria-hidden="true" />
+            Reverse direction
+          </button>
+        )}
         <span className="save-state" aria-live="polite">
           {/* the tablet's bar is one row at 1024 px, as in the mockup: the short form */}
           {dirty ? (tablet ? "Unsaved" : "Unsaved changes · kept on this device") : base ? `Saved · revision ${base.revision}` : "Not saved yet"}
@@ -1449,6 +1450,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   </button>
                 </>
               )}
+              {/* in the dock, not the bar, so the tablet's bar stays one row at 1024 px */}
+              <button type="button" className="dock-btn" onClick={reverse} disabled={!canReverse} aria-label="Reverse direction" title={reverseTitle}>
+                <ArrowRightLeft size={18} aria-hidden="true" />
+                Reverse
+              </button>
               <button type="button" className="dock-btn dock-icon dock-fit" onClick={() => setFitRequest((n) => n + 1)} aria-label="Zoom to fit">
                 <Scan size={20} aria-hidden="true" />
               </button>

@@ -120,7 +120,7 @@ test.describe("tablet touch", () => {
     await expect(page.locator(".designer-touch")).toBeVisible();
     const dock = page.getByRole("toolbar", { name: "Designer tools" });
     await expect(dock).toBeVisible();
-    for (const name of ["Undo", "Redo", "Zoom to fit"]) {
+    for (const name of ["Undo", "Redo", "Reverse direction", "Zoom to fit"]) {
       const b = (await dock.getByRole("button", { name }).boundingBox())!;
       expect(b.width).toBeGreaterThanOrEqual(44);
       expect(b.height).toBeGreaterThanOrEqual(44);
@@ -139,6 +139,9 @@ test.describe("tablet touch", () => {
     await expect(dock.getByRole("button", { name: "Snap" })).toHaveAttribute("aria-pressed", "true");
     await expect(dock.getByRole("button", { name: /Tabletop/ })).toBeVisible();
     await expect(dock.getByRole("button", { name: "Start line" })).toBeVisible();
+    // Reverse lives in the dock on a tablet, so the bar stays one row
+    await expect(dock.getByRole("button", { name: "Reverse direction" })).toBeEnabled();
+    await expect(page.locator(".designer-bar").getByRole("button", { name: /Reverse/ })).toHaveCount(0);
     const vw = page.viewportSize()!.width;
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(vw);
     const d = (await dock.boundingBox())!;
@@ -221,6 +224,19 @@ test.describe("tablet touch", () => {
     await expect(page.locator("text.ed-label")).toContainText(/R [1-9]/);
     await t.up();
     await expect(page.locator("text.ed-label")).toContainText(/R [1-9]/);
+  });
+
+  test("Reverse in the dock: off while laying the lanes, then a tap drives the loop the other way, and Undo puts it back", async ({ page }) => {
+    await open(page);
+    const dock = page.getByRole("toolbar", { name: "Designer tools" });
+    await expect(dock.getByRole("button", { name: "Reverse direction" })).toBeDisabled();
+    const t = await Touch.on(page);
+    await layLoop(page, t);
+    const before = await corners(page);
+    await dock.getByRole("button", { name: "Reverse direction" }).tap();
+    await expect.poll(() => corners(page)).toEqual([before[0], ...before.slice(1).reverse()]);
+    await dock.getByRole("button", { name: "Undo" }).tap();
+    await expect.poll(() => corners(page)).toEqual(before);
   });
 
   test("step 2: a tap on the floor adds a corner after the selected one; a drag on the floor doesn't", async ({ page }) => {
