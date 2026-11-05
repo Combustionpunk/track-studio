@@ -1,5 +1,5 @@
 // Typed client for the Track Studio API (apps/server). Errors arrive as {error, message}.
-import type { FitResult, RcTrack, RcVenue, TrackStatus } from "@track-studio/engine";
+import type { FitResult, RcTrack, RcVenue, TrackStatus, VenueCheck } from "@track-studio/engine";
 
 export type { FitResult, RcTrack, RcVenue, TrackStatus };
 
@@ -97,6 +97,8 @@ export interface FitAnswer {
   track: { id: string; revision: number };
   venue: { id: string; revision: number };
   results: FitResultWithThumb[];
+  /** the track where it is drawn, checked against the venue: obstacle hits, leaving the area, the venue's rostrum */
+  asDrawn: VenueCheck;
 }
 
 export interface Me {
