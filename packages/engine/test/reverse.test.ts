@@ -41,7 +41,8 @@ describe.each(allTracks)("reverse $name", ({ path }) => {
     const lap = arclength(line.x, line.z).total; // unrounded: distances past one lap wrap by exactly this
     const norm = (d: Design) => ({
       ...d,
-      features: (d.features ?? []).map((f) => ({ ...f, distance: pyMod(f.distance, lap) })),
+      // a crossover's missing `over` means "first"; reversed twice it comes back written out
+      features: (d.features ?? []).map((f) => ({ ...f, distance: pyMod(f.distance, lap), ...(f.type === "crossover" ? { over: f.over ?? "first" } : {}) })),
       start: { ...d.start, distance: pyMod(d.start?.distance ?? 0, lap) },
     });
     const a = norm(twice), b = norm(doc.design);
@@ -104,7 +105,8 @@ describe.each(allTracks)("reverse $name", ({ path }) => {
     const da = dense(doc.design), db = dense(reversed.design);
     expect(Math.max(...b.map((p) => distanceToPolyline(p, da)))).toBeLessThanOrEqual(TOL);
     expect(Math.max(...a.map((p) => distanceToPolyline(p, db)))).toBeLessThanOrEqual(TOL);
-    expect(Math.sign(signedArea(b))).toBe(-Math.sign(signedArea(a)));
+    // a figure-8's lobes cancel, so its area is ~0 and has no sign to flip; the sum below still holds
+    if (Math.abs(signedArea(a)) >= 0.1) expect(Math.sign(signedArea(b))).toBe(-Math.sign(signedArea(a)));
     expect(Math.abs(signedArea(b) + signedArea(a))).toBeLessThan(0.1);
   });
 
@@ -122,6 +124,43 @@ describe.each(allTracks)("reverse $name", ({ path }) => {
     const s = after.startLine, e = before.startLine;
     expect(Math.hypot(s.x - e.x, s.z - e.z)).toBeLessThanOrEqual(TOL);
     expect(angleDiff(s.heading, e.heading + 180)).toBeLessThan(0.01);
+  });
+});
+
+const crossingTracks = allTracks.filter(({ path }) => readJson<RcTrack>(path).built.crossings?.length);
+
+describe.each(crossingTracks)("reverse $name: crossings", ({ path }) => {
+  const doc = readJson<RcTrack>(path);
+  const before = bakeBuilt(doc);
+  const reversed = { ...doc, design: reverseDesign(doc.design) };
+  const after = bakeBuilt(reversed);
+  const swap = { first: "second", second: "first" } as const;
+
+  it("each crossover's over swaps (a missing one is written out as second)", () => {
+    reversed.design.features!.forEach((f, i) => {
+      const e = doc.design.features![i];
+      if (f.type === "crossover") expect(f.over).toBe(swap[e.over ?? "first"]);
+      else expect(f.over).toBe(e.over);
+    });
+  });
+
+  it("every crossing stays at the same x/z, over flips, and the bridge stays on the same physical pass", () => {
+    expect(after.crossings!.length).toBe(before.crossings!.length);
+    expect(after.checks.map((c) => c.code).sort()).toEqual(before.checks.map((c) => c.code).sort());
+    for (const e of before.crossings!) {
+      const near = after.crossings!.filter((c) => Math.hypot(c.x - e.x, c.z - e.z) <= TOL);
+      expect(near).toHaveLength(1);
+      const c = near[0];
+      expect(c.angle).toBeCloseTo(e.angle, 2);
+      expect(c.over).toBe(e.over === null ? null : swap[e.over]);
+      expect(c.bridge).toEqual(e.bridge);
+      if (!e.bridge) continue;
+      // the same feature, on the same pass: same spot, its heading along that pass turned round, same outline
+      const f = after.features[c.bridge!.feature], g = before.features[e.bridge.feature];
+      expect(Math.hypot(f.x - g.x, f.z - g.z)).toBeLessThanOrEqual(TOL);
+      expect(angleDiff(f.heading, g.heading + 180)).toBeLessThan(0.01);
+      for (const p of e.footprint!) expect(Math.min(...c.footprint!.map((q) => Math.hypot(q[0] - p[0], q[1] - p[1])))).toBeLessThanOrEqual(TOL);
+    }
   });
 });
 
