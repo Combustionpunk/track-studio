@@ -384,12 +384,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   type DragKind =
     | { kind: "point"; i: number; offset: Point2 }
     | { kind: "mitre"; i: number; offset: Point2 }
-    | { kind: "apex"; i: number }
+    | { kind: "apex"; i: number; dd: number }
     | { kind: "feature"; i: number; ds: number }
     | { kind: "start"; ds: number };
-  const startDrag = (e: React.PointerEvent, svg: SVGSVGElement, d: DragKind, opts: { threshold?: boolean; onClick?: () => void } = {}) => {
+  const startDrag = (e: React.PointerEvent, svg: SVGSVGElement, d: DragKind, opts: { threshold?: boolean; onClick?: () => void; group?: string } = {}) => {
     e.stopPropagation();
-    const group = `drag:${d.kind}:${Date.now()}`;
+    // an undo group of its own, or the one of what the press did first (an added corner), so both are one undo step
+    const group = opts.group ?? `drag:${d.kind}:${Date.now()}`;
     const x0 = e.clientX, y0 = e.clientY;
     let started = !opts.threshold;
     const move = (ev: PointerEvent) => {
@@ -404,7 +405,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         const lw = cur.design.laneWidth ?? 2;
         const a = apexOf(cur.design.points, d.i, lw);
         if (!a) return;
-        const r = radiusFromDrag(alongBisector(a, p), a.th, a.w);
+        const r = radiusFromDrag(alongBisector(a, p) - d.dd, a.th, a.w);
         if (r === cur.design.points[d.i].radius) return;
         hist.set({ ...cur, design: { ...cur.design, points: cur.design.points.map((q, k) => (k === d.i ? { ...q, radius: r } : q)) } }, group);
       } else if (d.kind === "point" && viewRef.current === "quick") {
@@ -482,28 +483,35 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setTool({ kind: "select" });
     // Quick: a tap on the selected corner lets it go, so taps on the floor stop adding after it
     const onClick = viewRef.current === "quick" && again ? () => setSel(null) : undefined;
-    startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] }, { threshold: !!onClick, onClick });
+    startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] }, { threshold: viewRef.current === "quick", onClick });
   };
 
   const onApexDown = (e: React.PointerEvent<SVGElement>, i: number) => {
     if (e.button !== 0) return;
+    const svg = svgOf(e.currentTarget);
+    const pts = draftRef.current.design.points;
+    const a = apexOf(pts, i, draftRef.current.design.laneWidth ?? 2);
+    const c = liveRef.current.corners[i];
+    if (!a || !c) return;
     setSel({ kind: "point", i });
     setTool({ kind: "select" });
-    startDrag(e, svgOf(e.currentTarget), { kind: "apex", i });
+    // where on the handle it was pressed, so grabbing it doesn't change the radius
+    const dd = alongBisector(a, planPoint(svg, e.clientX, e.clientY)) - alongBisector(a, handlePoint(a, c.r));
+    startDrag(e, svg, { kind: "apex", i, dd }, { threshold: true });
   };
 
   /**
    * Quick step 2, a tap on the floor or the track: a corner straight after the selected one (and select it, so tapping
    * round lays corners in order); with nothing selected, into the part of the track it's near. One undo step each.
    */
-  const addCornerAt = (raw: Point2, free: boolean): number | null => {
+  const addCornerAt = (raw: Point2, free: boolean, group = `drag:insert:${Date.now()}`): number | null => {
     const cur = draftRef.current;
     const lw = cur.design.laneWidth ?? 2;
     const { p } = placeCorner(raw, cur.area, lw, free || !laneSnapRef.current);
     const s = selRef.current;
     const r = s?.kind === "point" ? insertAfter(cur.design.points, s.i, p, lw) : s ? null : insertNearTrack(cur.design.points, p, nearestOnLine(liveRef.current, raw).dist, lw);
     if (!r) return null;
-    hist.set({ ...cur, design: { ...cur.design, points: r.points } }, `insert:${Date.now()}`);
+    hist.set({ ...cur, design: { ...cur.design, points: r.points } }, group);
     draftRef.current = { ...cur, design: { ...cur.design, points: r.points } };
     setSel((selRef.current = { kind: "point", i: r.index }));
     setMessage(null);
@@ -551,10 +559,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true });
         return;
       }
-      // a tap on the track adds a corner (after the selected one, or into this part of the track) and drags it on
-      const i = addCornerAt(p, e.altKey);
+      // with a jump or the start line selected, a press on the track lets it go
+      if (selRef.current && selRef.current.kind !== "point") {
+        setSel(null);
+        return;
+      }
+      // a press on the track adds a corner (after the selected one, or into this part of the track) and drags it on,
+      // all one undo step
+      const group = `drag:insert:${Date.now()}`;
+      const i = addCornerAt(p, e.altKey, group);
       const at = i === null ? null : draftRef.current.design.points[i];
-      if (i !== null && at) startDrag(e, svg, { kind: "point", i, offset: [at.x - p[0], at.z - p[1]] }, { threshold: true });
+      if (i !== null && at) startDrag(e, svg, { kind: "point", i, offset: [at.x - p[0], at.z - p[1]] }, { threshold: true, group });
       return;
     }
     if (hit.curvature !== 0 || nearPoint) {
@@ -643,6 +658,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
   };
+  // undo / redo can take the selected corner or jump away: let it go rather than add or delete after the wrong one
+  useEffect(() => {
+    if (sel?.kind === "point" && sel.i >= draft.design.points.length) setSel(null);
+    if (sel?.kind === "feature" && sel.i >= (draft.design.features?.length ?? 0)) setSel(null);
+  }, [sel, draft.design.points.length, draft.design.features?.length]);
   // undo past the close comes back here: nothing of step 2 stays selected or armed
   useEffect(() => {
     if (!laying) return;
@@ -995,6 +1015,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {(view === "quick" || laying) && (
           <Steps
             step={step}
+            canGoBack={!!draft.laid}
             armed={backArmed}
             onBack={() => {
               if (!backArmed) return setBackArmed(true);
@@ -1201,8 +1222,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   : advanced
                     ? "Click a straight to add a corner. Drag a corner to move it."
                     : sel?.kind === "point"
-                      ? `Tap the floor to add a corner after corner ${sel.i + 1}. Tap corner ${sel.i + 1} again to stop.`
-                      : "Drag a corner to move it, or its inside handle to cut it back. Tap the track to add a corner."}
+                      ? `Tap the floor to add a corner after ${sel.i + 1}. Tap ${sel.i + 1} again to stop.`
+                      : "Drag a corner, or its inside handle to cut it back. Tap the track to add one."}
             </div>
           )}
           <PlanView
@@ -1263,14 +1284,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
 /**
  * Quick mode's steps: 1 lays the lanes, 2 shapes the loop. From step 2, "1 · Lay the lanes" goes back on a second tap,
- * throwing the shaping away (Undo brings it back).
+ * throwing the shaping away (Undo brings it back); only for a loop laid here, since a track opened from the library has
+ * no squares to go back to.
  */
-function Steps({ step, armed, onBack }: { step: 1 | 2; armed: boolean; onBack: () => void }) {
+function Steps({ step, canGoBack, armed, onBack }: { step: 1 | 2; canGoBack: boolean; armed: boolean; onBack: () => void }) {
   return (
     <ol className="steps" aria-label="Steps">
       {(["Lay the lanes", "Shape it"] as const).map((label, i) => (
         <li key={label} aria-current={step === i + 1 ? "step" : undefined}>
-          {step === 2 && i === 0 ? (
+          {step === 2 && i === 0 && canGoBack ? (
             <button type="button" className={`step-back ${armed ? "armed" : ""}`} onClick={onBack} title="Go back to laying the lanes: the shaping is thrown away (Undo brings it back)">
               {armed ? "Tap again to go back" : `1 · ${label}`}
             </button>
@@ -1292,16 +1314,21 @@ const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${wa
 /** Quick step 2: a corner point, numbered in driving order; on touch screens it takes a press 44 px across. */
 function QuickCorner({ p, i, m, touch, on, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
   const r = (on ? CORNER_PX + 2 : CORNER_PX) * m;
+  // a touch long-press also fires contextmenu: only a mouse's right-click deletes
+  const lastPointer = useRef("mouse");
   return (
     <g
       data-handle="point"
       className={`ed-corner ${on ? "on" : ""}`}
-      onPointerDown={onPointerDown}
+      onPointerDown={(e) => {
+        lastPointer.current = e.pointerType;
+        onPointerDown(e);
+      }}
       onPointerEnter={() => onHover(true)}
       onPointerLeave={() => onHover(false)}
       onContextMenu={(e) => {
         e.preventDefault();
-        onDelete();
+        if (lastPointer.current === "mouse") onDelete();
       }}
     >
       <title>{`Corner ${i + 1}: drag to move (Alt: no snapping), right-click to delete`}</title>

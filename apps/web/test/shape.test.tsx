@@ -235,8 +235,9 @@ describe("adding and deleting corners", () => {
     expect(r2.points.slice(2, 4).map((p) => [p.x, p.z])).toEqual([[14, 5], [12, 9]]);
   });
 
-  it("refuses a corner on top of a neighbour", () => {
+  it("refuses a corner on top of a neighbour, or after a corner that isn't there (any more)", () => {
     expect(insertAfter(SQUARE, 1, [10.1, 0], 2)).toBeNull();
+    expect(insertAfter(SQUARE, 4, [5, 5], 2)).toBeNull();
   });
 
   it("with nothing selected, a tap within 1.5 lane widths of the track goes into that part of it", () => {
@@ -276,6 +277,17 @@ describe("undo and going back to step 1", () => {
     h = historyReducer(h, { type: "undo" });
     expect(designStep(h.present)).toBe(1);
     expect(h.present.laying).toEqual(states[states.length - 2].cells);
+  });
+
+  it("a press on the track that adds a corner and drags it on is one undo step", () => {
+    const d = laid(TEST_TRACK);
+    let h: HistoryState<Draft> = { past: [], present: d, future: [], group: null, at: 0 };
+    const group = "drag:insert:42"; // the designer gives the insert and the drag after it the same group
+    const added = insertAfter(d.design.points, 1, [3, -3], 2)!;
+    h = set(h, { ...d, design: { ...d.design, points: added.points } }, group);
+    for (const q of [[3.2, -2.5], [3.6, -2]] as const) h = set(h, { ...h.present, design: { ...h.present.design, points: movePoint(h.present.design.points, added.index, [q[0], q[1]]) } }, group);
+    expect(h.past).toHaveLength(1);
+    expect(historyReducer(h, { type: "undo" }).present).toBe(d);
   });
 
   it("\"1 · Lay the lanes\" reopens the loop and throws the shaping away", () => {

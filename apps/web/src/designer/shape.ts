@@ -120,6 +120,7 @@ const newCorner = (at: Point2, laneWidth: number): DesignPoint => ({ x: at[0], z
 /** Add a corner straight after corner i; null if it would sit on top of a neighbour. */
 export function insertAfter(points: DesignPoint[], i: number, at: Point2, laneWidth: number): { points: DesignPoint[]; index: number } | null {
   const n = points.length;
+  if (!(i >= 0 && i < n)) return null;
   const a = points[i], b = points[(i + 1) % n];
   if (tooClose(at, [a.x, a.z], [b.x, b.z])) return null;
   return { points: [...points.slice(0, i + 1), newCorner(at, laneWidth), ...points.slice(i + 1)], index: i + 1 };
