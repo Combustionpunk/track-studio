@@ -70,7 +70,7 @@ describe("press tuning", () => {
 describe("cancelling an edit when a second finger lands", () => {
   it("puts the history back exactly as it was, redo steps included", () => {
     const set = (s: HistoryState<number>, next: number, group?: string) => historyReducer(s, { type: "set", next, group, now: 1000 });
-    let s: HistoryState<number> = { past: [], present: 1, future: [], group: null, at: 0 };
+    let s: HistoryState<number> = { past: [], present: 1, future: [], group: null, at: 0, travels: 0 };
     s = historyReducer(set(set(s, 2), 3), { type: "undo" }); // present 2, redo 3
     const before = s;
     s = set(set(set(s, 4), 5), 6, "drag:x"); // a one-finger edit paints three squares

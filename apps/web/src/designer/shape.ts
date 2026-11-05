@@ -101,6 +101,22 @@ export function turnLabel(points: DesignPoint[], i: number): string {
 export const keepSelection = <S extends { kind: string; i?: number } | null>(sel: S, before: DesignPoint[], after: DesignPoint[]): S | null =>
   sel?.kind === "point" && before.length !== after.length ? null : sel;
 
+/** What a selection was last checked against: the corners, and how many undo / redo steps the history had taken. */
+export interface Seen {
+  travels: number;
+  points: DesignPoint[];
+}
+
+/**
+ * Undo / redo since `seen` that added or took away corners lets a selected corner go. Several steps before a render
+ * could take one away and add another back, so then any change of corners lets it go.
+ */
+export function followTravel<S extends { kind: string; i?: number } | null>(sel: S, seen: Seen, now: Seen): S | null {
+  if (now.travels === seen.travels) return sel;
+  if (now.travels - seen.travels > 1) return sel?.kind === "point" && now.points !== seen.points ? null : sel;
+  return keepSelection(sel, seen.points, now.points);
+}
+
 // ---------------------------------------------------------------------------------------------- moving
 /** The lane lines: through the centres of step 1's lane-width squares, from the area's south-west corner. */
 export function laneLines(area: Area, laneWidth: number): { x: number[]; z: number[] } {
