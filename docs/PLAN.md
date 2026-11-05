@@ -26,12 +26,12 @@ read user id, username, avatar, groups) -> signed session cookie. Roles from for
 - `tracks` (id uuid, name, author_forum_id, status, venue_template_id, derived_from_id, current_revision, lap_length,
   corners, area_length, area_width, footprint_w, footprint_h, created/updated)
 - `track_revisions` (track_id, revision, rctrack_json, png_path, created_at, created_by, note)
-- Status: `draft` -> `submitted` -> `approved` -> `archived`. Approvals pin a revision.
+- Status: `draft` -> `submitted` -> `approved` -> `archived`. An approved track is locked (`PUT` → `409 layout-locked`); changes are made on a copy (`POST /api/tracks/:id/copy`).
 
 ## API (JSON)
 - `GET /api/tracks?status=&venue=&fits=<venueId>&minLap=&maxLap=&q=` — list (fits= runs the fit search)
 - `GET /api/tracks/:id` · `GET /api/tracks/:id/revisions` · `GET /api/tracks/:id/r/:rev.rctrack.json` (download)
-- `POST /api/tracks` (new, from template or blank) · `PUT /api/tracks/:id` (new revision; server re-validates + re-bakes)
+- `POST /api/tracks` (new, from template or blank) · `PUT /api/tracks/:id` (new revision; server re-validates + re-bakes; refused once approved)
 - `POST /api/tracks/:id/submit` · `/approve` · `/archive` (approve/archive: organisers)
 - `GET /api/tracks/:id/fit/:venueId` -> fit results · `POST /api/tracks/:id/adapt/:venueId` -> new adapted track
 - `GET /api/venues` · `GET /api/venues/:id` · `POST/PUT /api/venues` (organisers)
