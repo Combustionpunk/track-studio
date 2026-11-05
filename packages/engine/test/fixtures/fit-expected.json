@@ -278,6 +278,63 @@
    ]
   }
  ],
+ "crossover-figure8.rctrack.json | club-hall.rcvenue.json": [],
+ "crossover-figure8.rctrack.json | small-hall.rcvenue.json": [],
+ "crossover-figure8.rctrack.json | sports-hall-b.rcvenue.json": [
+  {
+   "orientation": "as designed",
+   "rotation": 0,
+   "mirror": false,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "mirrored",
+   "rotation": 0,
+   "mirror": true,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "rotated 180",
+   "rotation": 180,
+   "mirror": false,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "mirrored, rotated 180",
+   "rotation": 180,
+   "mirror": true,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  }
+ ],
+ "crossover-figure8.rctrack.json | rotated-desk.rcvenue.json": [],
  "narrow-oval.rctrack.json | club-hall.rcvenue.json": [
   {
    "orientation": "as designed",
@@ -985,6 +1042,63 @@
    ]
   }
  ],
+ "shallow-crossing.rctrack.json | club-hall.rcvenue.json": [],
+ "shallow-crossing.rctrack.json | small-hall.rcvenue.json": [],
+ "shallow-crossing.rctrack.json | sports-hall-b.rcvenue.json": [
+  {
+   "orientation": "as designed",
+   "rotation": 0,
+   "mirror": false,
+   "shift": [
+    -0.06,
+    0.25
+   ],
+   "spare": [
+    1.1,
+    6.3
+   ]
+  },
+  {
+   "orientation": "mirrored",
+   "rotation": 0,
+   "mirror": true,
+   "shift": [
+    -0.06,
+    0.25
+   ],
+   "spare": [
+    1.1,
+    6.3
+   ]
+  },
+  {
+   "orientation": "rotated 180",
+   "rotation": 180,
+   "mirror": false,
+   "shift": [
+    -0.06,
+    0.25
+   ],
+   "spare": [
+    1.1,
+    6.3
+   ]
+  },
+  {
+   "orientation": "mirrored, rotated 180",
+   "rotation": 180,
+   "mirror": true,
+   "shift": [
+    -0.06,
+    0.25
+   ],
+   "spare": [
+    1.1,
+    6.3
+   ]
+  }
+ ],
+ "shallow-crossing.rctrack.json | rotated-desk.rcvenue.json": [],
  "sharp-v.rctrack.json | club-hall.rcvenue.json": [
   {
    "orientation": "as designed",
@@ -1471,5 +1585,150 @@
  "switchbacks.rctrack.json | club-hall.rcvenue.json": [],
  "switchbacks.rctrack.json | small-hall.rcvenue.json": [],
  "switchbacks.rctrack.json | sports-hall-b.rcvenue.json": [],
- "switchbacks.rctrack.json | rotated-desk.rcvenue.json": []
+ "switchbacks.rctrack.json | rotated-desk.rcvenue.json": [],
+ "tabletop-figure8.rctrack.json | club-hall.rcvenue.json": [],
+ "tabletop-figure8.rctrack.json | small-hall.rcvenue.json": [],
+ "tabletop-figure8.rctrack.json | sports-hall-b.rcvenue.json": [
+  {
+   "orientation": "as designed",
+   "rotation": 0,
+   "mirror": false,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "mirrored",
+   "rotation": 0,
+   "mirror": true,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "rotated 180",
+   "rotation": 180,
+   "mirror": false,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "mirrored, rotated 180",
+   "rotation": 180,
+   "mirror": true,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  }
+ ],
+ "tabletop-figure8.rctrack.json | rotated-desk.rcvenue.json": [],
+ "two-crossings.rctrack.json | club-hall.rcvenue.json": [],
+ "two-crossings.rctrack.json | small-hall.rcvenue.json": [],
+ "two-crossings.rctrack.json | sports-hall-b.rcvenue.json": [
+  {
+   "orientation": "as designed",
+   "rotation": 0,
+   "mirror": false,
+   "shift": [
+    -0.06,
+    0.44
+   ],
+   "spare": [
+    3.1,
+    1.1
+   ]
+  },
+  {
+   "orientation": "mirrored",
+   "rotation": 0,
+   "mirror": true,
+   "shift": [
+    -0.06,
+    0.44
+   ],
+   "spare": [
+    3.1,
+    1.1
+   ]
+  }
+ ],
+ "two-crossings.rctrack.json | rotated-desk.rcvenue.json": [],
+ "unbridged-figure8.rctrack.json | club-hall.rcvenue.json": [],
+ "unbridged-figure8.rctrack.json | small-hall.rcvenue.json": [],
+ "unbridged-figure8.rctrack.json | sports-hall-b.rcvenue.json": [
+  {
+   "orientation": "as designed",
+   "rotation": 0,
+   "mirror": false,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "mirrored",
+   "rotation": 0,
+   "mirror": true,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "rotated 180",
+   "rotation": 180,
+   "mirror": false,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  },
+  {
+   "orientation": "mirrored, rotated 180",
+   "rotation": 180,
+   "mirror": true,
+   "shift": [
+    -0.56,
+    -0.06
+   ],
+   "spare": [
+    3.1,
+    0.1
+   ]
+  }
+ ],
+ "unbridged-figure8.rctrack.json | rotated-desk.rcvenue.json": []
 }
