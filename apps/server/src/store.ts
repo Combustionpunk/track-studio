@@ -636,7 +636,7 @@ export function copyTrack(db: DB, user: User, id: string, revision?: number) {
       created: t,
       modified: t,
       status: "draft",
-      derivedFrom: { id: row.id, revision: rev, ...(row.author_username !== null && { author: row.author_username }) },
+      derivedFrom: { id: row.id, revision: rev, ...(row.author_username !== null ? { author: row.author_username } : {}) },
     },
   };
   const saved = saveRevision(db, user, doc, { status: "draft", note: `Copy of ${row.d_name} r${rev}${row.author_username !== null ? ` by ${row.author_username}` : ""}` });
