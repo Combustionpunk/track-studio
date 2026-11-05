@@ -1977,7 +1977,7 @@ export function SelectionPanel({
           </button>
           <p className="hint">
             {view === "advanced"
-              ? "Drag it along the track; it sits on the crossing it's near. `Empty top length = the under lane plus 1 m each side; cars need ${BRIDGE_CLEARANCE.toFixed(2)} m to pass under.`
+              ? `Drag it along the track; it sits on the crossing it's near. Empty top length = the under lane plus 1 m each side; cars need ${BRIDGE_CLEARANCE.toFixed(2)} m to pass under.`
               : "Drag it along the track; it sits on the crossing it's near."}
           </p>
           <button type="button" className="btn btn-danger" onClick={onDelete}>
