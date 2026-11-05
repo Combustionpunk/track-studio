@@ -90,7 +90,7 @@ describe("Start blank", () => {
     expect(doc.basedOn).toBeNull();
     expect(doc.obstacles).toEqual([]);
     expect(doc.design.points.length).toBe(4);
-    expect(bakeBuilt(doc).checks.filter((c) => c.severity === "error")).toEqual([]);
+    expect(bakeBuilt(doc).checks.filter((c) => c.level === "error")).toEqual([]);
   });
 });
 

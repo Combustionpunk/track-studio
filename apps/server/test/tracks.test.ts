@@ -200,7 +200,7 @@ describe("saving tracks", () => {
     expect(saved.area).toEqual({ length: 22, width: 12 });
     expect(saved.basedOn).toBeNull();
     expect(saved.obstacles).toEqual([]);
-    expect(saved.built!.checks.filter((c) => c.severity === "error")).toEqual([]);
+    expect(saved.built!.checks.filter((c) => c.level === "error")).toEqual([]);
   });
 
   it("invalid tracks -> 400 with details", async () => {
