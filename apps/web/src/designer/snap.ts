@@ -23,7 +23,7 @@ export const MITRE_PULL = 0.3; // m
 /** a corner turning more than this gets a warning badge while dragging */
 export const SHARP_TURN = 150; // degrees
 
-export type SnapTag = "wall" | "corner" | "lane grid" | "fine grid" | "beside lane" | "0°/90°" | "45°" | "pipe" | "free";
+export type SnapTag = "wall" | "corner" | "lane grid" | "lane line" | "fine grid" | "beside lane" | "0°/90°" | "45°" | "pipe" | "free";
 
 export interface SnapResult {
   p: Point2;

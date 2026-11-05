@@ -229,5 +229,5 @@ export function withLaying<D extends Layable>(d: D, lay: Laying): D {
  */
 export function reopenLaying<D extends Layable>(d: D): D {
   const { laid, ...rest } = d;
-  return { ...rest, laying: laid ?? [], design: { ...d.design, points: [] } } as D;
+  return { ...rest, laying: laid ?? [], design: { ...d.design, points: [] } } as unknown as D;
 }

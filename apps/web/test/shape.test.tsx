@@ -3,7 +3,9 @@ import { bakeBuilt, racingLine, type DesignPoint, type RcTrack, type RcVenue } f
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { draftFromDoc, newDraft, toDoc, type Draft } from "../src/designer/Designer.js";
+import { renderToStaticMarkup } from "react-dom/server";
+import { draftFromDoc, newDraft, SelectionPanel, toDoc, type Draft } from "../src/designer/Designer.js";
+import { liveGeometry } from "../src/designer/geometry.js";
 import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import { designStep, gridFor, paintTo, reopenLaying, withLaying, type Cell, type Laying } from "../src/designer/lanes.js";
 import { movePoint } from "../src/designer/mode.js";
@@ -167,6 +169,32 @@ describe("apex radius in numbers", () => {
       const flagged = b.checks.some((c) => c.code === "radius-reduced" && c.x === p.x && c.z === p.z);
       expect(isReduced(p, lc[i]), `corner ${i}`).toBe(flagged);
     });
+  });
+});
+
+describe("the selected corner's panel (Quick)", () => {
+  const panel = (d: Draft, i: number, update: (fn: (d: Draft) => Draft, group?: string) => void = () => {}) =>
+    renderToStaticMarkup(<SelectionPanel sel={{ kind: "point", i }} view="quick" draft={d} live={liveGeometry(d.design)} update={update} onDelete={() => {}} inCorner={new Set()} />);
+
+  it("shows the turn, the apex radius to 0.1 m and the quick sizes, with the current one pressed", () => {
+    const d = laid(TEST_TRACK);
+    const h = panel({ ...d, design: { ...d.design, points: setApex(d.design.points, 0, 1.8, 2) } }, 0);
+    expect(h).toContain("Corner 1");
+    expect(h).toMatch(/90° (left|right)/);
+    expect(h).toMatch(/Apex radius[\s\S]*value="1.8"/);
+    for (const l of ["Hairpin", "Tight", "Medium", "Sweeper"]) expect(h).toContain(l);
+    expect(h).toMatch(/aria-pressed="true"[^>]*>Medium/);
+    expect(h).not.toContain("(max)");
+    expect(h).not.toMatch(/Radius<|Lane width|Outside corner/); // no Advanced controls
+  });
+
+  it("says when the corner is cut back as far as the straights allow, with the apex it got", () => {
+    const d = laid(TEST_TRACK);
+    const pts = setApex(d.design.points, 0, 9, 2);
+    const c = racingLine(pts, 2).corners[0];
+    const h = panel({ ...d, design: { ...d.design, points: pts } }, 0);
+    expect(h).toContain("Cut back as far as the straights allow");
+    expect(h).toContain(`${Math.round((c.r - 1) * 10) / 10} m (max)`);
   });
 });
 

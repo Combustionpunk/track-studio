@@ -51,8 +51,8 @@ export interface PlanViewProps {
   overlay?: (mPerPx: number) => ReactNode;
   /** wheel over an element marked data-wheel: return true if handled (then it doesn't zoom) */
   onHandleWheel?: (e: WheelEvent, el: Element) => boolean;
-  /** click (no drag) on the plan where there's no handle */
-  onBackgroundClick?: () => void;
+  /** click (no drag) on the plan where there's no handle; the event says where */
+  onBackgroundClick?: (e: React.PointerEvent<SVGSVGElement>) => void;
 }
 
 const MAX_SCALE = 400; // px per metre
@@ -169,7 +169,7 @@ export function PlanView(props: PlanViewProps) {
   };
   const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     const ours = pointers.current.delete(e.pointerId);
-    if (ours && !dragged.current && !(e.target as Element).closest("[data-handle]")) onBackgroundClick?.();
+    if (ours && !dragged.current && !(e.target as Element).closest("[data-handle]")) onBackgroundClick?.(e);
     // a tap (no drag) on a touch screen shows the details too
     if (!dragged.current && e.pointerType !== "mouse") {
       const r = e.currentTarget.getBoundingClientRect();
