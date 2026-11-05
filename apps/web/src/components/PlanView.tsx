@@ -159,6 +159,11 @@ export function PlanView(props: PlanViewProps) {
   const spots = useRef(new Map<number, Spot>());
   const onTouchDown = (e: React.PointerEvent) => {
     if (!interactive || e.pointerType !== "touch") return;
+    if (e.isPrimary) {
+      // no other finger is down: forget any whose lift we never saw (it lifted off the plan after its handle went)
+      fingers.current = new Fingers();
+      spots.current.clear();
+    }
     const second = fingers.current.press(e.pointerId);
     const r = e.currentTarget.getBoundingClientRect();
     spots.current.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top });
@@ -171,14 +176,16 @@ export function PlanView(props: PlanViewProps) {
     if (fingers.current.multi) e.stopPropagation();
   };
   const onTouchMove = (e: React.PointerEvent) => {
-    if (e.pointerType !== "touch" || !fingers.current.multi) return;
-    e.stopPropagation();
+    if (e.pointerType !== "touch") return;
     const before = spots.current.get(e.pointerId);
     if (!before) return;
     const r = e.currentTarget.getBoundingClientRect();
     const now = { x: e.clientX - r.left, y: e.clientY - r.top };
-    const other = [...spots.current.entries()].find(([id]) => id !== e.pointerId)?.[1];
+    // follow a lone finger too, so a pinch that starts mid-drag starts from where the fingers are
     spots.current.set(e.pointerId, now);
+    if (!fingers.current.multi) return;
+    e.stopPropagation();
+    const other = [...spots.current.entries()].find(([id]) => id !== e.pointerId)?.[1];
     if (!other) return; // the finger left after a pinch: nothing
     moved.current = true;
     setView((cur) => (cur ? pinchView(cur, [before, other], [now, other], box.width, box.height, minScale, MAX_SCALE) : cur));

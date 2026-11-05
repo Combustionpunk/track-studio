@@ -703,7 +703,7 @@ select.ts-input { padding: 0 var(--space-2); }
 .designer-touch .designer-bar { gap: 8px 12px; padding: 6px 12px; }
 .designer-touch .designer-bar .back, .designer-touch .designer-bar .btn { min-height: var(--touch-target); }
 .designer-touch .designer-bar .back { width: var(--touch-target); height: var(--touch-target); }
-.designer-touch .mode-toggle button { height: 40px; padding: 0 16px; }
+.designer-touch .mode-toggle button { height: var(--touch-target); padding: 0 16px; }
 .designer-touch .name-input { height: var(--touch-target); width: 240px; }
 .designer-touch .designer-grid { display: flex; }
 .designer-touch .designer-plan-wrap { flex: 1 1 auto; display: flex; flex-direction: column; }

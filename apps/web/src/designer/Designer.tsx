@@ -174,6 +174,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const dirty = draftJson !== savedJson;
   const [sel, setSel] = useState<Selection>(null);
   const [tool, setTool] = useState<Tool>({ kind: "select" });
+  const toolRef = useRef(tool);
+  toolRef.current = tool;
   const [guides, setGuides] = useState<Guide[]>([]);
   const [hoverS, setHoverS] = useState<number | null>(null);
   const [highlight, setHighlight] = useState<Point2 | null>(null);
@@ -239,7 +241,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   /** the one-finger edit going on (a drag, painting), so a second finger can take it back */
   const edit = useRef<{ cancel: () => void } | null>(null);
   /** what to put back if a second finger cancels the edit this press starts */
-  const before = () => ({ hist: histRef.current.state as HistoryState<Draft>, sel: selRef.current });
+  const before = () => ({ hist: histRef.current.state as HistoryState<Draft>, sel: selRef.current, tool: toolRef.current });
   /** "1 · Lay the lanes" was tapped once: the next tap goes back */
   const [backArmed, setBackArmed] = useState(false);
   useEffect(() => {
@@ -511,7 +513,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setShared(null);
       setSnapInfo(null);
       setDragging(null);
-      setPress(null);
+      setPress((p) => (p?.done ? p : null)); // a long-press's ring stays while its corner is selected
       edit.current = null;
     };
     const up = (ev: PointerEvent) => {
@@ -524,6 +526,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         end();
         histRef.current.restore(was.hist);
         setSel(was.sel);
+        setTool(was.tool);
+        setPress(null);
       },
     };
     window.addEventListener("pointermove", move);
@@ -546,6 +550,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     // Quick, by touch: hold the corner to select it and open its panel; the ring fills while the finger is down
     const touchPress = quick && e.pointerType !== "mouse";
     if (touchPress) setPress({ i, done: false });
+    // a tap on another corner picks where the next corner goes; its panel waits for a long-press
+    if (!again) setSheet((s) => (s === "selection" ? null : s));
     const onLongPress = touchPress
       ? () => {
           setPress({ i, done: true });
@@ -647,7 +653,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (hit.curvature !== 0 || nearPoint) {
       // on a corner, or just missed a point: grab the corner point
       setSel({ kind: "point", i: best });
-      startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true });
+      startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true, was });
       return;
     }
     // on a straight: add a point there (and drag it if the pointer moves)
@@ -656,7 +662,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const i = after + 1;
     setPoints((list) => insertPoint(viewRef.current, list, after, at), `drag:insert:${Date.now()}`);
     setSel({ kind: "point", i });
-    startDrag(e, svg, { kind: "point", i, offset: [at[0] - p[0], at[1] - p[1]] }, { threshold: true });
+    startDrag(e, svg, { kind: "point", i, offset: [at[0] - p[0], at[1] - p[1]] }, { threshold: true, was });
   };
 
   const onFeatureDown = (e: React.PointerEvent<SVGElement>, i: number) => {
@@ -751,6 +757,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   useEffect(() => {
     if (!sel) setSheet((s) => (s === "selection" ? null : s));
     else if (sel.kind !== "point") setSheet("selection");
+    setPress((p) => (p && (sel?.kind !== "point" || sel.i !== p.i) ? null : p));
   }, [sel]);
   // undo past the close comes back here: nothing of step 2 stays selected or armed
   useEffect(() => {
@@ -1407,6 +1414,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                     armed={tool.kind === "feature" ? tool.type : null}
                     onPick={(t) => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t })}
                     className="dock-btn"
+                    verb="Tap"
                   />
                   <button
                     type="button"
@@ -1507,7 +1515,7 @@ const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${wa
 
 /**
  * Quick step 2: a corner point, numbered in driving order; on touch screens it's drawn bigger and takes a press 44 px
- * across. A finger held on it fills a ring round it (the long-press), which stays full once it's selected.
+ * across. A finger held on it fills a ring round it (the long-press), which stays full while it's selected.
  */
 function QuickCorner({ p, i, m, touch, on, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
   const base = touch ? CORNER_TOUCH_PX : CORNER_PX;

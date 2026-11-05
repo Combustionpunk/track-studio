@@ -125,6 +125,11 @@ test.describe("tablet touch", () => {
       expect(b.width).toBeGreaterThanOrEqual(44);
       expect(b.height).toBeGreaterThanOrEqual(44);
     }
+    // the header's controls too
+    for (const el of await page.locator(".designer-bar").locator("button, a, input").all()) {
+      const box = (await el.boundingBox())!;
+      expect(box.height, await el.evaluate((e) => e.outerHTML.slice(0, 80))).toBeGreaterThanOrEqual(44);
+    }
     const t = await Touch.on(page);
     await layLoop(page, t);
     for (const b of await dock.getByRole("button").all()) {
@@ -181,6 +186,7 @@ test.describe("tablet touch", () => {
   test("step 1: a second finger landing mid-paint takes the painting back", async ({ page }) => {
     await open(page);
     const t = await Touch.on(page);
+    const vb = await viewBox(page);
     await t.down(await cell(page, 0, 0));
     await t.move([await cell(page, 3, 0)]);
     await expect(page.locator("rect.lay-cell")).toHaveCount(4);
@@ -188,6 +194,7 @@ test.describe("tablet touch", () => {
     await t.move([await cell(page, 4, 0), await cell(page, 7, 5)]);
     await t.up();
     await expect(page.locator("rect.lay-cell")).toHaveCount(0);
+    await expect.poll(() => viewBox(page)).not.toBe(vb); // it pinched instead
   });
 
   test("step 2: drag a corner, drag an apex handle, Undo and Redo", async ({ page }) => {
@@ -242,7 +249,17 @@ test.describe("tablet touch", () => {
     await new Promise((r) => setTimeout(r, 450));
     await expect(page.locator("circle.ed-press.done")).toHaveCount(1);
     await t.up();
+    await expect(page.locator("circle.ed-press.done")).toHaveCount(1); // the ring stays while it's selected
     const sheet = page.locator(".designer-sheet");
+    await expect(sheet.getByRole("heading", { name: "Corner 3" })).toBeVisible();
+    // a tap on another corner selects it (for adding after it) and closes the panel; holding it opens its own
+    const c1 = await screen(page, ...(await corners(page))[0]);
+    await t.tap(c1);
+    await expect(page.locator("g.ed-corner.on text")).toHaveText("1");
+    await expect(page.locator(".designer-sheet")).toHaveCount(0);
+    await expect(page.locator("circle.ed-press")).toHaveCount(0);
+    await t.hold(c3, 700);
+    await t.up();
     await expect(sheet.getByRole("heading", { name: "Corner 3" })).toBeVisible();
     await expect(sheet.getByLabel("Apex radius")).toBeVisible();
     await expect(sheet.getByRole("group", { name: "Quick sizes" })).toBeVisible();
@@ -289,6 +306,30 @@ test.describe("tablet touch", () => {
     expect(await corners(page)).toEqual(before);
     await expect.poll(() => viewBox(page)).not.toBe(vb);
     await expect(page.locator("g.ed-corner")).toHaveCount(4);
+
+    // a drag already under way goes back when a second finger lands
+    await page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: "Zoom to fit" }).tap();
+    await expect.poll(() => viewBox(page)).toBe(vb);
+    const c2 = await screen(page, ...before[1]);
+    await t.down(c2);
+    await t.move([[c2[0] - 60, c2[1] - 60]], 6);
+    expect((await corners(page))[1]).not.toEqual(before[1]);
+    const far = await screen(page, -6, 0);
+    await t.down(far);
+    await t.move([[c2[0] - 80, c2[1] - 80], [far[0] + 40, far[1]]]);
+    await t.up();
+    expect(await corners(page)).toEqual(before);
+    // and the same for an apex handle
+    const labels = await page.locator("text.ed-label").count();
+    const ap = await centreOf(page, "circle.ed-hit-apex", 2);
+    await t.down(ap);
+    await t.move([[ap[0] - 40, ap[1] + 40]], 6);
+    await t.down(far);
+    await t.move([[ap[0] - 60, ap[1] + 60], [far[0] - 40, far[1]]]);
+    await t.up();
+    expect(await corners(page)).toEqual(before);
+    await expect(page.locator("text.ed-label")).toHaveCount(labels);
+    await expect(page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: "Redo" })).toBeDisabled();
   });
 
   test("corners, apex handles and jumps take a press 44 px across", async ({ page }) => {
