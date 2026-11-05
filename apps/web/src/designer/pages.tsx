@@ -1,6 +1,6 @@
 // Routes into the designer: /new (from a venue or start blank), /new/design (a new track), /t/:id/edit.
 import type { RcTrack, RcVenue } from "@track-studio/engine";
-import { useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Loading, Message, VenueThumb } from "../components/bits.js";
 import { ApiError, post, type TrackResponse, type VenueSummary } from "../lib/api.js";
@@ -40,6 +40,7 @@ export function NewTrackPage() {
 /** Start blank: a name and the track area's length × width. Problems show under each field after the first try. */
 export function BlankStartForm({ initial = { name: "", length: "22", width: "12", tried: false } }: { initial?: { name: string; length: string; width: string; tried: boolean } }) {
   const navigate = useNavigate();
+  const id = useId();
   const [name, setName] = useState(initial.name);
   const [size, setSize] = useState({ length: initial.length, width: initial.width });
   const [tried, setTried] = useState(initial.tried);
@@ -55,31 +56,31 @@ export function BlankStartForm({ initial = { name: "", length: "22", width: "12"
       <p className="ts-help blank-help">
         No venue, no obstacles: just the track area, {BLANK_MIN}–{BLANK_MAX} m each way.
       </p>
-      <div className="ts-field">
-        <label className="ts-label" htmlFor="blank-name">
+      <div className="ts-field blank-name">
+        <label className="ts-label" htmlFor={`${id}-name`}>
           Name
         </label>
-        <input id="blank-name" className="ts-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="New track" maxLength={80} />
+        <input id={`${id}-name`} className="ts-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="New track" maxLength={80} />
       </div>
       {(["length", "width"] as const).map((k) => (
         <div className="ts-field" key={k}>
-          <label className="ts-label" htmlFor={`blank-${k}`}>
+          <label className="ts-label" htmlFor={`${id}-${k}`}>
             {k === "length" ? "Length" : "Width"} <span className="blank-hint">{k === "length" ? "east–west" : "north–south"}</span>
           </label>
           <span className="ts-unit">
             <input
-              id={`blank-${k}`}
+              id={`${id}-${k}`}
               className={`ts-input${problems[k] ? " ts-input--invalid" : ""}`}
               inputMode="decimal"
               value={size[k]}
-              aria-invalid={!!problems[k]}
-              aria-describedby={problems[k] ? `blank-${k}-e` : undefined}
+              aria-invalid={problems[k] ? true : undefined}
+              aria-describedby={problems[k] ? `${id}-${k}-e` : undefined}
               onChange={(e) => setSize((s) => ({ ...s, [k]: e.target.value }))}
             />
             m
           </span>
           {problems[k] && (
-            <p id={`blank-${k}-e`} className="ts-help ts-help--error">
+            <p id={`${id}-${k}-e`} className="ts-help ts-help--error">
               {problems[k]}
             </p>
           )}
@@ -133,7 +134,8 @@ export function NewDesignPage() {
 
   if (venue.error) return venue.error instanceof ApiError && venue.error.status === 404 ? <NotFound what="venue" /> : <div className="wrap page"><Message kind="error">{venue.error.message}</Message></div>;
   if (!initial) return <div className="wrap page"><Loading what="Loading venue" /></div>;
-  const key = venueId ? `designer:new:venue:${venueId}` : `designer:new:blank`;
+  // one kept draft per venue, and per blank area (a new 40 × 30 m blank isn't offered an old 22 × 12 m one)
+  const key = venueId ? `designer:new:venue:${venueId}` : `designer:new:blank:${area.length}x${area.width}`;
   return <Designer key={key} mode="new" initial={initial} storageKey={key} fromVenue={venueId && venue.data ? { id: venueId, name: venue.data.doc.info.name } : undefined} />;
 }
 

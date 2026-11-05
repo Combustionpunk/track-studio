@@ -5,16 +5,25 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { toDoc } from "../src/designer/Designer.js";
+import { toDoc, type DesignerProps } from "../src/designer/Designer.js";
 import { designStep, gridFor, paintTo, withLaying, type Cell, type Laying } from "../src/designer/lanes.js";
 import { BLANK_MAX, BLANK_MIN, blankArea, blankDraft, blankHref, blankProblems, venueDraft } from "../src/designer/start.js";
 
-vi.mock("../src/lib/hooks.js", async (orig) => ({ ...(await orig<typeof import("../src/lib/hooks.js")>()), useApi: () => ({ data: { venues: [] }, loading: false, reload: () => {} }) }));
-const { NewTrackPage, BlankStartForm } = await import("../src/designer/pages.js");
-
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
 const VENUES = ["club-hall", "small-hall", "sports-hall-b"].map((n) => ref<RcVenue>(`venues/${n}.rcvenue.json`));
-const html = (node: React.ReactNode) => renderToStaticMarkup(<MemoryRouter>{node}</MemoryRouter>);
+
+// canned answers per API path; the designer itself is stubbed to record what it was opened with
+vi.mock("../src/lib/hooks.js", async (orig) => ({
+  ...(await orig<typeof import("../src/lib/hooks.js")>()),
+  useApi: (path: string | null) => {
+    const v = VENUES.find((v) => path === `/api/venues/${v.id}`);
+    return { data: path === "/api/venues" ? { venues: [] } : v ? { doc: v } : undefined, loading: false, reload: () => {} };
+  },
+}));
+const opened: DesignerProps[] = [];
+vi.mock("../src/designer/Designer.js", async (orig) => ({ ...(await orig<typeof import("../src/designer/Designer.js")>()), Designer: (p: DesignerProps) => (opened.push(p), null) }));
+const { NewTrackPage, NewDesignPage, BlankStartForm } = await import("../src/designer/pages.js");
+const html = (node: React.ReactNode, path = "/") => renderToStaticMarkup(<MemoryRouter initialEntries={[path]}>{node}</MemoryRouter>);
 
 /** paint the ring round the edge of the grid and close it */
 function closeEdgeLoop(d: ReturnType<typeof blankDraft>) {
@@ -42,7 +51,8 @@ describe("blank area: validation in plain words", () => {
     expect(blankProblems({ length: "22", width: "abc" })).toEqual({ width: "Enter the width in metres." });
     expect(blankProblems({ length: "5.9", width: "12" })).toEqual({ length: "Length must be at least 6 m." });
     expect(blankProblems({ length: "22", width: "61" })).toEqual({ width: "Width can be at most 60 m." });
-    expect(blankProblems({ length: "-3", width: "Infinity" })).toEqual({ length: "Length must be at least 6 m.", width: "Enter the width in metres." });
+    expect(blankProblems({ length: "3", width: "Infinity" })).toEqual({ length: "Length must be at least 6 m.", width: "Enter the width in metres." });
+    for (const t of ["-12", "0x10", "1e1", "12abc", "12.", "+12", "1,5"]) expect(blankProblems({ length: t, width: "12" }), t).toEqual({ length: "Enter the length in metres." });
   });
 
   it("the designer link carries the area and an optional name", () => {
@@ -56,6 +66,8 @@ describe("blank area: validation in plain words", () => {
     expect(area("length=200&width=2")).toEqual({ length: 60, width: 6 });
     expect(area("")).toEqual({ length: 22, width: 12 });
     expect(area("length=abc&width=-")).toEqual({ length: 22, width: 12 });
+    expect(area("length=0&width=%20")).toEqual({ length: 6, width: 12 });
+    expect(area("length=0x10&width=1e1")).toEqual({ length: 22, width: 12 });
   });
 });
 
@@ -99,12 +111,35 @@ describe("From a venue", () => {
     const d = venueDraft(v);
     expect(d.area).toEqual(v.area);
     expect(d.obstacles).toEqual(v.obstacles ?? []);
-    expect(d.design.rostrum).toEqual({ side: "south", ...v.rostrum });
+    expect(d.design.rostrum?.side).toBe(v.rostrum!.side);
+    expect(d.design.rostrum?.offset ?? 0).toBe(v.rostrum!.offset ?? 0);
     expect(d.basedOn).toEqual({ venueTemplate: v.id, revision: v.revision });
     expect(d.info.name).toBe(`New track at ${v.info.name}`);
     expect(venueDraft(v, "Mine").info.name).toBe("Mine");
     expect(designStep(d)).toBe(1);
     expect(gridFor(d).origin).toEqual([-v.area.length / 2, -v.area.width / 2]);
+  });
+});
+
+describe("new design page", () => {
+  const open = (path: string) => (opened.length = 0, html(<NewDesignPage />, path), opened[0]);
+
+  it("blank: the area from the link, kept to the limits, with the name given; no venue", () => {
+    const p = open("/new/design?length=200&width=13.5&name=Winter");
+    expect(p.mode).toBe("new");
+    expect(p.fromVenue).toBeUndefined();
+    expect(p.initial).toMatchObject({ area: { length: 60, width: 13.5 }, basedOn: null, obstacles: [], info: { name: "Winter" }, laying: [] });
+    expect(p.storageKey).toBe("designer:new:blank:60x13.5");
+    expect(open("/new/design?length=22&width=12").initial.info.name).toBe("New track");
+  });
+
+  it.each(VENUES.map((v) => [v.info.name, v] as const))("from %s: the venue's draft, named after it, in step 1", (_, v) => {
+    const p = open(`/new/design?venue=${v.id}`);
+    expect(p.fromVenue).toEqual({ id: v.id, name: v.info.name });
+    expect(p.initial).toEqual(venueDraft(v));
+    expect(p.initial.info.name).toBe(`New track at ${v.info.name}`);
+    expect(designStep(p.initial)).toBe(1);
+    expect(p.storageKey).toBe(`designer:new:venue:${v.id}`);
   });
 });
 
@@ -126,6 +161,7 @@ describe("new track page", () => {
     expect(h).toContain("Enter the width in metres.");
     expect(h.match(/ts-input--invalid/g)).toHaveLength(2);
     expect(h.match(/aria-invalid="true"/g)).toHaveLength(2);
+    expect(h).not.toContain('aria-invalid="false"');
     expect(h.match(/class="ts-help ts-help--error"/g)).toHaveLength(2);
   });
 });
