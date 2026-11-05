@@ -58,6 +58,8 @@ export interface Live {
   lanes: Lanes;
   /** where the line crosses itself and what bridges it, as built.crossings (empty when it doesn't) */
   crossings: Crossing[];
+  /** per crossing, the flat top a bridge over the first / second pass needs (bridgeSpan) */
+  spans: [number, number][];
   /** design.laneWidth: an unclaimed crossover's flat top spans it */
   laneWidth: number;
 }
@@ -80,6 +82,7 @@ export function liveGeometry(design: Design): Live {
     return claim ? placeFeature(live, { ...f, distance: claim[0].d[claim[1]] }, bridgeSpan(claim[0], claim[1])) : placeFeature(live, f);
   });
   live.crossings = cr.length ? crossingChecks(cr, live.features, features, []) : [];
+  live.spans = cr.map((c) => [bridgeSpan(c, 0), bridgeSpan(c, 1)]);
   const sd = design.start?.distance ?? 0;
   const st = atDistance(line.x, line.z, s, total, sd);
   live.startLine = { x: st.p[0], z: st.p[1], heading: headingDeg(st.t), width: line.width[st.i], distance: sd };

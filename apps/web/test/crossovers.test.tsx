@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ChecksPanel, draftFromDoc, SelectionPanel, type Draft } from "../src/designer/Designer.js";
-import { addCrossover, bridgeAt, crossingHint, makeCrossover, moveStart, swapOver } from "../src/designer/crossings.js";
+import { addCrossover, bridgeAt, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "../src/designer/crossings.js";
 import { liveGeometry } from "../src/designer/geometry.js";
 import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import { JumpPalette } from "../src/designer/JumpPalette.js";
@@ -87,6 +87,28 @@ describe("swap over / under", () => {
   });
 });
 
+describe("dragging a crossover", () => {
+  const two = fixture("two-crossings");
+  const live = liveGeometry(two.design);
+  const [c1, c2] = live.crossings;
+  it("onto another crossing, or the other pass, the pass it's dropped on goes over", () => {
+    const f = [{ type: "crossover" as const, distance: c1.distances[0], over: "first" as const }];
+    const moved = moveCrossover(f, 0, c2.distances[1] + 0.3, live.crossings, live.total);
+    expect(moved[0]).toEqual({ type: "crossover", distance: c2.distances[1] + 0.3, over: "second" });
+    const b = bakeBuilt(withFeatures(two, moved));
+    expect(b.crossings![1]).toMatchObject({ over: "second", bridge: { type: "crossover", feature: 0 } });
+  });
+  it("away from any crossing, only the distance changes", () => {
+    const f = [{ type: "crossover" as const, distance: c1.distances[0], over: "second" as const, height: 0.5 }];
+    expect(moveCrossover(f, 0, 25, live.crossings, live.total)).toEqual([{ ...f[0], distance: 25 }]);
+  });
+  it("Swap on a crossover that's on no crossing flips over and leaves it where it is", () => {
+    const open = liveGeometry(eight.design); // nothing bridged: the crossover at 25 m is 16 m from the crossing
+    const f = [{ type: "crossover" as const, distance: 25, over: "first" as const }];
+    expect(swapOver(f, 0, open.crossings, open.total)).toEqual([{ type: "crossover", distance: 25, over: "second" }]);
+  });
+});
+
 describe("one undo step each: place, move, swap, delete", () => {
   it("history", () => {
     const live = liveGeometry(eight.design);
@@ -127,6 +149,12 @@ describe("the selected crossover's panel", () => {
     expect(html).toContain("Delete crossover");
     expect(html).toMatch(/first pass from the start goes over/i);
     expect(html).not.toMatch(/Ramp length|Top length|Height/);
+  });
+  it("a crossover too low to bridge still says which pass it would put over", () => {
+    const low = fixture("crossover-low-figure8");
+    const live = liveGeometry(low.design);
+    expect(overText({ type: "crossover", distance: FIRST, height: 0.3 }, 0, live.crossings, live.total)).toBe("The first pass from the start goes over.");
+    expect(overText({ type: "crossover", distance: 25 }, 0, live.crossings, live.total)).toMatch(/once it's on a crossing/);
   });
   it("Advanced: ramp length, top length and height too, with the defaults as placeholders", () => {
     const { html } = panel("advanced");

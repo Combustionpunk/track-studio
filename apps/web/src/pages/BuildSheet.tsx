@@ -241,7 +241,7 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
             ) : (
               <tbody>
                 <tr>
-                  <td>No jumps on this track.</td>
+                  <td>{crossovers.length ? "No other jumps on this track." : "No jumps on this track."}</td>
                 </tr>
               </tbody>
             )}

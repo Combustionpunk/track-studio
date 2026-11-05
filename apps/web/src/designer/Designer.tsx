@@ -5,7 +5,6 @@
 // with a dock of 44 px+ controls, pinch and pan with two fingers, long-press a corner for its panel.
 import {
   ALL_PLAN_LAYERS,
-  BRIDGE_MARGIN,
   CROSSOVER_HEIGHT,
   CROSSOVER_RAMP,
   FEATURE_DEFAULTS,
@@ -65,7 +64,7 @@ import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, pla
 import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
-import { addCrossover, bridgeAt, crossingHint, makeCrossover, moveStart, overText, swapOver } from "./crossings.js";
+import { addCrossover, bridgeAt, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
 /** wheel delta (pixels) per step = one mouse-wheel notch; trackpads add up their small deltas */
@@ -173,8 +172,8 @@ const ONLY_CHECKS = Object.fromEntries(Object.keys(ALL_PLAN_LAYERS).map((k) => [
 function ghostFeature(live: Live, type: FeatureType, hover: { s: number; at: Point2 }): BuiltFeature {
   if (type !== "crossover") return placeFeature(live, { type, distance: hover.s });
   const f = addCrossover([], live.crossings, hover.at, hover.s, live.total).features[0];
-  const c = live.crossings.find((k) => k.distances.includes(f.distance));
-  return placeFeature(live, f, c ? live.laneWidth / Math.max(Math.sin((c.angle * Math.PI) / 180), 0.1) + 2 * BRIDGE_MARGIN : undefined);
+  const k = live.crossings.findIndex((c) => c.distances.includes(f.distance));
+  return placeFeature(live, f, k < 0 ? undefined : live.spans[k][f.over === "second" ? 1 : 0]);
 }
 
 export function Designer({ mode, initial, base: initialBase, fromVenue, storageKey }: DesignerProps) {
@@ -518,7 +517,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         if (d.kind === "feature") {
           const f = cur.design.features ?? [];
           if (f[d.i]?.distance === s) return;
-          hist.set({ ...cur, design: { ...cur.design, features: moveJump(f, d.i, s) } }, group);
+          const moved = f[d.i]?.type === "crossover" ? moveCrossover(f, d.i, s, liveRef.current.crossings, liveRef.current.total) : moveJump(f, d.i, s);
+          hist.set({ ...cur, design: { ...cur.design, features: moved } }, group);
         } else if (cur.design.start?.distance !== s) {
           hist.set({ ...cur, design: moveStart(cur.design, liveRef.current, s) }, group);
         }
@@ -1076,7 +1076,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const venueName = fromVenue?.name ?? (draft.basedOn ? status?.venue?.name ?? draft.basedOn.venueTemplate : undefined);
   const backTo = mode === "edit" && base ? { to: `/t/${base.id}`, label: "Back to track" } : { to: "/new", label: "Start over" };
   // the bake's jumps, matched with its checks (the live ones run ahead while dragging)
-  const bakedFeatures = bake.built && bake.built.features.length === built.features.length ? bake.built.features : [];
+  const bakedFeatures = bake.built && !bake.pending && bake.built.features.length === built.features.length ? bake.built.features : [];
   const makeItACrossover = (i: number) => {
     setFeatures((f) => makeCrossover(f, i, liveRef.current.crossings, liveRef.current.total));
     setSel({ kind: "feature", i });
@@ -1961,7 +1961,7 @@ export function SelectionPanel({
       return (
         <section className="sel-panel" aria-labelledby="sel-h">
           <h2 id="sel-h">Crossover</h2>
-          <p className="sel-turn">{overText(f, sel.i, live.crossings)}</p>
+          <p className="sel-turn">{overText(f, sel.i, live.crossings, live.total)}</p>
           {view === "advanced" && (
             <div className="fields">
               <TypeField f={f} i={sel.i} live={live} update={update} />

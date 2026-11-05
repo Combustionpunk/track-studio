@@ -1,7 +1,7 @@
 // Crossovers in the designer (#51): placing one on a crossing, swapping which pass goes over, turning a tabletop too
 // low to drive under into a crossover, the hints on crossing checks, and keeping each bridge on its pass when the start
 // line moves (the passes are named first / second in driving order from the start line).
-import { bridgeCrossings, findCrossings, type BuiltFeature, type Check, type Crossing, type Design, type DesignFeature, type FeatureType, type Point2 } from "@track-studio/engine";
+import { BRIDGE_MARGIN, bridgeCrossings, CROSSOVER_RAMP, FEATURE_DEFAULTS, findCrossings, type BuiltFeature, type Check, type Crossing, type Design, type DesignFeature, type FeatureType, type Point2 } from "@track-studio/engine";
 import type { Live } from "./geometry.js";
 
 /** a crossover dropped this close to a crossing (m, on the plan) snaps onto it */
@@ -17,8 +17,8 @@ const gap = (a: number, b: number, total: number) => {
 };
 
 /** The crossing nearest a lap distance (by either pass), within `within` metres along the line. */
-function crossingFor(crossings: Pick<Crossing, "distances">[], distance: number, total: number, within = Infinity) {
-  let best: { c: Pick<Crossing, "distances">; pass: 0 | 1; d: number } | null = null;
+function crossingFor<C extends Pick<Crossing, "distances">>(crossings: C[], distance: number, total: number, within = Infinity) {
+  let best: { c: C; pass: 0 | 1; d: number } | null = null;
   for (const c of crossings)
     for (const pass of [0, 1] as const) {
       const d = gap(c.distances[pass], distance, total);
@@ -41,19 +41,37 @@ export function addCrossover(features: DesignFeature[], crossings: Pick<Crossing
   return { features: [...features, f], index: features.length };
 }
 
+/** How far along the line a crossover reaches for a crossing: half its length (as the bake claims one, roughly). */
+const reach = (f: DesignFeature) => (f.rampLength ?? CROSSOVER_RAMP) + (f.topLength ?? 2 + 2 * BRIDGE_MARGIN) / 2;
+
+/** The crossing a crossover is on: the one it bridges, else the nearest within its reach. */
+function crossingOf<C extends Pick<Crossing, "distances" | "bridge">>(f: DesignFeature, i: number, crossings: C[], total: number) {
+  const c = crossings.find((k) => k.bridge?.feature === i);
+  return c ? { c, pass: (f.over === "second" ? 1 : 0) as 0 | 1 } : crossingFor(crossings, f.distance, total, reach(f));
+}
+
 /** The other pass goes over: `over` flips, and the crossover moves onto that pass's side of its crossing. */
-export function swapOver(features: DesignFeature[], i: number, crossings: Pick<Crossing, "distances">[], total: number): DesignFeature[] {
+export function swapOver(features: DesignFeature[], i: number, crossings: Pick<Crossing, "distances" | "bridge">[], total: number): DesignFeature[] {
   const f = features[i];
   const over: Pass = f.over === "second" ? "first" : "second";
-  const hit = crossingFor(crossings, f.distance, total);
+  const hit = crossingOf(f, i, crossings, total);
   const distance = hit ? hit.c.distances[over === "first" ? 0 : 1] : f.distance;
   return features.map((g, k) => (k === i ? { ...g, distance, over } : g));
+}
+
+/**
+ * Slide a crossover along the line. Near a crossing, the pass it's on goes over (as when it's placed), so a crossover
+ * dragged onto another crossing, or onto the other pass, bridges the pass it was dropped on.
+ */
+export function moveCrossover(features: DesignFeature[], i: number, distance: number, crossings: Pick<Crossing, "distances">[], total: number): DesignFeature[] {
+  const hit = crossingFor(crossings, distance, total, CROSSING_SNAP);
+  return features.map((f, k) => (k === i ? { ...f, distance, ...(hit ? { over: hit.pass ? "second" : "first" } : {}) } : f));
 }
 
 /** A tabletop becomes a crossover: same place, over the pass it was on, at the crossover's own size. */
 export function makeCrossover(features: DesignFeature[], i: number, crossings: Pick<Crossing, "distances">[], total: number): DesignFeature[] {
   const f = features[i];
-  const hit = crossingFor(crossings, f.distance, total);
+  const hit = crossingFor(crossings, f.distance, total, (f.length ?? FEATURE_DEFAULTS[f.type][0]) / 2 + BRIDGE_MARGIN);
   const over: Pass = hit?.pass === 1 ? "second" : "first";
   return features.map((g, k) => (k === i ? { type: "crossover", distance: g.distance, over } : g));
 }
@@ -105,8 +123,8 @@ export function crossingHint(c: Pick<Check, "code">, bridge: FeatureType | null)
 }
 
 /** Which pass a crossover puts over, in words, from the bake's crossings. */
-export function overText(f: DesignFeature, i: number, crossings: Crossing[]): string {
-  const c = crossings.find((k) => k.bridge?.feature === i);
-  const over = c?.over ?? f.over ?? "first";
-  return `The ${over} pass from the start goes over${c ? "" : " (once it's on a crossing)"}.`;
+export function overText(f: DesignFeature, i: number, crossings: Crossing[], total: number): string {
+  const on = crossingOf(f, i, crossings, total);
+  const over = (on?.c.bridge?.feature === i && on.c.over) || f.over || "first";
+  return `The ${over} pass from the start goes over${on ? "" : " (once it's on a crossing)"}.`;
 }

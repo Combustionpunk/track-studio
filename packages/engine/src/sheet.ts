@@ -127,9 +127,14 @@ function crossovers(doc: Pick<RcTrack, "area" | "design" | "built">): SheetCross
   const lap = b.lapLength || 1;
   const order = (d: number) => (((d - start) % lap) + lap) % lap;
   const design = doc.design.features ?? [];
+  // where each one stands: on the over pass of the crossing it bridges, else at its own distance
+  const at = (i: number) => {
+    const c = b.crossings?.find((k) => k.bridge?.feature === i);
+    return c?.over ? c.distances[c.over === "first" ? 0 : 1] : design[i]?.distance ?? 0;
+  };
   return b.features
     .flatMap((f, i) => (f.type === "crossover" ? [{ f, i }] : []))
-    .sort((p, q) => order(design[p.i]?.distance ?? 0) - order(design[q.i]?.distance ?? 0))
+    .sort((p, q) => order(at(p.i)) - order(at(q.i)))
     .map(({ f, i }, k) => {
       const ramp = f.profile[1]?.[0] ?? 0;
       return {
