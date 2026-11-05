@@ -115,7 +115,7 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
                 {doc.basedOn && ` (venue revision ${doc.basedOn.revision})`}
               </>
             )}
-            {" · "}by {track.author.username} · printed {fmt.date(new Date().toISOString())}
+            {" · "}by {fmt.author(track.author)} · printed {fmt.date(new Date().toISOString())}
           </span>
         </div>
         <div className="sheet-head-side">

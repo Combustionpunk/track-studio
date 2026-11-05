@@ -197,7 +197,8 @@ export interface TrackRow {
   id: string;
   name: string;
   author_forum_id: number;
-  author_username: string;
+  /** null when the author has no user row (imported data, a removed forum account) */
+  author_username: string | null;
   status: TrackStatus;
   venue_template_id: string | null;
   derived_from_id: string | null;
@@ -230,7 +231,7 @@ const TRACK_SELECT = `SELECT t.*, u.username AS author_username, v.name AS venue
     r.size_width AS d_size_w, r.area_length AS d_area_l, r.area_width AS d_area_w, r.preview_hash AS d_hash,
     l.errors AS l_errors, l.preview_hash AS l_hash, d.name AS derived_name, du.username AS derived_author
   FROM tracks t
-  JOIN users u ON u.forum_id = t.author_forum_id
+  LEFT JOIN users u ON u.forum_id = t.author_forum_id
   LEFT JOIN venues v ON v.id = t.venue_template_id
   JOIN track_revisions r ON r.track_id = t.id AND r.revision = COALESCE(t.approved_revision, t.current_revision)
   JOIN track_revisions l ON l.track_id = t.id AND l.revision = t.current_revision
@@ -635,10 +636,10 @@ export function copyTrack(db: DB, user: User, id: string, revision?: number) {
       created: t,
       modified: t,
       status: "draft",
-      derivedFrom: { id: row.id, revision: rev, author: row.author_username },
+      derivedFrom: { id: row.id, revision: rev, ...(row.author_username !== null && { author: row.author_username }) },
     },
   };
-  const saved = saveRevision(db, user, doc, { status: "draft", note: `Copy of ${row.d_name} r${rev} by ${row.author_username}` });
+  const saved = saveRevision(db, user, doc, { status: "draft", note: `Copy of ${row.d_name} r${rev}${row.author_username !== null ? ` by ${row.author_username}` : ""}` });
   return trackResult(db, saved.id, user);
 }
 
