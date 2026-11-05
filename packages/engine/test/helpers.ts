@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
+import { VENUE_CHECKS, type Built } from "../src/index.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,3 +24,9 @@ export const extraTracks = listJson(extraDir, ".rctrack.json");
 export const extraVenues = listJson(extraDir, ".rcvenue.json");
 export const allTracks = [...examples, ...extraTracks];
 export const allVenues = [...venues, ...extraVenues];
+
+/** A built section as 1.7 bakes it, for comparing with older bakes: no generator, no rostrum, no venue checks. */
+export function as17(b: object): Omit<Built, "generator"> {
+  const { generator: _g, rostrum: _r, ...rest } = b as Built & { rostrum?: unknown };
+  return { ...rest, checks: rest.checks.filter((c) => !(VENUE_CHECKS as readonly string[]).includes(c.code)) };
+}

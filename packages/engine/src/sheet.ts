@@ -1,11 +1,11 @@
 // The build sheet: the figures marshals lay a track out from (#17). Positions are measured from the south-west corner
-// of the track area ("x m from the west wall, y m from the south wall"), not from the centre origin the format uses.
+// of the drawing area (drawingArea; "x m from the west wall, y m from the south wall"), not from the centre origin the format uses.
 //
 // Everything comes from `built` except the corner points, which `built` doesn't list: they are the design points the
 // engine's own corner maths treats as corners (racingLine + the CORNER_* rules that make built.stats.corners), so the
 // numbering always agrees with stats.corners. Tests check each corner's arc lies on built.racingLine.
-import { CORNER_JOIN_GAP, CORNER_MIN_TURN, racingLine } from "./bake.js";
-import type { Area, FeatureType, Point2, RcTrack, Side } from "./types.js";
+import { CORNER_JOIN_GAP, CORNER_MIN_TURN, drawingArea, racingLine } from "./bake.js";
+import type { Area, FeatureType, Point2, RcTrack } from "./types.js";
 
 /** Distances from the west wall (x) and the south wall (z) of the track area, metres. */
 export interface FromSouthWest {
@@ -56,7 +56,6 @@ export interface BuildSheet {
   jumps: SheetJump[];
   start: FromSouthWest & { x: number; z: number; heading: Compass };
   direction: "clockwise" | "anticlockwise";
-  rostrum: Side;
 }
 
 const HAIRPIN = (150 * Math.PI) / 180;
@@ -75,7 +74,7 @@ export function compass(heading: number): Compass {
 export function buildSheet(doc: Pick<RcTrack, "area" | "design" | "built">): BuildSheet {
   const b = doc.built;
   if (!b) throw new Error("buildSheet: the track has no built section; bake it first");
-  const { area } = doc;
+  const area = drawingArea(doc);
 
   const widths = b.racingLine.map((p) => p[2]);
   // shoelace over the racing line: positive is anticlockwise (+x east, +z north)
@@ -96,7 +95,6 @@ export function buildSheet(doc: Pick<RcTrack, "area" | "design" | "built">): Bui
     jumps: b.features.map((f) => ({ type: f.type, x: f.x, z: f.z, length: f.length, height: f.height, ...fromSouthWest(area, f.x, f.z) })),
     start: { x: b.startLine.x, z: b.startLine.z, heading: compass(b.startLine.heading), ...fromSouthWest(area, b.startLine.x, b.startLine.z) },
     direction: twice < 0 ? "clockwise" : "anticlockwise",
-    rostrum: b.rostrum.side,
   };
 }
 
@@ -104,7 +102,7 @@ export function buildSheet(doc: Pick<RcTrack, "area" | "design" | "built">): Bui
  * Corner points grouped into corners the way countCorners (bake.ts) counts them: every turn of more than
  * CORNER_MIN_TURN, turns the same way joined by less than CORNER_JOIN_GAP of racing line making one corner.
  */
-function cornerPoints(doc: Pick<RcTrack, "area" | "design">): SheetCornerPoint[] {
+function cornerPoints(doc: Pick<RcTrack, "area" | "design" | "built">): SheetCornerPoint[] {
   const pts = doc.design.points;
   if (pts.length < 3) return [];
   const corners = racingLine(pts, doc.design.laneWidth ?? 2.0).corners;
@@ -150,7 +148,7 @@ function cornerPoints(doc: Pick<RcTrack, "area" | "design">): SheetCornerPoint[]
         index: i,
         x: c.P[0],
         z: c.P[1],
-        ...fromSouthWest(doc.area, c.P[0], c.P[1]),
+        ...fromSouthWest(drawingArea(doc), c.P[0], c.P[1]),
         turn: c.sign > 0 ? "left" : "right",
         angle: (c.th * 180) / Math.PI,
         hairpin,

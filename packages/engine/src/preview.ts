@@ -1,4 +1,5 @@
 // 2D top-down preview, drawn ONLY from `built` (what the forum does). A port of reference/preview_svg.py.
+import { drawingArea } from "./bake.js";
 import { pyFormat, radians } from "./num.js";
 import type { RcTrack } from "./types.js";
 
@@ -17,11 +18,11 @@ export interface PreviewOptions {
 
 /** SVG plan of the track. Requires `built`. */
 export function previewSvg(doc: RcTrack, { pxPerM = 40 }: PreviewOptions = {}): string {
-  const a = doc.area;
   const b = doc.built;
   if (!b) throw new Error("previewSvg: track has no built section (bake it first)");
+  const a = drawingArea(doc); // 1.7: area is optional, the layout's own drawing area
   const L = a.length, W = a.width;
-  const m = 2.5; // margin (m) for the rostrum label
+  const m = 2.5; // margin (m)
   const vw = (L + 2 * m) * pxPerM, vh = (W + 2 * m) * pxPerM;
   const X = (x: number) => (x + L / 2 + m) * pxPerM;
   const Z = (z: number) => (W / 2 + m - z) * pxPerM; // +z (north) is up on the page
@@ -36,17 +37,6 @@ export function previewSvg(doc: RcTrack, { pxPerM = 40 }: PreviewOptions = {}): 
   }
   for (let z = -Math.floor(W / 2); z <= Math.floor(W / 2); z++) {
     o.push(`<line x1="${f1(X(-L / 2))}" y1="${f1(Z(z))}" x2="${f1(X(L / 2))}" y2="${f1(Z(z))}" stroke="#ffffff" stroke-opacity="0.05"/>`);
-  }
-  // fixed obstacles (pillars, exits)
-  for (const ob of doc.obstacles ?? []) {
-    if (ob.type === "circle") {
-      o.push(`<circle cx="${f1(X(ob.x))}" cy="${f1(Z(ob.z))}" r="${f1(ob.radius * pxPerM)}" fill="#b03a3a"/>`);
-    } else {
-      o.push(
-        `<rect x="${f1(X(ob.x - ob.length / 2))}" y="${f1(Z(ob.z + ob.width / 2))}" width="${f1(ob.length * pxPerM)}" height="${f1(ob.width * pxPerM)}" fill="#b03a3a" fill-opacity="0.45" stroke="#ff6060" stroke-dasharray="6 4" transform="rotate(${g(-(ob.rotation ?? 0))} ${f1(X(ob.x))} ${f1(Z(ob.z))})"/>`,
-      );
-    }
-    if (ob.label) o.push(`<text x="${f1(X(ob.x))}" y="${f1(Z(ob.z) + 4)}" fill="#fff" font-size="12" text-anchor="middle">${esc(ob.label)}</text>`);
   }
   // lanes (carpet), when the file has them (rctrack 1.4)
   if (b.lanes) {
@@ -89,12 +79,6 @@ export function previewSvg(doc: RcTrack, { pxPerM = 40 }: PreviewOptions = {}): 
       o.push(`<circle cx="${f1(X(c.x))}" cy="${f1(Z(c.z))}" r="14" fill="none" stroke="${checkColours[c.level] ?? "#7fb2ff"}" stroke-width="4"/>`);
     }
   }
-  // rostrum
-  const r = b.rostrum;
-  o.push(
-    `<rect x="${f1(X(r.x) - 80)}" y="${f1(Z(r.z) - 14)}" width="160" height="28" rx="4" fill="#6a3da3"/>` +
-      `<text x="${f1(X(r.x))}" y="${f1(Z(r.z) + 6)}" fill="#fff" font-size="16" text-anchor="middle">ROSTRUM</text>`,
-  );
   o.push(`<text x="12" y="26" fill="#fff" font-size="20">${esc(doc.info.name)}  -  ${pyFormat(b.lapLength, 0)} m lap, ${b.features.length} features, area ${g(L)} x ${g(W)} m</text>`);
   o.push("</svg>");
   return o.join("\n");
