@@ -25,7 +25,7 @@ function repo() {
   };
   const commit = (msg: string) => {
     git("add", "-A");
-    git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "--allow-empty", "-m", msg);
+    git("-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", msg);
   };
   git("init", "-q", "-b", "main");
   write("README.md");
@@ -33,7 +33,7 @@ function repo() {
   commit("main");
   git("checkout", "-q", "-b", "feat/99-thing");
   const check = (base = "main") => spawnSync("bash", [SCRIPT, base], { cwd: dir, encoding: "utf8" });
-  return { dir, write, commit, check, rm: (p: string) => rmSync(join(dir, p), { recursive: true }) };
+  return { dir, git, write, commit, check, rm: (p: string) => rmSync(join(dir, p), { recursive: true }) };
 }
 
 afterEach(() => {
@@ -65,6 +65,15 @@ describe("check-screenshots.sh", () => {
     expect(r.check().status).toBe(1);
   });
 
+  it("fails when the PR moves a screenshot already on main to a new path", () => {
+    const r = repo();
+    r.git("mv", "docs/screenshots/4-theme", "docs/screenshots/99-thing");
+    r.commit("rename");
+    const res = r.check();
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("docs/screenshots/99-thing/1200.png");
+  });
+
   it("passes once the final commit removes the PR's screenshots again", () => {
     const r = repo();
     r.write("docs/screenshots/99-thing/1200.png");
@@ -78,10 +87,10 @@ describe("check-screenshots.sh", () => {
     const r = repo();
     r.write("apps/web/x.ts");
     r.commit("change");
-    spawnSync("git", ["checkout", "-q", "main"], { cwd: r.dir });
+    r.git("checkout", "-q", "main");
     r.write("docs/screenshots/50-other/1200.png");
     r.commit("main moves on");
-    spawnSync("git", ["checkout", "-q", "feat/99-thing"], { cwd: r.dir });
+    r.git("checkout", "-q", "feat/99-thing");
     expect(r.check().status).toBe(0);
   });
 

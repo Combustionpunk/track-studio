@@ -11,7 +11,7 @@ if ! git rev-parse --verify --quiet "${base}^{commit}" >/dev/null; then
   exit 2
 fi
 
-changed="$(git diff --name-only --diff-filter=AM "${base}...HEAD" -- docs/screenshots/)"
+changed="$(git diff --name-only --no-renames --diff-filter=AMT "${base}...HEAD" -- docs/screenshots/)"
 if [ -n "$changed" ]; then
   {
     echo "This branch adds or changes screenshots compared with ${base}:"

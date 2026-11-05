@@ -37,7 +37,7 @@ If you stop for a product decision: comment on the issue, label it `board`, remo
 
 ## Screenshots
 
-`gh` can't upload images, so screenshots go through the PR branch, and never reach main:
+`gh` can't upload images, so screenshots go through the PR branch and are removed before it merges:
 
 1. Commit them to the PR branch under `docs/screenshots/<issue>-<slug>/`.
 2. Link them in the PR body by the SHA of the commit that added them, never the branch name:
