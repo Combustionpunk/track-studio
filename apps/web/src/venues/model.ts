@@ -50,10 +50,11 @@ export function venueBody(d: VenueDraft) {
 export type Problems = Record<string, string>;
 
 /**
- * Problems that would stop a save, keyed by field: name, length, width, forumTrack, rostrum, obstacle-<i>. A new
- * template linked to a forum venue must pick the track; older ones (rcvenue 1.0) can still save without.
+ * Problems that would stop a save, keyed by field: name, length, width, forumTrack, rostrum, obstacle-<i>. A forum
+ * link must name the track, except on a template saved before rcvenue 1.1 that keeps its forum venue
+ * (`legacyVenueId`: that venue's id, when the saved revision has no track).
  */
-export function draftProblems(d: VenueDraft, opts: { isNew?: boolean } = {}): Problems {
+export function draftProblems(d: VenueDraft, opts: { legacyVenueId?: number } = {}): Problems {
   const p: Problems = {};
   if (!d.info.name.trim()) p.name = "Give the venue a name.";
   else if (d.info.name.trim().length > 80) p.name = "Keep the name to 80 characters.";
@@ -62,7 +63,7 @@ export function draftProblems(d: VenueDraft, opts: { isNew?: boolean } = {}): Pr
     if (!Number.isFinite(v) || v <= 0) p[k] = `${label} must be more than 0 m.`;
     else if (v > MAX_AREA) p[k] = `${label} can be at most ${MAX_AREA} m.`;
   }
-  if (opts.isNew && d.info.venue && d.info.venue.trackId === undefined) p.forumTrack = "Pick the track at this forum venue.";
+  if (d.info.venue && d.info.venue.trackId === undefined && d.info.venue.id !== opts.legacyVenueId) p.forumTrack = "Pick the track at this forum venue.";
   const { side, offset } = d.rostrum;
   if (!Number.isFinite(offset)) p.rostrum = "Rostrum position must be a number.";
   else if (!p.length && !p.width && Math.abs(offset) > wallHalf(d.area, side) + 1e-9) {

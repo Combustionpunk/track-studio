@@ -5,6 +5,7 @@ import {
   bake,
   fits,
   ORIENTS,
+  trackVenueRef,
   validateTrack,
   validateVenue,
   type FitResult,
@@ -206,6 +207,10 @@ export function updateVenue(db: DB, user: User, id: string, body: unknown) {
   const revision = row.current_revision + 1;
   const doc = { ...src, format: "rcvenue", version: 1, id, revision };
   assertValidVenue(doc);
+  // a template saved before rcvenue 1.1 may keep its forum venue without a track; any other forum link names the track
+  const before = getVenueDoc(db, id).info.venue;
+  const legacy = before && before.trackId === undefined && before.id === doc.info.venue?.id;
+  if (doc.info.venue && doc.info.venue.trackId === undefined && !legacy) throw badRequest("invalid-venue", "Pick the track at this forum venue (info.venue.trackId).");
   const t = now();
   db.transaction(() => {
     assertForumTrackFree(db, doc, id);
@@ -553,7 +558,7 @@ export function createTrack(db: DB, user: User, body: unknown, opts: { keepId?: 
     doc.area = { ...venue.area };
     doc.obstacles = structuredClone(venue.obstacles ?? []);
     doc.basedOn = { venueTemplate: venue.id, revision: venue.revision };
-    (doc.info as Record<string, unknown>).venue = venue.info.venue ?? null;
+    (doc.info as Record<string, unknown>).venue = trackVenueRef(venue.info.venue);
     if (isObject(doc.design)) doc.design = { ...doc.design, rostrum: { ...(venue.rostrum ?? { side: "south" }) } };
   }
   if (db.prepare("SELECT 1 FROM tracks WHERE id = ?").get(doc.id)) throw conflict("track-exists", `Track ${String(doc.id)} already exists`);

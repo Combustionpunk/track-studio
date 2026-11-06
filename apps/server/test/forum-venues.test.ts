@@ -1,10 +1,10 @@
 // Venue templates link to one forum venue and one of its tracks (#65): the forum's venue list (cached, survives the
 // forum being down), one template per forum track, and the lookup the forum plugin's layout picker uses.
-import { validateVenue, type RcVenue } from "@track-studio/engine";
+import { validateVenue, type RcTrack, type RcVenue } from "@track-studio/engine";
 import type { FastifyInstance } from "fastify";
 import { describe, expect, it, vi } from "vitest";
 import { ForumVenues, FORUM_VENUES_TTL_MS } from "../src/forum-venues.js";
-import { FORUM_URL, login, makeApp, ORGANISER } from "./helpers.js";
+import { FORUM_URL, login, makeApp, ORGANISER, referenceJson } from "./helpers.js";
 
 /** What the forum's GET /des/venues answers (more fields than Track Studio passes on). */
 const forumList = () => [
@@ -171,6 +171,26 @@ describe("templates linked to a forum track", () => {
     expect(old.venue).toMatchObject({ forumVenueId: 1, forumTrackId: null });
     const res = await req(app, "PUT", "/api/venues/venue-1", org, { venue: { ...old.doc, area: { length: 23, width: 12 } }, baseRevision: old.venue.revision });
     expect(res.statusCode).toBe(200);
+    // linking it to another forum venue, or dropping the track once picked, needs the track
+    const moved = await req(app, "PUT", "/api/venues/venue-1", org, { venue: { ...old.doc, info: { name: "Club hall", venue: { id: 14, name: "Village Hall" } } } });
+    expect(moved.statusCode).toBe(400);
+    expect((await req(app, "PUT", "/api/venues/venue-1", org, { venue: linked(32) })).statusCode).toBe(200);
+    expect((await req(app, "PUT", "/api/venues/venue-1", org, { venue: { ...linked(), info: { name: "Hall", venue: { id: 12, name: "Misfits Main Hall" } } } })).statusCode).toBe(400);
+  });
+
+  it("a forum link names the venue: a track alone isn't a link", async () => {
+    const { app, org } = await setup();
+    const res = await req(app, "POST", "/api/venues", org, { ...linked(), info: { name: "Hall", venue: { trackId: 31 } } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("layouts drawn on a linked template get the forum venue {id, name} only: the track stays on the template", async () => {
+    const { app, org } = await setup();
+    const { venue } = (await req(app, "POST", "/api/venues", org, linked())).json();
+    const track = referenceJson<RcTrack>("examples/club-a.rctrack.json");
+    const res = await req(app, "POST", "/api/tracks", org, { track: { ...track, id: undefined, built: undefined }, fromVenue: venue.id });
+    expect(res.statusCode, res.body.slice(0, 200)).toBe(201);
+    expect(res.json().doc.info.venue).toEqual({ id: 12, name: "Misfits Main Hall" });
   });
 
   it("a second template for the same forum track is refused with 409 and a link to the first", async () => {
@@ -195,7 +215,9 @@ describe("templates linked to a forum track", () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers["access-control-allow-origin"]).toBe("*");
     expect(res.json()).toMatchObject({ venue: { id: venue.id, forumTrackId: 31 }, doc: { info: { venue: { trackId: 31 } } } });
-    expect((await req(app, "GET", "/api/venues?forumTrack=32")).statusCode).toBe(404);
+    const missing = await req(app, "GET", "/api/venues?forumTrack=32");
+    expect(missing.statusCode).toBe(404);
+    expect(missing.headers["access-control-allow-origin"]).toBe("*"); // the plugin reads the 404 too
     expect((await req(app, "GET", "/api/venues?forumTrack=abc")).statusCode).toBe(404);
     // without the parameter it's still the list
     expect((await req(app, "GET", "/api/venues")).json().venues.length).toBeGreaterThan(1);

@@ -80,7 +80,9 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
   const [message, setMessage] = useState<{ kind: "info" | "error"; text: string; stale?: boolean; existing?: { id: string; name: string } } | null>(null);
   const isNew = !base;
 
-  const problems = useMemo(() => draftProblems(draft, { isNew }), [draft, isNew]);
+  const saved = base?.doc.info.venue;
+  const legacyVenueId = saved && saved.trackId === undefined ? saved.id : undefined;
+  const problems = useMemo(() => draftProblems(draft, { legacyVenueId }), [draft, legacyVenueId]);
   const outside = useMemo(() => outsideObstacles(draft), [draft]);
   const [badFields, setBadFields] = useState<ReadonlySet<string>>(new Set());
   const reportBad = useCallback(

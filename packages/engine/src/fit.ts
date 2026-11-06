@@ -1,7 +1,7 @@
 // "Will it fit my venue?" search and adapt. A port of reference/fit.py. Pure: no DOM, no Node APIs.
 import { bake, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumPosition } from "./bake.js";
 import { pyRound, pyRoundInt, radians } from "./num.js";
-import type { Built, FitResult, Point2, RcTrack, RcVenue, VenueRef } from "./types.js";
+import type { Built, FitResult, Point2, RcTrack, ForumVenueRef, RcVenue, VenueRef } from "./types.js";
 
 /** [label, rotation (deg), mirror] in the order results are reported. */
 export const ORIENTS: [string, number, boolean][] = [
@@ -95,6 +95,14 @@ export interface AdaptOptions {
 }
 
 /** An adapted copy of the track for the venue, in the chosen fit's orientation and position, re-baked. */
+/**
+ * A template's forum link as a track's `info.venue` ({id, name}, rctrack): the forum track (rcvenue 1.1) stays on the
+ * template. fit.py copies the whole object; the two agree on every 1.0 template, and `built` doesn't depend on it.
+ */
+export function trackVenueRef(v: ForumVenueRef | null | undefined): VenueRef | null {
+  return v ? ({ id: v.id, ...(v.name !== undefined ? { name: v.name } : {}) } as VenueRef) : null;
+}
+
 export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: AdaptOptions = {}): RcTrack {
   const t: RcTrack = structuredClone(track);
   for (const p of t.design.points) {
@@ -106,8 +114,7 @@ export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: Adap
   t.obstacles = structuredClone(venue.obstacles ?? []);
   t.design.rostrum = { ...(venue.rostrum ?? { side: "south" }) };
   t.basedOn = { venueTemplate: venue.id, revision: venue.revision };
-  // as fit.py: the template's forum link as it is (rcvenue 1.1 adds trackId/trackName, which rctrack readers ignore)
-  t.info.venue = (venue.info.venue ?? null) as VenueRef | null;
+  t.info.venue = trackVenueRef(venue.info.venue);
   t.info.derivedFrom = { id: track.id, revision: track.revision, orientation: fit.orientation };
   t.info.name = `${track.info.name} @ ${venue.info.name}`;
   t.info.status = "draft";

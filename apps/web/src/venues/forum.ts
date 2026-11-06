@@ -72,7 +72,7 @@ export function areaDiffers(area: Area, track: ForumTrack | null | undefined): s
   return same ? null : `Differs from the forum (${num(track.width_m)} × ${num(track.length_m)} m).`;
 }
 
-const fold = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const fold = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
 
 /** Venues whose name, town or a track's name contains `q` (case and accents ignored). */
 export function filterForumVenues(venues: ForumVenue[], q: string): ForumVenue[] {

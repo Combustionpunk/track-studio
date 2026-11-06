@@ -65,7 +65,7 @@ export function parseForumVenues(body: unknown): ForumVenue[] {
 
 /** Venues whose name, town or a track's name contains `q` (case and accents ignored). */
 export function searchForumVenues(venues: ForumVenue[], q: string | undefined): ForumVenue[] {
-  const fold = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const fold = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
   const needle = fold(q?.trim() ?? "");
   if (!needle) return venues;
   return venues.filter((v) => [v.name, v.town ?? "", ...v.tracks.map((t) => t.name)].some((s) => fold(s).includes(needle)));
@@ -101,7 +101,8 @@ export class ForumVenues {
       const res = await this.fetch(`${this.opts.forumUrl}/des/venues`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(this.opts.timeoutMs ?? 5_000) });
       if (!res.ok) throw new Error(`forum answered HTTP ${res.status}`);
       const venues = parseForumVenues(await res.json());
-      this.cache = { venues, at: this.now(), fetchedAt: new Date().toISOString() };
+      const at = this.now();
+      this.cache = { venues, at, fetchedAt: new Date(at).toISOString() };
       this.failedAt = null;
       if (this.failing) this.opts.log.info("forum venues: the forum answers again");
       this.failing = false;
