@@ -12,6 +12,9 @@ import * as fmt from "../lib/format.js";
 import { useApi, useStored } from "../lib/hooks.js";
 import { NotFound } from "./NotFound.js";
 
+/** A bare date (no time) is that day wherever you are, not midnight UTC. */
+const dateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
 /** Where the forum says the layout was raced (#66). Not shown at all when the forum can't be reached. */
 function UsedAtSection({ used }: { used: UsedAt }) {
   const n = used.events.length;
@@ -28,14 +31,14 @@ function UsedAtSection({ used }: { used: UsedAt }) {
             {used.events.map((e) => (
               <li key={e.id} className="ts-used__event">
                 {e.url ? (
-                  <a className="ts-used__title" href={e.url} target="_blank" rel="noopener">
+                  <a className="ts-used__title" href={e.url} target="_blank" rel="noopener noreferrer">
                     {e.title}
                   </a>
                 ) : (
                   <span className="ts-used__title">{e.title}</span>
                 )}
                 <span className="ts-used__meta">
-                  {e.startDate && fmt.date(e.startDate)}
+                  {e.startDate && fmt.date(dateOnly(e.startDate) ? `${e.startDate}T12:00:00` : e.startDate)}
                   {e.venue && (
                     <>
                       {e.startDate && " · "}

@@ -95,6 +95,47 @@ describe("ForumEvents client", () => {
     expect(await odd.forLayout("abc")).toBeNull();
   });
 
+  it("two requests at once share one forum call; several layouts go at most 6 at a time", async () => {
+    let inFlight = 0;
+    let most = 0;
+    const calls: string[] = [];
+    const slow = (async (u: string) => {
+      calls.push(u);
+      most = Math.max(most, ++inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return Response.json({ events: [] });
+    }) as typeof globalThis.fetch;
+    const client = new ForumEvents({ forumUrl: FORUM_URL, fetch: slow });
+    await Promise.all([client.forLayout("abc"), client.forLayout("abc")]);
+    expect(calls).toHaveLength(1);
+    const all = await client.forLayouts(Array.from({ length: 20 }, (_, i) => `l${i}`));
+    expect(all.size).toBe(20);
+    expect(most).toBeLessThanOrEqual(6);
+  });
+
+  it("once the forum fails, it isn't asked again for a minute (a slow forum doesn't hold up every layout)", async () => {
+    let t = 0;
+    const f = forum({}, { down: true });
+    const client = new ForumEvents({ forumUrl: FORUM_URL, fetch: f.fetch, now: () => t });
+    expect(await client.forLayout("a")).toBeNull();
+    expect(await client.forLayouts(["b", "c", "d"])).toEqual(new Map([["b", null], ["c", null], ["d", null]]));
+    expect(f.calls).toHaveLength(1);
+    t = 61_000;
+    await client.forLayout("b");
+    expect(f.calls).toHaveLength(2);
+  });
+
+  it("fresh: asks the forum even when the cached answer is recent", async () => {
+    const byLayout: Record<string, unknown[]> = { abc: [] };
+    const f = forum(byLayout);
+    const client = new ForumEvents({ forumUrl: FORUM_URL, fetch: f.fetch });
+    expect(await client.forLayout("abc")).toEqual([]);
+    byLayout.abc = [ev(1, "2026-01-01", HALL)];
+    expect(await client.forLayout("abc")).toEqual([]);
+    expect(await client.forLayout("abc", { fresh: true })).toHaveLength(1);
+  });
+
   it("gives up after the timeout", async () => {
     const hang = (async (_u: string, init?: RequestInit) =>
       new Promise((_r, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))))) as typeof globalThis.fetch;
@@ -169,6 +210,28 @@ describe("a layout used by an event is locked (#64, #66)", () => {
     expect((await req(app, "GET", `/api/tracks/${FREEFORM}`)).json().track.locked).toBe("event");
   });
 
+  it("saving asks the forum afresh: an event that picked the layout since the page loaded still locks it", async () => {
+    const byLayout: Record<string, unknown[]> = {};
+    const { app } = await makeApp({ seeded: true, forumFetch: forum(byLayout).fetch });
+    const alice = await login(app, ALICE);
+    const created = (await req(app, "POST", "/api/tracks", alice, { track: referenceJson<RcTrack>("examples/freeform-example.rctrack.json") })).json();
+    const id = created.track.id as string;
+    expect((await req(app, "GET", `/api/tracks/${id}`, alice)).json().can.edit).toBe(true);
+    byLayout[id] = [ev(1, "2026-10-04", HALL)];
+    const res = await req(app, "PUT", `/api/tracks/${id}`, alice, { track: created.doc });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().details.reason).toBe("event");
+  });
+
+  it("forum down: the lock falls back to the library lock, so a draft still saves", async () => {
+    const { app } = await makeApp({ seeded: true, forumFetch: forum({}, { down: true }).fetch });
+    const alice = await login(app, ALICE);
+    const created = (await req(app, "POST", "/api/tracks", alice, { track: referenceJson<RcTrack>("examples/freeform-example.rctrack.json") })).json();
+    expect((await req(app, "PUT", `/api/tracks/${created.track.id}`, alice, { track: created.doc })).statusCode).toBe(200);
+    const org = await login(app, ORGANISER);
+    expect((await req(app, "PUT", `/api/tracks/${FREEFORM}`, org, { track: created.doc })).json().details.reason).toBe("library");
+  });
+
   it("no events: a draft stays editable", async () => {
     const { app } = await makeApp({ seeded: true, forumFetch: forum({}).fetch });
     const alice = await login(app, ALICE);
@@ -195,7 +258,7 @@ describe("Library: Raced at <venue> (#66)", () => {
     expect(await ids("?racedAt=9")).toEqual([CLUB_A, FREEFORM].sort());
     expect(await ids("?racedAt=9&q=freeform")).toEqual([FREEFORM]);
     expect(await ids("?racedAt=1234")).toEqual([]);
-    expect((await req(app, "GET", "/api/tracks?racedAt=abc")).statusCode).toBe(400);
+    for (const bad of ["abc", "1.5", "-3", "0"]) expect((await req(app, "GET", `/api/tracks?racedAt=${bad}`)).statusCode, bad).toBe(400);
   });
 
   it("forum down: no raced venues, and the filter finds nothing rather than erroring", async () => {

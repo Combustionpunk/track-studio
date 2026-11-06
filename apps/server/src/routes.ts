@@ -49,8 +49,12 @@ function revisionParam(v: string): number {
 const slug = (s: string) => s.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 60) || "track";
 
 export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumEvents): void {
-  /** a forum event uses the layout (#66): it's locked (#64); unknown while the forum is down */
-  const usedByEvent = async (id: string) => ((await forumEvents.forLayout(id))?.length ?? 0) > 0;
+  /**
+   * A forum event uses the layout (#66), so it's locked (#64). Asked fresh: an event may have picked it since the page
+   * loaded. Unknown while the forum is down (the last answer, else not locked: events only pick library layouts, which
+   * are locked anyway).
+   */
+  const usedByEvent = async (id: string) => ((await forumEvents.forLayout(id, { fresh: true }))?.length ?? 0) > 0;
   // ---------------------------------------------------------------- tracks
   app.get("/api/tracks", async (req) => {
     const q = req.query as Record<string, string | undefined>;
@@ -59,7 +63,8 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     if (author !== undefined && author !== "" && author !== "me") throw badRequest("bad-request", "author must be me");
     const authorId = author === "me" ? requireUser(req).id : undefined;
     if (q.status && !STATUSES.includes(q.status)) throw badRequest("bad-request", `status must be one of ${STATUSES.join(", ")}`);
-    const racedAt = q.racedAt ? num(q.racedAt, "racedAt") : undefined;
+    if (q.racedAt && !/^[1-9]\d{0,9}$/.test(q.racedAt)) throw badRequest("bad-request", "racedAt must be a forum venue id");
+    const racedAt = q.racedAt ? Number(q.racedAt) : undefined;
     const filter: ListQuery = {
       status: q.status,
       venue: q.venue || undefined,

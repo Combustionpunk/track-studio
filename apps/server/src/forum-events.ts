@@ -30,7 +30,7 @@ export interface ForumEventsOptions {
 }
 
 const TTL_MS = 10 * 60_000;
-/** after a failure, wait this long before asking the forum again */
+/** after a failure, wait this long before asking the forum again (about any layout: a slow forum isn't asked N times) */
 const RETRY_MS = 60_000;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -65,7 +65,7 @@ interface Entry {
   at: number;
   /** the last good answer (kept when a later fetch fails) */
   events: ForumEvent[] | null;
-  /** when the last fetch failed; retry after RETRY_MS */
+  /** when the last fetch failed (null: the answer is good for the TTL) */
   failedAt: number | null;
   pending: Promise<ForumEvent[] | null> | null;
 }
@@ -76,6 +76,8 @@ export class ForumEvents {
   private readonly ttl: number;
   private readonly timeout: number;
   private readonly now: () => number;
+  /** the forum last failed at this time */
+  private downAt: number | null = null;
 
   constructor(private readonly opts: ForumEventsOptions) {
     this.fetch = opts.fetch ?? globalThis.fetch;
@@ -84,21 +86,25 @@ export class ForumEvents {
     this.now = opts.now ?? Date.now;
   }
 
-  /** The events using this layout, newest first; null when the forum can't say and there's no earlier answer. */
-  async forLayout(layoutId: string): Promise<ForumEvent[] | null> {
+  /**
+   * The events using this layout, newest first; null when the forum can't say and there's no earlier answer.
+   * `fresh`: ask the forum even if the cached answer is recent (saving checks the lock this way).
+   */
+  async forLayout(layoutId: string, opts: { fresh?: boolean } = {}): Promise<ForumEvent[] | null> {
     const t = this.now();
     const entry = this.cache.get(layoutId);
     if (entry?.pending) return entry.pending;
-    if (entry) {
-      const fresh = entry.failedAt === null ? t - entry.at <= this.ttl : t - entry.failedAt <= RETRY_MS;
-      if (fresh) return entry.events;
-    }
+    // the forum failed a moment ago: don't wait on it again yet
+    if (this.downAt !== null && t - this.downAt <= RETRY_MS) return entry?.events ?? null;
+    if (entry && !opts.fresh && entry.failedAt === null && t - entry.at <= this.ttl) return entry.events;
     const e: Entry = entry ?? { at: 0, events: null, failedAt: null, pending: null };
     this.cache.set(layoutId, e);
     e.pending = this.load(layoutId).then((events) => {
       e.pending = null;
-      if (events) Object.assign(e, { at: this.now(), events, failedAt: null });
-      else e.failedAt = this.now();
+      if (events) {
+        Object.assign(e, { at: this.now(), events, failedAt: null });
+        this.downAt = null;
+      } else e.failedAt = this.downAt = this.now();
       return e.events;
     });
     return e.pending;

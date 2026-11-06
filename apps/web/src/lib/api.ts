@@ -28,7 +28,8 @@ export interface TrackSummary {
   /** error-level checks on the latest revision */
   errors: number;
   derivedFrom: { id: string; name: string | null; author: string | null } | null;
-  /** why the track can't be changed (in the library, used by an event); changes are made on a copy */
+  /** why the track can't be changed (in the library, used by an event); changes are made on a copy. Only the track
+   * page (GET /api/tracks/:id) asks the forum, so lists only ever say "library". */
   locked: "library" | "event" | null;
   latestPreviewUrl: string;
   lapLength: number;
