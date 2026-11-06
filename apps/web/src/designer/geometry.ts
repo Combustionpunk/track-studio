@@ -12,6 +12,7 @@ import {
   laneRings,
   racingLine,
   SAMPLE,
+  venueCheck,
   type Area,
   type BuiltFeature,
   type Corner,
@@ -23,6 +24,7 @@ import {
   type Obstacle,
   type Point2,
   type RcTrack,
+  type RcVenue,
   type StartLine,
 } from "@track-studio/engine";
 
@@ -243,16 +245,8 @@ export function newPointBetween(a: DesignPoint, b: DesignPoint, at: Point2): Des
  * in the area (checked with the engine).
  */
 export function starterLoop(area: Area, obstacles: Obstacle[] = [], laneWidth = 2): DesignPoint[] {
-  const doc = (points: DesignPoint[]): RcTrack => ({
-    format: "rctrack",
-    version: 1,
-    id: "starter",
-    revision: 1,
-    info: { name: "starter" },
-    area,
-    obstacles,
-    design: { laneWidth, points },
-  });
+  // the area and obstacles as a venue, so the engine's venue checks say whether it fits
+  const venue: RcVenue = { format: "rcvenue", version: 1, id: "starter", revision: 1, info: { name: "starter" }, area, obstacles };
   let fallback: DesignPoint[] | null = null;
   for (let inset = laneWidth / 2 + 0.5; inset < Math.min(area.length, area.width) / 2; inset += 0.5) {
     const hx = Math.floor((area.length / 2 - inset) / GRID) * GRID, hz = Math.floor((area.width / 2 - inset) / GRID) * GRID;
@@ -265,7 +259,8 @@ export function starterLoop(area: Area, obstacles: Obstacle[] = [], laneWidth = 
       { x: -hx, z: hz, radius: r },
     ];
     fallback ??= points;
-    const errors = bakeBuilt(doc(points)).checks.filter((c) => c.level === "error");
+    const design = { laneWidth, points };
+    const errors = [...bakeBuilt({ format: "rctrack", version: 1, id: "starter", revision: 1, info: { name: "starter" }, design }).checks, ...venueCheck({ design }, venue).checks].filter((c) => c.level === "error");
     if (!errors.length) return points;
   }
   return fallback ?? [{ x: -2, z: -1, radius: 1 }, { x: 2, z: -1, radius: 1 }, { x: 2, z: 1, radius: 1 }, { x: -2, z: 1, radius: 1 }];

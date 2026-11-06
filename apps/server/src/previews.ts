@@ -2,7 +2,7 @@
 // link-preview card. URLs carry ?v=<hash of the drawing>, so they can be cached for a year and still refresh as soon
 // as a drawing changes. The pages that show them are in web.ts.
 import { Resvg } from "@resvg/resvg-js";
-import { fittedPreviewDoc, ORIENTS, planHeight, planScene, planSvg, type RcTrack } from "@track-studio/engine";
+import { fittedScene, ORIENTS, planHeight, planSvg, type RcTrack } from "@track-studio/engine";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -116,7 +116,7 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB, t
     const out = join(cacheDir, id, `fit-${revision}-${venueId}-${answer.venue.revision}-${k}-${hash}.png`);
     return sendPng(reply, out, version, (req.query as { v?: string }).v, () => {
       const track: RcTrack = getTrackDoc(db, row, revision);
-      return planSvg(planScene(fittedPreviewDoc(track, getVenueDoc(db, venueId, answer.venue.revision), fit)), { width: PREVIEW_WIDTH, pixelRatio: PREVIEW_PIXEL_RATIO });
+      return planSvg(fittedScene(track, getVenueDoc(db, venueId, answer.venue.revision), fit), { width: PREVIEW_WIDTH, pixelRatio: PREVIEW_PIXEL_RATIO });
     });
   });
 

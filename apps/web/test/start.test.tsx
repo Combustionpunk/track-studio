@@ -72,11 +72,10 @@ describe("blank area: validation in plain words", () => {
 });
 
 describe("Start blank", () => {
-  it("has the area entered, no venue, no obstacles, and opens in step 1", () => {
+  it("has the area entered, no venue, and opens in step 1", () => {
     const d = blankDraft({ length: 24, width: 14 }, "My blank");
     expect(d.area).toEqual({ length: 24, width: 14 });
-    expect(d.basedOn).toBeNull();
-    expect(d.obstacles).toEqual([]);
+    expect(d.info.drawnFor).toBeUndefined();
     expect(d.info.name).toBe("My blank");
     expect(designStep(d)).toBe(1);
     expect(blankDraft({ length: 24, width: 14 }).info.name).toBe("New track");
@@ -96,24 +95,23 @@ describe("Start blank", () => {
     expect(g.blocked.size).toBe(0);
   });
 
-  it("saves with area set, basedOn null and no obstacles, and bakes clean", () => {
+  it("saves with area set and nothing of a venue, and bakes clean", () => {
     const doc = toDoc(closeEdgeLoop(blankDraft({ length: 22, width: 12 }, "Blank")));
     expect(doc.area).toEqual({ length: 22, width: 12 });
-    expect(doc.basedOn).toBeNull();
-    expect(doc.obstacles).toEqual([]);
+    expect(Object.keys(doc).sort()).toEqual(["area", "design", "format", "id", "info", "revision", "version"]);
+    expect(doc.info.drawnFor).toBeUndefined();
     expect(doc.design.points.length).toBe(4);
     expect(bakeBuilt(doc).checks.filter((c) => c.level === "error")).toEqual([]);
   });
 });
 
 describe("From a venue", () => {
-  it.each(VENUES.map((v) => [v.info.name, v] as const))("%s: area, obstacles, rostrum and basedOn from the venue, then step 1", (_, v) => {
+  it.each(VENUES.map((v) => [v.info.name, v] as const))("%s: the venue's area and name (drawnFor), no obstacles or rostrum, then step 1", (_, v) => {
     const d = venueDraft(v);
     expect(d.area).toEqual(v.area);
-    expect(d.obstacles).toEqual(v.obstacles ?? []);
-    expect(d.design.rostrum?.side).toBe(v.rostrum!.side);
-    expect(d.design.rostrum?.offset ?? 0).toBe(v.rostrum!.offset ?? 0);
-    expect(d.basedOn).toEqual({ venueTemplate: v.id, revision: v.revision });
+    expect(d.info.drawnFor).toEqual({ venueTemplate: v.id, name: v.info.name });
+    expect(d).not.toHaveProperty("obstacles");
+    expect(d.design).not.toHaveProperty("rostrum");
     expect(d.info.name).toBe(`New track at ${v.info.name}`);
     expect(venueDraft(v, "Mine").info.name).toBe("Mine");
     expect(designStep(d)).toBe(1);
@@ -128,7 +126,8 @@ describe("new design page", () => {
     const p = open("/new/design?length=200&width=13.5&name=Winter");
     expect(p.mode).toBe("new");
     expect(p.fromVenue).toBeUndefined();
-    expect(p.initial).toMatchObject({ area: { length: 60, width: 13.5 }, basedOn: null, obstacles: [], info: { name: "Winter" }, laying: [] });
+    expect(p.initial).toMatchObject({ area: { length: 60, width: 13.5 }, info: { name: "Winter" }, laying: [] });
+    expect(p.initial.info.drawnFor).toBeUndefined();
     expect(p.storageKey).toBe("designer:new:blank:60x13.5");
     expect(open("/new/design?length=22&width=12").initial.info.name).toBe("New track");
   });

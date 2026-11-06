@@ -19,7 +19,7 @@ import {
   type Point2,
   type RcTrack,
 } from "../src/index.js";
-import { allTracks, extraDir, readJson } from "./helpers.js";
+import { allTracks, as17, extraDir, readJson } from "./helpers.js";
 import { join } from "node:path";
 
 const fixture = (name: string) => readJson<RcTrack>(join(extraDir, `${name}.rctrack.json`));
@@ -73,8 +73,8 @@ describe("square outer corners", () => {
 
   it("round reproduces rctrack 1.2 exactly", () => {
     const t = readJson<RcTrack>(join(extraDir, "..", "v12", "round-sweepers.rctrack.json"));
-    const { generator: _g, ...want } = t.built!;
-    const { generator: _h, lanes, ...got } = bakeBuilt(t); // lanes are new in 1.4
+    const want = as17(t.built!);
+    const { lanes, ...got } = as17(bakeBuilt(t)); // lanes are new in 1.4; rostrum and venue checks gone in 1.7
     expect(got).toEqual(want);
     expect(lanes!.right.length).toBeGreaterThan(4);
   });

@@ -51,7 +51,7 @@ function paint(d: Draft, targets: Cell[]): Laying[] {
 
 /** a club-hall draft with the lane laid and closed (step 2) */
 function laid(targets: Cell[]): Draft {
-  const d0 = newDraft({ area: clubHall.area, obstacles: [], name: "t" });
+  const d0 = newDraft({ area: clubHall.area, name: "t" });
   const states = paint(d0, targets);
   return states.reduce((d, s) => withLaying(d, s), d0);
 }
@@ -287,7 +287,7 @@ describe("undo and going back to step 1", () => {
   const set = (h: HistoryState<Draft>, next: Draft, group?: string) => historyReducer(h, { type: "set", next, group, now: 1000 });
 
   it("insert, insert-near-track and delete are one undo step each; undo past the first shaping step reopens the loop", () => {
-    const d0 = newDraft({ area: clubHall.area, obstacles: [], name: "t" });
+    const d0 = newDraft({ area: clubHall.area, name: "t" });
     const states = paint(d0, TEST_TRACK);
     let h: HistoryState<Draft> = { past: [], present: d0, future: [], group: null, at: 0, travels: 0 };
     for (const s of states) h = set(h, withLaying(h.present, s));

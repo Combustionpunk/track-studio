@@ -1,4 +1,4 @@
-import { fits, PLAN_PALETTE, planLayers, planScene, planSvg, transformPt, type Built, type RcTrack, type RcVenue } from "@track-studio/engine";
+import { fits, venueCheck, PLAN_PALETTE, planLayers, planScene, planSvg, transformPt, type Built, type RcTrack, type RcVenue } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -60,10 +60,12 @@ describe("drawing helpers", () => {
     expect(Math.max(...zs) - Math.min(...zs)).toBeCloseTo(2);
   });
 
-  it("rostrum position matches the engine's", () => {
+  it("rostrum position matches the engine's venue check", () => {
     const sports = ref<RcTrack>("examples/freeform-at-sports-hall-b.rctrack.json");
-    const [x, z] = rostrumPos(sports.area, "south", 3);
-    expect({ x, z }).toEqual({ x: sports.built!.rostrum.x, z: sports.built!.rostrum.z });
+    const venue = ref<RcVenue>("venues/sports-hall-b.rcvenue.json");
+    const [x, z] = rostrumPos(venue.area, "south", 3);
+    const { rostrum } = venueCheck(sports, venue);
+    expect({ x, z }).toEqual({ x: rostrum.x, z: rostrum.z });
   });
 });
 
@@ -135,7 +137,7 @@ describe("one plan drawing everywhere", () => {
     const doc = ref<RcTrack>("examples/club-a.rctrack.json");
     const scene = planScene(doc);
     const width = 1200;
-    const px = (doc.area.length + 5) / width;
+    const px = (doc.area!.length + 5) / width;
     expect(planSvg(scene, { width })).toContain(planLayers(scene, { px }));
   });
 });

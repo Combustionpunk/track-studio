@@ -2,9 +2,11 @@
 // Pure: no DOM, no Node APIs.
 import { degrees, pyFormat, pyMod, r3, radians, searchSorted } from "./num.js";
 import type {
+  Area,
   Built,
   BuiltFeature,
   Check,
+  CheckCode,
   Crossing,
   DesignFeature,
   DesignPoint,
@@ -19,7 +21,7 @@ import type {
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.6";
+export const GENERATOR = "track-studio-engine 1.7";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -941,7 +943,7 @@ export function unrle(s: string, size: number): Uint8Array {
 }
 
 // ------------------------------------------------------------------ bake
-/** Compute the `built` section from `design` (and area/obstacles). */
+/** Options for computing the `built` section from `design`. */
 export interface BakeOptions {
   /** override CORNER_JOIN_GAP (m), e.g. to try a different corner rule */
   cornerJoinGap?: number;
@@ -1208,7 +1210,7 @@ export function crossingChecks(cr: RawCrossing[], feats: BuiltFeature[], feature
 }
 
 export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
-  const design = doc.design, area = doc.area;
+  const design = doc.design;
   const W0 = design.laneWidth ?? 2.0;
   const { line, corners } = racingLine(design.points, W0);
   const { x, z } = line;
@@ -1268,27 +1270,12 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   const st = atDistance(x, z, s, total, sd);
   const startLine = { x: r3(st.p[0]), z: r3(st.p[1]), heading: headingDeg(st.t), width: r3(line.width[st.i]), distance: r3(sd) };
 
-  // rostrum
-  const side: Side = design.rostrum?.side ?? "south";
-  const off = design.rostrum?.offset ?? 0.0;
-  const L = area.length, Wd = area.width;
-  const pos = rostrumPosition(area, side, off);
-  const rostrum = { side, x: r3(pos[0]), z: r3(pos[1]), eyeHeight: EYE_HEIGHT };
-
-  // checks: area, radius, width — on the lane edges
+  // checks: radius, width (the track only: venue checks are the fit's, venueCheck)
   const edges = borders(line, corners, design.points);
   const sides: [Float64Array, Float64Array][] = [
     [edges.rx, edges.rz],
     [edges.lx, edges.lz],
   ];
-  outer: for (const [ex, ez] of sides) {
-    for (let i = 0; i < line.n; i++) {
-      if (Math.abs(ex[i]) > L / 2 + 0.01 || Math.abs(ez[i]) > Wd / 2 + 0.01) {
-        checks.push({ level: "error", code: "outside-area", x: r3(ex[i]), z: r3(ez[i]), message: "Track goes outside the venue's track area" });
-        break outer;
-      }
-    }
-  }
   // real size of the track: lane edges (no pipe padding; the footprint keeps that for fit checks)
   let exMin = Infinity, ezMin = Infinity, exMax = -Infinity, ezMax = -Infinity;
   for (const [ex, ez] of sides) {
@@ -1314,16 +1301,8 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     checks.push({ level: "warning", code: "narrow-lane", message: `Lane narrower than ${MIN_WIDTH} m` });
   }
 
-  // footprint + obstacles
+  // footprint
   const fp = laneMask(line, corners, design.points);
-  if (doc.obstacles?.length) {
-    const om = obstacleMask(doc.obstacles, fp.origin, fp.rows, fp.cols);
-    const hit = fp.mask.findIndex((v, k) => v === 1 && om[k] === 1);
-    if (hit >= 0) {
-      const row = Math.floor(hit / fp.cols), col = hit % fp.cols;
-      checks.push({ level: "error", code: "obstacle", x: r3(fp.origin[0] + (col + 0.5) * FOOT_CELL), z: r3(fp.origin[1] + (row + 0.5) * FOOT_CELL), message: "Track overlaps a fixed obstacle" });
-    }
-  }
   const footprint: Footprint = {
     cell: FOOT_CELL,
     origin: [r3(fp.origin[0]), r3(fp.origin[1])],
@@ -1347,7 +1326,6 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     features: feats,
     ...(crossings.length ? { crossings } : {}), // v1.6: only when the track crosses itself
     startLine,
-    rostrum,
     checks,
     footprint,
     lanes: laneRings(edges),
@@ -1356,7 +1334,51 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   };
 }
 
-/** Returns a copy of the track with a fresh `built` section. Does not modify `doc`. */
+/** Returns a copy of the track, upgraded to 1.7 (upgradeTrack), with a fresh `built` section. Does not modify `doc`. */
 export function bake(doc: RcTrack, opts: BakeOptions = {}): RcTrack {
-  return { ...doc, built: bakeBuilt(doc, opts) };
+  return { ...upgradeTrack(doc), built: bakeBuilt(doc, opts) };
+}
+
+// ------------------------------------------------------------------ 1.7: a layout belongs to no venue
+/** Check codes that test a layout against a venue: the fit's (venueCheck), never in `built.checks` since 1.7. */
+export const VENUE_CHECKS = ["outside-area", "obstacle"] as const satisfies readonly CheckCode[];
+
+/** What files before 1.7 carried of the venue they were drawn in. */
+interface VenueFields16 {
+  basedOn?: { venueTemplate: string; revision?: number } | null;
+  obstacles?: unknown;
+  design: { rostrum?: unknown };
+  built?: { rostrum?: unknown };
+}
+
+/**
+ * Load a file written before 1.7: drops `obstacles`, `design.rostrum`, `built.rostrum` and the venue checks from
+ * `built.checks`; `basedOn` becomes `info.drawnFor`, named `venueName`, else the forum venue's name, else the template
+ * id. A 1.7 file comes back equal. Does not modify `doc`.
+ */
+export function upgradeTrack(doc: RcTrack, venueName?: string): RcTrack {
+  const old = doc as RcTrack & VenueFields16;
+  const { basedOn, obstacles: _o, ...rest } = old;
+  const { rostrum: _dr, ...design } = old.design;
+  const t: RcTrack = { ...rest, design };
+  if (basedOn && !t.info.drawnFor) {
+    t.info = { ...t.info, drawnFor: { venueTemplate: basedOn.venueTemplate, name: venueName || t.info.venue?.name || basedOn.venueTemplate } };
+  }
+  if (old.built) {
+    const { rostrum: _br, ...built } = old.built;
+    t.built = { ...built, checks: built.checks.filter((c) => !(VENUE_CHECKS as readonly CheckCode[]).includes(c.code)) };
+  }
+  return t;
+}
+
+/**
+ * The box to draw a layout on: its `area` if it has one, else the smallest box centred on the origin, in whole
+ * metres, holding `built.size` with at least 0.5 m to spare.
+ */
+export function drawingArea(doc: Pick<RcTrack, "area" | "built">): Area {
+  if (doc.area) return doc.area;
+  const bbox = doc.built?.size?.bbox ?? doc.built?.footprint.bbox;
+  if (!bbox) throw new Error("drawingArea: the track has no area and no built section");
+  const [x0, z0, x1, z1] = bbox;
+  return { length: 2 * Math.ceil(Math.max(-x0, x1) + 0.5), width: 2 * Math.ceil(Math.max(-z0, z1) + 0.5) };
 }

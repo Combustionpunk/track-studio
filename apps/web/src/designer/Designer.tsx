@@ -7,10 +7,9 @@ import {
   ALL_PLAN_LAYERS,
   FEATURE_DEFAULTS,
   outerStyle,
+  drawingArea,
   planLayers,
-  rostrumPosition,
   type Area,
-  type BasedOn,
   type Built,
   type Check,
   type DesignFeature,
@@ -19,9 +18,9 @@ import {
   type Obstacle,
   type PlanLayers,
   type Point2,
+  type DrawnFor,
   type RcTrack,
-  type RostrumPlacement,
-  type Side,
+  type RcVenue,
 } from "@track-studio/engine";
 import { ArrowRightLeft, ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -30,7 +29,7 @@ import { CopyButton, Message, StatusBadge } from "../components/bits.js";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
-import { useMediaQuery, useStored } from "../lib/hooks.js";
+import { useApi, useMediaQuery, useStored } from "../lib/hooks.js";
 import { LONG_PRESS_MS, slopFor } from "../lib/touch.js";
 import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
@@ -61,6 +60,7 @@ import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, pla
 import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
+import { VenueCheckPanel } from "./VenueCheck.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
 /** wheel delta (pixels) per step = one mouse-wheel notch; trackpads add up their small deltas */
@@ -84,11 +84,11 @@ export const PHONE_QUERY = "(max-width: 640px)";
 /** touch screens (tablets): bigger handles, and a toggle for free placement since there's no Alt */
 export const TOUCH_QUERY = "(pointer: coarse)";
 
+/** What the designer edits and saves. Nothing of a venue but its name: the guide (area, obstacles) is loaded live. */
 export interface Draft {
-  info: { name: string; description?: string };
+  info: { name: string; description?: string; drawnFor?: DrawnFor };
+  /** the drawing area */
   area: Area;
-  obstacles: Obstacle[];
-  basedOn: BasedOn | null;
   design: RcTrack["design"];
   /** step 1 (lay the lanes): the squares painted so far; the design has no points until the loop closes */
   laying?: Cell[];
@@ -116,25 +116,27 @@ export interface DesignerProps {
   storageKey: string;
 }
 
+/** The layout to save (rctrack 1.7): name, drawing area, the venue it was drawn for (a label), the design. */
 export function toDoc(d: Draft, base?: { id: string; revision: number; doc: RcTrack }): RcTrack {
   const info = { ...(base?.doc.info ?? {}), name: d.info.name };
   if (d.info.description) (info as RcTrack["info"]).description = d.info.description;
   else delete (info as RcTrack["info"]).description;
-  return { format: "rctrack", version: 1, id: base?.id ?? "new", revision: (base?.revision ?? 0) + 1, info, area: d.area, obstacles: d.obstacles, basedOn: d.basedOn, design: d.design };
+  if (d.info.drawnFor) info.drawnFor = d.info.drawnFor;
+  else delete info.drawnFor;
+  return { format: "rctrack", version: 1, id: base?.id ?? "new", revision: (base?.revision ?? 0) + 1, info, area: d.area, design: d.design };
 }
 
 /** A new design (from a venue template or a blank area): it opens in step 1 with nothing laid. */
-export function newDraft({ area, obstacles, name, basedOn = null, rostrum, laneWidth = 2 }: { area: Area; obstacles: Obstacle[]; name: string; basedOn?: BasedOn | null; rostrum?: RostrumPlacement; laneWidth?: number }): Draft {
-  return { info: { name }, area, obstacles, basedOn, laying: [], design: { laneWidth, points: [], features: [], start: { distance: 0 }, rostrum: { side: "south", ...rostrum } } };
+export function newDraft({ area, name, drawnFor, laneWidth = 2 }: { area: Area; name: string; drawnFor?: DrawnFor; laneWidth?: number }): Draft {
+  return { info: { name, ...(drawnFor ? { drawnFor } : {}) }, area, laying: [], design: { laneWidth, points: [], features: [], start: { distance: 0 } } };
 }
 
 export function draftFromDoc(doc: RcTrack): Draft {
+  const { rostrum: _r, ...design } = doc.design as RcTrack["design"] & { rostrum?: unknown }; // a 1.6 design's rostrum is dropped
   return {
-    info: { name: doc.info.name, ...(doc.info.description ? { description: doc.info.description } : {}) },
-    area: doc.area,
-    obstacles: doc.obstacles ?? [],
-    basedOn: doc.basedOn ?? null,
-    design: { laneWidth: 2, features: [], start: { distance: 0 }, rostrum: { side: "south" }, ...doc.design },
+    info: { name: doc.info.name, ...(doc.info.description ? { description: doc.info.description } : {}), ...(doc.info.drawnFor ? { drawnFor: doc.info.drawnFor } : {}) },
+    area: drawingArea(doc),
+    design: { laneWidth: 2, features: [], start: { distance: 0 }, ...design },
   };
 }
 
@@ -257,15 +259,18 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   const step = designStep(draft);
   const laying = step === 1;
-  const grid = useMemo(() => (laying ? gridFor(draft) : null), [laying, draft.area, draft.obstacles, draft.design.laneWidth]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the venue it's drawn for, loaded live as a guide (area and obstacles shown, never saved); none if it's gone
+  const guide = useApi<{ doc: RcVenue }>(draft.info.drawnFor ? `/api/venues/${encodeURIComponent(draft.info.drawnFor.venueTemplate)}` : null).data?.doc ?? null;
+  const guideObstacles = useMemo(() => guide?.obstacles ?? [], [guide]);
+  // the draft as drawn and saved: on the guide's area while there is one (the template may have changed since)
+  const area = guide?.area ?? draft.area;
+  const drawn = useMemo(() => (area === draft.area ? draft : { ...draft, area }), [draft, area]);
+  const areaRef = useRef(area);
+  areaRef.current = area;
+  const grid = useMemo(() => (laying ? gridFor(drawn, guideObstacles) : null), [laying, drawn.area, guideObstacles, draft.design.laneWidth]); // eslint-disable-line react-hooks/exhaustive-deps
   const live = useMemo(() => liveGeometry(laying ? NO_TRACK : draft.design), [laying, draft.design]);
-  const doc = useMemo(() => (laying ? null : toDoc(draft, base)), [laying, draft, base]);
+  const doc = useMemo(() => (laying ? null : toDoc(drawn, base)), [laying, drawn, base]);
   const bake = useBake(doc);
-  const rostrum = useMemo(() => {
-    const side = (draft.design.rostrum?.side ?? "south") as Side;
-    const [x, z] = rostrumPosition(draft.area, side, draft.design.rostrum?.offset ?? 0);
-    return { side, x, z, eyeHeight: 2.8 };
-  }, [draft.area, draft.design.rostrum]);
   // what to draw: the worker's bake, with the cheap parts (line, jumps, start) taken from the live geometry
   const built: Built = useMemo(() => {
     const b = bake.built;
@@ -276,14 +281,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       dividers: b?.dividers ?? [],
       features: live.features,
       startLine: live.startLine,
-      rostrum,
       checks: b?.checks ?? [],
       footprint: b?.footprint ?? { cell: 0.1, origin: [0, 0], rows: 0, cols: 0, bbox: [0, 0, 0, 0], rle: "" },
       lanes: live.lanes,
       size: b?.size,
       stats: b?.stats ?? { dividerLength: 0, dividerRuns: 0, corners: 0 },
     };
-  }, [bake.built, live, rostrum]);
+  }, [bake.built, live]);
 
   // refs for window-level handlers
   const draftRef = useRef(draft);
@@ -705,7 +709,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!d.laying) return true;
     const r = paintTo(g, { cells: d.laying, closed: false }, target);
     for (const st of r.states) {
-      d = withLaying(d, st);
+      d = withLaying({ ...d, area: areaRef.current }, st); // laid on the grid's area (the guide's, while there is one)
       hist.set(d);
     }
     draftRef.current = d;
@@ -811,7 +815,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!me) return;
     setSaving(true);
     setMessage(null);
-    const { built: _b, ...unbaked } = toDoc(draft, base);
+    const { built: _b, ...unbaked } = toDoc(drawn, base);
     try {
       if (mode === "new") {
         const res = await post<TrackResponse>("/api/tracks", { track: unbaked, note: note || "First version", ...(fromVenue ? { fromVenue: fromVenue.id } : {}) });
@@ -857,7 +861,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // problems: the shared plan renderer's checks layer alone, drawn over the lane handle rather than under it in
   // PlanView (info is never drawn, so Quick and Advanced show the same marks; Advanced adds their hover details); the
   // bake's checks lag the live line by a moment while dragging
-  const problemScene = useMemo(() => ({ area: draft.area, built }), [draft.area, built]);
+  const problemScene = useMemo(() => ({ area, built }), [area, built]);
   const problems = (m: number) => (layers.checks ? planLayers(problemScene, { px: m, layers: ONLY_CHECKS, background: false, tips: advanced }) : "");
   // matched against the bake's own jumps, so a warning stays on its jump while the bake catches up with a drag
   const inCorner = useMemo(() => {
@@ -1054,7 +1058,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const status = base?.track;
   const showSubmit = !!me && mode === "edit" && !!base?.can.submit;
   const blocked = submitBlock({ dirty, pending: bake.pending, checks: built.checks, points: pointsList });
-  const venueName = fromVenue?.name ?? (draft.basedOn ? status?.venue?.name ?? draft.basedOn.venueTemplate : undefined);
+  // the area is locked to the guide's while there is one (a template that's gone leaves only the label)
+  const venueName = guide?.info.name;
   const backTo = mode === "edit" && base ? { to: `/t/${base.id}`, label: "Back to track" } : { to: "/new", label: "Start over" };
   const showCheck = (x: number, z: number) => {
     setHighlight([x, z]);
@@ -1091,7 +1096,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               <p>Changes you haven't saved stay in this browser until you save them.</p>
             )}
           </div>
-          <PlanView area={draft.area} obstacles={draft.obstacles} built={laying ? undefined : built} rostrum={rostrum} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
+          <PlanView area={area} obstacles={guideObstacles} built={laying ? undefined : built} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
           <dl className="figures">
             <div>
               <dd>{laying ? "—" : fmt.metres(live.total)}</dd>
@@ -1120,7 +1125,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         <input className="name-input" aria-label="Track name" value={draft.info.name} maxLength={80} onChange={(e) => update((d) => ({ ...d, info: { ...d.info, name: e.target.value } }), "name")} />
         <span className="designer-venue" hidden={tablet}>
           {venueName ? `${venueName} · ` : ""}
-          {fmt.size(draft.area, true)}
+          {fmt.size(area, true)}
         </span>
         {status && <StatusBadge status={status.status} />}
         {(view === "quick" || laying) && (
@@ -1351,10 +1356,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </div>
           )}
           <PlanView
-            area={draft.area}
-            obstacles={draft.obstacles}
+            area={area}
+            obstacles={guideObstacles}
             built={laying ? undefined : built}
-            rostrum={rostrum}
             checksInOverlay
             designFeatures={draft.design.features}
             layers={layers}
@@ -1397,9 +1401,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                 <X size={20} aria-hidden="true" />
               </button>
               {sheet === "checks" ? (
-                <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
+                <>
+                  <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
+                  <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
+                </>
               ) : (
-                <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} touch />
+                <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} touch />
               )}
             </div>
           )}
@@ -1482,7 +1489,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         ) : (
           <aside className="designer-side" aria-label="Checks">
             <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
-            <SelectionPanel sel={sel} view={view} draft={draft} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
+            <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
+            <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
             {advanced && <Shortcuts />}
             <Stats built={built} live={live} view={view} />
           </aside>
@@ -1939,7 +1947,6 @@ export function SelectionPanel({
   }
   // nothing selected: the track's own settings (Advanced only)
   if (view === "quick") return null;
-  const rostrum = draft.design.rostrum ?? { side: "south" as Side };
   return (
     <section className="sel-panel" aria-labelledby="sel-h">
       <h2 id="sel-h">Track settings</h2>
@@ -1955,21 +1962,12 @@ export function SelectionPanel({
       </div>
       {fromVenue ? (
         <p className="hint">
-          Area ({fmt.size(draft.area, true)}), rostrum ({rostrum.side}) and obstacles come from the <strong>{fromVenue}</strong> template and are locked.
+          Drawn for <strong>{fromVenue}</strong>: its area ({fmt.size(draft.area, true)}) and obstacles are a guide while you draw. They aren't saved with the track.
         </p>
       ) : (
         <div className="fields">
           <NumberField label="Area east–west" value={draft.area.length} step={0.5} min={5} max={100} onChange={(v) => v !== undefined && v >= 5 && v <= 100 && update((d) => ({ ...d, area: { ...d.area, length: v } }), "areaL")} />
           <NumberField label="Area north–south" value={draft.area.width} step={0.5} min={5} max={100} onChange={(v) => v !== undefined && v >= 5 && v <= 100 && update((d) => ({ ...d, area: { ...d.area, width: v } }), "areaW")} />
-          <label className="nfield">
-            <span>Rostrum side</span>
-            <select value={rostrum.side} onChange={(e) => update((d) => ({ ...d, design: { ...d.design, rostrum: { ...rostrum, side: e.target.value as Side } } }), "rostrum")}>
-              {(["north", "south", "east", "west"] as Side[]).map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-          <NumberField label="Rostrum offset" value={rostrum.offset ?? 0} step={0.5} onChange={(v) => update((d) => ({ ...d, design: { ...d.design, rostrum: { ...rostrum, offset: v ?? 0 } } }), "rostrumOff")} />
         </div>
       )}
       <label className="nfield wide">

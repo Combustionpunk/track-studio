@@ -199,7 +199,6 @@ export function startOnLongestStraight(points: DesignPoint[], laneWidth: number)
 /** What step 1 needs of the designer's draft: while `laying` is there, the design has no points yet. */
 interface Layable {
   area: Area;
-  obstacles: Obstacle[];
   laying?: Cell[];
   /** the squares of the closed loop, kept in step 2 so "1 · Lay the lanes" can reopen it */
   laid?: Cell[];
@@ -209,7 +208,8 @@ interface Layable {
 /** 1 · Lay the lanes (new designs, until the loop closes) or 2 · Shape it (everything with points). */
 export const designStep = (d: Pick<Layable, "laying">): 1 | 2 => (d.laying ? 1 : 2);
 
-export const gridFor = (d: Pick<Layable, "area" | "obstacles" | "design">) => laneGrid(d.area, d.obstacles, d.design.laneWidth ?? 2);
+/** The lane grid on the draft's area; `obstacles` (the venue guide's, never the draft's) block squares. */
+export const gridFor = (d: Pick<Layable, "area" | "design">, obstacles: Obstacle[] = []) => laneGrid(d.area, obstacles, d.design.laneWidth ?? 2);
 
 /** The draft after a painted step: still laying, or (closed) the loop's corner points and on to step 2. */
 export function withLaying<D extends Layable>(d: D, lay: Laying): D {

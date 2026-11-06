@@ -49,6 +49,5 @@
 <polyline points="219.6,180.0 180.0,180.0 180.0,500.0 570.0,500.0 595.2,499.1 612.0,500.0 900.0,500.0" fill="none" stroke="#cfd2d6" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
 <line x1="277.2" y1="500.0" x2="277.2" y2="580.0" stroke="#ffffff" stroke-width="8"/>
 <line x1="301.2" y1="540.0" x2="377.2" y2="540.0" stroke="#ff4fb0" stroke-width="5" marker-end="url(#a)"/>
-<rect x="460.0" y="26.0" width="160" height="28" rx="4" fill="#6a3da3"/><text x="540.0" y="46.0" fill="#fff" font-size="16" text-anchor="middle">ROSTRUM</text>
 <text x="12" y="26" fill="#fff" font-size="20">Freeform example  -  94 m lap, 3 features, area 22 x 12 m</text>
 </svg>

@@ -1,7 +1,7 @@
 // The printable build sheet (#17): what marshals lay a track out from. A3 landscape by default, A4 offered; saved to
 // PDF with the browser's print dialog. Drawn from `built` (the engine's buildSheet and print plan), in the fixed print
 // palette, measured from the south-west corner of the track area. Mockup: docs/design/mockups/BuildSheet.dc.html.
-import { buildSheet, type BuildSheet, type RcTrack } from "@track-studio/engine";
+import { buildSheet, drawingArea, type BuildSheet, type RcTrack } from "@track-studio/engine";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -81,6 +81,7 @@ export function BuildSheetPage() {
 
 function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: number }) {
   const s: BuildSheet = useMemo(() => buildSheet(doc), [doc]);
+  const area = drawingArea(doc);
   const split = s.cornerPoints.length > SPLIT_ROWS;
   const plan = useMemo(() => sheetPlan(doc, split ? PLAN_PX.wideWidth : PLAN_PX.width, PLAN_PX.height), [doc, split]);
   const status = sheetStatus(track, rev);
@@ -112,7 +113,6 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
               <>
                 {" · "}
                 {venue}
-                {doc.basedOn && ` (venue revision ${doc.basedOn.revision})`}
               </>
             )}
             {" · "}by {fmt.author(track.author)} · printed {fmt.date(new Date().toISOString())}
@@ -135,10 +135,10 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
             <g dangerouslySetInnerHTML={{ __html: plan.svg }} />
             <g className="sheet-ticks" strokeWidth={m}>
               {plan.south.map((l) => (
-                <line key={`s${l.text}`} x1={l.x} x2={l.x} y1={doc.area.width / 2} y2={doc.area.width / 2 + 0.3} />
+                <line key={`s${l.text}`} x1={l.x} x2={l.x} y1={area.width / 2} y2={area.width / 2 + 0.3} />
               ))}
               {plan.west.map((l) => (
-                <line key={`w${l.text}`} x1={-doc.area.length / 2} x2={-doc.area.length / 2 - 0.3} y1={l.y} y2={l.y} />
+                <line key={`w${l.text}`} x1={-area.length / 2} x2={-area.length / 2 - 0.3} y1={l.y} y2={l.y} />
               ))}
             </g>
             <g className="sheet-edge" fontSize={13 * m}>
