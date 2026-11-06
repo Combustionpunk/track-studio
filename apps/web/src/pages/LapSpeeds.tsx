@@ -8,9 +8,12 @@ import { useApi } from "../lib/hooks.js";
 import { MAX_SPEED, MIN_SPEED, parseSpeedRows } from "../lib/laps.js";
 import { useSession } from "../lib/session.js";
 
-type Row = { class: string; speed: string };
+/** id: a stable React key, so removing a row doesn't hand its focus to the next */
+type Row = { id: number; class: string; speed: string };
 
-const toRows = (list: ClassSpeed[]): Row[] => list.map((c) => ({ class: c.class, speed: String(c.speed) }));
+let nextId = 0;
+const row = (c: { class: string; speed: string }): Row => ({ id: ++nextId, ...c });
+const toRows = (list: ClassSpeed[]): Row[] => list.map((c) => row({ class: c.class, speed: String(c.speed) }));
 
 export function LapSpeeds() {
   const { me } = useSession();
@@ -36,7 +39,7 @@ export function LapSpeeds() {
       setRows(toRows(out.classes));
       setState({ saved: true });
     } catch (err) {
-      setState({ error: err instanceof Error ? err.message : "Couldn't save the speeds" });
+      setState({ error: `Couldn't save the speeds${err instanceof Error ? `: ${err.message}` : ""}. Try again in a moment.` });
     }
   };
 
@@ -63,7 +66,7 @@ export function LapSpeeds() {
           <form onSubmit={save} className="ts-speeds__form">
             <ol className="ts-speeds__rows">
               {shown.map((r, i) => (
-                <li key={i} className="ts-speeds__row">
+                <li key={r.id} className="ts-speeds__row">
                   <input className="ts-input" aria-label={`Class ${i + 1} name`} placeholder="Class" maxLength={40} value={r.class} onChange={(e) => edit(i, { class: e.target.value })} />
                   <input
                     className="ts-input ts-speeds__speed"
@@ -85,7 +88,7 @@ export function LapSpeeds() {
               ))}
             </ol>
             <div className="ts-speeds__actions">
-              <button type="button" className="ts-btn" onClick={() => (setRows([...shown, { class: "", speed: "" }]), setState({}))}>
+              <button type="button" className="ts-btn" onClick={() => (setRows([...shown, row({ class: "", speed: "" })]), setState({}))}>
                 <Plus size={16} aria-hidden />
                 Add a class
               </button>
@@ -97,6 +100,8 @@ export function LapSpeeds() {
               {state.error ?? (state.saved ? "Saved. Estimates use the new speeds now." : "")}
             </p>
           </form>
+        ) : shown.length === 0 ? (
+          <p className="ts-help">No classes yet, so layouts show no estimated lap times. A track-admin can add them here.</p>
         ) : (
           <dl className="ts-speeds__list">
             {shown.map((r) => (

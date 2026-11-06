@@ -72,12 +72,12 @@ function RecordRow({ label, rec }: { label: string; rec: LapRecord }) {
         <span className="ts-laps__time">{recordTime(rec.ms)}</span>{" "}
         <span className="ts-laps__meta">
           {[rec.driver.name, rec.car].filter(Boolean).join(" · ")}
-          {when && (
+          {m && (when || m.url) && (
             <>
               {" · "}
-              {m?.url ? (
-                <a href={m.url} target="_blank" rel="noopener noreferrer" title={m.title}>
-                  {when}
+              {m.url ? (
+                <a href={m.url} target="_blank" rel="noopener noreferrer" title={m.title} aria-label={when ? `${m.title}, ${when}` : m.title}>
+                  {when ?? m.title}
                 </a>
               ) : (
                 when

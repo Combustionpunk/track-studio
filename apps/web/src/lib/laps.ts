@@ -27,8 +27,11 @@ export const useClassSpeeds = () => useApi<{ classes: ClassSpeed[] }>("/api/clas
 
 const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
 
-/** The speed for a class, matched ignoring case and spacing like the forum's class names. */
-export const speedFor = (speeds: ClassSpeed[] | undefined, cls: string) => speeds?.find((s) => norm(s.class) === norm(cls))?.speed ?? null;
+/** Class names match ignoring case and spacing, like the forum's (normalised) class names. */
+export const sameClass = (a: string, b: string) => norm(a) === norm(b);
+
+/** The speed for a class. */
+export const speedFor = (speeds: ClassSpeed[] | undefined, cls: string) => speeds?.find((s) => sameClass(s.class, cls))?.speed ?? null;
 
 /** The class speed editor's rows, checked as the server will: blank rows dropped. */
 export function parseSpeedRows(rows: { class: string; speed: string }[]): { classes: ClassSpeed[] } | { error: string } {
@@ -39,7 +42,7 @@ export function parseSpeedRows(rows: { class: string; speed: string }[]): { clas
     if (!name) return { error: "Every class with a speed needs a name" };
     const speed = Number(r.speed);
     if (!r.speed.trim() || !Number.isFinite(speed) || speed < MIN_SPEED || speed > MAX_SPEED) return { error: `${name}: the speed must be ${MIN_SPEED} to ${MAX_SPEED} m/s` };
-    if (classes.some((c) => norm(c.class) === norm(name))) return { error: `${name} is listed twice` };
+    if (classes.some((c) => sameClass(c.class, name))) return { error: `${name} is listed twice` };
     classes.push({ class: name, speed });
   }
   return { classes };

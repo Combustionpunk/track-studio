@@ -72,7 +72,9 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     if (q.racedAt && !/^[1-9]\d{0,9}$/.test(q.racedAt)) throw badRequest("bad-request", "racedAt must be a forum venue id");
     const racedAt = q.racedAt ? Number(q.racedAt) : undefined;
     // "Typical lap for <class> between X and Y s", sort by typical lap (#76)
-    const lapClass = q.lapClass?.trim() || undefined;
+    const rawClass: unknown = q.lapClass;
+    if (rawClass !== undefined && typeof rawClass !== "string") throw badRequest("bad-request", "lapClass must be one class");
+    const lapClass = rawClass?.trim() || undefined;
     const minTypical = num(q.minTypical, "minTypical");
     const maxTypical = num(q.maxTypical, "maxTypical");
     if (q.sort && q.sort !== "typical") throw badRequest("bad-request", "sort must be typical");
@@ -90,15 +92,13 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const tracks = q.fits
       ? tracksFitting(db, q.fits, (({ status: _ignored, ...rest }) => rest)(filter))
       : listTracks(db, filter).map(trackSummary);
-    let listed = tracks;
-    if (racedAt !== undefined) {
-      // "Raced at <venue>": the forum's events for each listed layout (cached); forum down -> none match
-      const events = await forumEvents.forLayouts(listed.map((t) => t.id));
-      listed = listed.filter((t) => events.get(t.id)?.some((e) => e.venue?.id === racedAt));
-    }
-    if (!lapClass) return { tracks: listed };
-    // the forum's typical lap for the class (cached), else the estimate from the lap length; forum down -> estimates
-    const stats = await forumStats.forLayouts(listed.map((t) => t.id));
+    // both asked at once (each cached; a slow forum costs one timeout, not two)
+    const ids = tracks.map((t) => t.id);
+    const [events, stats] = await Promise.all([racedAt !== undefined ? forumEvents.forLayouts(ids) : null, lapClass ? forumStats.forLayouts(ids) : null]);
+    // "Raced at <venue>": the forum's events for each listed layout; forum down -> none match
+    const listed = events ? tracks.filter((t) => events.get(t.id)?.some((e) => e.venue?.id === racedAt)) : tracks;
+    if (!lapClass || !stats) return { tracks: listed };
+    // the forum's typical lap for the class, else the estimate from the lap length; forum down -> estimates
     const speed = speedFor(getClassSpeeds(db), lapClass);
     let withLap = listed.map((t) => ({ ...t, typicalLap: typicalLap(stats.get(t.id) ?? null, lapClass, t.lapLength, speed) }));
     if (minTypical !== undefined || maxTypical !== undefined)

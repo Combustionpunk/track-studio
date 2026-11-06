@@ -65,6 +65,12 @@ describe("ForumStats client", () => {
     });
   });
 
+  it("a meeting date that isn't a date is dropped", async () => {
+    const f = forum({ abc: [{ class: "2WD Buggy", record_lap: { ...record(13000, "Dave", 4), meeting: { ...record(1, "x", 4).meeting, date: "soon" } } }] });
+    const stats = await new ForumStats({ forumUrl: FORUM_URL, fetch: f.fetch }).forLayout("abc");
+    expect(stats?.classes[0].recordLap?.meeting?.date).toBe("");
+  });
+
   it("keeps what it can: missing records or typical lap are null, odd links dropped, nameless classes skipped", async () => {
     const f = forum({
       abc: [
@@ -232,7 +238,7 @@ describe("Library: typical lap for <class> (#76)", () => {
 
   it("refuses a range or the typical sort without a class, and bad numbers", async () => {
     const { app } = await makeApp({ seeded: true });
-    for (const q of ["?sort=typical", "?minTypical=10", "?maxTypical=10", "?lapClass=2WD%20Buggy&minTypical=abc", "?sort=fastest"]) {
+    for (const q of ["?sort=typical", "?minTypical=10", "?maxTypical=10", "?lapClass=2WD%20Buggy&minTypical=abc", "?sort=fastest", "?lapClass=a&lapClass=b"]) {
       expect((await req(app, "GET", `/api/tracks${q}`)).statusCode, q).toBe(400);
     }
   });

@@ -36,6 +36,8 @@ export interface LapStats {
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const str = (v: unknown) => (typeof v === "string" ? v : null);
+/** an ISO date or date-time the web app can show; anything else is dropped */
+const dateOrEmpty = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) && !Number.isNaN(Date.parse(v)) ? v : "");
 
 function typical(v: unknown): TypicalLap | null {
   if (!isObject(v)) return null;
@@ -50,7 +52,7 @@ function lapRecord(v: unknown, forumUrl: string): LapRecord | null {
   const name = str(v.driver.name);
   if (ms === null || ms <= 0 || !name) return null;
   const m = v.meeting;
-  const meeting = isObject(m) && typeof m.id === "number" && typeof m.title === "string" ? { id: m.id, title: m.title, date: str(m.date) ?? "", url: forumLink(m.url, forumUrl) } : null;
+  const meeting = isObject(m) && typeof m.id === "number" && typeof m.title === "string" ? { id: m.id, title: m.title, date: dateOrEmpty(m.date), url: forumLink(m.url, forumUrl) } : null;
   return { ms, driver: { name, username: str(v.driver.username) }, car: str(v.car), meeting };
 }
 

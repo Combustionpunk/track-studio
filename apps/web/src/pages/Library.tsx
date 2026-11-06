@@ -5,7 +5,7 @@ import { LibraryResults } from "../components/LibraryResults.js";
 import { qs, type RacedVenues, type TrackStatus, type TrackSummary, type VenueSummary } from "../lib/api.js";
 import { STATUS_LABEL } from "../lib/format.js";
 import { useApi, useDebounced } from "../lib/hooks.js";
-import { useClassSpeeds } from "../lib/laps.js";
+import { sameClass, useClassSpeeds } from "../lib/laps.js";
 import { useSession } from "../lib/session.js";
 
 /** Filters live in the URL so a filtered library can be shared as a link. */
@@ -44,8 +44,17 @@ export function Library() {
   const racedVenues = raced.data?.venues ?? [];
   // "Typical lap for <class> between X and Y s" and the sort by it (#76); the range and sort need a class
   const speeds = useClassSpeeds();
-  const lapClass = get("lapClass");
-  const withClass = (k: Key) => (lapClass ? get(k) : undefined);
+  // a shared link may spell the class differently: match it like the server does
+  const lapClass = speeds?.find((c) => sameClass(c.class, get("lapClass")))?.class ?? get("lapClass");
+  // only what the server accepts, so a mistyped link still lists tracks
+  const typicalBound = (k: "minTypical" | "maxTypical") => (lapClass && get(k) !== "" && Number.isFinite(Number(get(k))) ? get(k) : undefined);
+  const setClass = (v: string) => {
+    const next = new URLSearchParams(params);
+    if (v) next.set("lapClass", v);
+    // the range and sort are for a class
+    else for (const k of ["lapClass", "minTypical", "maxTypical", "sort"]) next.delete(k);
+    setParams(next, { replace: true });
+  };
   const query = qs({
     q: get("q"),
     venue: get("venue"),
@@ -58,9 +67,9 @@ export function Library() {
     author: get("mine") ? "me" : undefined,
     racedAt,
     lapClass,
-    minTypical: withClass("minTypical"),
-    maxTypical: withClass("maxTypical"),
-    sort: withClass("sort"),
+    minTypical: typicalBound("minTypical"),
+    maxTypical: typicalBound("maxTypical"),
+    sort: lapClass && get("sort") === "typical" ? "typical" : undefined,
   });
   // wait for the session before honouring ?mine=1, rather than flash every track
   const list = useApi<{ tracks: TrackSummary[] }>(ready || !params.get("mine") ? `/api/tracks${query}` : null);
@@ -183,7 +192,7 @@ export function Library() {
             <label className="ts-label" htmlFor="f-class">
               Typical lap for
             </label>
-            <select id="f-class" className="ts-input" value={lapClass} onChange={(e) => set("lapClass", e.target.value)}>
+            <select id="f-class" className="ts-input" value={lapClass} onChange={(e) => setClass(e.target.value)}>
               <option value="">{speeds ? "Pick a class" : "Loading classes…"}</option>
               {lapClass && !speeds?.some((c) => c.class === lapClass) && <option value={lapClass}>{lapClass}</option>}
               {speeds?.map((c) => (
@@ -205,7 +214,7 @@ export function Library() {
             <label className="ts-label" htmlFor="f-sort">
               Sort
             </label>
-            <select id="f-sort" className="ts-input" value={lapClass ? get("sort") : ""} disabled={!lapClass} onChange={(e) => set("sort", e.target.value)}>
+            <select id="f-sort" className="ts-input" value={lapClass && get("sort") === "typical" ? "typical" : ""} disabled={!lapClass} onChange={(e) => set("sort", e.target.value)}>
               <option value="">Recently updated</option>
               <option value="typical">Fastest typical lap</option>
             </select>

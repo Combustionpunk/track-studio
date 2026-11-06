@@ -318,6 +318,15 @@ describe("library page", () => {
     expect(requested).toContain("/api/tracks");
   });
 
+  it("a class in the URL matches ignoring case; a bad sort or range in the URL isn't sent (#76)", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    answers.set("/api/class-speeds", { data: { classes: SPEEDS }, loading: false });
+    const h = html(<Library />, "/?lapClass=2wd+buggy&sort=fastest&minTypical=abc&maxTypical=16");
+    expect(h).toMatch(/<option value="2WD Buggy" selected="">2WD Buggy<\/option>/);
+    expect(h.match(/>2WD Buggy<\/option>/g)).toHaveLength(1);
+    expect(requested).toContain("/api/tracks?lapClass=2WD+Buggy&maxTypical=16");
+  });
+
   it("cards show the typical lap for the picked class: the forum's, or the estimate marked est. (#76)", () => {
     const list = loadable({ data: { tracks: [summary({ id: "a", typicalLap: { seconds: 14.83, est: false } }), summary({ id: "b", typicalLap: { seconds: 14.6, est: true } }), summary({ id: "c", typicalLap: null })] } });
     const t = text(html(<LibraryResults list={list} anyFilter onClear={() => {}} lapClass="2WD Buggy" />));
@@ -632,6 +641,7 @@ describe("track page", () => {
     expect(t).toContain("2WD Buggy Typical lap 14.8 s Trimmed mean 14.9 s · 1,412 laps · 3 meetings");
     expect(t).toContain("Lap record 13.92 s Dave · Losi 22 5.0 · 12 Nov 2026");
     expect(h).toMatch(/<a [^>]*href="https:\/\/forum.test\/t\/round-4\/104"[^>]*>12 Nov 2026<\/a>/);
+    expect(h).toMatch(/<a [^>]*aria-label="Round 4, 12 Nov 2026"/);
     expect(t).toContain("Best 3 laps 42.41 s Sam · Losi 22 5.0 · 12 Nov 2026");
     // a class with records but no typical lap yet: the estimate, marked est.
     expect(t).toMatch(/4WD Buggy Typical lap ≈ \d+\.\d s est\./);
@@ -712,6 +722,9 @@ describe("class speeds (#76)", () => {
     expect(org).toMatch(/<input [^>]*aria-label="2WD Buggy speed in metres per second"[^>]*value="6.5"/);
     expect(text(org)).toContain("Save speeds");
     expect(text(org)).toContain("Add a class");
+    answers.set("/api/class-speeds", { data: { classes: [] }, loading: false });
+    expect(text(as(false, <LapSpeeds />))).toContain("No classes yet");
+    answers.set("/api/class-speeds", { data: { classes: SPEEDS }, loading: false });
     const member = as(false, <LapSpeeds />);
     expect(member).not.toContain("<input");
     expect(text(member)).toContain("2WD Buggy 6.5 m/s");
