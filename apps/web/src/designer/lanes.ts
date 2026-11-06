@@ -94,11 +94,12 @@ export interface Laying {
 /** fewest squares a loop can close with */
 export const MIN_LOOP = 4;
 
-export type Refusal = "blocked" | "used" | "outside";
+export type Refusal = "blocked" | "used" | "crossing" | "outside";
 
 export const REFUSAL_TEXT: Record<Refusal, string> = {
   blocked: "That square is blocked by a fixed obstacle.",
   used: "That square is already part of the lane. Drag back to take squares up.",
+  crossing: "The lane can only cross itself straight across, at right angles.",
   outside: "Start the lane on a whole square inside the track area.",
 };
 
@@ -122,10 +123,33 @@ export function stepsBetween(a: Cell, b: Cell): Cell[] {
   return out;
 }
 
+const dir = (a: Cell, b: Cell): Cell => [b[0] - a[0], b[1] - a[1]];
+/** does the lane go straight through cells[i] (no turn there), from cells[i - 1] to cells[i + 1]? */
+const straightAt = (cells: Cell[], i: number) => same(dir(cells[i - 1], cells[i]), dir(cells[i], cells[i + 1]));
+
+/**
+ * Can the lane step onto `step`, a square it already uses, from its end? Only as a crossing: used once before, not the
+ * first square, the first pass straight through it and the new one at right angles, with somewhere to go straight on
+ * (painting refuses a turn there on the next step). A crossing with nowhere to go is just a used square.
+ */
+function crossable(g: LaneGrid, cells: Cell[], step: Cell): Refusal | null {
+  const uses = cells.flatMap((c, i) => (same(c, step) ? [i] : []));
+  if (uses.length !== 1 || uses[0] === 0) return "used";
+  const j = uses[0];
+  const [a, b] = [dir(cells[j], cells[j + 1]), dir(cells[cells.length - 1], step)];
+  if (!straightAt(cells, j) || a[0] * b[0] + a[1] * b[1] !== 0) return "crossing";
+  const on: Cell = [step[0] + b[0], step[1] + b[1]];
+  const next = [...cells, step];
+  if (same(on, cells[0])) return null; // straight on closes the loop
+  if (!cellAt(g, cellCentre(g, on)) || isBlocked(g, on)) return "used";
+  return !cells.some((c) => same(c, on)) || !crossable(g, next, on) ? null : "used";
+}
+
 /**
  * Paint from the end of the lane towards `target`: every step between is a new state (one undo step each). Stepping
  * back onto the previous square takes the last one up; stepping onto the first square with at least MIN_LOOP squares
- * closes the loop. Stops at the first square it can't use, and says why.
+ * closes the loop. The lane may cross itself, straight across at right angles, once per square: off a crossing it
+ * goes straight on. Stops at the first square it can't use, and says why.
  */
 export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Laying[]; refused?: Refusal } {
   const states: Laying[] = [];
@@ -137,15 +161,20 @@ export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Layin
   }
   let cells = lay.cells;
   for (const step of stepsBetween(cells[cells.length - 1], target)) {
-    if (cells.length >= 2 && same(step, cells[cells.length - 2])) {
+    const n = cells.length;
+    if (n >= 2 && same(step, cells[n - 2])) {
       cells = cells.slice(0, -1);
-    } else if (same(step, cells[0]) && cells.length >= MIN_LOOP) {
+    } else if (n >= 2 && cells.slice(0, -1).some((c) => same(c, cells[n - 1])) && !same(dir(cells[n - 2], cells[n - 1]), dir(cells[n - 1], step))) {
+      return { states, refused: "crossing" }; // on a crossing: straight on only
+    } else if (same(step, cells[0]) && n >= MIN_LOOP) {
       states.push({ cells, closed: true });
       return { states };
     } else if (isBlocked(g, step)) {
       return { states, refused: "blocked" };
     } else if (cells.some((c) => same(c, step))) {
-      return { states, refused: "used" };
+      const refused = crossable(g, cells, step);
+      if (refused) return { states, refused };
+      cells = [...cells, step];
     } else {
       cells = [...cells, step];
     }
@@ -155,12 +184,25 @@ export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Layin
 }
 
 // ---------------------------------------------------------------------------------------------- closing
-/** Is this a closed loop of neighbouring squares, none used twice? */
+/**
+ * Is this a closed loop of neighbouring squares? A square may be used twice only as a crossing: not the first square,
+ * and both passes straight through it, at right angles.
+ */
 export function isLoop(cells: Cell[]): boolean {
-  if (cells.length < MIN_LOOP || new Set(cells.map(key)).size !== cells.length) return false;
+  const n = cells.length;
+  if (n < MIN_LOOP) return false;
+  const at = (i: number) => cells[(i + n) % n];
+  const passes = new Map<string, number[]>();
+  cells.forEach((c, i) => passes.set(key(c), [...(passes.get(key(c)) ?? []), i]));
+  for (const uses of passes.values()) {
+    if (uses.length === 1) continue;
+    if (uses.length > 2 || uses[0] === 0) return false;
+    const [a, b] = uses.map((i) => dir(at(i), at(i + 1)));
+    if (!uses.every((i) => same(dir(at(i - 1), at(i)), dir(at(i), at(i + 1)))) || a[0] * b[0] + a[1] * b[1] !== 0) return false;
+  }
   return cells.every((c, i) => {
-    const n = cells[(i + 1) % cells.length];
-    return Math.abs(n[0] - c[0]) + Math.abs(n[1] - c[1]) === 1;
+    const next = at(i + 1);
+    return Math.abs(next[0] - c[0]) + Math.abs(next[1] - c[1]) === 1;
   });
 }
 
