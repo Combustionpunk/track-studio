@@ -72,6 +72,7 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 interface VenueRow {
   id: string;
   forum_venue_id: number | null;
+  forum_track_id: number | null;
   name: string;
   owner_forum_id: number;
   current_revision: number;
@@ -91,6 +92,7 @@ export function venueSummary(r: VenueListRow) {
     id: r.id,
     name: r.name,
     forumVenueId: r.forum_venue_id,
+    forumTrackId: r.forum_track_id,
     ownerId: r.owner_forum_id,
     revision: r.current_revision,
     tracks: r.track_count,
@@ -105,6 +107,23 @@ export function getVenueRow(db: DB, id: string): VenueListRow {
   const r = db.prepare(`${VENUE_SELECT} WHERE v.id = ?`).get(id) as VenueListRow | undefined;
   if (!r) throw notFound("Venue");
   return r;
+}
+
+export function getVenueRowByForumTrack(db: DB, trackId: number): VenueListRow {
+  const r = db.prepare(`${VENUE_SELECT} WHERE v.forum_track_id = ?`).get(trackId) as VenueListRow | undefined;
+  if (!r) throw notFound("Venue template for that forum track");
+  return r;
+}
+
+/** One template per forum track: refuse a save that would make a second (409 with a link to the first). */
+function assertForumTrackFree(db: DB, doc: RcVenue, id: string): void {
+  const trackId = doc.info.venue?.trackId;
+  if (trackId === undefined) return;
+  const other = db.prepare("SELECT id, name FROM venues WHERE forum_track_id = ? AND id != ?").get(trackId, id) as { id: string; name: string } | undefined;
+  if (other) {
+    const track = doc.info.venue?.trackName ? `${doc.info.venue.name ? `${doc.info.venue.name} – ` : ""}${doc.info.venue.trackName}` : `forum track ${trackId}`;
+    throw new HttpError(409, "forum-track-taken", `${track} already has a venue template: ${other.name}. Edit that one instead.`, { venue: { id: other.id, name: other.name, url: `/v/${other.id}` } });
+  }
 }
 
 export function getVenueDoc(db: DB, id: string, revision?: number): RcVenue {
@@ -150,8 +169,11 @@ function venueFromBody(body: unknown): Record<string, unknown> {
   return src;
 }
 
-/** Venue ids appear in URLs: the client may choose one (e.g. "sports-hall-b") or get a generated one. */
-export function createVenue(db: DB, user: User, body: unknown) {
+/**
+ * Venue ids appear in URLs: the client may choose one (e.g. "sports-hall-b") or get a generated one.
+ * `legacy` imports rcvenue 1.0 files as they are (pnpm seed); otherwise a forum venue link must name the track.
+ */
+export function createVenue(db: DB, user: User, body: unknown, opts: { legacy?: boolean } = {}) {
   const src = venueFromBody(body);
   if (src.id !== undefined && (typeof src.id !== "string" || !/^[A-Za-z0-9][\w-]{0,63}$/.test(src.id))) {
     throw badRequest("invalid-venue", "Venue id must be 1-64 letters, digits, _ or -");
@@ -161,11 +183,14 @@ export function createVenue(db: DB, user: User, body: unknown) {
   if (db.prepare("SELECT 1 FROM venues WHERE id = ?").get(id)) throw conflict("venue-exists", `Venue ${id} already exists`);
   const doc = { ...src, format: "rcvenue", version: 1, id, revision: 1 };
   assertValidVenue(doc);
+  // rcvenue 1.1: new templates linked to the forum name the track (older ones may lack it until next edited)
+  if (!opts.legacy && doc.info.venue && doc.info.venue.trackId === undefined) throw badRequest("invalid-venue", "Pick the track at this forum venue (info.venue.trackId).");
   const t = now();
   db.transaction(() => {
+    assertForumTrackFree(db, doc, id);
     db.prepare(
-      "INSERT INTO venues (id, forum_venue_id, name, owner_forum_id, current_revision, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)",
-    ).run(id, doc.info.venue?.id ?? null, doc.info.name, user.id, t, t);
+      "INSERT INTO venues (id, forum_venue_id, forum_track_id, name, owner_forum_id, current_revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+    ).run(id, doc.info.venue?.id ?? null, doc.info.venue?.trackId ?? null, doc.info.name, user.id, t, t);
     db.prepare("INSERT INTO venue_revisions (venue_id, revision, rcvenue_json, created_at, created_by) VALUES (?, 1, ?, ?, ?)").run(id, JSON.stringify(doc), t, user.id);
   })();
   return { venue: venueSummary(getVenueRow(db, id)), doc };
@@ -183,8 +208,16 @@ export function updateVenue(db: DB, user: User, id: string, body: unknown) {
   assertValidVenue(doc);
   const t = now();
   db.transaction(() => {
+    assertForumTrackFree(db, doc, id);
     db.prepare("INSERT INTO venue_revisions (venue_id, revision, rcvenue_json, created_at, created_by) VALUES (?, ?, ?, ?, ?)").run(id, revision, JSON.stringify(doc), t, user.id);
-    db.prepare("UPDATE venues SET name = ?, forum_venue_id = ?, current_revision = ?, updated_at = ? WHERE id = ?").run(doc.info.name, doc.info.venue?.id ?? null, revision, t, id);
+    db.prepare("UPDATE venues SET name = ?, forum_venue_id = ?, forum_track_id = ?, current_revision = ?, updated_at = ? WHERE id = ?").run(
+      doc.info.name,
+      doc.info.venue?.id ?? null,
+      doc.info.venue?.trackId ?? null,
+      revision,
+      t,
+      id,
+    );
   })();
   return { venue: venueSummary(getVenueRow(db, id)), doc };
 }

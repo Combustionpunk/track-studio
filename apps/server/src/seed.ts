@@ -21,7 +21,7 @@ export function seed(db: DB, config: Config, referenceDir = join(ROOT_DIR, "refe
   let added = 0;
   for (const { f, doc } of read("venues", ".rcvenue.json")) {
     if (db.prepare("SELECT 1 FROM venues WHERE id = ?").get(doc.id)) { log(`  venue ${f}: already there`); continue; }
-    createVenue(db, system, doc);
+    createVenue(db, system, doc, { legacy: true }); // the fixtures are rcvenue 1.0: no forum track
     log(`  venue ${f}: added`);
     added++;
   }

@@ -1,4 +1,4 @@
-// Types for the rctrack (v1.6) and rcvenue (v1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
+// Types for the rctrack (v1.6) and rcvenue (v1.1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
 // Units: metres. Origin at the centre of the track area, +x east, +z north. Headings in degrees, 0 = +x, CCW.
 
 export type TrackStatus = "draft" | "submitted" | "approved" | "archived";
@@ -25,6 +25,15 @@ export type Point2 = [number, number];
 export interface VenueRef {
   id: number;
   name: string;
+}
+
+/** A venue template's link to the forum: one forum venue and one of its tracks (rcvenue 1.1). */
+export interface ForumVenueRef {
+  id: number;
+  name?: string;
+  /** the forum track at that venue; templates saved before rcvenue 1.1 have none */
+  trackId?: number;
+  trackName?: string;
 }
 
 /** Where a track came from: a venue adaptation (with `orientation`) or someone's copy (with `author`). */
@@ -255,7 +264,7 @@ export interface RcTrack {
 
 export interface VenueInfo {
   name: string;
-  venue?: VenueRef | null;
+  venue?: ForumVenueRef | null;
   notes?: string;
 }
 

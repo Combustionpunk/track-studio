@@ -21,7 +21,7 @@ read user id, username, avatar, groups) -> signed session cookie. Roles from for
 
 ## Data
 - `users` (forum_id, username, avatar_url, groups, last_seen)
-- `venues` (id, forum_venue_id, name, owner_forum_id, current_revision, created/updated)
+- `venues` (id, forum_venue_id, forum_track_id (unique), name, owner_forum_id, current_revision, created/updated)
 - `venue_revisions` (venue_id, revision, rcvenue_json, created_at, created_by)
 - `tracks` (id uuid, name, author_forum_id, status, venue_template_id, derived_from_id, current_revision, lap_length,
   corners, area_length, area_width, footprint_w, footprint_h, created/updated)
@@ -34,7 +34,8 @@ read user id, username, avatar, groups) -> signed session cookie. Roles from for
 - `POST /api/tracks` (new, from template or blank) · `PUT /api/tracks/:id` (new revision; server re-validates + re-bakes)
 - `POST /api/tracks/:id/submit` · `/approve` · `/archive` (approve/archive: organisers)
 - `GET /api/tracks/:id/fit/:venueId` -> fit results · `POST /api/tracks/:id/adapt/:venueId` -> new adapted track
-- `GET /api/venues` · `GET /api/venues/:id` · `POST/PUT /api/venues` (organisers)
+- `GET /api/venues` · `GET /api/venues?forumTrack=<id>` · `GET /api/venues/:id` · `POST/PUT /api/venues` (organisers)
+- `GET /api/forum-venues?q=` (the forum's venues and their tracks, cached 10 min, for the venue editor's picker)
 - `GET /p/:id/:rev.png` — preview image (cached, rendered from the engine's SVG with resvg)
 
 ## Pages

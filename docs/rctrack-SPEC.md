@@ -153,9 +153,16 @@ engine); changing it means changing both and re-baking stored tracks.
 `examples/*.rctrack.json` are fixtures: a TypeScript or C# port must reproduce their `built` sections (within 1 cm).
 
 ## Venue templates (`.rcvenue.json`)
-A venue's starting point for designs: `{format: "rcvenue", version: 1, id, revision, info: {name, venue: {id, name}, notes},
-area: {length, width}, rostrum: {side, offset}, obstacles: [...]}`. Created by a club organiser in Track Studio; the forum
-venue record links to it. Designs started from a template copy its area, rostrum and obstacles and record `basedOn`.
+A venue's starting point for designs: `{format: "rcvenue", version: 1, id, revision, info: {name, venue: {id, name, trackId,
+trackName}, notes}, area: {length, width}, rostrum: {side, offset}, obstacles: [...]}`. Created by a club organiser in Track
+Studio. `info.venue` links the template to one forum venue (`id`, `name`) and one of its tracks (`trackId`, `trackName`),
+since a forum venue can have several (an indoor carpet track and an outdoor tarmac one); at most one template per forum
+track. Designs started from a template copy its area, rostrum and obstacles and record `basedOn`.
+
+rcvenue changes:
+- **1.1** — `info.venue` gains `trackId` and `trackName`: the forum track the template is for. `version` stays `1`;
+  1.0 files (`{id, name}` only) still load, and Track Studio asks for the track the next time one is edited. New
+  templates linked to a forum venue must name the track.
 
 ## Fit search (reference: `fit.py`)
 For a track and a venue template: try 8 orientations (as designed, mirrored, rotated 90/180/270, mirrored + rotated),

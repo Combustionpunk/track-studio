@@ -74,7 +74,9 @@ describe("permissions", () => {
 
   it("venues: organisers only", async () => {
     const { app, alice, org } = await setup();
-    const venue = { ...referenceJson<RcVenue>("venues/club-hall.rcvenue.json"), id: "new-hall" };
+    const club = referenceJson<RcVenue>("venues/club-hall.rcvenue.json");
+    // a new template linked to a forum venue names the track (rcvenue 1.1, #65)
+    const venue = { ...club, id: "new-hall", info: { ...club.info, venue: { ...club.info.venue!, trackId: 7, trackName: "Carpet" } } };
     expect((await req(app, "POST", "/api/venues", alice, venue)).statusCode).toBe(403);
     expect((await req(app, "PUT", "/api/venues/venue-1", alice, venue)).statusCode).toBe(403);
     const created = await req(app, "POST", "/api/venues", org, venue);

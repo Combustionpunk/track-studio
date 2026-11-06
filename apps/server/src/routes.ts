@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { DB } from "./db.js";
 import { requireOrganiser, requireUser } from "./auth.js";
 import { badRequest, notFound } from "./errors.js";
+import { searchForumVenues, type ForumVenues } from "./forum-venues.js";
 import {
   adaptTrack,
   changeStatus,
@@ -14,6 +15,7 @@ import {
   getTrackRow,
   getVenueDoc,
   getVenueRow,
+  getVenueRowByForumTrack,
   listRevisions,
   listTracks,
   listVenueRevisions,
@@ -46,7 +48,7 @@ function revisionParam(v: string): number {
 
 const slug = (s: string) => s.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 60) || "track";
 
-export function registerRoutes(app: FastifyInstance, db: DB): void {
+export function registerRoutes(app: FastifyInstance, db: DB, forumVenues: ForumVenues): void {
   // ---------------------------------------------------------------- tracks
   app.get("/api/tracks", async (req) => {
     const q = req.query as Record<string, string | undefined>;
@@ -132,7 +134,22 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
   });
 
   // ---------------------------------------------------------------- venues
-  app.get("/api/venues", async () => ({ venues: listVenues(db) }));
+  // ?forumTrack=<id>: the template for that forum track (the forum plugin's layout picker asks, from any origin)
+  app.get("/api/venues", async (req, reply) => {
+    const { forumTrack } = req.query as { forumTrack?: string };
+    if (forumTrack === undefined) return { venues: listVenues(db) };
+    reply.header("access-control-allow-origin", "*");
+    if (!/^\d{1,9}$/.test(forumTrack)) throw notFound("Venue template for that forum track");
+    const row = getVenueRowByForumTrack(db, Number(forumTrack));
+    return { venue: venueSummary(row), doc: getVenueDoc(db, row.id) };
+  });
+
+  // the forum's venues and their tracks, for the venue editor's picker
+  app.get("/api/forum-venues", async (req) => {
+    const { q } = req.query as { q?: string };
+    const list = await forumVenues.list();
+    return { ...list, venues: searchForumVenues(list.venues, typeof q === "string" ? q : undefined) };
+  });
 
   app.get("/api/venues/:id", async (req) => {
     const { id } = req.params as { id: string };

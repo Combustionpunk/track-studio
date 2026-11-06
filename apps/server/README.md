@@ -45,7 +45,8 @@ On the forum, Admin → Settings:
   organisers anyway.
 
 Login only goes through the browser (redirects), so the browser must resolve `FORUM_URL` and `BASE_URL`. The server
-itself reads one public URL from the forum: `FORUM_URL/site.json`, for the colour scheme (below).
+itself reads two public URLs from the forum: `FORUM_URL/site.json`, for the colour scheme (below), and
+`FORUM_URL/des/venues`, the venue list the venue editor picks from (so the server must resolve `FORUM_URL` too).
 
 ## Theme (colours from the forum)
 At start and then hourly the server reads the forum's public `site.json` and maps its default colour scheme to the
@@ -90,7 +91,9 @@ writes (an `Origin` header other than `BASE_URL`) are refused.
 | `GET /api/tracks/:id` · `/revisions` · `/r/:rev.rctrack.json` | summary + the **public** revision's doc + `can` (what you may do) · history · download (`/r/:rev` = plain JSON, e.g. the latest for the designer) |
 | `GET /api/tracks/:id/fit/:venueId[?r=]` · `POST /api/tracks/:id/adapt/:venueId` `{orientation?, revision?}` | fit search (cached per revision pair; each result has a `thumbUrl`) · adapted draft copy |
 | `GET /api/venues` · `/api/venues/:id` | venue templates; each summary has `tracks` (tracks drawn on it, archived not counted); `/:id` adds `can: {edit}` |
-| `POST /api/venues` `{venue}` · `PUT /api/venues/:id` `{venue, baseRevision?}` | organisers only; every save is a new revision (`baseRevision` ≠ latest → 409 `stale`). Id `new` is reserved |
+| `GET /api/venues?forumTrack=<id>` | the template for that forum track, as `/:id` answers (404 if none). Open to any origin: the forum plugin's layout picker uses it |
+| `POST /api/venues` `{venue}` · `PUT /api/venues/:id` `{venue, baseRevision?}` | organisers only; every save is a new revision (`baseRevision` ≠ latest → 409 `stale`). Id `new` is reserved. One template per forum track (`info.venue.trackId`): a second → 409 `forum-track-taken` with `details.venue {id, name, url}`; a new template linked to a forum venue must name the track |
+| `GET /api/forum-venues?q=` | the forum's venues (`FORUM_URL/des/venues`): `{venues: [{id, name, town, tracks}], fetchedAt, stale}`. Cached 10 min; forum down → the last copy with `stale: true`, or 503 `forum-unavailable`. `q` matches venue, town or track name |
 | `GET /api/venues/:id/revisions` · `GET /api/venues/:id/r/:rev[.rcvenue.json]` | revision history, newest first · one revision (`.rcvenue.json` = download) |
 | `GET /p/:id/:rev.png?v=<hash>` | 1200 px preview; `v` = hash of the drawing, so the exact URL is cached for a year and a changed drawing gets a new URL (no/old `v`: same image, 5 min cache) |
 | `GET /p/:id/:rev/fit/:venueId/:k.png?v=` | the track placed in the venue as fit orientation `k` (index in the engine's `ORIENTS`) — "fits venue" thumbnails |
