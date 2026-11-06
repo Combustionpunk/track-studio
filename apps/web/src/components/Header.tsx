@@ -30,6 +30,8 @@ export function Header() {
           </Link>
           <NavLink to="/v">Venues</NavLink>
           <NavLink to="/new">New track</NavLink>
+          {/* the class speeds behind the lap time estimates (#76) */}
+          {me?.organiser && <NavLink to="/lap-speeds">Lap speeds</NavLink>}
         </nav>
         <div className="ts-header__end">
           {!ready ? null : me ? (

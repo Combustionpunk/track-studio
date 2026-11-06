@@ -13,6 +13,8 @@ interface Props {
   fitVenueName?: string;
   /** "Mine": only the signed-in member's tracks */
   mine?: boolean;
+  /** "Typical lap for <class>": cards show that class's typical lap (#76) */
+  lapClass?: string;
   /** any filter other than Mine */
   anyFilter: boolean;
   onClear: () => void;
@@ -25,7 +27,7 @@ const newTrack = (label: string) => (
   </Link>
 );
 
-export function LibraryResults({ list, fits, fitVenueName, mine, anyFilter, onClear }: Props) {
+export function LibraryResults({ list, fits, fitVenueName, mine, lapClass, anyFilter, onClear }: Props) {
   if (list.error)
     return (
       <ErrorAlert title={fits ? "Couldn't check which tracks fit." : "Couldn't load the tracks."} onRetry={list.reload}>
@@ -58,7 +60,7 @@ export function LibraryResults({ list, fits, fitVenueName, mine, anyFilter, onCl
             </button>
           }
         >
-          Try a wider lap or corner range, or another status.
+          Try a wider lap, lap time or corner range, or another status.
         </EmptyState>
       );
     return (
@@ -70,7 +72,7 @@ export function LibraryResults({ list, fits, fitVenueName, mine, anyFilter, onCl
   return (
     <div className="ts-cards" aria-busy={list.loading || undefined}>
       {tracks.map((t) => (
-        <TrackCard key={t.id} track={t} fitVenueId={fits || undefined} />
+        <TrackCard key={t.id} track={t} fitVenueId={fits || undefined} lapClass={lapClass} />
       ))}
     </div>
   );

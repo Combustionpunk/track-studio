@@ -47,6 +47,8 @@ export interface TrackSummary {
   previewUrl: string;
   /** only in "fits venue" results */
   fit?: { revision: number; results: FitResultWithThumb[] };
+  /** only when the list asks for a class (lapClass=): the forum's typical lap, else the estimate (est); null: unknown */
+  typicalLap?: { seconds: number; est: boolean } | null;
 }
 
 export interface Permissions {
@@ -64,6 +66,45 @@ export interface TrackResponse {
   can: Permissions;
   /** where the forum says the layout was raced (#66); null when the forum couldn't be reached */
   usedAt: UsedAt | null;
+  /** the forum's lap times per class (#76); null when the forum couldn't be reached */
+  lapStats: LapStats | null;
+}
+
+export interface TypicalLap {
+  medianMs: number;
+  trimmedMeanMs: number;
+  iqrMs: number;
+  laps: number;
+  meetings: number;
+  updatedAt: string | null;
+}
+
+/** A track record: one lap, or three consecutive laps together. */
+export interface LapRecord {
+  ms: number;
+  /** username null: no forum account (any more) */
+  driver: { name: string; username: string | null };
+  car: string | null;
+  /** url null when the forum sent no usable link */
+  meeting: { id: number; title: string; date: string; url: string | null } | null;
+}
+
+export interface ClassLapStats {
+  class: string;
+  typicalLap: TypicalLap | null;
+  recordLap: LapRecord | null;
+  record3: LapRecord | null;
+}
+
+export interface LapStats {
+  classes: ClassLapStats[];
+}
+
+/** GET /api/class-speeds: speed per race class for the lap time estimate, in order (the first is the default) */
+export interface ClassSpeed {
+  class: string;
+  /** m/s */
+  speed: number;
 }
 
 export interface ForumRef {

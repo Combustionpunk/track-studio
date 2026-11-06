@@ -71,7 +71,7 @@ describe("web app pages", () => {
 
   it("venue pages, list pages and 404s", async () => {
     const { app } = await makeAppWithWeb(fakeDist());
-    for (const url of ["/", "/v", "/v/venue-2"]) {
+    for (const url of ["/", "/v", "/v/venue-2", "/lap-speeds"]) {
       const res = await app.inject({ method: "GET", url, headers: html });
       expect(res.statusCode, url).toBe(200);
       expect(res.headers["content-type"]).toBe("text/html; charset=utf-8");

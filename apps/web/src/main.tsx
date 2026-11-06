@@ -6,6 +6,7 @@ import { Header } from "./components/Header.js";
 import { SessionProvider } from "./lib/session.js";
 import { BuildSheetPage } from "./pages/BuildSheet.js";
 import { Embed } from "./pages/Embed.js";
+import { LapSpeeds } from "./pages/LapSpeeds.js";
 import { Library } from "./pages/Library.js";
 import { NotFound } from "./pages/NotFound.js";
 import { TrackPage } from "./pages/TrackPage.js";
@@ -54,6 +55,7 @@ const router = createBrowserRouter([
       { path: "/v/new", element: <NewVenuePage /> },
       { path: "/v/:id", element: <VenuePage /> },
       { path: "/v/:id/edit", element: <EditVenuePage /> },
+      { path: "/lap-speeds", element: <LapSpeeds /> },
       { path: "*", element: <NotFound /> },
     ],
   },

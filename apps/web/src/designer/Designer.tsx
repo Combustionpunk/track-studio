@@ -34,6 +34,7 @@ import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useApi, useMediaQuery, useStored } from "../lib/hooks.js";
+import { designerEstimate, useClassSpeeds } from "../lib/laps.js";
 import { LONG_PRESS_MS, slopFor } from "../lib/touch.js";
 import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
@@ -1646,33 +1647,39 @@ function StartHandle({ built, m, touch, on, onPointerDown }: { built: Built; m: 
 }
 
 function Stats({ built, live, view }: { built: Built; live: Live; view: DesignerMode }) {
+  // "≈ 14.6 s lap (2WD Buggy, est.)": lap length over the first class's speed (#76)
+  const speeds = useClassSpeeds();
+  const est = speeds && designerEstimate(live.total, speeds);
   return (
-    <dl className="figures designer-stats">
-      <div>
-        <dd>{fmt.metres(live.total)}</dd>
-        <dt>Lap</dt>
-      </div>
-      <div>
-        <dd>{built.stats.corners || "—"}</dd>
-        <dt>Corners</dt>
-      </div>
-      <div>
-        <dd>{built.features.length}</dd>
-        <dt>Jumps</dt>
-      </div>
-      {view === "advanced" && (
-        <>
-          <div>
-            <dd>{fmt.size(built.size, true)}</dd>
-            <dt>Size</dt>
-          </div>
-          <div>
-            <dd>{built.stats.dividerLength ? `${Math.round(built.stats.dividerLength)} m` : "—"}</dd>
-            <dt>Pipe</dt>
-          </div>
-        </>
-      )}
-    </dl>
+    <div className="designer-stats">
+      <dl className="figures">
+        <div>
+          <dd>{fmt.metres(live.total)}</dd>
+          <dt>Lap</dt>
+        </div>
+        <div>
+          <dd>{built.stats.corners || "—"}</dd>
+          <dt>Corners</dt>
+        </div>
+        <div>
+          <dd>{built.features.length}</dd>
+          <dt>Jumps</dt>
+        </div>
+        {view === "advanced" && (
+          <>
+            <div>
+              <dd>{fmt.size(built.size, true)}</dd>
+              <dt>Size</dt>
+            </div>
+            <div>
+              <dd>{built.stats.dividerLength ? `${Math.round(built.stats.dividerLength)} m` : "—"}</dd>
+              <dt>Pipe</dt>
+            </div>
+          </>
+        )}
+      </dl>
+      {est && <p className="designer-est">{est}</p>}
+    </div>
   );
 }
 
