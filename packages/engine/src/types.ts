@@ -1,5 +1,5 @@
-// Types for the rctrack (v1.6) and rcvenue (v1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
-// Units: metres. Origin at the centre of the track area, +x east, +z north. Headings in degrees, 0 = +x, CCW.
+// Types for the rctrack (v1.7) and rcvenue (v1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
+// Units: metres. Origin at the centre of the (drawing) area, +x east, +z north. Headings in degrees, 0 = +x, CCW.
 
 export type TrackStatus = "draft" | "submitted" | "approved" | "archived";
 export type Surface = "carpet" | "astro" | "clay" | "other";
@@ -50,6 +50,14 @@ export interface TrackInfo {
   tags?: string[];
   /** set on tracks adapted to a venue by the fit search */
   derivedFrom?: DerivedFrom;
+  /** v1.7: the venue template the layout was drawn for — a label for people browsing; nothing checks it */
+  drawnFor?: DrawnFor;
+}
+
+/** The venue template a layout was drawn for (v1.7; was `basedOn`). */
+export interface DrawnFor {
+  venueTemplate: string;
+  name: string;
 }
 
 export interface Area {
@@ -77,11 +85,6 @@ export interface RectObstacle {
 }
 
 export type Obstacle = CircleObstacle | RectObstacle;
-
-export interface BasedOn {
-  venueTemplate: string;
-  revision: number;
-}
 
 export interface DesignPoint {
   x: number;
@@ -123,7 +126,6 @@ export interface Design {
   points: DesignPoint[];
   features?: DesignFeature[];
   start?: { distance?: number };
-  rostrum?: RostrumPlacement;
 }
 
 /** [x, z, laneWidth] */
@@ -156,6 +158,7 @@ export interface StartLine {
   distance: number;
 }
 
+/** Where a venue's rostrum stands (v1.7: from the venue, see venueCheck; layouts have none). */
 export interface BuiltRostrum {
   side: Side;
   x: number;
@@ -230,7 +233,7 @@ export interface Built {
   /** v1.6: present only when the track crosses itself */
   crossings?: Crossing[];
   startLine: StartLine;
-  rostrum: BuiltRostrum;
+  /** the track's own checks (v1.7: venue checks are the fit's, see VenueCheck) */
   checks: Check[];
   footprint: Footprint;
   /** absent in files baked before v1.4 */
@@ -246,9 +249,8 @@ export interface RcTrack {
   id: string;
   revision: number;
   info: TrackInfo;
-  area: Area;
-  basedOn?: BasedOn | null;
-  obstacles?: Obstacle[];
+  /** v1.7: optional, only the drawing area the designer used; nothing checks against it (see drawingArea) */
+  area?: Area;
   design: Design;
   built?: Built;
 }
@@ -281,4 +283,12 @@ export interface FitResult {
   shift: [number, number];
   /** spare [length, width] in metres around the lanes */
   spare: [number, number];
+}
+
+/** A layout where it is drawn, checked against a venue (v1.7; see fit.ts venueCheck). */
+export interface VenueCheck {
+  /** `outside-area` (lanes outside the venue's area), `obstacle` (lanes + pipe thickness over a fixed obstacle) */
+  checks: Check[];
+  /** where the venue's rostrum stands */
+  rostrum: BuiltRostrum;
 }

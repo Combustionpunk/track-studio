@@ -3,14 +3,18 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   adapt,
   bake,
+  drawingArea,
   fits,
   ORIENTS,
+  upgradeTrack,
   validateTrack,
   validateVenue,
+  venueCheck,
   type FitResult,
   type RcTrack,
   type RcVenue,
   type TrackStatus,
+  type VenueCheck,
 } from "@track-studio/engine";
 import type { User } from "./auth.js";
 import type { DB } from "./db.js";
@@ -25,9 +29,10 @@ export const LIMITS = { coord: 100, area: 100, points: 300, lap: 1500, features:
 function checkLimits(doc: RcTrack | RcVenue): void {
   const problems: string[] = [];
   const { area } = doc;
-  if (area.length > LIMITS.area || area.width > LIMITS.area) problems.push(`area is limited to ${LIMITS.area} x ${LIMITS.area} m`);
-  if ((doc.obstacles?.length ?? 0) > LIMITS.obstacles) problems.push(`at most ${LIMITS.obstacles} obstacles`);
-  for (const o of doc.obstacles ?? []) {
+  if (area && (area.length > LIMITS.area || area.width > LIMITS.area)) problems.push(`area is limited to ${LIMITS.area} x ${LIMITS.area} m`);
+  const obstacles = doc.format === "rcvenue" ? (doc.obstacles ?? []) : [];
+  if (obstacles.length > LIMITS.obstacles) problems.push(`at most ${LIMITS.obstacles} obstacles`);
+  for (const o of obstacles) {
     if (Math.abs(o.x) > LIMITS.coord || Math.abs(o.z) > LIMITS.coord) problems.push(`obstacle coordinates are limited to ±${LIMITS.coord} m`);
     if (o.type === "circle" && !(o.radius > 0)) problems.push("circle obstacles need a radius > 0");
     if (o.type === "rect" && !(o.length > 0 && o.width > 0)) problems.push("rect obstacles need length and width > 0");
@@ -303,9 +308,18 @@ export function statusOfRevision(row: TrackRow, revision: number): TrackStatus {
 export function getTrackDoc(db: DB, row: TrackRow, revision: number): RcTrack {
   const json = db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(row.id, revision) as string | undefined;
   if (!json) throw notFound("Track revision");
-  const doc = JSON.parse(json) as RcTrack;
+  // revisions saved before rctrack 1.7 (until `pnpm rebake`) are upgraded as they are read
+  const doc = upgradeStored(db, JSON.parse(json) as RcTrack);
   doc.info.status = statusOfRevision(row, revision);
   return doc;
+}
+
+/** A stored or posted track as rctrack 1.7: a 1.6 `basedOn` becomes `info.drawnFor`, named after the template. */
+export function upgradeStored(db: DB, doc: RcTrack): RcTrack {
+  const based = (doc as { basedOn?: { venueTemplate?: unknown } | null }).basedOn;
+  const id = typeof based?.venueTemplate === "string" ? based.venueTemplate : undefined;
+  const name = id ? (db.prepare("SELECT name FROM venues WHERE id = ?").pluck().get(id) as string | undefined) : undefined;
+  return upgradeTrack(doc, name);
 }
 
 /** Per-revision summary columns, computed from the baked document. */
@@ -317,8 +331,8 @@ export function revisionColumns(doc: RcTrack) {
     corners: b.stats.corners,
     sizeL: b.size?.length ?? null,
     sizeW: b.size?.width ?? null,
-    al: doc.area.length,
-    aw: doc.area.width,
+    al: drawingArea(doc).length,
+    aw: drawingArea(doc).width,
     errors: b.checks.filter((c) => c.level === "error").length,
     hash: previewHash(doc),
   };
@@ -444,8 +458,8 @@ export function builtColumns(doc: RcTrack) {
   return {
     lap: b.lapLength,
     corners: b.stats.corners,
-    al: doc.area.length,
-    aw: doc.area.width,
+    al: drawingArea(doc).length,
+    aw: drawingArea(doc).width,
     fpW: m3(b.footprint.bbox[2] - b.footprint.bbox[0]),
     fpH: m3(b.footprint.bbox[3] - b.footprint.bbox[1]),
     sizeL: b.size?.length ?? null,
@@ -459,12 +473,16 @@ function saveRevision(db: DB, user: User, input: RcTrack, opts: SaveOptions, exi
   assertValidTrack(unbaked);
   let doc: RcTrack;
   try {
-    doc = bake(unbaked);
+    doc = bake(upgradeStored(db, unbaked)); // 1.7: nothing of a venue is saved in a layout
   } catch (e) {
     throw badRequest("invalid-track", `The design could not be built: ${(e as Error).message}`);
   }
   const t = now();
-  const cols = { id: doc.id, name: doc.info.name, status: opts.status, venue: doc.basedOn?.venueTemplate ?? null, derived: doc.info.derivedFrom?.id ?? null, revision: doc.revision, ...builtColumns(doc), t };
+  // drawnFor is a label (the client may send it): it counts towards a venue only if that template exists, under its name
+  const drawnFor = doc.info.drawnFor;
+  const venueName = drawnFor ? (db.prepare("SELECT name FROM venues WHERE id = ?").pluck().get(drawnFor.venueTemplate) as string | undefined) : undefined;
+  if (drawnFor && venueName) doc.info.drawnFor = { venueTemplate: drawnFor.venueTemplate, name: venueName };
+  const cols = { id: doc.id, name: doc.info.name, status: opts.status, venue: venueName ? drawnFor!.venueTemplate : null, derived: doc.info.derivedFrom?.id ?? null, revision: doc.revision, ...builtColumns(doc), t };
   db.transaction(() => {
     if (existing) {
       db.prepare(
@@ -493,7 +511,7 @@ function saveRevision(db: DB, user: User, input: RcTrack, opts: SaveOptions, exi
   return doc;
 }
 
-const TRACK_KEYS = ["area", "obstacles", "design"] as const;
+const TRACK_KEYS = ["area", "design"] as const;
 
 function trackResult(db: DB, id: string, user: User | null) {
   const row = getTrackRow(db, id);
@@ -512,24 +530,22 @@ export function createTrack(db: DB, user: User, body: unknown, opts: { keepId?: 
     id: opts.keepId && typeof src.id === "string" ? src.id : randomUUID(),
     revision: 1,
     info: { ...info, name: typeof info.name === "string" && info.name.trim() ? info.name : "Untitled track", author: user.username, created: t, modified: t, status },
-    basedOn: null,
-    obstacles: [],
   };
   for (const k of TRACK_KEYS) if (src[k] !== undefined) doc[k] = src[k];
   if (opts.keepId) {
-    // imports (seed) keep their provenance
-    doc.basedOn = src.basedOn ?? null;
+    // imports (seed) keep their provenance (a 1.6 file's basedOn becomes info.drawnFor when it's saved)
+    if (src.basedOn) doc.basedOn = src.basedOn;
     if (isObject(info) && info.created) (doc.info as Record<string, unknown>).created = info.created;
   } else {
     delete (doc.info as Record<string, unknown>).derivedFrom;
   }
   if (fromVenue) {
+    // drawn for a venue: its area is the drawing area and it's named in info.drawnFor; its obstacles and rostrum stay
+    // in the template (1.7)
     const venue = getVenueDoc(db, fromVenue);
     doc.area = { ...venue.area };
-    doc.obstacles = structuredClone(venue.obstacles ?? []);
-    doc.basedOn = { venueTemplate: venue.id, revision: venue.revision };
+    (doc.info as Record<string, unknown>).drawnFor = { venueTemplate: venue.id, name: venue.info.name };
     (doc.info as Record<string, unknown>).venue = venue.info.venue ?? null;
-    if (isObject(doc.design)) doc.design = { ...doc.design, rostrum: { ...(venue.rostrum ?? { side: "south" }) } };
   }
   if (db.prepare("SELECT 1 FROM tracks WHERE id = ?").get(doc.id)) throw conflict("track-exists", `Track ${String(doc.id)} already exists`);
   const saved = saveRevision(db, user, doc as unknown as RcTrack, { status, approve: opts.approve, note });
@@ -582,19 +598,13 @@ export function updateTrack(db: DB, user: User, id: string, body: unknown) {
       modified: now(),
       status: "draft",
       ...(prev.info.derivedFrom ? { derivedFrom: prev.info.derivedFrom } : {}),
+      // the venue it was drawn for stays unless the designer names another
+      ...(isObject(info.drawnFor) ? {} : prev.info.drawnFor ? { drawnFor: prev.info.drawnFor } : {}),
     },
-    basedOn: prev.basedOn ?? null,
-    obstacles: prev.obstacles ?? [],
-    area: prev.area,
+    ...(prev.area ? { area: prev.area } : {}),
   };
   if (!prev.info.derivedFrom) delete (doc.info as Record<string, unknown>).derivedFrom;
   for (const k of TRACK_KEYS) if (src[k] !== undefined) doc[k] = src[k];
-  // a track started from a venue template keeps the template's area, obstacles and rostrum
-  if (prev.basedOn) {
-    doc.area = prev.area;
-    doc.obstacles = prev.obstacles ?? [];
-    if (isObject(doc.design)) doc.design = { ...doc.design, rostrum: prev.design.rostrum };
-  }
   saveRevision(db, user, doc as unknown as RcTrack, { status: "draft", note }, row);
   return trackResult(db, id, user);
 }
@@ -605,6 +615,7 @@ function assertNoErrors(db: DB, row: TrackRow, what: string) {
   if (row.l_errors === 0) return;
   const doc = getTrackDoc(db, row, row.current_revision);
   const errors = doc.built!.checks.filter((c) => c.level === "error");
+  if (!errors.length) return; // a 1.6 revision not yet re-baked: its count included venue checks, which upgrading drops
   throw new HttpError(409, "has-errors", `Fix the errors before ${what}: ${errors.map((c) => c.message).join("; ")}`, errors);
 }
 
@@ -660,6 +671,8 @@ export interface FitAnswer {
   track: { id: string; revision: number };
   venue: { id: string; revision: number };
   results: FitResultWithThumb[];
+  /** the track where it is drawn, checked against the venue: obstacle hits, leaving the area, the venue's rostrum (1.7) */
+  asDrawn: VenueCheck;
 }
 
 /** Picture of the track placed as `fit` in the venue: /p/:id/:rev/fit/:venueId/:k.png, k = index in ORIENTS. */
@@ -676,17 +689,20 @@ export function fitTrack(db: DB, row: TrackRow, venueId: string, revision = publ
     .prepare("SELECT results_json FROM fit_cache WHERE track_id = ? AND track_revision = ? AND venue_id = ? AND venue_revision = ?")
     .pluck()
     .get(...key) as string | undefined;
-  let results: FitResult[];
-  if (cached) results = JSON.parse(cached) as FitResult[];
-  else {
-    results = fits(getTrackDoc(db, row, revision), getVenueDoc(db, venueId, vrow.current_revision));
-    db.prepare("INSERT OR REPLACE INTO fit_cache (track_id, track_revision, venue_id, venue_revision, results_json) VALUES (?, ?, ?, ?, ?)").run(...key, JSON.stringify(results));
+  let answer = cached ? (JSON.parse(cached) as { results: FitResult[]; asDrawn: VenueCheck } | FitResult[]) : null;
+  if (!answer || Array.isArray(answer)) {
+    // (a bare array is a cache row from before 1.7, without the venue checks)
+    const track = getTrackDoc(db, row, revision), venue = getVenueDoc(db, venueId, vrow.current_revision);
+    answer = { results: fits(track, venue), asDrawn: venueCheck(track, venue) };
+    db.prepare("INSERT OR REPLACE INTO fit_cache (track_id, track_revision, venue_id, venue_revision, results_json) VALUES (?, ?, ?, ?, ?)").run(...key, JSON.stringify(answer));
   }
+  const { results, asDrawn } = answer;
   const hash = db.prepare("SELECT preview_hash FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(row.id, revision) as string;
   return {
     track: { id: row.id, revision },
     venue: { id: venueId, revision: vrow.current_revision },
     results: results.map((r) => ({ ...r, thumbUrl: fitThumbUrl(row.id, revision, hash, venueId, vrow.current_revision, r) })),
+    asDrawn,
   };
 }
 

@@ -1,4 +1,4 @@
-import type { Point2, RcTrack } from "@track-studio/engine";
+import { drawingArea, type Point2, type RcTrack } from "@track-studio/engine";
 import { ArrowLeft, Download, Lock } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -225,19 +225,18 @@ export function TrackPage() {
           ) : (
             <>
               <PlanView
-                area={doc.area}
-                obstacles={doc.obstacles}
+                area={drawingArea(doc)}
                 built={b}
                 designFeatures={doc.design.features}
                 layers={layers}
                 onLayersChange={setLayers}
                 highlight={highlight}
-                label={`Plan of ${track.name}, ${fmt.size(doc.area)}`}
+                label={`Plan of ${track.name}, ${fmt.size(drawingArea(doc))}`}
                 className="ts-plan-well track-plan"
               />
               <ul className="ts-plan-caption">
                 <li>Layout {fmt.size(b.size, true)}</li>
-                <li>Rostrum on the {b.rostrum.side} side</li>
+                {doc.info.drawnFor && <li>Drawn for {doc.info.drawnFor.name}</li>}
                 <li>Start line {fmt.metres(b.startLine.distance)} along the lap</li>
                 <li>
                   {Math.round(b.stats.dividerLength)} m of pipe in {b.stats.dividerRuns} runs

@@ -64,13 +64,10 @@
   ],
   "start": {
    "distance": 2.0
-  },
-  "rostrum": {
-   "side": "south"
   }
  },
  "built": {
-  "generator": "rctrack-bake.py 1.6",
+  "generator": "rctrack-bake.py 1.7",
   "lapLength": 71.107,
   "racingLine": [
    [
@@ -1741,12 +1738,6 @@
    "heading": 45.0,
    "width": 2.0,
    "distance": 2.0
-  },
-  "rostrum": {
-   "side": "south",
-   "x": 0.0,
-   "z": -9.5,
-   "eyeHeight": 2.8
   },
   "checks": [],
   "footprint": {

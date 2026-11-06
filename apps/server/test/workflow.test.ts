@@ -70,28 +70,54 @@ describe("approved tracks are protected", () => {
     expect(stale.json().error).toBe("stale");
   });
 
-  it("a track from a venue template keeps the template's area, obstacles and rostrum", async () => {
+  it("a track drawn for a venue never saves the venue's obstacles or a rostrum, even if a client sends them (1.7)", async () => {
     const { app, alice } = await setup();
     const adapted = referenceJson<RcTrack>("examples/freeform-at-sports-hall-b.rctrack.json");
     const { track, doc } = (await send(app, "POST", "/api/tracks", alice, { track: { info: { name: "T" }, design: adapted.design }, fromVenue: "venue-2" })).json();
-    const sneaky = { ...doc, area: { length: 40, width: 30 }, obstacles: [], design: { ...doc.design, rostrum: { side: "north" } } };
+    const sneaky = { ...doc, info: { name: "T" }, area: { length: 40, width: 30 }, obstacles: [{ type: "circle", x: 0, z: 0, radius: 1 }], basedOn: { venueTemplate: "venue-1", revision: 1 }, design: { ...doc.design, rostrum: { side: "north" } } };
     const saved = (await send(app, "PUT", `/api/tracks/${track.id}`, alice, { track: sneaky })).json().doc;
-    expect(saved.area).toEqual({ length: 25, width: 14 });
-    expect(saved.obstacles).toHaveLength(3);
-    expect(saved.design.rostrum).toEqual({ side: "south", offset: 3 });
+    expect(saved.area).toEqual({ length: 40, width: 30 }); // only the drawing area: the designer's to change
+    expect(saved).not.toHaveProperty("obstacles");
+    expect(saved).not.toHaveProperty("basedOn");
+    expect(saved.design).not.toHaveProperty("rostrum");
+    expect(saved.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" }); // kept from the first revision
+  });
+});
+
+describe("rctrack 1.7 on the server (#63)", () => {
+  it("drawnFor naming a template that doesn't exist is kept as a label but counts towards no venue", async () => {
+    const { app, alice } = await setup();
+    const doc = freeform();
+    const { track, doc: saved } = (await send(app, "POST", "/api/tracks", alice, { track: { ...doc, info: { name: "Mine", drawnFor: { venueTemplate: "nope", name: "Somewhere" } } } })).json();
+    expect(saved.info.drawnFor).toEqual({ venueTemplate: "nope", name: "Somewhere" });
+    expect(track.venueTemplateId).toBeNull();
+    // a real one is named after the template
+    const real = (await send(app, "POST", "/api/tracks", alice, { track: { ...doc, info: { name: "Mine", drawnFor: { venueTemplate: "venue-2", name: "whatever" } } } })).json();
+    expect(real.doc.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
+    expect(real.track.venueTemplateId).toBe("venue-2");
+  });
+
+  it("a 1.6 revision whose only errors were venue checks can be submitted before the rebake", async () => {
+    const { app, alice } = await setup();
+    const { track, doc } = (await send(app, "POST", "/api/tracks", alice, { track: freeform() })).json();
+    // as rctrack 1.6 stored it: an obstacle error in built.checks, counted in the error column
+    const old = { ...doc, obstacles: [{ type: "circle", x: 0, z: 0, radius: 1 }], built: { ...doc.built, checks: [{ level: "error", code: "obstacle", message: "Track overlaps a fixed obstacle" }] } };
+    app.db.prepare("UPDATE track_revisions SET rctrack_json = ?, errors = 1 WHERE track_id = ?").run(JSON.stringify(old), track.id);
+    app.db.prepare("UPDATE tracks SET status = 'draft' WHERE id = ?").run(track.id);
+    expect((await send(app, "POST", `/api/tracks/${track.id}/submit`, alice)).statusCode).toBe(200);
   });
 });
 
 describe("errors block submitting", () => {
   it("on the server, for submit and approve; warnings are fine", async () => {
     const { app, alice, org } = await setup();
-    const broken = freeform();
-    broken.area = { length: 18, width: 12 }; // the track runs outside the area: an error
+    // a figure of eight with no bridge: an error of the track itself (1.7: leaving an area is a venue check, not an error here)
+    const broken = { ...freeform(), design: referenceJson<RcTrack>("../packages/engine/test/fixtures/extra/unbridged-figure8.rctrack.json").design };
     const { track } = (await send(app, "POST", "/api/tracks", alice, { track: broken })).json();
     expect(track.errors).toBe(1);
     const sub = await send(app, "POST", `/api/tracks/${track.id}/submit`, alice);
     expect(sub.statusCode).toBe(409);
-    expect(sub.json()).toMatchObject({ error: "has-errors", message: expect.stringContaining("outside the venue's track area") });
+    expect(sub.json()).toMatchObject({ error: "has-errors", message: expect.stringContaining("with no bridge") });
     expect((await send(app, "POST", `/api/tracks/${track.id}/approve`, org)).json().error).toBe("has-errors");
     // fixed: submit works
     const fixed = (await send(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform() })).json();

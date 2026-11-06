@@ -3,7 +3,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { bakeBuilt, racingLine, type Corner, type DesignPoint, type RcTrack } from "../src/index.js";
-import { extraDir, readJson } from "./helpers.js";
+import { as17, extraDir, readJson } from "./helpers.js";
 
 const track = (points: DesignPoint[], laneWidth = 2): RcTrack => ({
   format: "rctrack", version: 1, id: "t", revision: 1, info: { name: "t" }, area: { length: 40, width: 30 }, design: { laneWidth, points },
@@ -67,6 +67,6 @@ describe("designs with no squeezed corners bake exactly as in 1.4", () => {
     expect(doc.built!.checks.some((k) => k.code === "radius-reduced")).toBe(false);
     const before = readJson<RcTrack["built"]>(join(dir, name.replace(".rctrack.json", ".engine-built.json")))!;
     const after = bakeBuilt(doc);
-    expect(JSON.stringify({ ...after, generator: "" })).toBe(JSON.stringify({ ...before, generator: "" }));
+    expect(JSON.stringify(as17(after))).toBe(JSON.stringify(as17(before))); // less the venue's parts (1.7)
   });
 });

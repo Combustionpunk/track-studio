@@ -1,4 +1,4 @@
-import { bakeBuilt, type FitResult, type RcTrack, type RcVenue } from "@track-studio/engine";
+import { bakeBuilt, type FitResult, type RcTrack, type RcVenue, type VenueCheck } from "@track-studio/engine";
 import type { FastifyInstance } from "fastify";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -7,7 +7,7 @@ import { ROOT_DIR } from "../src/config.js";
 import { ALICE, BOB, login, makeApp, ORGANISER, referenceJson } from "./helpers.js";
 
 const freeform = () => referenceJson<RcTrack>("examples/freeform-example.rctrack.json");
-const fitExpected = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/fit-expected.json"), "utf8")) as Record<string, FitResult[]>;
+const fitExpected = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/fit-expected.json"), "utf8")) as Record<string, { fits: FitResult[]; check: VenueCheck }>;
 const CLUB_A = "7c002509-b640-5e9d-8e79-0ae336a2ae04";
 const FREEFORM = "3b542396-6bd2-55e8-8665-852e74dc54a9";
 
@@ -243,7 +243,7 @@ describe("saving tracks", () => {
     expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).json().track).toMatchObject({ approvedRevision: 2, locked: "library" });
   });
 
-  it("starting from a venue template copies area, obstacles, rostrum, basedOn", async () => {
+  it("starting from a venue template keeps its area and name, not its obstacles or rostrum (1.7)", async () => {
     const { app, alice } = await setup();
     const doc = freeform();
     // move it so it fits Sports hall B's pillars (as the adapted example does)
@@ -251,23 +251,27 @@ describe("saving tracks", () => {
     const { doc: saved } = await createAs(app, alice, { track: { info: { name: "From template" }, design: adapted.design }, fromVenue: "venue-2" });
     const venue = referenceJson<RcVenue>("venues/sports-hall-b.rcvenue.json");
     expect(saved.area).toEqual(venue.area);
-    expect(saved.obstacles).toEqual(venue.obstacles);
-    expect(saved.design.rostrum).toEqual(venue.rostrum);
-    expect(saved.basedOn).toEqual({ venueTemplate: "venue-2", revision: 1 });
+    expect(saved.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
     expect(saved.info.venue).toEqual(venue.info.venue);
+    expect(saved).not.toHaveProperty("obstacles");
+    expect(saved).not.toHaveProperty("basedOn");
+    expect(saved.design).not.toHaveProperty("rostrum");
+    expect(saved.built).not.toHaveProperty("rostrum");
     expect(saved.built!.checks).toEqual([]);
     expect(doc.area).not.toEqual(venue.area);
     expect((await req(app, "POST", "/api/tracks", alice, { track: { design: adapted.design }, fromVenue: "nope" })).statusCode).toBe(404);
   });
 
-  it("starting blank keeps the area sent, with basedOn null and no obstacles (#14)", async () => {
+  it("starting blank keeps the area sent; venue fields an older client sends are dropped (#14, 1.7)", async () => {
     const { app, alice } = await setup();
     const points = [[-10, -5], [10, -5], [10, 5], [-10, 5]].map(([x, z]) => ({ x, z, r: 1 }));
     const blank = { info: { name: "Blank" }, area: { length: 22, width: 12 }, obstacles: [], basedOn: null, design: { laneWidth: 2, points, features: [], start: { distance: 0 }, rostrum: { side: "south" } } };
     const { doc: saved } = await createAs(app, alice, { track: blank, note: "First version" });
     expect(saved.area).toEqual({ length: 22, width: 12 });
-    expect(saved.basedOn).toBeNull();
-    expect(saved.obstacles).toEqual([]);
+    expect(saved).not.toHaveProperty("basedOn");
+    expect(saved).not.toHaveProperty("obstacles");
+    expect(saved.design).not.toHaveProperty("rostrum");
+    expect(saved.info.drawnFor).toBeUndefined();
     expect(saved.built!.checks.filter((c) => c.level === "error")).toEqual([]);
   });
 
@@ -439,7 +443,8 @@ describe("fit + adapt", () => {
         const res = (await req(app, "GET", `/api/tracks/${id}/fit/${venueId}`)).json();
         const want = fitExpected[`${trackFiles[id]}.rctrack.json | ${venueFiles[venueId]}.rcvenue.json`];
         expect(want).toBeDefined();
-        expect({ ...res, results: res.results.map(({ thumbUrl: _t, ...r }: { thumbUrl: string }) => r) }).toEqual({ track: { id, revision: 1 }, venue: { id: venueId, revision: 1 }, results: want });
+        // results, and the venue checks of the track where it is drawn: obstacle hits and the venue's rostrum (1.7)
+        expect({ ...res, results: res.results.map(({ thumbUrl: _t, ...r }: { thumbUrl: string }) => r) }).toEqual({ track: { id, revision: 1 }, venue: { id: venueId, revision: 1 }, results: want.fits, asDrawn: want.check });
       }
     }
     // cached per track revision + venue revision
@@ -474,8 +479,10 @@ describe("fit + adapt", () => {
     expect(fit.orientation).toBe("rotated 180");
     expect(track).toMatchObject({ status: "draft", revision: 1, venueTemplateId: "venue-2", derivedFromId: FREEFORM, author: { username: "alice" } });
     expect(doc.info).toMatchObject({ name: "Freeform example @ Sports hall B", derivedFrom: { id: FREEFORM, revision: 1, orientation: "rotated 180" } });
-    // same design as the reference's adapted example
+    // same design as the reference's adapted example; none of the venue's obstacles or its rostrum (1.7)
     expect(doc.design).toEqual(referenceJson<RcTrack>("examples/freeform-at-sports-hall-b.rctrack.json").design);
+    expect(doc.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
+    expect(JSON.stringify(doc)).not.toMatch(/"obstacles"|"rostrum"|"basedOn"|Pillar/);
     expect((await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-3`, alice)).statusCode).toBe(422);
     const bad = await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-1`, alice, { orientation: "rotated 90" });
     expect(bad.statusCode).toBe(400);

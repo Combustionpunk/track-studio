@@ -359,7 +359,7 @@ describe("track page", () => {
     expect(h).toContain('class="ts-figures ts-figures--key"');
     expect(t).toContain(`Lap length ${b.lapLength.toFixed(1)} m`);
     expect(t).toContain(`Corners ${b.stats.corners}`);
-    expect(t).toContain(`Track area ${doc.area.length} × ${doc.area.width} m`);
+    expect(t).toContain(`Track area ${doc.area!.length} × ${doc.area!.width} m`);
     expect(t).toContain(`Jumps ${b.features.length}`);
   });
 

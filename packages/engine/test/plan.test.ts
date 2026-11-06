@@ -2,11 +2,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { bake, fits, jumpSymbol, reverseDesign, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type Point2, type RcTrack, type RcVenue } from "../src/index.js";
+import { bake, fits, jumpSymbol, reverseDesign, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type PlanScene, type Point2, type RcTrack, type RcVenue } from "../src/index.js";
 import { allTracks, examples, readJson, referenceDir, repoRoot, venues } from "./helpers.js";
 
 const club = () => readJson<RcTrack>(join(referenceDir, "examples", "club-a.rctrack.json"));
 const draw = (doc: RcTrack, opts: Parameters<typeof planLayers>[1] = { px: 0.025 }) => planLayers(planScene(doc), opts);
+/** Club A placed in a venue: the venue gives the rostrum and obstacles (1.7: a layout has none of its own). */
+const ROSTRUM_N = { side: "north" as const, x: 0, z: 7.5 };
+const inVenue = (doc: RcTrack, extra: Partial<PlanScene> = {}): PlanScene => ({ ...planScene(doc), rostrum: ROSTRUM_N, ...extra });
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 
 /** Tags open and close in order (the output has no comments, CDATA or text containing "<"). */
@@ -68,9 +71,10 @@ describe("planLayers", () => {
     expect(draw(doc, { px: 0.2 })).toMatch(/class="p-pipe"[^>]*stroke-width="0\.3"/);
   });
 
-  it("draws the rostrum, the chequered start line, grid boxes and direction-of-travel arrows", () => {
-    const svg = draw(club());
+  it("draws the venue's rostrum, the chequered start line, grid boxes and direction-of-travel arrows", () => {
+    const svg = planLayers(inVenue(club()), { px: 0.025 });
     expect(svg).toMatch(/<g class="p-rostrum"/);
+    expect(draw(club())).not.toMatch(/p-rostrum/); // a layout alone has no rostrum (1.7)
     expect(count(svg, /class="p-start-a"/g)).toBeGreaterThanOrEqual(4);
     expect(count(svg, /class="p-start-b"/g)).toBeGreaterThanOrEqual(4);
     expect(count(svg, /class="p-gridbox"/g)).toBeGreaterThanOrEqual(4);
@@ -164,7 +168,7 @@ describe("planLayers", () => {
 
   it("can tag things for the web plan's hover details", () => {
     const doc = club();
-    const svg = draw(doc, { px: 0.025, tips: true });
+    const svg = planLayers(inVenue(doc), { px: 0.025, tips: true });
     doc.built!.features.forEach((_, i) => expect(svg).toContain(`data-tip="f${i}"`));
     expect(svg).toContain('data-tip="start"');
     expect(svg).toContain('data-tip="rostrum"');
@@ -178,9 +182,8 @@ describe("planLayers", () => {
   });
 
   it("escapes obstacle labels", () => {
-    const doc = club();
-    doc.obstacles = [{ type: "circle", x: 0, z: 0, radius: 0.3, label: 'Pillar <"A"> & B' }];
-    expect(draw(doc)).toContain("Pillar &lt;&quot;A&quot;&gt; &amp; B");
+    const scene = inVenue(club(), { obstacles: [{ type: "circle", x: 0, z: 0, radius: 0.3, label: 'Pillar <"A"> & B' }] });
+    expect(planLayers(scene, { px: 0.025 })).toContain("Pillar &lt;&quot;A&quot;&gt; &amp; B");
   });
 
   it("ids are prefixed, so several plans can share a page", () => {
@@ -247,7 +250,7 @@ describe("planSvg", () => {
   it.each(examples)("$name: a standalone picture of the area plus 2.5 m margins, with a scale bar", ({ path }) => {
     const doc = readJson<RcTrack>(path);
     const svg = planSvg(planScene(doc), { width: 1200 });
-    const { length: L, width: W } = doc.area;
+    const { length: L, width: W } = doc.area!;
     expect(svg.startsWith(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${Math.round((1200 * (W + 5)) / (L + 5))}" viewBox="${-L / 2 - 2.5} ${-W / 2 - 2.5} ${L + 5} ${W + 5}"`)).toBe(true);
     expect(svg).toMatch(new RegExp(`<rect class="p-floor"[^>]*fill="${PLAN_PALETTE["plan-floor"]}"`));
     expect(svg).toMatch(/<g class="p-scale">.*>5 m<\/text><\/g>/);
@@ -255,11 +258,12 @@ describe("planSvg", () => {
   });
 
   it("puts the scale bar on the side away from the rostrum", () => {
-    const doc = club(); // rostrum north
+    const doc = club();
+    const W = doc.area!.width;
     const y = (svg: string) => Number(/<g class="p-scale"><path d="M[-\d.]+ ([-\d.]+)/.exec(svg)![1]);
-    expect(y(planSvg(planScene(doc), { width: 600 }))).toBeGreaterThan(doc.area.width / 2); // south margin (svg y = -z)
-    doc.built!.rostrum = { ...doc.built!.rostrum, side: "south", z: -7.5 };
-    expect(y(planSvg(planScene(doc), { width: 600 }))).toBeLessThan(-doc.area.width / 2);
+    expect(y(planSvg(inVenue(doc), { width: 600 }))).toBeGreaterThan(W / 2); // rostrum north: south margin (svg y = -z)
+    expect(y(planSvg(planScene(doc), { width: 600 }))).toBeGreaterThan(W / 2); // no rostrum: south too
+    expect(y(planSvg(inVenue(doc, { rostrum: { side: "south", x: 0, z: -7.5 } }), { width: 600 }))).toBeLessThan(-W / 2);
   });
 
   it("draws a venue (no built): area, obstacles, rostrum", () => {

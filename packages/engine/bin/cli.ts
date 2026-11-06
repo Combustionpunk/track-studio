@@ -13,6 +13,7 @@ import {
   previewSvg,
   validateTrack,
   validateVenue,
+  venueCheck,
   type RcTrack,
   type RcVenue,
 } from "../src/index.js";
@@ -68,6 +69,8 @@ switch (cmd) {
     console.log(`${track.info.name} in ${venue.info.name} (${venue.area.length} x ${venue.area.width} m):`);
     for (const r of res) console.log(`  fits ${r.orientation.padEnd(24)} spare ${r.spare[0]} x ${r.spare[1]} m   shift ${r.shift[0]}, ${r.shift[1]}`);
     if (!res.length) console.log("  does not fit");
+    const asDrawn = venueCheck(track, venue);
+    console.log(`  as drawn: ${asDrawn.checks.length ? asDrawn.checks.map((c) => c.code).join(", ") : "clear"}; rostrum ${asDrawn.rostrum.side} at ${asDrawn.rostrum.x}, ${asDrawn.rostrum.z}`);
     if (res.length && args[2]) {
       const out = adapt(track, venue, res[0]);
       save(args[2], JSON.stringify(out, null, 1));
