@@ -90,7 +90,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   // the served web build's version on every API answer, so tabs left open across a deploy notice it (#88)
   const version = () => app.appVersion?.() ?? "dev";
   app.addHook("onSend", async (req, reply) => {
-    if (/^\/(api\/|healthz)/.test(req.url)) reply.header("x-app-version", version());
+    if (/^\/(api\/|healthz(\?|$))/.test(req.url)) reply.header("x-app-version", version());
   });
   registerAuth(app, config, db);
   registerRoutes(app, db, forumEvents, forumStats, app.forumVenues);

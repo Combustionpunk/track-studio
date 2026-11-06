@@ -308,7 +308,7 @@ export function PlanView(props: PlanViewProps) {
         </>,
       ),
     );
-    if (built)
+    if (built?.startLine)
       t.set(
         "start",
         <>
