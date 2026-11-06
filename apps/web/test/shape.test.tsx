@@ -182,7 +182,7 @@ describe("apex radius in numbers", () => {
 
 describe("the selected corner's panel (Quick)", () => {
   const panel = (d: Draft, i: number, update: (fn: (d: Draft) => Draft, group?: string) => void = () => {}) =>
-    renderToStaticMarkup(<SelectionPanel sel={{ kind: "point", i }} view="quick" draft={d} live={liveGeometry(d.design)} update={update} onDelete={() => {}} inCorner={new Set()} />);
+    renderToStaticMarkup(<SelectionPanel sel={{ kind: "point", i }} view="quick" draft={d} live={liveGeometry(d.design)} update={update} onDelete={() => {}} inCorner={new Map()} />);
 
   it("shows the turn, the apex radius to 0.1 m and the quick sizes, with the current one pressed", () => {
     const d = laid(TEST_TRACK);

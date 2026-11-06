@@ -16,6 +16,7 @@ import {
   type Built,
   type BuiltFeature,
   type Check,
+  type CheckLevel,
   type DesignFeature,
   type DesignPoint,
   type FeatureType,
@@ -883,7 +884,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // matched against the bake's own jumps, so a warning stays on its jump while the bake catches up with a drag
   const inCorner = useMemo(() => {
     const b = bake.built;
-    return b && b.features.length === built.features.length ? jumpsInCorner(b.checks, b.features) : new Set<number>();
+    return b && b.features.length === built.features.length ? jumpsInCorner(b.checks, b.features) : new Map<number, CheckLevel>();
   }, [bake.built, built.features.length]);
   const overlay = (m: number) => {
     const selPt = sel?.kind === "point" ? pointsList[sel.i] : null;
@@ -927,7 +928,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           <g key={i}>
             <polygon
               data-handle="feature"
-              className={`ed-feature ${sel?.kind === "feature" && sel.i === i ? "on" : ""} ${layers.checks && inCorner.has(i) ? "warn" : ""}`}
+              className={`ed-feature ${sel?.kind === "feature" && sel.i === i ? "on" : ""} ${layers.checks && inCorner.get(i) === "warning" ? "warn" : ""}`}
               points={pts(featureCorners(f))}
               onPointerDown={(e) => onFeatureDown(e, i)}
               vectorEffect="non-scaling-stroke"
@@ -1856,7 +1857,7 @@ export function SelectionPanel({
   onDelete: () => void;
   fromVenue?: string;
   /** jumps on or landing into a corner */
-  inCorner: Set<number>;
+  inCorner: Map<number, CheckLevel>;
   /** the tablet's sheet: say what fingers do */
   touch?: boolean;
 }) {
@@ -1964,10 +1965,16 @@ export function SelectionPanel({
     // below the Delete button, so it never moves the button; the status region is always there so it's announced
     const warn = (
       <div role="status">
-        {inCorner.has(sel.i) && (
+        {inCorner.get(sel.i) === "warning" && (
           <p className="sel-warning">
             <TriangleAlert size={16} aria-hidden="true" />
             <span>This {fmt.FEATURE_LABEL[f.type].toLowerCase()} is on or lands into a corner. Slide it onto a straight.</span>
+          </p>
+        )}
+        {inCorner.get(sel.i) === "info" && (
+          <p className="sel-note">
+            <Info size={16} aria-hidden="true" />
+            <span>This {fmt.FEATURE_LABEL[f.type].toLowerCase()} is on or lands into a corner: a technical section.</span>
           </p>
         )}
       </div>

@@ -110,7 +110,7 @@ describe("the venue guide", () => {
 describe("the rostrum control is gone", () => {
   const panel = (draft: ReturnType<typeof draftFromDoc>, fromVenue?: string) =>
     renderToStaticMarkup(
-      <SelectionPanel sel={null} view="advanced" draft={draft} live={liveGeometry(draft.design)} update={() => {}} onDelete={() => {}} fromVenue={fromVenue} inCorner={new Set()} />,
+      <SelectionPanel sel={null} view="advanced" draft={draft} live={liveGeometry(draft.design)} update={() => {}} onDelete={() => {}} fromVenue={fromVenue} inCorner={new Map()} />,
     );
 
   it("from a blank area: lane width and area, no rostrum", () => {

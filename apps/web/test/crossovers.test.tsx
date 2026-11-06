@@ -139,7 +139,7 @@ describe("the selected crossover's panel", () => {
   const panel = (view: "quick" | "advanced", d: Draft = draft) => {
     const edits: Draft[] = [];
     const html = renderToStaticMarkup(
-      <SelectionPanel sel={{ kind: "feature", i: 0 }} view={view} draft={d} live={liveGeometry(d.design)} update={(fn) => edits.push(fn(d))} onDelete={() => {}} inCorner={new Set()} />,
+      <SelectionPanel sel={{ kind: "feature", i: 0 }} view={view} draft={d} live={liveGeometry(d.design)} update={(fn) => edits.push(fn(d))} onDelete={() => {}} inCorner={new Map()} />,
     );
     return { html, edits };
   };
