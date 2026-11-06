@@ -464,7 +464,7 @@ describe("track page", () => {
     const h = page(can(), { status: "approved", locked: "event" }, doc, used);
     const t = text(h);
     expect(h).toMatch(/<h2 id="used-h" class="ts-heading">Used at<\/h2>/);
-    expect(h).toMatch(/<a href="https:\/\/forum.test\/t\/winter-r3\/120"[^>]*>Winter Series R3<\/a>/);
+    expect(h).toMatch(/<a [^>]*href="https:\/\/forum.test\/t\/winter-r3\/120"[^>]*>Winter Series R3<\/a>/);
     expect(t).toContain("Winter Series R3 6 Dec 2026 · The Barn, Carpet");
     expect(t).toContain("Club night 4 Oct 2026 · Misfits Hall");
     expect(h).not.toMatch(/<a [^>]*>Club night/);

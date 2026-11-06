@@ -7,10 +7,55 @@ import { ChecksList } from "../components/ChecksList.js";
 import { FitPanel } from "../components/FitPanel.js";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import { ErrorAlert, Skeleton, TrackPageSkeleton } from "../components/states.js";
-import { ApiError, post, type Revision, type TrackResponse } from "../lib/api.js";
+import { ApiError, post, type Revision, type TrackResponse, type UsedAt } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useApi, useStored } from "../lib/hooks.js";
 import { NotFound } from "./NotFound.js";
+
+/** Where the forum says the layout was raced (#66). Not shown at all when the forum can't be reached. */
+function UsedAtSection({ used }: { used: UsedAt }) {
+  const n = used.events.length;
+  return (
+    <section className="ts-section" aria-labelledby="used-h">
+      <h2 id="used-h" className="ts-heading">
+        Used at
+      </h2>
+      {n === 0 ? (
+        <p className="ts-help">Not raced yet. No event on the forum has used this layout, so the tyres are still clean.</p>
+      ) : (
+        <>
+          <ol className="ts-used">
+            {used.events.map((e) => (
+              <li key={e.id} className="ts-used__event">
+                {e.url ? (
+                  <a className="ts-used__title" href={e.url} target="_blank" rel="noopener">
+                    {e.title}
+                  </a>
+                ) : (
+                  <span className="ts-used__title">{e.title}</span>
+                )}
+                <span className="ts-used__meta">
+                  {e.startDate && fmt.date(e.startDate)}
+                  {e.venue && (
+                    <>
+                      {e.startDate && " · "}
+                      {e.venue.name}
+                      {e.venueTrack && `, ${e.venueTrack.name}`}
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="ts-meta">
+            {n} event{n === 1 ? "" : "s"}
+            {used.venues.length > 0 && <> · Raced at: {used.venues.map((v) => v.name).join(", ")}</>}
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
 
 const Back = () => (
   <Link to="/" className="ts-back">
@@ -281,6 +326,8 @@ export function TrackPage() {
           )}
 
           {b && <ChecksList checks={b.checks} onShow={(c) => setHighlight(c.x !== undefined && c.z !== undefined ? [c.x, c.z] : null)} />}
+
+          {tr.data.usedAt && <UsedAtSection used={tr.data.usedAt} />}
 
           <section className="ts-section" aria-labelledby="share-h">
             <h2 id="share-h" className="ts-heading">

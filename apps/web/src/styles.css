@@ -608,6 +608,10 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-track-main, .ts-track-side { display: grid; gap: var(--space-4); min-width: 0; }
 .ts-plan-well { width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--line); overflow: hidden; }
 .ts-plan-caption { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: calc(-1 * var(--space-2)) 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 18px; color: var(--text-muted); }
+.ts-used { display: grid; gap: var(--space-2); margin: 0 0 var(--space-2); padding: 0; list-style: none; }
+.ts-used__event { display: grid; }
+.ts-used__title { font-weight: 600; color: var(--text); }
+.ts-used__meta { font-size: 13px; line-height: 18px; color: var(--text-muted); }
 .ts-revisions { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .ts-revisions li { display: flex; align-items: center; gap: var(--space-1); }
 .ts-revision { flex: 1; display: grid; grid-template-columns: 1fr auto; gap: 0 var(--space-2); padding: var(--space-2); border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: 400 14px/20px var(--font-sans); text-align: left; cursor: pointer; }
