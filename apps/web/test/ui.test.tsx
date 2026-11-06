@@ -37,6 +37,7 @@ const { Library } = await import("../src/pages/Library.js");
 const { TrackPage } = await import("../src/pages/TrackPage.js");
 const { EditTrackPage } = await import("../src/designer/pages.js");
 const { VenuePage, Venues } = await import("../src/pages/Venues.js");
+const { LapSpeeds } = await import("../src/pages/LapSpeeds.js");
 const { ForumVenuePicker } = await import("../src/venues/ForumVenuePicker.js");
 const fmt = await import("../src/lib/format.js");
 const { SessionContext } = await import("../src/lib/session.js");
@@ -89,6 +90,11 @@ const summary = (over: Partial<TrackSummary> = {}): TrackSummary => ({
   previewUrl: "/p/winter-3/4.png",
   ...over,
 });
+
+const SPEEDS = [
+  { class: "2WD Buggy", speed: 6.5 },
+  { class: "4WD Buggy", speed: 7 },
+];
 
 const loadable = <T,>(over: Partial<Loadable<T>>): Loadable<T> => ({ data: undefined, error: undefined, loading: false, reload: () => {}, ...over });
 
@@ -290,6 +296,38 @@ describe("library page", () => {
     expect(text(html(<Library />))).not.toContain("Raced at");
   });
 
+  it("Typical lap for <class> between X and Y s, sorted by typical lap: asks the server and counts behind Filters (#76)", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    answers.set("/api/class-speeds", { data: { classes: SPEEDS }, loading: false });
+    const h = html(<Library />, "/?lapClass=2WD+Buggy&minTypical=12&maxTypical=16&sort=typical");
+    expect(h).toMatch(/<label class="ts-label" for="f-class">Typical lap for<\/label>/);
+    expect(h).toMatch(/<option value="2WD Buggy" selected="">2WD Buggy<\/option>/);
+    expect(h).toContain(">4WD Buggy</option>");
+    expect(h).toMatch(/<option value="typical" selected="">Typical lap, fastest first<\/option>/);
+    expect(h).toMatch(/aria-label="Shortest typical lap in seconds"[^>]*value="12"/);
+    expect(requested).toContain("/api/tracks?lapClass=2WD+Buggy&minTypical=12&maxTypical=16&sort=typical");
+    expect(text(h)).toContain("Filters · 4");
+  });
+
+  it("no class picked: the typical lap range and sort are off and not sent (#76)", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    answers.set("/api/class-speeds", { data: { classes: SPEEDS }, loading: false });
+    const h = html(<Library />, "/?minTypical=12&sort=typical");
+    expect(h).toMatch(/<input [^>]*disabled=""[^>]*aria-label="Shortest typical lap in seconds"|<input [^>]*aria-label="Shortest typical lap in seconds"[^>]*disabled=""/);
+    expect(h).toMatch(/<select id="f-sort"[^>]*disabled=""/);
+    expect(requested).toContain("/api/tracks");
+  });
+
+  it("cards show the typical lap for the picked class: the forum's, or the estimate marked est. (#76)", () => {
+    const list = loadable({ data: { tracks: [summary({ id: "a", typicalLap: { seconds: 14.83, est: false } }), summary({ id: "b", typicalLap: { seconds: 14.6, est: true } }), summary({ id: "c", typicalLap: null })] } });
+    const t = text(html(<LibraryResults list={list} anyFilter onClear={() => {}} lapClass="2WD Buggy" />));
+    expect(t).toContain("2WD Buggy 14.8 s");
+    expect(t).toContain("2WD Buggy ≈ 14.6 s est.");
+    expect(t).toContain("2WD Buggy —");
+    // no class picked: no lap time figure
+    expect(text(html(<TrackCard track={summary()} />))).not.toContain(" s ");
+  });
+
   it("the venue list failing still leaves the library usable, and says so", () => {
     answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
     answers.set("/api/venues", { error: new Error("down"), loading: false });
@@ -426,8 +464,8 @@ describe("track page", () => {
     { revision: 3, createdAt: "2026-10-19T10:00:00Z", createdBy: { id: 1, username: "yeti" }, note: "wider", status: "approved", previewUrl: "", downloadUrl: "/d/3" },
     { revision: 2, createdAt: "2026-10-01T10:00:00Z", createdBy: { id: 999, username: null }, note: "imported", status: "draft", previewUrl: "", downloadUrl: "/d/2" },
   ];
-  const page = (c: Permissions, over: Partial<TrackSummary> = {}, d: RcTrack = doc, used: TrackResponse["usedAt"] = { events: [], venues: [] }) => {
-    const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, locked: null, ...over }), doc: d, can: c, usedAt: used };
+  const page = (c: Permissions, over: Partial<TrackSummary> = {}, d: RcTrack = doc, used: TrackResponse["usedAt"] = { events: [], venues: [] }, lapStats: TrackResponse["lapStats"] = { classes: [] }) => {
+    const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, locked: null, ...over }), doc: d, can: c, usedAt: used, lapStats };
     answers.set("/api/tracks/winter-3", { data: res, loading: false });
     answers.set("/api/tracks/winter-3/revisions", { data: { revisions }, loading: false });
     return html(<TrackPage />, "/t/winter-3");
@@ -574,6 +612,45 @@ describe("track page", () => {
     expect(down).not.toContain('role="alert"');
   });
 
+  it("Lap times: a row per class with the typical lap, trimmed mean, laps, meetings and both records linked to the meeting (#76)", () => {
+    const rec = (ms: number, name: string, id: number, url: string | null = `https://forum.test/t/round-${id}/${100 + id}`) => ({
+      ms,
+      driver: { name, username: name.toLowerCase() },
+      car: "Losi 22 5.0",
+      meeting: { id, title: `Round ${id}`, date: "2026-11-12", url },
+    });
+    const stats: TrackResponse["lapStats"] = {
+      classes: [
+        { class: "2WD Buggy", typicalLap: { medianMs: 14812, trimmedMeanMs: 14930, iqrMs: 900, laps: 1412, meetings: 3, updatedAt: "2026-11-13T08:00:00Z" }, recordLap: rec(13921, "Dave", 4), record3: rec(42405, "Sam", 5, null) },
+        { class: "4WD Buggy", typicalLap: null, recordLap: { ...rec(12500, "Ex", 6), car: null }, record3: null },
+      ],
+    };
+    answers.set("/api/class-speeds", { data: { classes: SPEEDS }, loading: false });
+    const h = page(can(), { status: "approved" }, doc, undefined, stats);
+    const t = text(h);
+    expect(h).toMatch(/<h2 id="laps-h" class="ts-heading">Lap times<\/h2>/);
+    expect(t).toContain("2WD Buggy Typical lap 14.8 s Trimmed mean 14.9 s · 1,412 laps · 3 meetings");
+    expect(t).toContain("Lap record 13.92 s Dave · Losi 22 5.0 · 12 Nov 2026");
+    expect(h).toMatch(/<a [^>]*href="https:\/\/forum.test\/t\/round-4\/104"[^>]*>12 Nov 2026<\/a>/);
+    expect(t).toContain("Best 3 laps 42.41 s Sam · Losi 22 5.0 · 12 Nov 2026");
+    // a class with records but no typical lap yet: the estimate, marked est.
+    expect(t).toMatch(/4WD Buggy Typical lap ≈ \d+\.\d s est\./);
+    expect(t).toContain("Lap record 12.50 s Ex · 12 Nov 2026");
+    expect(t).not.toContain("No races on this layout yet");
+  });
+
+  it("no races: says so, with the estimate per class from the lap length, marked est.; forum down: no section (#76)", () => {
+    answers.set("/api/class-speeds", { data: { classes: SPEEDS }, loading: false });
+    const t = text(page(can(), { lapLength: 94.9 }));
+    expect(t).toContain("Lap times");
+    expect(t).toContain("No races on this layout yet");
+    expect(t).toContain("2WD Buggy ≈ 14.6 s est.");
+    expect(t).toContain("4WD Buggy ≈ 13.6 s est.");
+    const down = text(page(can(), {}, doc, undefined, null));
+    expect(down).not.toContain("Lap times");
+    expect(down).not.toContain("No races on this layout yet");
+  });
+
   it("an unlocked layout shows no lock note", () => {
     expect(text(page(can({ edit: true }), { status: "draft" }))).not.toContain("Locked");
   });
@@ -615,9 +692,36 @@ describe("header", () => {
   });
 });
 
+describe("class speeds (#76)", () => {
+  const as = (organiser: boolean, node: ReactNode) =>
+    renderToStaticMarkup(
+      <SessionContext.Provider value={{ ...session(organiser), config: FORUM }}>
+        <MemoryRouter initialEntries={["/lap-speeds"]}>{node}</MemoryRouter>
+      </SessionContext.Provider>,
+    );
+
+  it("organisers get a Lap speeds link in the header; members don't", () => {
+    expect(as(true, <Header />)).toMatch(/<a [^>]*href="\/lap-speeds"[^>]*>Lap speeds<\/a>/);
+    expect(as(false, <Header />)).not.toContain("Lap speeds");
+  });
+
+  it("organisers edit the speeds; members read them", () => {
+    answers.set("/api/class-speeds", { data: { classes: SPEEDS }, loading: false });
+    const org = as(true, <LapSpeeds />);
+    expect(org).toMatch(/<input [^>]*aria-label="Class 1 name"[^>]*value="2WD Buggy"/);
+    expect(org).toMatch(/<input [^>]*aria-label="2WD Buggy speed in metres per second"[^>]*value="6.5"/);
+    expect(text(org)).toContain("Save speeds");
+    expect(text(org)).toContain("Add a class");
+    const member = as(false, <LapSpeeds />);
+    expect(member).not.toContain("<input");
+    expect(text(member)).toContain("2WD Buggy 6.5 m/s");
+    expect(text(member)).toContain("track-admins");
+  });
+});
+
 describe("styles", () => {
   const css = readFileSync(join(WEB, "src/styles.css"), "utf8");
-  const tsx = ["src/components/Header.tsx", "src/components/TrackCard.tsx", "src/components/bits.tsx", "src/components/states.tsx", "src/components/LibraryResults.tsx", "src/components/ChecksList.tsx", "src/components/FitPanel.tsx", "src/pages/Library.tsx", "src/pages/TrackPage.tsx", "src/pages/NotFound.tsx"];
+  const tsx = ["src/components/Header.tsx", "src/components/TrackCard.tsx", "src/components/bits.tsx", "src/components/states.tsx", "src/components/LibraryResults.tsx", "src/components/ChecksList.tsx", "src/components/FitPanel.tsx", "src/pages/Library.tsx", "src/pages/TrackPage.tsx", "src/pages/NotFound.tsx", "src/pages/LapSpeeds.tsx"];
 
   it("every ts- class the library and track page use is styled", () => {
     const used = new Set(tsx.flatMap((f) => [...readFileSync(join(WEB, f), "utf8").matchAll(/\bts-[a-z0-9-]+(?:__[a-z0-9-]+)?(?:--[a-z0-9-]+)?/g)].map((m) => m[0].replace(/-+$/, "")))); // ts-badge--${status} → ts-badge
