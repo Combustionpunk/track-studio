@@ -146,3 +146,27 @@ describe("print palette", () => {
     expect(svg).toMatch(new RegExp(`class="p-area"[^>]*stroke="${PRINT_PALETTE["print-ink"]}"`));
   });
 });
+
+describe("crossovers on the build sheet (#51)", () => {
+  const extra = (name: string) => readJson<RcTrack>(allTracks.find((t) => t.name === `${name}.rctrack.json`)!.path);
+
+  it("lists each crossover: where it is from the south-west corner, which pass goes over and its size", () => {
+    const doc = extra("crossover-figure8");
+    expect(buildSheet(doc).crossovers).toEqual([
+      { number: 1, feature: 0, x: 0, z: 0, fromWest: 12, fromSouth: 8, over: "first", length: 8, ramp: 2, top: 4, height: 0.4 },
+    ]);
+  });
+
+  it("numbers several in driving order from the start line; one that bridges nothing has no over pass", () => {
+    const two = buildSheet(extra("two-crossings")).crossovers;
+    expect(two.map((c) => [c.number, c.feature, c.over])).toEqual([[1, 0, "first"], [2, 1, "first"]]);
+    expect(two.map((c) => c.fromWest)).toEqual([8, 14]);
+    expect(buildSheet(extra("crossover-low-figure8")).crossovers[0]).toMatchObject({ over: null, height: 0.3 });
+    expect(buildSheet(extra("crossover-unused-figure8")).crossovers.some((c) => c.over === null)).toBe(true);
+  });
+
+  it("no crossovers: an empty list (a tabletop bridge stays with the jumps)", () => {
+    expect(buildSheet(ex("club-a.rctrack.json")).crossovers).toEqual([]);
+    expect(buildSheet(extra("tabletop-figure8")).crossovers).toEqual([]);
+  });
+});

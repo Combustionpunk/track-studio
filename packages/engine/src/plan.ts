@@ -5,7 +5,7 @@
 // Units are metres, SVG y = -z (north up). Lines that should look the same at any zoom (grid, racing line, outlines)
 // are sized in screen pixels via `px`, the size of one output pixel in metres.
 import { drawingArea, rostrumPosition } from "./bake.js";
-import type { Area, Built, BuiltFeature, Obstacle, Point2, RcTrack, Side } from "./types.js";
+import type { Area, Built, BuiltFeature, Crossing, Obstacle, Point2, RcTrack, Side } from "./types.js";
 
 /** The fixed plan palette: tokens.json's plan-* colours (a test keeps them equal). */
 export const PLAN_PALETTE = {
@@ -253,6 +253,88 @@ function arrows(line: Built["racingLine"], every = 8): { x: number; z: number; h
   return out;
 }
 
+// ---------------------------------------------------------------------------------------------------- crossings (v1.6)
+
+/** Where a pass is at lap distance `d`: point, unit direction and lane width, from the exported racing line. */
+function passAt(line: Built["racingLine"], s: number[], total: number, d: number): { p: Point2; t: Point2; w: number } {
+  const len = line.length;
+  const dd = ((d % total) + total) % total;
+  let i = 0;
+  while (i + 1 < len && s[i + 1] <= dd) i++;
+  const a = line[i], b = line[(i + 1) % len];
+  const seg = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  const u = Math.min(1, Math.max(0, (dd - s[i]) / seg));
+  return { p: [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u], t: [(b[0] - a[0]) / seg, (b[1] - a[1]) / seg], w: a[2] };
+}
+
+/** Both passes of a crossing, first then second. */
+function passes(built: Built, c: Crossing, s: number[], total: number) {
+  return c.distances.map((d) => passAt(built.racingLine, s, total, d));
+}
+
+/**
+ * Where the two lanes of a crossing overlap: the parallelogram the even-odd carpet leaves empty (a hair bigger, so no
+ * seam shows).
+ */
+function overlap(c: Crossing, [p1, p2]: { t: Point2; w: number }[]): Point2[] {
+  const sin = Math.max(Math.abs(p1.t[0] * p2.t[1] - p1.t[1] * p2.t[0]), 0.1);
+  const a = (p2.w / 2 + 0.02) / sin, b = (p1.w / 2 + 0.02) / sin; // along the first pass, along the second
+  const at = (u: number, v: number): Point2 => [c.x + p1.t[0] * u + p2.t[0] * v, c.z + p1.t[1] * u + p2.t[1] * v];
+  return [at(-a, -b), at(a, -b), at(a, b), at(-a, b)];
+}
+
+/** The part of the line through `p` along `t` inside the convex polygon `q` (Cyrus-Beck), or null. */
+function clipLine(p: Point2, t: Point2, q: Point2[]): [Point2, Point2] | null {
+  let lo = -Infinity, hi = Infinity;
+  // inward normals for either winding
+  const area = q.reduce((sum, a, k) => sum + a[0] * q[(k + 1) % q.length][1] - q[(k + 1) % q.length][0] * a[1], 0);
+  const sign = area > 0 ? 1 : -1;
+  for (let k = 0; k < q.length; k++) {
+    const a = q[k], b = q[(k + 1) % q.length];
+    const nx = -(b[1] - a[1]) * sign, nz = (b[0] - a[0]) * sign;
+    const num = (p[0] - a[0]) * nx + (p[1] - a[1]) * nz; // >= 0 inside
+    const den = t[0] * nx + t[1] * nz;
+    if (Math.abs(den) < 1e-12) {
+      if (num < 0) return null;
+      continue;
+    }
+    const u = -num / den;
+    if (den > 0) lo = Math.max(lo, u);
+    else hi = Math.min(hi, u);
+  }
+  if (!(hi > lo)) return null;
+  return [[p[0] + t[0] * lo, p[1] + t[1] * lo], [p[0] + t[0] * hi, p[1] + t[1] * hi]];
+}
+
+/**
+ * A bridged crossing, over everything else on the track: the bridge (its jump), the under pass's lane edges dashed
+ * across it (hidden beneath), the over pass's pipes along its sides, and the footprint outlined.
+ */
+function drawBridge(built: Built, c: Crossing, s: number[], total: number, px: number, tips: boolean, P: Palette, print: boolean, id: string): string {
+  const f = built.features[c.bridge!.feature];
+  const q = c.footprint!;
+  const under = passes(built, c, s, total)[c.over === "first" ? 1 : 0];
+  const nrm: Point2 = [-under.t[1], under.t[0]];
+  const edges = [-1, 1].flatMap((side) => clipLine([c.x + nrm[0] * side * (under.w / 2), c.z + nrm[1] * side * (under.w / 2)], under.t, q) ?? []);
+  // the over pass's pipes: the footprint's long sides (0-1 and 3-2), out by half a pipe (the bridge is the lane less a pipe)
+  const [a, b, cc, d] = q;
+  const across = Math.hypot(a[0] - d[0], a[1] - d[1]) || 1;
+  const out: Point2 = [(a[0] - d[0]) / across, (a[1] - d[1]) / across];
+  const shift = (p: Point2, k: number): Point2 => [p[0] + out[0] * (PIPE_THICKNESS / 2) * k, p[1] + out[1] * (PIPE_THICKNESS / 2) * k];
+  const pipeW = Math.max(PIPE_THICKNESS, 1.5 * px);
+  const seg = ([p, r]: Point2[]) => `M${pt(...p)} L${pt(...r)}`;
+  const o: string[] = [`<g class="p-crossing" data-bridge="${c.bridge!.type}" data-over="${c.over}"${tips ? ` data-tip="f${c.bridge!.feature}"` : ""}>`];
+  if (f) o.push(drawJump(f, c.bridge!.feature, px, false, P, print, id));
+  if (edges.length === 4)
+    o.push(
+      `<path class="p-under" d="${seg(edges.slice(0, 2))} ${seg(edges.slice(2))}" fill="none" stroke="${P["plan-pipe"]}" stroke-width="${n(Math.max(0.03, 1.5 * px))}" stroke-dasharray="${n(Math.max(0.15, 5 * px))} ${n(Math.max(0.1, 3 * px))}" stroke-linecap="butt"/>`,
+    );
+  o.push(`<path class="p-over" d="${seg([shift(a, 1), shift(b, 1)])} ${seg([shift(d, -1), shift(cc, -1)])}" fill="none" stroke="${P["plan-pipe"]}" stroke-width="${n(pipeW)}" stroke-linecap="round"/>`);
+  o.push(`<path class="p-bridge" d="${path(q, true)}" fill="none" stroke="${P["plan-jump-edge"]}" stroke-width="${n(1.5 * px)}" stroke-linejoin="round"/>`);
+  o.push("</g>");
+  return o.join("");
+}
+
 // ---------------------------------------------------------------------------------------------------- the layers
 
 /** The plan's contents (no <svg> wrapper): for the web plan, which adds its own view, controls and overlays. */
@@ -268,6 +350,11 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
   const L = area.length, W = area.width;
   const hair = n(px);
   const o: string[] = [];
+  const crossings = built?.crossings ?? [];
+  const lap = built && crossings.length ? along(built.racingLine) : [];
+  const lapTotal = built && lap.length ? lap[lap.length - 1] + Math.hypot(built.racingLine[0][0] - built.racingLine[built.racingLine.length - 1][0], built.racingLine[0][1] - built.racingLine[built.racingLine.length - 1][1]) : 0;
+  const bridged = crossings.filter((c) => c.bridge && c.footprint && built?.features[c.bridge.feature]);
+  const bridges = new Set(bridged.map((c) => c.bridge!.feature));
 
   // patterns: carpet texture (fine fibres) and the rostrum hatch, sized so they never get finer than a few pixels
   if (opts.background !== false) {
@@ -320,6 +407,12 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
       for (const paint of print ? [P["plan-carpet"]] : [P["plan-carpet"], `url(#${id}-carpet-tex)`])
         o.push(`<g class="p-carpet" fill="none" stroke="${paint}" stroke-linejoin="round" stroke-linecap="round">${runs.map((r) => `<path d="${r.d}" stroke-width="${n(r.w)}"/>`).join("")}</g>`);
     }
+    // where the track crosses itself the even-odd carpet leaves the square both lanes cover empty: fill it in
+    for (const c of crossings) {
+      const d = path(overlap(c, passes(built, c, lap, lapTotal)), true);
+      o.push(`<path class="p-crossing-carpet" d="${d}" fill="${P["plan-carpet"]}"/>`);
+      if (!print) o.push(`<path class="p-crossing-carpet-tex" d="${d}" fill="url(#${id}-carpet-tex)"/>`);
+    }
   }
 
   // 1 m grid over the carpet, from the south-west corner (as the build sheet measures), every fifth line major
@@ -370,7 +463,8 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
   }
 
   if (layers.start && built) o.push(drawStart(built, px, tip("start"), P));
-  if (layers.features && built) built.features.forEach((f, i) => o.push(drawJump(f, i, px, tips, P, print, id)));
+  // a feature that bridges a crossing is drawn with it, over the pipes
+  if (layers.features && built) built.features.forEach((f, i) => bridges.has(i) || o.push(drawJump(f, i, px, tips, P, print, id)));
 
   // pipes at real thickness (at least 1.5 px), a core line inside shared ones
   if (layers.dividers && built) {
@@ -381,6 +475,9 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
       if (d.shared) o.push(`<path class="p-shared" d="${dd}" fill="none" stroke="${P["plan-pipe-shared"]}" stroke-width="${n(w * 0.45)}" stroke-linejoin="round" stroke-linecap="round"/>`);
     }
   }
+
+  // bridges: the over pass on top of the under pass's pipes
+  if (layers.features && built) for (const c of bridged) o.push(drawBridge(built, c, lap, lapTotal, px, tips, P, print, id));
 
   const r = scene.rostrum;
   if (layers.rostrum && r) {

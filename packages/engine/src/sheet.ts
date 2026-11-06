@@ -41,6 +41,24 @@ export interface SheetJump extends FromSouthWest {
   height: number;
 }
 
+/** A crossover (v1.6), as the sheet lists it. */
+export interface SheetCrossover extends FromSouthWest {
+  /** 1, 2, … in driving order from the start line */
+  number: number;
+  /** index into design.features / built.features */
+  feature: number;
+  x: number;
+  z: number;
+  /** the pass that goes over, in driving order from the start line; null when it bridges no crossing */
+  over: "first" | "second" | null;
+  length: number;
+  /** each ramp, along the over pass */
+  ramp: number;
+  /** the flat top */
+  top: number;
+  height: number;
+}
+
 export type Compass = "east" | "north-east" | "north" | "north-west" | "west" | "south-west" | "south" | "south-east";
 
 export interface BuildSheet {
@@ -54,6 +72,7 @@ export interface BuildSheet {
   laneWidth: { min: number; max: number };
   pipe: { length: number; runs: number };
   jumps: SheetJump[];
+  crossovers: SheetCrossover[];
   start: FromSouthWest & { x: number; z: number; heading: Compass };
   direction: "clockwise" | "anticlockwise";
 }
@@ -93,9 +112,42 @@ export function buildSheet(doc: Pick<RcTrack, "area" | "design" | "built">): Bui
     laneWidth: { min: Math.min(...widths), max: Math.max(...widths) },
     pipe: { length: b.stats.dividerLength, runs: b.stats.dividerRuns },
     jumps: b.features.map((f) => ({ type: f.type, x: f.x, z: f.z, length: f.length, height: f.height, ...fromSouthWest(area, f.x, f.z) })),
+    crossovers: crossovers(doc, area),
     start: { x: b.startLine.x, z: b.startLine.z, heading: compass(b.startLine.heading), ...fromSouthWest(area, b.startLine.x, b.startLine.z) },
     direction: twice < 0 ? "clockwise" : "anticlockwise",
   };
+}
+
+/** The crossovers, in driving order from the start line, each with the pass it puts over (from built.crossings). */
+function crossovers(doc: Pick<RcTrack, "design" | "built">, area: Area): SheetCrossover[] {
+  const b = doc.built!;
+  const start = doc.design.start?.distance ?? 0;
+  const lap = b.lapLength || 1;
+  const order = (d: number) => (((d - start) % lap) + lap) % lap;
+  const design = doc.design.features ?? [];
+  // where each one stands: on the over pass of the crossing it bridges, else at its own distance
+  const at = (i: number) => {
+    const c = b.crossings?.find((k) => k.bridge?.feature === i);
+    return c?.over ? c.distances[c.over === "first" ? 0 : 1] : design[i]?.distance ?? 0;
+  };
+  return b.features
+    .flatMap((f, i) => (f.type === "crossover" ? [{ f, i }] : []))
+    .sort((p, q) => order(at(p.i)) - order(at(q.i)))
+    .map(({ f, i }, k) => {
+      const ramp = f.profile[1]?.[0] ?? 0;
+      return {
+        number: k + 1,
+        feature: i,
+        x: f.x,
+        z: f.z,
+        ...fromSouthWest(area, f.x, f.z),
+        over: b.crossings?.find((c) => c.bridge?.feature === i)?.over ?? null,
+        length: f.length,
+        ramp,
+        top: Math.round(((f.profile[2]?.[0] ?? ramp) - ramp) * 1000) / 1000,
+        height: f.height,
+      };
+    });
 }
 
 /**
