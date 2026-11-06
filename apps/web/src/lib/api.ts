@@ -110,6 +110,8 @@ export interface VenueSummary {
   id: string;
   name: string;
   forumVenueId: number | null;
+  /** the forum track this template is for; null on templates saved before rcvenue 1.1 */
+  forumTrackId: number | null;
   ownerId: number;
   revision: number;
   /** tracks drawn on this venue (any revision), archived ones not counted */
@@ -158,6 +160,8 @@ export class ApiError extends Error {
     public status: number,
     public code: string,
     message: string,
+    /** the error's `details`, e.g. the existing template on a 409 forum-track-taken */
+    public details?: unknown,
   ) {
     super(message);
   }
@@ -174,8 +178,8 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   const text = await res.text();
   const body = text ? (JSON.parse(text) as unknown) : null;
   if (!res.ok) {
-    const e = (body ?? {}) as { error?: string; message?: string };
-    throw new ApiError(res.status, e.error ?? "error", e.message ?? `Request failed (${res.status})`);
+    const e = (body ?? {}) as { error?: string; message?: string; details?: unknown };
+    throw new ApiError(res.status, e.error ?? "error", e.message ?? `Request failed (${res.status})`, e.details);
   }
   return body as T;
 }

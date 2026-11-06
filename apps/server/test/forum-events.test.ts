@@ -2,7 +2,7 @@ import type { RcTrack } from "@track-studio/engine";
 import type { FastifyInstance } from "fastify";
 import { describe, expect, it } from "vitest";
 import { ForumEvents, usedAt } from "../src/forum-events.js";
-import { ALICE, FORUM_URL, login, makeApp, ORGANISER, referenceJson } from "./helpers.js";
+import { ALICE, BOB, FORUM_URL, login, makeApp, ORGANISER, referenceJson } from "./helpers.js";
 
 const CLUB_A = "7c002509-b640-5e9d-8e79-0ae336a2ae04";
 const FREEFORM = "3b542396-6bd2-55e8-8665-852e74dc54a9";
@@ -221,6 +221,25 @@ describe("a layout used by an event is locked (#64, #66)", () => {
     const res = await req(app, "PUT", `/api/tracks/${id}`, alice, { track: created.doc });
     expect(res.statusCode).toBe(409);
     expect(res.json().details.reason).toBe("event");
+  });
+
+  it("PUT checks who may edit before asking the forum: someone else's or an archived track never triggers a forum call", async () => {
+    const f = forum({});
+    const { app } = await makeApp({ seeded: true, forumFetch: f.fetch });
+    const alice = await login(app, ALICE);
+    const bob = await login(app, BOB);
+    const created = (await req(app, "POST", "/api/tracks", alice, { track: referenceJson<RcTrack>("examples/freeform-example.rctrack.json") })).json();
+    const id = created.track.id as string;
+    const before = f.calls.length;
+    expect((await req(app, "PUT", `/api/tracks/${id}`, bob, { track: created.doc })).statusCode).toBe(403);
+    expect(f.calls).toHaveLength(before);
+    expect((await req(app, "POST", `/api/tracks/${id}/archive`, await login(app, ORGANISER))).statusCode).toBe(200);
+    expect((await req(app, "PUT", `/api/tracks/${id}`, alice, { track: created.doc })).statusCode).toBe(409);
+    expect(f.calls).toHaveLength(before);
+    // the author still gets the fresh check
+    const draft = (await req(app, "POST", "/api/tracks", alice, { track: referenceJson<RcTrack>("examples/freeform-example.rctrack.json") })).json();
+    expect((await req(app, "PUT", `/api/tracks/${draft.track.id}`, alice, { track: draft.doc })).statusCode).toBe(200);
+    expect(f.calls.filter((u) => u.includes(`/des/layouts/${draft.track.id}/`))).toHaveLength(1);
   });
 
   it("forum down: the lock falls back to the library lock, so a draft still saves", async () => {

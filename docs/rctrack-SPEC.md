@@ -156,16 +156,23 @@ engine); changing it means changing both and re-baking stored tracks.
 `examples/*.rctrack.json` are fixtures: a TypeScript or C# port must reproduce their `built` sections (within 1 cm).
 
 ## Venue templates (`.rcvenue.json`)
-The hall: `{format: "rcvenue", version: 1, id, revision, info: {name, venue: {id, name}, notes}, area: {length, width},
-rostrum: {side, offset}, obstacles: [...]}`. `area` is the usable track area in metres, origin at its centre; `rostrum`
-stands 1.5 m outside the middle of its `side` (north/south/east/west), moved `offset` metres along it, eyes 2.8 m up;
-`obstacles` are fixed items inside the area: `{type: "circle", x, z, radius, label}` or `{type: "rect", x, z, length,
-width, rotation?, label}`. Created by a club organiser in Track Studio; the forum venue record links to it.
+The hall: `{format: "rcvenue", version: 1, id, revision, info: {name, venue: {id, name, trackId, trackName}, notes},
+area: {length, width}, rostrum: {side, offset}, obstacles: [...]}`. `area` is the usable track area in metres, origin at
+its centre; `rostrum` stands 1.5 m outside the middle of its `side` (north/south/east/west), moved `offset` metres along
+it, eyes 2.8 m up; `obstacles` are fixed items inside the area: `{type: "circle", x, z, radius, label}` or `{type: "rect",
+x, z, length, width, rotation?, label}`. Created by a club organiser in Track Studio. `info.venue` links the template to
+one forum venue (`id`, `name`) and one of its tracks (`trackId`, `trackName`), since a forum venue can have several (an
+indoor carpet track and an outdoor tarmac one); at most one template per forum track.
 
 A template is used for two things only *(v1.7)*:
 1. **Starting a new layout:** the designer shows the template's area and obstacles as a guide while drawing. They are
    not saved into the layout; the layout keeps the area as its drawing `area` and the template as `info.drawnFor`.
 2. **Checking a layout against the venue:** the fit search and venue checks below.
+
+rcvenue changes:
+- **1.1** — `info.venue` gains `trackId` and `trackName`: the forum track the template is for. `version` stays `1`;
+  1.0 files (`{id, name}` only) still load, and Track Studio asks for the track the next time one is edited. New
+  templates linked to a forum venue must name the track.
 
 ## Fit search (reference: `fit.py`)
 For a track and a venue template: try 8 orientations (as designed, mirrored, rotated 90/180/270, mirrored + rotated),

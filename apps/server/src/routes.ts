@@ -4,8 +4,10 @@ import type { DB } from "./db.js";
 import { requireOrganiser, requireUser } from "./auth.js";
 import { badRequest, notFound } from "./errors.js";
 import { usedAt, type ForumEvents } from "./forum-events.js";
+import { assertTrackAtVenue, searchForumVenues, type ForumVenues } from "./forum-venues.js";
 import {
   adaptTrack,
+  assertCanChange,
   changeStatus,
   copyTrack,
   createTrack,
@@ -15,6 +17,7 @@ import {
   getTrackRow,
   getVenueDoc,
   getVenueRow,
+  getVenueRowByForumTrack,
   listRevisions,
   listTracks,
   listVenueRevisions,
@@ -27,6 +30,7 @@ import {
   updateTrack,
   updateVenue,
   venuePermissions,
+  venueFromBody,
   venueSummary,
   type ListQuery,
   type StatusAction,
@@ -48,7 +52,7 @@ function revisionParam(v: string): number {
 
 const slug = (s: string) => s.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 60) || "track";
 
-export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumEvents): void {
+export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumEvents, forumVenues: ForumVenues): void {
   /**
    * A forum event uses the layout (#66), so it's locked (#64). Asked fresh: an event may have picked it since the page
    * loaded. Unknown while the forum is down (the last answer, else not locked: events only pick library layouts, which
@@ -106,7 +110,9 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
   app.put("/api/tracks/:id", async (req) => {
     const user = requireUser(req);
     const { id } = req.params as { id: string };
-    getTrackRow(db, id); // 404 before asking the forum
+    // 404, 403 and archived before asking the forum: only someone who may edit it triggers a forum call
+    const row = getTrackRow(db, id);
+    assertCanChange(user, row);
     return updateTrack(db, user, id, req.body, await usedByEvent(id));
   });
 
@@ -175,7 +181,22 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
   });
 
   // ---------------------------------------------------------------- venues
-  app.get("/api/venues", async () => ({ venues: listVenues(db) }));
+  // ?forumTrack=<id>: the template for that forum track (the forum plugin's layout picker asks, from any origin)
+  app.get("/api/venues", async (req, reply) => {
+    const { forumTrack } = req.query as { forumTrack?: string };
+    if (forumTrack === undefined) return { venues: listVenues(db) };
+    reply.header("access-control-allow-origin", "*");
+    if (!/^\d{1,9}$/.test(forumTrack)) throw notFound("Venue template for that forum track");
+    const row = getVenueRowByForumTrack(db, Number(forumTrack));
+    return { venue: venueSummary(row), doc: getVenueDoc(db, row.id) };
+  });
+
+  // the forum's venues and their tracks, for the venue editor's picker
+  app.get("/api/forum-venues", async (req) => {
+    const { q } = req.query as { q?: string };
+    const list = await forumVenues.list();
+    return { ...list, venues: searchForumVenues(list.venues, typeof q === "string" ? q : undefined) };
+  });
 
   app.get("/api/venues/:id", async (req) => {
     const { id } = req.params as { id: string };
@@ -194,7 +215,27 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 1));
   });
 
-  app.post("/api/venues", async (req, reply) => reply.code(201).send(createVenue(db, requireOrganiser(req), req.body)));
+  // a forum link that's new or changed: its track must be one of that forum venue's tracks (a link saved earlier stays,
+  // even if the forum has since dropped the track)
+  const checkForumLink = async (body: unknown, before?: { id?: unknown; trackId?: unknown }) => {
+    const info = venueFromBody(body).info;
+    const link = typeof info === "object" && info !== null ? (info as { venue?: unknown }).venue : undefined;
+    if (typeof link !== "object" || link === null) return;
+    const { id, trackId } = link as { id?: unknown; trackId?: unknown };
+    if (trackId === undefined || (before && before.id === id && before.trackId === trackId)) return;
+    await assertTrackAtVenue(forumVenues, { id, trackId });
+  };
 
-  app.put("/api/venues/:id", async (req) => updateVenue(db, requireOrganiser(req), (req.params as { id: string }).id, req.body));
+  app.post("/api/venues", async (req, reply) => {
+    const user = requireOrganiser(req);
+    await checkForumLink(req.body);
+    return reply.code(201).send(createVenue(db, user, req.body));
+  });
+
+  app.put("/api/venues/:id", async (req) => {
+    const user = requireOrganiser(req);
+    const { id } = req.params as { id: string };
+    await checkForumLink(req.body, getVenueDoc(db, id).info.venue ?? undefined);
+    return updateVenue(db, user, id, req.body);
+  });
 }

@@ -15,7 +15,7 @@ async function setup() {
 
 /** What the venue editor sends for a new venue: no id, revision or format fields. */
 const newVenue = () => ({
-  info: { name: "Misfits Main Hall", venue: { id: 12 }, notes: "Pillar by the door" },
+  info: { name: "Misfits Main Hall", venue: { id: 12, name: "Misfits Main Hall", trackId: 31, trackName: "Indoor carpet" }, notes: "Pillar by the door" },
   area: { length: 22, width: 12 },
   rostrum: { side: "south", offset: -4 },
   obstacles: [
@@ -32,7 +32,9 @@ describe("venue editing permissions", () => {
     expect((await req(app, "POST", "/api/venues", alice, newVenue())).statusCode).toBe(403);
     expect((await req(app, "PUT", "/api/venues/venue-1", alice, newVenue())).statusCode).toBe(403);
     expect((await req(app, "POST", "/api/venues", org, newVenue())).statusCode).toBe(201);
-    expect((await req(app, "PUT", "/api/venues/venue-1", admin, newVenue())).statusCode).toBe(200);
+    // another template, so another forum track (one template per track, #65)
+    const other = { ...newVenue(), info: { name: "Club hall", venue: { id: 1, name: "Club hall", trackId: 7, trackName: "Carpet" } } };
+    expect((await req(app, "PUT", "/api/venues/venue-1", admin, other)).statusCode).toBe(200);
   });
 
   it("GET /api/venues/:id says who may edit", async () => {
