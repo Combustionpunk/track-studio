@@ -35,6 +35,7 @@ const { LibraryResults } = await import("../src/components/LibraryResults.js");
 const { checksSummary } = await import("../src/components/ChecksList.js");
 const { Library } = await import("../src/pages/Library.js");
 const { TrackPage } = await import("../src/pages/TrackPage.js");
+const { EditTrackPage } = await import("../src/designer/pages.js");
 const { VenuePage } = await import("../src/pages/Venues.js");
 const fmt = await import("../src/lib/format.js");
 const { SessionContext } = await import("../src/lib/session.js");
@@ -69,6 +70,7 @@ const summary = (over: Partial<TrackSummary> = {}): TrackSummary => ({
   newerRevision: null,
   errors: 0,
   derivedFrom: null,
+  locked: "library",
   latestPreviewUrl: "/p/winter-3/4.png",
   lapLength: 38.43,
   corners: 12,
@@ -315,7 +317,7 @@ describe("track page", () => {
     { revision: 2, createdAt: "2026-10-01T10:00:00Z", createdBy: { id: 999, username: null }, note: "imported", status: "draft", previewUrl: "", downloadUrl: "/d/2" },
   ];
   const page = (c: Permissions, over: Partial<TrackSummary> = {}, d: RcTrack = doc) => {
-    const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, ...over }), doc: d, can: c };
+    const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, locked: null, ...over }), doc: d, can: c };
     answers.set("/api/tracks/winter-3", { data: res, loading: false });
     answers.set("/api/tracks/winter-3/revisions", { data: { revisions }, loading: false });
     return html(<TrackPage />, "/t/winter-3");
@@ -407,6 +409,38 @@ describe("track page", () => {
     expect(h).toMatch(/class="ts-btn ts-btn--primary"[^>]*>Submit revision 4</);
     expect(h).toMatch(/class="ts-btn ts-btn--danger"[^>]*>Archive</);
     expect(h.match(/ts-btn--primary/g)).toHaveLength(1);
+  });
+
+  it("a locked layout: Copy and edit is the primary action where Edit was, and the lock is explained (#64)", () => {
+    const h = page(can({ copy: true, archive: true }), { status: "approved", approvedRevision: 4, locked: "library" });
+    const t = text(h);
+    expect(h).toMatch(/<div class="ts-actions"[^>]*><button type="button" class="ts-btn ts-btn--primary"[^>]*>Copy and edit</);
+    expect(h.match(/ts-btn--primary/g)).toHaveLength(1);
+    expect(t).toContain("Locked: in the library");
+    for (const no of ["Make my own copy", "Submit revision", "Approve revision"]) expect(t).not.toContain(no);
+    expect(h).not.toContain('href="/t/winter-3/edit"');
+    expect(t).toContain("Archive");
+    expect(text(page(can({ copy: true }), { status: "approved", locked: "event" }))).toContain("Locked: used by an event");
+  });
+
+  it("opening the designer on a locked layout offers Copy and edit instead (#64)", () => {
+    page(can({ copy: true }), { status: "approved", approvedRevision: 4, locked: "library" });
+    const h = html(<EditTrackPage />, "/t/winter-3/edit");
+    expect(text(h)).toContain("This layout is in the library, so it can't be changed. Copy it and edit the copy");
+    expect(h).toMatch(/<button type="button" class="btn btn-primary"[^>]*>Copy and edit</);
+    page(can({ copy: true }), { status: "draft", locked: null });
+    expect(text(html(<EditTrackPage />, "/t/winter-3/edit"))).toContain("Make my own copy");
+  });
+
+  it("an unlocked layout shows no lock note", () => {
+    expect(text(page(can({ edit: true }), { status: "draft" }))).not.toContain("Locked");
+  });
+
+  it("a copy says Based on <original>, linked (#64)", () => {
+    const d = { ...doc, info: { ...doc.info, derivedFrom: { id: "club-a", revision: 2, author: "yeti" } } };
+    const h = page(can({ edit: true }), { status: "draft", derivedFrom: { id: "club-a", name: "Club A", author: "yeti" } }, d);
+    expect(h).toMatch(/Based on <a href="\/t\/club-a"[^>]*>Club A<\/a>/);
+    expect(text(h)).toContain("Based on Club A by yeti (revision 2)");
   });
 
   it("an organiser approves; with errors, Submit and Approve are disabled and the reason is shown beside them", () => {

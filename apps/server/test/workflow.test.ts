@@ -1,4 +1,4 @@
-// Designer-era rules: approved revisions stay public, errors block submitting, copies, stale saves.
+// Designer-era rules: approved tracks are locked and their approved revision stays public, errors block submitting, copies, stale saves.
 import type { RcTrack } from "@track-studio/engine";
 import type { FastifyInstance } from "fastify";
 import { describe, expect, it } from "vitest";
@@ -16,11 +16,23 @@ async function setup() {
 }
 
 describe("approved tracks are protected", () => {
-  it("editing an approved track adds a newer draft; the approved revision stays public", async () => {
+  it("an approved track is locked; changes go on a copy (#64)", async () => {
     const { app, alice, org } = await setup();
     const { track } = (await send(app, "POST", "/api/tracks", alice, { track: freeform() })).json();
     await send(app, "POST", `/api/tracks/${track.id}/submit`, alice);
     await send(app, "POST", `/api/tracks/${track.id}/approve`, org);
+    const res = await send(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform(), baseRevision: 1 });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: "layout-locked", message: expect.stringContaining("Copy it") });
+  });
+
+  it("a track approved before #64 with a newer draft: the approved revision stays public", async () => {
+    const { app, alice, org } = await setup();
+    const { track } = (await send(app, "POST", "/api/tracks", alice, { track: freeform() })).json();
+    await send(app, "POST", `/api/tracks/${track.id}/submit`, alice);
+    await send(app, "POST", `/api/tracks/${track.id}/approve`, org);
+    // what an edit of an approved track used to do: back to draft, approved revision pinned
+    app.db.prepare("UPDATE tracks SET status = 'draft' WHERE id = ?").run(track.id);
     const v2 = freeform();
     v2.info.name = "Freeform, longer straight";
     v2.design.points[3].radius = 2.5; // still inside the area (no errors)
@@ -139,7 +151,8 @@ describe("make my own copy", () => {
   it("permissions tell the UI what to show", async () => {
     const { app, bob, org } = await setup();
     expect((await send(app, "GET", `/api/tracks/${CLUB_A}`, bob)).json().can).toEqual({ edit: false, submit: false, approve: false, archive: false, adapt: true, copy: true });
-    expect((await send(app, "GET", `/api/tracks/${CLUB_A}`, org)).json().can).toMatchObject({ edit: true, approve: false, archive: true });
+    // approved (in the library), so locked even for organisers
+    expect((await send(app, "GET", `/api/tracks/${CLUB_A}`, org)).json().can).toMatchObject({ edit: false, approve: false, archive: true, copy: true });
     expect((await send(app, "GET", `/api/tracks/${CLUB_A}`)).json().can).toMatchObject({ edit: false, copy: false });
   });
 });
