@@ -209,7 +209,13 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
       return cached;
     };
     template = async () => current().html;
-    version = () => current().version;
+    version = () => {
+      try {
+        return current().version;
+      } catch {
+        return cached.version; // index.html is missing while a build replaces it: keep the last one
+      }
+    };
     await app.register(fastifyStatic, {
       root: web.dist,
       prefix: "/",

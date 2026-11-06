@@ -29,8 +29,8 @@ export function ErrorView({ error, updated }: { error: unknown; updated: boolean
           <button type="button" className="ts-btn ts-btn--primary" onClick={() => window.location.reload()}>
             {messages.reload}
           </button>
-          {/* a full load: the app that failed may be an old build */}
-          <Link to="/" reloadDocument className="ts-btn">
+          {/* a full load (the app that failed may be an old build), out of the forum's frame on the embed */}
+          <Link to="/" reloadDocument target="_top" className="ts-btn">
             {messages.backToLibrary}
           </Link>
         </div>

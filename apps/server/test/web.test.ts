@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -130,6 +130,18 @@ describe("app version (#88)", () => {
     expect((await app.inject({ method: "GET", url: "/api/config" })).headers["x-app-version"]).toBe("build-one");
     withVersion(web.dist, "build-two", 2000);
     expect((await app.inject({ method: "GET", url: "/api/config" })).headers["x-app-version"]).toBe("build-two");
+  });
+
+  it("index.html missing for a moment (a rebuild in place): the API keeps answering with the last version", async () => {
+    const web = fakeDist();
+    withVersion(web.dist, "build-one", 1000);
+    const { app } = await makeAppWithWeb(web);
+    expect((await app.inject({ method: "GET", url: "/api/config" })).headers["x-app-version"]).toBe("build-one");
+    rmSync(join(web.dist, "index.html"));
+    const res = await app.inject({ method: "GET", url: "/api/config" });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["x-app-version"]).toBe("build-one");
+    expect((await app.inject({ method: "GET", url: "/healthz" })).statusCode).toBe(200);
   });
 
   it("without a stamped build the version is dev", async () => {
