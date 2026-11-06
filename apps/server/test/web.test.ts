@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -99,6 +99,44 @@ describe("web app pages", () => {
   it("/api/config", async () => {
     const { app } = await makeApp({ config: { devLogin: true } });
     expect((await app.inject({ method: "GET", url: "/api/config" })).json()).toMatchObject({ devLogin: true, forumUrl: FORUM_URL });
+  });
+});
+
+describe("app version (#88)", () => {
+  const withVersion = (dist: string, version: string, mtime: number) => {
+    const file = join(dist, "index.html");
+    writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name="app-version" content="${version}"><title>Track Studio</title><!--app-head--></head><body><div id="root"><!--app-body--></div></body></html>`);
+    utimesSync(file, mtime, mtime);
+  };
+
+  it("every /api response and /healthz carry the served build's version", async () => {
+    const web = fakeDist();
+    withVersion(web.dist, "build-one", 1000);
+    const { app } = await makeAppWithWeb(web);
+    for (const url of ["/api/config", "/api/tracks", "/api/no-such-thing"]) {
+      expect((await app.inject({ method: "GET", url })).headers["x-app-version"], url).toBe("build-one");
+    }
+    const health = await app.inject({ method: "GET", url: "/healthz" });
+    expect(health.headers["x-app-version"]).toBe("build-one");
+    expect(health.json()).toEqual({ ok: true, version: "build-one" });
+    // pages and assets don't need it
+    expect((await app.inject({ method: "GET", url: "/favicon.svg" })).headers["x-app-version"]).toBeUndefined();
+  });
+
+  it("a rebuild changes the version without a restart", async () => {
+    const web = fakeDist();
+    withVersion(web.dist, "build-one", 1000);
+    const { app } = await makeAppWithWeb(web);
+    expect((await app.inject({ method: "GET", url: "/api/config" })).headers["x-app-version"]).toBe("build-one");
+    withVersion(web.dist, "build-two", 2000);
+    expect((await app.inject({ method: "GET", url: "/api/config" })).headers["x-app-version"]).toBe("build-two");
+  });
+
+  it("without a stamped build the version is dev", async () => {
+    const { app } = await makeAppWithWeb(fakeDist()); // index.html has no app-version meta
+    expect((await app.inject({ method: "GET", url: "/api/config" })).headers["x-app-version"]).toBe("dev");
+    const { app: off } = await makeApp();
+    expect((await off.inject({ method: "GET", url: "/healthz" })).json()).toEqual({ ok: true, version: "dev" });
   });
 });
 
