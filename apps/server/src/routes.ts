@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { DB } from "./db.js";
 import { requireOrganiser, requireUser } from "./auth.js";
 import { badRequest, notFound } from "./errors.js";
+import { usedAt, type ForumEvents } from "./forum-events.js";
 import {
   adaptTrack,
   changeStatus,
@@ -18,6 +19,7 @@ import {
   listTracks,
   listVenueRevisions,
   listVenues,
+  lockReason,
   permissions,
   publicRevision,
   tracksFitting,
@@ -46,7 +48,9 @@ function revisionParam(v: string): number {
 
 const slug = (s: string) => s.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 60) || "track";
 
-export function registerRoutes(app: FastifyInstance, db: DB): void {
+export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumEvents): void {
+  /** a forum event uses the layout (#66): it's locked (#64); unknown while the forum is down */
+  const usedByEvent = async (id: string) => ((await forumEvents.forLayout(id))?.length ?? 0) > 0;
   // ---------------------------------------------------------------- tracks
   app.get("/api/tracks", async (req) => {
     const q = req.query as Record<string, string | undefined>;
@@ -55,6 +59,7 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
     if (author !== undefined && author !== "" && author !== "me") throw badRequest("bad-request", "author must be me");
     const authorId = author === "me" ? requireUser(req).id : undefined;
     if (q.status && !STATUSES.includes(q.status)) throw badRequest("bad-request", `status must be one of ${STATUSES.join(", ")}`);
+    const racedAt = q.racedAt ? num(q.racedAt, "racedAt") : undefined;
     const filter: ListQuery = {
       status: q.status,
       venue: q.venue || undefined,
@@ -65,11 +70,13 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
       q: q.q || undefined,
       authorId,
     };
-    if (q.fits) {
-      const { status: _ignored, ...rest } = filter;
-      return { tracks: tracksFitting(db, q.fits, rest) };
-    }
-    return { tracks: listTracks(db, filter).map(trackSummary) };
+    const tracks = q.fits
+      ? tracksFitting(db, q.fits, (({ status: _ignored, ...rest }) => rest)(filter))
+      : listTracks(db, filter).map(trackSummary);
+    if (racedAt === undefined) return { tracks };
+    // "Raced at <venue>": the forum's events for each listed layout (cached); forum down -> none match
+    const events = await forumEvents.forLayouts(tracks.map((t) => t.id));
+    return { tracks: tracks.filter((t) => events.get(t.id)?.some((e) => e.venue?.id === racedAt)) };
   });
 
   app.post("/api/tracks", async (req, reply) => {
@@ -78,12 +85,25 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
   });
 
   // the public revision (approved ?? latest); editors load the latest with /r/:revision
+  // usedAt: where the forum says the layout was raced (#66); null when the forum can't be reached
   app.get("/api/tracks/:id", async (req) => {
     const row = getTrackRow(db, (req.params as { id: string }).id);
-    return { track: trackSummary(row), doc: getTrackDoc(db, row, publicRevision(row)), can: permissions(req.user, row) };
+    const events = await forumEvents.forLayout(row.id);
+    const used = !!events?.length;
+    return {
+      track: { ...trackSummary(row), locked: lockReason(row, used) },
+      doc: getTrackDoc(db, row, publicRevision(row)),
+      can: permissions(req.user, row, used),
+      usedAt: events && usedAt(events),
+    };
   });
 
-  app.put("/api/tracks/:id", async (req) => updateTrack(db, requireUser(req), (req.params as { id: string }).id, req.body));
+  app.put("/api/tracks/:id", async (req) => {
+    const user = requireUser(req);
+    const { id } = req.params as { id: string };
+    getTrackRow(db, id); // 404 before asking the forum
+    return updateTrack(db, user, id, req.body, await usedByEvent(id));
+  });
 
   app.get("/api/tracks/:id/revisions", async (req) => {
     const row = getTrackRow(db, (req.params as { id: string }).id);
@@ -129,6 +149,24 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
     const user = requireUser(req);
     const body = (req.body ?? {}) as { revision?: unknown };
     return reply.code(201).send(copyTrack(db, user, (req.params as { id: string }).id, typeof body.revision === "number" ? body.revision : undefined));
+  });
+
+  // the forum venues library layouts were raced at, for the library's "Raced at" filter (#66)
+  app.get("/api/raced-venues", async () => {
+    const ids = listTracks(db, { status: "approved" }).map((t) => t.id);
+    const events = await forumEvents.forLayouts(ids);
+    const venues = new Map<number, { id: number; name: string; layouts: number }>();
+    let known = 0;
+    for (const list of events.values()) {
+      if (list) known++;
+      for (const v of usedAt(list ?? []).venues) {
+        const seen = venues.get(v.id) ?? { ...v, layouts: 0 };
+        seen.layouts++;
+        venues.set(v.id, seen);
+      }
+    }
+    const list = [...venues.values()].sort((a, b) => b.layouts - a.layouts || a.name.localeCompare(b.name));
+    return ids.length && !known ? { venues: list, unavailable: true } : { venues: list };
   });
 
   // ---------------------------------------------------------------- venues

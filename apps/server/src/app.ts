@@ -6,6 +6,7 @@ import { registerAuth, requireOrganiser } from "./auth.js";
 import type { Config } from "./config.js";
 import { openDb, type DB } from "./db.js";
 import { HttpError } from "./errors.js";
+import { ForumEvents } from "./forum-events.js";
 import { previewFontFiles, SERVER_FONTS_DIR } from "./fonts.js";
 import { registerPreviews } from "./previews.js";
 import { registerRoutes } from "./routes.js";
@@ -18,6 +19,7 @@ declare module "fastify" {
     db: DB;
     config: Config;
     theme: ThemeSync;
+    forumEvents: ForumEvents;
   }
 }
 
@@ -28,6 +30,8 @@ export interface BuildOptions {
   web?: WebOptions;
   /** how the forum's colour scheme is fetched (tests stub it); sync starts with `app.theme.start()` */
   themeFetch?: typeof fetch;
+  /** how the forum's events for a layout are fetched ("Used at", #66; tests stub it) */
+  forumFetch?: typeof fetch;
 }
 
 /** Log the path only: query strings can carry login payloads (/auth/callback?sso=…). */
@@ -44,6 +48,8 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   app.decorate("config", config);
   const theme = new ThemeSync({ forumUrl: config.forumUrl, fetch: opts.themeFetch, log: app.log, cacheFile: join(config.dataDir, "theme-cache.json") });
   app.decorate("theme", theme);
+  const forumEvents = new ForumEvents({ forumUrl: config.forumUrl, fetch: opts.forumFetch, log: app.log });
+  app.decorate("forumEvents", forumEvents);
   // Inter and Oswald for the PNG previews (DejaVu Sans if they're missing)
   if (previewFontFiles().length === 1) app.log.warn({ dir: SERVER_FONTS_DIR }, "preview fonts missing; using DejaVu Sans");
   backfillRevisions(db); // summary columns for revisions saved before migration 003
@@ -75,7 +81,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   });
 
   registerAuth(app, config, db);
-  registerRoutes(app, db);
+  registerRoutes(app, db, forumEvents);
   registerPreviews(app, config, db, theme);
   await registerWeb(app, config, db, opts.web ?? { mode: "off", root: "", dist: "" });
   // compose's health check: the process is up and the database answers
