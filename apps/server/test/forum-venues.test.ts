@@ -3,15 +3,18 @@
 import { validateVenue, type RcTrack, type RcVenue } from "@track-studio/engine";
 import type { FastifyInstance } from "fastify";
 import { describe, expect, it, vi } from "vitest";
-import { ForumVenues, FORUM_VENUES_TTL_MS } from "../src/forum-venues.js";
+import { ForumVenues, FORUM_VENUES_TTL_MS, townFromAddress } from "../src/forum-venues.js";
+import { getUser } from "../src/auth.js";
+import { SYSTEM_USER_ID } from "../src/seed.js";
+import { createVenue } from "../src/store.js";
 import { FORUM_URL, login, makeApp, ORGANISER, referenceJson } from "./helpers.js";
 
-/** What the forum's GET /des/venues answers (more fields than Track Studio passes on). */
+/** What the forum's GET /des/venues answers (more fields than Track Studio passes on; the list has an address, no town). */
 const forumList = () => [
   {
     id: 12,
     name: "Misfits Main Hall",
-    town: "Leeds",
+    address: "Unit 4, Mill Lane, Leeds, LS1 4AB",
     status: "approved",
     contact_email: "not-for-us@example.test",
     tracks: [
@@ -19,7 +22,7 @@ const forumList = () => [
       { id: 32, name: "Outdoor tarmac", surface: "tarmac", environment: "outdoor", width_m: 20, length_m: 40, rostrum_covered: false, pits: 40 },
     ],
   },
-  { id: 14, name: "Village Hall", town: "Otley", tracks: [{ id: 40, name: "Main floor", surface: "carpet", environment: "indoor", width_m: null, length_m: null }] },
+  { id: 14, name: "Village Hall", address: "Church Street\nOtley LS21 3AF", tracks: [{ id: 40, name: "Main floor", surface: "carpet", environment: "indoor", width_m: null, length_m: null }] },
 ];
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -49,6 +52,28 @@ describe("forum venue client", () => {
       ],
     });
     expect(list.venues[1].tracks[0]).toMatchObject({ width_m: null, length_m: null });
+  });
+
+  it("takes the town from the address (the part before the postcode); a town the forum sends wins", async () => {
+    const { fetch } = fakeForum([...forumList(), { id: 15, name: "Barn", town: "Ilkley", address: "Barn Lane, Burley, LS29 7AA", tracks: [] }, { id: 16, name: "Field", tracks: [] }]);
+    const list = await new ForumVenues({ forumUrl: FORUM_URL, fetch, log: quiet }).list();
+    expect(list.venues.map((v) => v.town)).toEqual(["Leeds", "Otley", "Ilkley", null]);
+    expect(list.venues[0]).not.toHaveProperty("address");
+  });
+
+  it.each([
+    ["Unit 4, Mill Lane, Leeds, LS1 4AB", "Leeds"],
+    ["Unit 4, Mill Lane, Leeds LS1 4AB", "Leeds"],
+    ["Church Street\nOtley\nLS21 3AF\nUnited Kingdom", "Otley"],
+    ["12 High St, Skipton, North Yorkshire, BD23 1AA", "North Yorkshire"],
+    ["Mill Lane, Leeds, UK", "Leeds"],
+    ["Mill Lane, Leeds", "Leeds"],
+    ["LS1 4AB", null],
+    ["Mill Lane", null],
+    ["", null],
+    [null, null],
+  ])("townFromAddress(%j) = %j", (address, town) => {
+    expect(townFromAddress(address)).toBe(town);
   });
 
   it("accepts {venues: [...]} as well as a bare list", async () => {
@@ -176,6 +201,37 @@ describe("templates linked to a forum track", () => {
     expect(moved.statusCode).toBe(400);
     expect((await req(app, "PUT", "/api/venues/venue-1", org, { venue: linked(32) })).statusCode).toBe(200);
     expect((await req(app, "PUT", "/api/venues/venue-1", org, { venue: { ...linked(), info: { name: "Hall", venue: { id: 12, name: "Misfits Main Hall" } } } })).statusCode).toBe(400);
+  });
+
+  it("the track must be one of that forum venue's tracks (checked against the forum's list)", async () => {
+    const { app, org } = await setup();
+    const wrong = { ...linked(), info: { name: "Hall", venue: { id: 14, name: "Village Hall", trackId: 31, trackName: "Indoor carpet" } } };
+    const res = await req(app, "POST", "/api/venues", org, wrong);
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: "invalid-venue", message: expect.stringContaining("Village Hall") });
+    const unknown = { ...linked(), info: { name: "Hall", venue: { id: 99, name: "Gone", trackId: 31, trackName: "Indoor carpet" } } };
+    expect((await req(app, "POST", "/api/venues", org, unknown)).statusCode).toBe(400);
+    const { venue } = (await req(app, "POST", "/api/venues", org, linked())).json();
+    expect((await req(app, "PUT", `/api/venues/${venue.id}`, org, { venue: wrong })).statusCode).toBe(400);
+    expect((await req(app, "PUT", `/api/venues/${venue.id}`, org, { venue: linked(32) })).statusCode).toBe(200);
+  });
+
+  it("forum down: the track can't be checked, so the save goes ahead", async () => {
+    const forum = fakeForum();
+    forum.state.down = true;
+    const { app, org } = await setup(forum);
+    expect((await req(app, "POST", "/api/venues", org, linked())).statusCode).toBe(201);
+  });
+
+  it("a link saved earlier isn't re-checked: the template still saves if the forum has since dropped the track", async () => {
+    const dropped = forumList();
+    dropped[0].tracks = dropped[0].tracks.slice(1);
+    const { app, org } = await setup(fakeForum(dropped));
+    // saved while the forum still listed track 31
+    const { venue } = createVenue(app.db, getUser(app.db, SYSTEM_USER_ID, "organisers")!, linked());
+    expect((await req(app, "PUT", `/api/venues/${venue.id}`, org, { venue: { ...linked(), area: { length: 21, width: 12 } } })).statusCode).toBe(200);
+    // picking it afresh is refused
+    expect((await req(app, "POST", "/api/venues", org, { ...linked(), info: { ...linked().info, name: "Copy" } })).statusCode).toBe(400);
   });
 
   it("a forum link names the venue: a track alone isn't a link", async () => {

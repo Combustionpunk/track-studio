@@ -380,6 +380,19 @@ describe("forum venue and track (#65)", async () => {
     for (const h of [html(<Venues />, "/v"), html(<VenuePage />, "/v/winter-3")]) {
       expect(text(h)).toContain("Misfits Main Hall · Indoor carpet");
       expect(h).toContain('href="https://forum.example/venues/12"');
+      expect(text(h)).not.toContain("Pick the track");
+    }
+  });
+
+  it("templates saved before the track link (rcvenue 1.0) say 'Pick the track' on the venues and venue pages", () => {
+    const oldDoc: RcVenue = { ...doc, info: { ...doc.info, venue: { id: 12, name: "Misfits Main Hall" } } };
+    answers.set("/api/venues", { data: { venues: [venue] }, loading: false });
+    answers.set("/api/venues/winter-3", { data: { venue, doc: oldDoc, can: { edit: false } }, loading: false });
+    answers.set("/api/venues/winter-3/revisions", { data: { revisions: [] }, loading: false });
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    for (const h of [html(<Venues />, "/v"), html(<VenuePage />, "/v/winter-3")]) {
+      expect(text(h)).toContain("Misfits Main Hall · Pick the track");
+      expect(text(h)).not.toContain("no track picked");
     }
   });
 });

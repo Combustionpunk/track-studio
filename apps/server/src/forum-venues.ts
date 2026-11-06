@@ -42,6 +42,24 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
 const metres = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** a UK postcode, e.g. "LS1 4AB" or "LS21 3AF" */
+const POSTCODE = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i;
+const COUNTRY = /^(uk|u\.k\.|united kingdom|great britain|gb|england|scotland|wales|northern ireland)$/i;
+
+/**
+ * The town in a forum venue's address: the last part before the postcode ("Unit 4, Mill Lane, Leeds, LS1 4AB" → "Leeds").
+ * The forum's venue list has an address but no town (only the single-venue answer has one). Without a postcode, the
+ * last part that isn't a country; null when the address is a single part (that's the street, or only the postcode).
+ */
+export function townFromAddress(address: unknown): string | null {
+  if (typeof address !== "string") return null;
+  const parts = address.split(/[,\n]/).map((p) => p.trim()).filter((p) => p && !COUNTRY.test(p));
+  const at = parts.findIndex((p) => POSTCODE.test(p));
+  if (at === -1) return parts.length > 1 ? parts[parts.length - 1] : null;
+  const before = parts[at].replace(POSTCODE, "").trim();
+  return before || (at > 0 ? parts[at - 1] : null);
+}
+
 /** The forum's answer → venues with id, name, town and tracks only. Throws if it isn't a venue list. */
 export function parseForumVenues(body: unknown): ForumVenue[] {
   const list = Array.isArray(body) ? body : isObject(body) && Array.isArray(body.venues) ? body.venues : null;
@@ -49,7 +67,7 @@ export function parseForumVenues(body: unknown): ForumVenue[] {
   return list.filter((v): v is Record<string, unknown> => isObject(v) && Number.isInteger(v.id) && typeof v.name === "string").map((v) => ({
     id: v.id as number,
     name: v.name as string,
-    town: str(v.town),
+    town: str(v.town) ?? townFromAddress(v.address),
     tracks: (Array.isArray(v.tracks) ? v.tracks : [])
       .filter((t): t is Record<string, unknown> => isObject(t) && Number.isInteger(t.id))
       .map((t) => ({
@@ -69,6 +87,23 @@ export function searchForumVenues(venues: ForumVenue[], q: string | undefined): 
   const needle = fold(q?.trim() ?? "");
   if (!needle) return venues;
   return venues.filter((v) => [v.name, v.town ?? "", ...v.tracks.map((t) => t.name)].some((s) => fold(s).includes(needle)));
+}
+
+/**
+ * Refuse a forum link whose track isn't one of that forum venue's tracks, checked against the forum's (cached) list.
+ * While the forum is down with nothing cached it can't be checked, and the save goes ahead.
+ */
+export async function assertTrackAtVenue(forumVenues: ForumVenues, link: { id?: unknown; trackId?: unknown }): Promise<void> {
+  let venues: ForumVenue[];
+  try {
+    venues = (await forumVenues.list()).venues;
+  } catch (e) {
+    if (e instanceof HttpError && e.code === "forum-unavailable") return;
+    throw e;
+  }
+  const venue = venues.find((v) => v.id === link.id);
+  if (!venue) throw new HttpError(400, "invalid-venue", `Forum venue ${String(link.id)} isn't on the forum's venue list.`);
+  if (!venue.tracks.some((t) => t.id === link.trackId)) throw new HttpError(400, "invalid-venue", `Forum track ${String(link.trackId)} isn't one of ${venue.name}'s tracks.`);
 }
 
 export class ForumVenues {

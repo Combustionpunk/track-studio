@@ -169,7 +169,7 @@ export function listVenueRevisions(db: DB, row: VenueRow) {
 }
 
 /** Accepts {venue: <rcvenue>, baseRevision?} or a bare rcvenue document. */
-function venueFromBody(body: unknown): Record<string, unknown> {
+export function venueFromBody(body: unknown): Record<string, unknown> {
   const src = isObject(body) && isObject(body.venue) ? body.venue : body;
   if (!isObject(src)) throw badRequest("invalid-venue", "Body must be an rcvenue document or {venue: …}");
   return src;

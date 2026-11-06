@@ -53,7 +53,7 @@ function ForumLink({ venue }: { venue: ForumVenueRef }) {
   return (
     <>
       {config ? <a href={forumVenueUrl(config.forumUrl, venue.id)}>{label}</a> : label}
-      {venue.trackId === undefined && <span className="muted"> (no track picked yet)</span>}
+      {venue.trackId === undefined && <span className="muted"> · Pick the track</span>}
     </>
   );
 }
