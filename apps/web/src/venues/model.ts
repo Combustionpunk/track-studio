@@ -1,10 +1,11 @@
 // The venue editor's document and the edits it makes, kept pure so they can be tested without a browser. A draft is
 // an rcvenue file without format/version/id/revision (the server sets those). Metres, origin at the centre of the
 // track area, +x east, +z north; rotations in degrees counter-clockwise (docs/rctrack-SPEC.md).
-import type { Area, Obstacle, Point2, RcVenue, Side } from "@track-studio/engine";
+import type { Area, ForumVenueRef, Obstacle, Point2, RcVenue, Side } from "@track-studio/engine";
 
 export interface VenueDraft {
-  info: { name: string; venue?: { id: number; name?: string } | null; notes?: string };
+  /** venue: the forum venue and track this template is for (venues/forum.ts) */
+  info: { name: string; venue?: ForumVenueRef | null; notes?: string };
   area: Area;
   rostrum: { side: Side; offset: number };
   obstacles: Obstacle[];
@@ -48,8 +49,11 @@ export function venueBody(d: VenueDraft) {
 
 export type Problems = Record<string, string>;
 
-/** Problems that would stop a save, keyed by field: name, length, width, forumId, obstacle-<i>. */
-export function draftProblems(d: VenueDraft): Problems {
+/**
+ * Problems that would stop a save, keyed by field: name, length, width, forumTrack, rostrum, obstacle-<i>. A new
+ * template linked to a forum venue must pick the track; older ones (rcvenue 1.0) can still save without.
+ */
+export function draftProblems(d: VenueDraft, opts: { isNew?: boolean } = {}): Problems {
   const p: Problems = {};
   if (!d.info.name.trim()) p.name = "Give the venue a name.";
   else if (d.info.name.trim().length > 80) p.name = "Keep the name to 80 characters.";
@@ -58,8 +62,7 @@ export function draftProblems(d: VenueDraft): Problems {
     if (!Number.isFinite(v) || v <= 0) p[k] = `${label} must be more than 0 m.`;
     else if (v > MAX_AREA) p[k] = `${label} can be at most ${MAX_AREA} m.`;
   }
-  const fid = d.info.venue?.id;
-  if (fid !== undefined && !(Number.isInteger(fid) && fid > 0)) p.forumId = "Forum venue ID is a whole number.";
+  if (opts.isNew && d.info.venue && d.info.venue.trackId === undefined) p.forumTrack = "Pick the track at this forum venue.";
   const { side, offset } = d.rostrum;
   if (!Number.isFinite(offset)) p.rostrum = "Rostrum position must be a number.";
   else if (!p.length && !p.width && Math.abs(offset) > wallHalf(d.area, side) + 1e-9) {

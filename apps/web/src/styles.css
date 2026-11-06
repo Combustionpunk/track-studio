@@ -420,6 +420,29 @@ textarea.ve-input { height: auto; padding: 6px 12px; resize: vertical; }
 .ve-check.ok { background: var(--positive-soft); color: var(--positive); }
 .ve-check.bad { background: var(--selected); color: var(--danger-text); border: 1px solid var(--danger); }
 .ve-check.warn { background: var(--selected); color: var(--warning); border: 1px solid var(--warning); }
+/* forum venue and track picker (#65) */
+.fv { gap: 6px; }
+.fv-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.fv-scroll { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; padding: 4px; }
+.fv-scroll:empty { display: none; }
+.fv-option { display: grid; gap: 2px; width: 100%; padding: 6px 10px; text-align: left; background: none; border: 1px solid transparent; border-radius: 4px; color: var(--text); font: inherit; cursor: pointer; }
+.fv-option:hover, .fv-option.on { background: var(--selected); border-color: var(--border-strong); }
+button.fv-option { border-color: var(--border); background: var(--selected); }
+button.fv-option:hover { border-color: var(--accent); }
+.fv-option-name { font-weight: 600; overflow-wrap: anywhere; }
+.fv-option-sum { font-size: 0.85rem; color: var(--muted); }
+.fv-current { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border); background: var(--selected); }
+.fv-name { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.fv-town { font-weight: 400; color: var(--muted); }
+.fv-acts { display: flex; gap: 12px; }
+.fv-tracks { display: grid; gap: 6px; }
+.fv-tracks .ve-help { margin: 0; }
+.fv-status, .fv-differs { margin: 0; display: flex; gap: 6px; align-items: flex-start; }
+.fv-status svg { flex: none; margin-top: 3px; color: var(--warning); }
+.fv-differs { color: var(--warning); }
+.fv-act { justify-self: start; }
+.card-forum { margin: 8px 0 0; font-size: 0.87rem; color: var(--muted); overflow-wrap: anywhere; }
+.muted { color: var(--muted); }
 .ve-note { margin: 0; font-size: 0.87rem; line-height: 1.4; color: var(--muted); }
 .ve-plan-wrap { position: relative; min-width: 0; min-height: 0; padding: 24px; background: var(--selected); display: flex; }
 .ve-plan { flex: 1; min-height: 0; border-radius: var(--radius); }

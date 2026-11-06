@@ -1,7 +1,7 @@
 // "Will it fit my venue?" search and adapt. A port of reference/fit.py. Pure: no DOM, no Node APIs.
 import { bake, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumPosition } from "./bake.js";
 import { pyRound, pyRoundInt, radians } from "./num.js";
-import type { Built, FitResult, Point2, RcTrack, RcVenue } from "./types.js";
+import type { Built, FitResult, Point2, RcTrack, RcVenue, VenueRef } from "./types.js";
 
 /** [label, rotation (deg), mirror] in the order results are reported. */
 export const ORIENTS: [string, number, boolean][] = [
@@ -106,7 +106,8 @@ export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: Adap
   t.obstacles = structuredClone(venue.obstacles ?? []);
   t.design.rostrum = { ...(venue.rostrum ?? { side: "south" }) };
   t.basedOn = { venueTemplate: venue.id, revision: venue.revision };
-  t.info.venue = venue.info.venue ?? null;
+  // as fit.py: the template's forum link as it is (rcvenue 1.1 adds trackId/trackName, which rctrack readers ignore)
+  t.info.venue = (venue.info.venue ?? null) as VenueRef | null;
   t.info.derivedFrom = { id: track.id, revision: track.revision, orientation: fit.orientation };
   t.info.name = `${track.info.name} @ ${venue.info.name}`;
   t.info.status = "draft";
