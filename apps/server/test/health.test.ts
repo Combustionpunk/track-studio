@@ -6,7 +6,7 @@ describe("GET /healthz", () => {
     const { app } = await makeApp();
     const res = await app.inject({ method: "GET", url: "/healthz" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true });
+    expect(res.json()).toEqual({ ok: true, version: "dev" });
   });
 
   it("is 503 when the database doesn't (so compose marks the container unhealthy)", async () => {

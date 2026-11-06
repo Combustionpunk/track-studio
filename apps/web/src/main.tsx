@@ -1,65 +1,18 @@
-import { StrictMode, useEffect } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, Outlet, RouterProvider, useLocation, useParams } from "react-router-dom";
-import { EditTrackPage, NewDesignPage, NewTrackPage } from "./designer/pages.js";
-import { Header } from "./components/Header.js";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { SessionProvider } from "./lib/session.js";
-import { BuildSheetPage } from "./pages/BuildSheet.js";
-import { Embed } from "./pages/Embed.js";
-import { LapSpeeds } from "./pages/LapSpeeds.js";
-import { Library } from "./pages/Library.js";
-import { NotFound } from "./pages/NotFound.js";
-import { TrackPage } from "./pages/TrackPage.js";
-import { VenuePage, Venues } from "./pages/Venues.js";
-import { EditVenuePage, NewVenuePage } from "./venues/pages.js";
+import { reloadOnceForChunkError } from "./lib/version.js";
+import { routes } from "./routes.js";
 import "./styles.css";
 
-function Layout() {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-  return (
-    <>
-      <a href="#main" className="skip">
-        Skip to content
-      </a>
-      <Header />
-      <main id="main">
-        <Outlet />
-      </main>
-    </>
-  );
-}
+// a lazy chunk's preload failed (a deploy removed it): reload once per version; after that the import's own error
+// reaches the route's error page, so it can't loop (#88)
+window.addEventListener("vite:preloadError", (e) => {
+  if (reloadOnceForChunkError()) e.preventDefault();
+});
 
-/** A fresh page per track, so panels and selections don't carry over from the previous one. */
-function TrackRoute() {
-  const { id } = useParams();
-  return <TrackPage key={id} />;
-}
-
-const router = createBrowserRouter([
-  // the embed has no site chrome
-  { path: "/embed/:id", element: <Embed /> },
-  // the build sheet prints without the site's chrome
-  { path: "/t/:id/build", element: <BuildSheetPage /> },
-  {
-    element: <Layout />,
-    children: [
-      { path: "/", element: <Library /> },
-      { path: "/t/:id", element: <TrackRoute /> },
-      { path: "/t/:id/edit", element: <EditTrackPage /> },
-      { path: "/new", element: <NewTrackPage /> },
-      { path: "/new/design", element: <NewDesignPage /> },
-      { path: "/v", element: <Venues /> },
-      { path: "/v/new", element: <NewVenuePage /> },
-      { path: "/v/:id", element: <VenuePage /> },
-      { path: "/v/:id/edit", element: <EditVenuePage /> },
-      { path: "/lap-speeds", element: <LapSpeeds /> },
-      { path: "*", element: <NotFound /> },
-    ],
-  },
-]);
+const router = createBrowserRouter(routes);
 
 const root = document.getElementById("root")!;
 root.textContent = ""; // drop the server's no-script fallback before React takes over

@@ -137,6 +137,11 @@ function pageFor(db: DB, config: Config, theme: ThemeSync, path: string, query: 
   }
 }
 
+/** The build's version, stamped into index.html by the web build (apps/web/version.ts); "dev" when there is none. */
+export function versionOf(html: string): string {
+  return /<meta name="app-version" content="([^"]+)"/.exec(html)?.[1] ?? "dev";
+}
+
 export function fillTemplate(template: string, page: Page): string {
   let html = template;
   if (page.title) html = html.replace(/<title>[^<]*<\/title>/, `<title>${esc(page.title)}</title>`);
@@ -175,6 +180,7 @@ export function webOptions(config: Config, rootDir: string, env: NodeJS.ProcessE
 
 export async function registerWeb(app: FastifyInstance, config: Config, db: DB, web: WebOptions): Promise<void> {
   let template: (url: string) => Promise<string>;
+  let version = () => "dev";
 
   if (web.mode === "dev") {
     // Vite in middleware mode on the same server: one origin for the app, the API and the login callback.
@@ -193,11 +199,22 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
   } else if (web.mode === "static") {
     // re-read when a new build replaces it, so a running server never points at deleted asset files
     const file = join(web.dist, "index.html");
-    let cached = { mtime: 0, html: "" };
-    template = async () => {
+    let cached = { mtime: 0, html: "", version: "dev" };
+    const current = () => {
       const mtime = statSync(file).mtimeMs;
-      if (mtime !== cached.mtime) cached = { mtime, html: readFileSync(file, "utf8") };
-      return cached.html;
+      if (mtime !== cached.mtime) {
+        const html = readFileSync(file, "utf8");
+        cached = { mtime, html, version: versionOf(html) };
+      }
+      return cached;
+    };
+    template = async () => current().html;
+    version = () => {
+      try {
+        return current().version;
+      } catch {
+        return cached.version; // index.html is missing while a build replaces it: keep the last one
+      }
     };
     await app.register(fastifyStatic, {
       root: web.dist,
@@ -224,10 +241,13 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
   };
   for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/new", "/v/:id", "/v/:id/edit", "/lap-speeds"]) app.get(route, serve);
   app.decorate("servePage", serve);
+  app.decorate("appVersion", version);
 }
 
 declare module "fastify" {
   interface FastifyInstance {
     servePage?: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
+    /** the version of the web build being served (#88): open tabs compare it with their own */
+    appVersion?: () => string;
   }
 }

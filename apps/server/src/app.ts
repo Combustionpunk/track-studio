@@ -87,6 +87,11 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
     return reply.code(404).send({ error: "not-found", message: `No route for ${req.method} ${path}` });
   });
 
+  // the served web build's version on every API answer, so tabs left open across a deploy notice it (#88)
+  const version = () => app.appVersion?.() ?? "dev";
+  app.addHook("onSend", async (req, reply) => {
+    if (/^\/(api\/|healthz)/.test(req.url)) reply.header("x-app-version", version());
+  });
   registerAuth(app, config, db);
   registerRoutes(app, db, forumEvents, forumStats, app.forumVenues);
   registerPreviews(app, config, db, theme);
@@ -95,7 +100,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   app.get("/healthz", async (_req, reply) => {
     try {
       db.prepare("SELECT count(*) FROM schema_migrations").get(); // reads a page of the file
-      return { ok: true };
+      return { ok: true, version: version() };
     } catch {
       return reply.code(503).send({ ok: false, error: "database" });
     }

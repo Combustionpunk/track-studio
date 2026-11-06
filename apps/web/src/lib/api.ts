@@ -1,5 +1,6 @@
 // Typed client for the Track Studio API (apps/server). Errors arrive as {error, message}.
 import type { FitResult, RcTrack, RcVenue, TrackStatus, VenueCheck } from "@track-studio/engine";
+import { noteServerVersion, VERSION_HEADER } from "./version.js";
 
 export type { FitResult, RcTrack, RcVenue, TrackStatus };
 
@@ -216,6 +217,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     headers: { accept: "application/json", ...(json !== undefined ? { "content-type": "application/json" } : {}), ...rest.headers },
     body: json !== undefined ? JSON.stringify(json) : rest.body,
   });
+  noteServerVersion(res.headers.get(VERSION_HEADER)); // a deploy since this tab loaded (#88)
   const text = await res.text();
   const body = text ? (JSON.parse(text) as unknown) : null;
   if (!res.ok) {

@@ -38,6 +38,7 @@ import { designerEstimate, useClassSpeeds } from "../lib/laps.js";
 import { LONG_PRESS_MS, slopFor } from "../lib/touch.js";
 import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
+import { useHoldReload } from "../lib/version.js";
 import { insertionFor, liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory, type HistoryState } from "./history.js";
 import { reverseDraft } from "./reverse.js";
@@ -349,6 +350,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
+  useHoldReload(dirty); // a new version is out: no automatic reload over unsaved work (#88)
   const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !saving && currentLocation.pathname !== nextLocation.pathname);
   useEffect(() => {
     if (blocker.state !== "blocked") return;

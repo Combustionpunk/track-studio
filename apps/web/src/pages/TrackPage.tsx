@@ -241,7 +241,7 @@ export function TrackPage() {
   const primary = can.approve ? "approve" : can.submit ? "submit" : can.edit ? "edit" : copyAndEdit ? "copy" : undefined;
   const btn = (key: string, extra = "") => `ts-btn${primary === key ? " ts-btn--primary" : ""}${extra}`;
   const why = blockedByErrors && (can.submit || can.approve) ? "actions-why" : undefined;
-  const jumps = b?.features.map((f) => fmt.FEATURE_LABEL[f.type] ?? f.type) ?? [];
+  const jumps = b?.features?.map((f) => fmt.FEATURE_LABEL[f.type] ?? f.type) ?? [];
 
   return (
     <div className="ts-page ts-track">
@@ -256,7 +256,7 @@ export function TrackPage() {
             by {fmt.author(track.author)} · {track.venue ? <Link to={`/v/${track.venue.id}`}>{track.venue.name ?? track.venue.id}</Link> : "No venue"} · revision {rev}
             {!viewing && <>, saved {fmt.date(track.updatedAt)}</>}
           </p>
-          {doc?.info.derivedFrom && (
+          {doc?.info?.derivedFrom && (
             <p className="ts-meta">
               {doc.info.derivedFrom.orientation ? "Adapted from " : "Based on "}
               <Link to={`/t/${doc.info.derivedFrom.id}`}>{track.derivedFrom?.name ?? "another layout"}</Link>
@@ -367,7 +367,7 @@ export function TrackPage() {
               <PlanView
                 area={drawingArea(doc)}
                 built={b}
-                designFeatures={doc.design.features}
+                designFeatures={doc.design?.features}
                 layers={layers}
                 onLayersChange={setLayers}
                 highlight={highlight}
@@ -376,13 +376,15 @@ export function TrackPage() {
               />
               <ul className="ts-plan-caption">
                 <li>Layout {fmt.size(b.size, true)}</li>
-                {doc.info.drawnFor && <li>Drawn for {doc.info.drawnFor.name}</li>}
-                <li>Start line {fmt.metres(b.startLine.distance)} along the lap</li>
-                <li>
-                  {Math.round(b.stats.dividerLength)} m of pipe in {b.stats.dividerRuns} runs
-                </li>
-                {doc.info.surface && <li>{doc.info.surface}</li>}
-                {doc.info.classes?.length ? <li>{doc.info.classes.join(", ")}</li> : null}
+                {doc.info?.drawnFor?.name && <li>Drawn for {doc.info.drawnFor.name}</li>}
+                {b.startLine && <li>Start line {fmt.metres(b.startLine.distance)} along the lap</li>}
+                {b.stats && (
+                  <li>
+                    {Math.round(b.stats.dividerLength)} m of pipe in {b.stats.dividerRuns} runs
+                  </li>
+                )}
+                {doc.info?.surface && <li>{doc.info.surface}</li>}
+                {doc.info?.classes?.length ? <li>{doc.info.classes.join(", ")}</li> : null}
                 <li>Plan drawn from revision {rev}</li>
               </ul>
             </>
@@ -402,7 +404,7 @@ export function TrackPage() {
                 </div>
                 <div className="ts-figure">
                   <dt className="ts-figure__l">Corners</dt>
-                  <dd className="ts-figure__v">{b.stats.corners}</dd>
+                  <dd className="ts-figure__v">{b.stats?.corners ?? "—"}</dd>
                 </div>
                 <div className="ts-figure">
                   <dt className="ts-figure__l">Track area</dt>
@@ -414,13 +416,13 @@ export function TrackPage() {
                   {jumps.length > 0 && <dd className="ts-figure__sub">{jumps.join(", ")}</dd>}
                 </div>
               </dl>
-              {doc.info.description && <p className="ts-desc">{doc.info.description}</p>}
+              {doc.info?.description && <p className="ts-desc">{doc.info.description}</p>}
             </section>
           ) : (
             <Skeleton className="ts-skeleton--panel" />
           )}
 
-          {b && <ChecksList checks={b.checks} onShow={(c) => setHighlight(c.x !== undefined && c.z !== undefined ? [c.x, c.z] : null)} />}
+          {b && <ChecksList checks={b.checks ?? []} onShow={(c) => setHighlight(c.x !== undefined && c.z !== undefined ? [c.x, c.z] : null)} />}
 
           {tr.data.usedAt && <UsedAtSection used={tr.data.usedAt} />}
 

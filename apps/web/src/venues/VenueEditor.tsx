@@ -11,6 +11,7 @@ import { useHistory } from "../designer/history.js";
 import { api, ApiError, type VenueSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { rostrumPos } from "../lib/plan.js";
+import { useHoldReload } from "../lib/version.js";
 import { pickForumTrack, pickForumVenue } from "./forum.js";
 import { ForumVenuePicker } from "./ForumVenuePicker.js";
 import {
@@ -116,6 +117,7 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  useHoldReload(dirty); // a new version is out: no automatic reload over unsaved work (#88)
   const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !saving && currentLocation.pathname !== nextLocation.pathname);
   useEffect(() => {
     if (blocker.state !== "blocked") return;
