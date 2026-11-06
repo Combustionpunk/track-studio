@@ -3,7 +3,9 @@ import { bakeBuilt, venueCheck, type Built, type Obstacle, type RcTrack, type Rc
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { bridgeCrossing } from "../src/designer/crossings.js";
 import { draftFromDoc, newDraft, toDoc, type Draft } from "../src/designer/Designer.js";
+import { liveGeometry } from "../src/designer/geometry.js";
 import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import {
   cellAt,
@@ -445,6 +447,21 @@ describe("crossing itself (#79)", () => {
     expect(b.crossings![0].z).toBeCloseTo(-1, 2);
     expect(errorsIn(doc, v).map((c) => c.code)).toEqual(["crossing-unbridged"]);
     for (const p of doc.design.points) expect(Object.keys(p).sort()).toEqual(["radius", "x", "z"]);
+  });
+
+  it("Make it a crossover bridges it, so the check clears; undo takes it away", () => {
+    const doc = laidDoc(v, EIGHT);
+    const c = bakeBuilt(doc).checks.find((k) => k.code === "crossing-unbridged")!;
+    const live = liveGeometry(doc.design);
+    type Doc = { features: NonNullable<RcTrack["design"]["features"]> };
+    let h: HistoryState<Doc> = { past: [], present: { features: doc.design.features ?? [] }, future: [], group: null, at: 0, travels: 0 };
+    h = historyReducer(h, { type: "set", next: { features: bridgeCrossing(h.present.features, c, live.crossings, live.total)!.features }, now: 1000 });
+    const bridged = { ...doc, design: { ...doc.design, features: h.present.features } };
+    expect(h.present.features).toEqual([{ type: "crossover", distance: live.crossings[0].distances[0], over: "first" }]);
+    expect(errorsIn(bridged, v)).toEqual([]);
+    expect(bakeBuilt(bridged).crossings![0].bridge).toMatchObject({ type: "crossover", feature: 0 });
+    h = historyReducer(h, { type: "undo" });
+    expect(h.present.features).toEqual([]);
   });
 
   it("each step through a crossing is one undo state, and undo past the close comes back to the open lane", () => {

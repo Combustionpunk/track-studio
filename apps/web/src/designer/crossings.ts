@@ -41,6 +41,17 @@ export function addCrossover(features: DesignFeature[], crossings: Pick<Crossing
   return { features: [...features, f], index: features.length };
 }
 
+/**
+ * Quick's fix for an unbridged crossing (a check at x, z): a crossover on the crossing there, the first pass over, as
+ * if it were placed on the first pass. Null when no crossing is near the check.
+ */
+export function bridgeCrossing(features: DesignFeature[], c: Pick<Check, "x" | "z">, crossings: Pick<Crossing, "x" | "z" | "distances">[], total: number): { features: DesignFeature[]; index: number } | null {
+  if (c.x === undefined || c.z === undefined) return null;
+  const at: Point2 = [c.x, c.z];
+  const near = crossings.filter((k) => Math.hypot(k.x - at[0], k.z - at[1]) <= CROSSING_SNAP).sort((a, b) => Math.hypot(a.x - at[0], a.z - at[1]) - Math.hypot(b.x - at[0], b.z - at[1]))[0];
+  return near ? addCrossover(features, crossings, [near.x, near.z], near.distances[0], total) : null;
+}
+
 /** How far along the line a crossover reaches for a crossing: half its length (as the bake claims one, roughly). */
 const reach = (f: DesignFeature) => (f.rampLength ?? CROSSOVER_RAMP) + (f.topLength ?? 2 + 2 * BRIDGE_MARGIN) / 2;
 

@@ -323,6 +323,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .lay-hatch { stroke: var(--plan-obstacle); }
 .lay-line { fill: none; stroke: var(--plan-line); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .lay-first { fill: none; stroke: var(--plan-line); stroke-width: 3; pointer-events: none; }
+.lay-bridge { fill: none; stroke: var(--plan-line); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
 .lay-end { fill: none; stroke: var(--ed-guide); stroke-width: 2; pointer-events: none; }
 .panel .seg .seg-label { width: 100%; margin-bottom: 4px; }
 .snap-info { white-space: nowrap; }
