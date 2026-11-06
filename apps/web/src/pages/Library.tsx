@@ -206,8 +206,8 @@ export function Library() {
               Sort
             </label>
             <select id="f-sort" className="ts-input" value={lapClass ? get("sort") : ""} disabled={!lapClass} onChange={(e) => set("sort", e.target.value)}>
-              <option value="">Last updated first</option>
-              <option value="typical">Typical lap, fastest first</option>
+              <option value="">Recently updated</option>
+              <option value="typical">Fastest typical lap</option>
             </select>
           </div>
           {anyFilter && (

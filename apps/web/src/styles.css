@@ -563,8 +563,8 @@ select.ts-input { padding: 0 var(--space-2); }
 /* library filters */
 .ts-filters { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; padding: var(--space-4); background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); }
 .ts-filters__search { flex: 1 1 220px; }
-.ts-filters__searchrow { display: flex; gap: var(--space-2); }
-.ts-filters__searchrow .ts-input { flex: 1 1 auto; }
+.ts-filters__searchrow { display: flex; gap: var(--space-2); min-width: 0; }
+.ts-filters__searchrow .ts-input { flex: 1 1 auto; min-width: 0; }
 .ts-filters__toggle { display: none; }
 .ts-filters__more { display: contents; }
 .ts-filters__more > .ts-field:has(select) { width: 200px; }
@@ -644,8 +644,10 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-laps__typical dt, .ts-laps__record dt { font-size: 13px; line-height: 18px; color: var(--text-muted); }
 .ts-laps__typical dd, .ts-laps__record dd { margin: 0; }
 .ts-laps__time { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.ts-laps__est { white-space: nowrap; }
 .ts-laps__meta { font-size: 13px; line-height: 18px; color: var(--text-muted); }
-.ts-speeds { max-width: 40rem; }
+.ts-speeds { max-width: 40rem; min-width: 0; }
+.ts-speeds__form, .ts-speeds__rows, .ts-speeds__row { min-width: 0; }
 .ts-speeds__skeleton { display: block; height: 160px; }
 .ts-speeds__form { display: grid; gap: var(--space-3); }
 .ts-speeds__rows, .ts-speeds__list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }

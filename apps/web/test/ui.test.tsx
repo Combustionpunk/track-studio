@@ -303,7 +303,7 @@ describe("library page", () => {
     expect(h).toMatch(/<label class="ts-label" for="f-class">Typical lap for<\/label>/);
     expect(h).toMatch(/<option value="2WD Buggy" selected="">2WD Buggy<\/option>/);
     expect(h).toContain(">4WD Buggy</option>");
-    expect(h).toMatch(/<option value="typical" selected="">Typical lap, fastest first<\/option>/);
+    expect(h).toMatch(/<option value="typical" selected="">Fastest typical lap<\/option>/);
     expect(h).toMatch(/aria-label="Shortest typical lap in seconds"[^>]*value="12"/);
     expect(requested).toContain("/api/tracks?lapClass=2WD+Buggy&minTypical=12&maxTypical=16&sort=typical");
     expect(text(h)).toContain("Filters · 4");

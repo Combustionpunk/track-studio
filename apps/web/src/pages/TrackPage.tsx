@@ -113,7 +113,9 @@ function LapTimesSection({ stats, lapLength, speeds }: { stats: LapStats; lapLen
               {speeds.map((c, i) => (
                 <span key={c.class}>
                   {i > 0 && " · "}
-                  {c.class} {estimate(c.class)}
+                  <span className="ts-laps__est">
+                    {c.class} {estimate(c.class)}
+                  </span>
                 </span>
               ))}
             </p>
