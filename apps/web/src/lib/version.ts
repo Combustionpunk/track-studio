@@ -66,8 +66,10 @@ export async function checkNow(fetcher: typeof fetch = fetch): Promise<void> {
   }
 }
 
+type Listens = { addEventListener(type: string, f: () => void): void; removeEventListener(type: string, f: () => void): void };
+
 /** Checks the version when the tab regains focus (at most once a minute); returns the cleanup. */
-export function watchFocus(win: Pick<Window, "addEventListener" | "removeEventListener">, doc: Pick<Document, "addEventListener" | "removeEventListener" | "visibilityState">, check: () => void, now = Date.now): () => void {
+export function watchFocus(win: Listens, doc: Listens & { visibilityState: DocumentVisibilityState }, check: () => void, now = Date.now): () => void {
   let last = -Infinity;
   const onFocus = () => {
     if (doc.visibilityState !== "visible" || now() - last < 60_000) return;
