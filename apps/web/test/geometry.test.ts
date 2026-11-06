@@ -24,6 +24,12 @@ describe("live geometry matches the engine", () => {
     expect(live.total).toBeCloseTo(b.lapLength, 3);
   });
 
+  it("the start line at a corner join faces the way the bake has it (rctrack 1.8: the true tangent)", () => {
+    const t = JSON.parse(readFileSync(join(__dirname, "../../../packages/engine/test/fixtures/extra/two-crossings.rctrack.json"), "utf8")) as RcTrack;
+    expect(t.design.start?.distance).toBe(0);
+    expect(liveGeometry(t.design).startLine.heading).toBe(bakeBuilt(t).startLine.heading);
+  });
+
   it("projects a pointer onto the line", () => {
     const t = ref<RcTrack>("examples/club-a.rctrack.json");
     const live = liveGeometry(t.design);

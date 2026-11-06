@@ -881,7 +881,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // bake's checks lag the live line by a moment while dragging
   const problemScene = useMemo(() => ({ area, built }), [area, built]);
   const problems = (m: number) => (layers.checks ? planLayers(problemScene, { px: m, layers: ONLY_CHECKS, background: false, tips: advanced }) : "");
-  // matched against the bake's own jumps, so a warning stays on its jump while the bake catches up with a drag
+  // matched against the bake's own jumps, so a note or warning stays on its jump while the bake catches up with a drag
   const inCorner = useMemo(() => {
     const b = bake.built;
     return b && b.features.length === built.features.length ? jumpsInCorner(b.checks, b.features) : new Map<number, CheckLevel>();

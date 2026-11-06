@@ -88,7 +88,8 @@ export function jumpsInCorner(checks: Check[], features: Pick<BuiltFeature, "x" 
   const out = new Map<number, CheckLevel>();
   for (const c of checks) {
     if (c.code !== "feature-in-corner" || c.x === undefined || c.z === undefined) continue;
-    features.forEach((f, i) => Math.hypot(f.x - c.x!, f.z - c.z!) < ON_JUMP && out.set(i, c.level));
+    // a crossover's warning wins over a jump's note that happens to sit as close
+    features.forEach((f, i) => Math.hypot(f.x - c.x!, f.z - c.z!) < ON_JUMP && out.get(i) !== "warning" && out.set(i, c.level));
   }
   return out;
 }

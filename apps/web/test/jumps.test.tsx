@@ -118,6 +118,11 @@ describe("the corner warning on the jump", () => {
     expect(b.checks.filter((c) => c.level !== "info")).toEqual(bake([]).checks.filter((c) => c.level !== "info"));
     expect(checkCounts(b.checks)).toEqual(checkCounts(bake([]).checks));
   });
+  it("a warning on a jump wins over a note just as close", () => {
+    const at = (level: "info" | "warning") => ({ level, code: "feature-in-corner" as const, x: 0, z: 0, message: "" });
+    expect(jumpsInCorner([at("warning"), at("info")], [{ x: 0, z: 0 }]).get(0)).toBe("warning");
+    expect(jumpsInCorner([at("info"), at("warning")], [{ x: 0, z: 0 }]).get(0)).toBe("warning");
+  });
   it("other warnings near a jump don't count", () => {
     expect(jumpsInCorner([{ level: "warning", code: "tight-corner", x: 0, z: 0, message: "" }], [{ x: 0, z: 0 }]).size).toBe(0);
   });
