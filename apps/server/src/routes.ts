@@ -4,7 +4,9 @@ import type { DB } from "./db.js";
 import { requireOrganiser, requireUser } from "./auth.js";
 import { badRequest, notFound } from "./errors.js";
 import { usedAt, type ForumEvents } from "./forum-events.js";
+import type { ForumStats } from "./forum-stats.js";
 import { assertTrackAtVenue, searchForumVenues, type ForumVenues } from "./forum-venues.js";
+import { getClassSpeeds, setClassSpeeds, speedFor, typicalLap } from "./lap-times.js";
 import {
   adaptTrack,
   assertCanChange,
@@ -52,7 +54,7 @@ function revisionParam(v: string): number {
 
 const slug = (s: string) => s.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 60) || "track";
 
-export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumEvents, forumVenues: ForumVenues): void {
+export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumEvents, forumStats: ForumStats, forumVenues: ForumVenues): void {
   /**
    * A forum event uses the layout (#66), so it's locked (#64). Asked fresh: an event may have picked it since the page
    * loaded. Unknown while the forum is down (the last answer, else not locked: events only pick library layouts, which
@@ -69,6 +71,12 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     if (q.status && !STATUSES.includes(q.status)) throw badRequest("bad-request", `status must be one of ${STATUSES.join(", ")}`);
     if (q.racedAt && !/^[1-9]\d{0,9}$/.test(q.racedAt)) throw badRequest("bad-request", "racedAt must be a forum venue id");
     const racedAt = q.racedAt ? Number(q.racedAt) : undefined;
+    // "Typical lap for <class> between X and Y s", sort by typical lap (#76)
+    const lapClass = q.lapClass?.trim() || undefined;
+    const minTypical = num(q.minTypical, "minTypical");
+    const maxTypical = num(q.maxTypical, "maxTypical");
+    if (q.sort && q.sort !== "typical") throw badRequest("bad-request", "sort must be typical");
+    if (!lapClass && (q.sort || minTypical !== undefined || maxTypical !== undefined)) throw badRequest("bad-request", "sort=typical, minTypical and maxTypical need lapClass");
     const filter: ListQuery = {
       status: q.status,
       venue: q.venue || undefined,
@@ -82,10 +90,22 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const tracks = q.fits
       ? tracksFitting(db, q.fits, (({ status: _ignored, ...rest }) => rest)(filter))
       : listTracks(db, filter).map(trackSummary);
-    if (racedAt === undefined) return { tracks };
-    // "Raced at <venue>": the forum's events for each listed layout (cached); forum down -> none match
-    const events = await forumEvents.forLayouts(tracks.map((t) => t.id));
-    return { tracks: tracks.filter((t) => events.get(t.id)?.some((e) => e.venue?.id === racedAt)) };
+    let listed = tracks;
+    if (racedAt !== undefined) {
+      // "Raced at <venue>": the forum's events for each listed layout (cached); forum down -> none match
+      const events = await forumEvents.forLayouts(listed.map((t) => t.id));
+      listed = listed.filter((t) => events.get(t.id)?.some((e) => e.venue?.id === racedAt));
+    }
+    if (!lapClass) return { tracks: listed };
+    // the forum's typical lap for the class (cached), else the estimate from the lap length; forum down -> estimates
+    const stats = await forumStats.forLayouts(listed.map((t) => t.id));
+    const speed = speedFor(getClassSpeeds(db), lapClass);
+    let withLap = listed.map((t) => ({ ...t, typicalLap: typicalLap(stats.get(t.id) ?? null, lapClass, t.lapLength, speed) }));
+    if (minTypical !== undefined || maxTypical !== undefined)
+      withLap = withLap.filter((t) => t.typicalLap && t.typicalLap.seconds >= (minTypical ?? 0) && t.typicalLap.seconds <= (maxTypical ?? Infinity));
+    // fastest first, unknowns last; otherwise the list's own order
+    if (q.sort === "typical") withLap.sort((a, b) => (a.typicalLap?.seconds ?? Infinity) - (b.typicalLap?.seconds ?? Infinity));
+    return { tracks: withLap };
   });
 
   app.post("/api/tracks", async (req, reply) => {
@@ -94,16 +114,18 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
   });
 
   // the public revision (approved ?? latest); editors load the latest with /r/:revision
-  // usedAt: where the forum says the layout was raced (#66); null when the forum can't be reached
+  // usedAt: where the forum says the layout was raced (#66); lapStats: its lap times per class (#76); each null when
+  // the forum can't be reached
   app.get("/api/tracks/:id", async (req) => {
     const row = getTrackRow(db, (req.params as { id: string }).id);
-    const events = await forumEvents.forLayout(row.id);
+    const [events, lapStats] = await Promise.all([forumEvents.forLayout(row.id), forumStats.forLayout(row.id)]);
     const used = !!events?.length;
     return {
       track: { ...trackSummary(row), locked: lockReason(row, used) },
       doc: getTrackDoc(db, row, publicRevision(row)),
       can: permissions(req.user, row, used),
       usedAt: events && usedAt(events),
+      lapStats,
     };
   });
 
@@ -178,6 +200,14 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     }
     const list = [...venues.values()].sort((a, b) => b.layouts - a.layouts || a.name.localeCompare(b.name));
     return ids.length && !known ? { venues: list, unavailable: true } : { venues: list };
+  });
+
+  // ---------------------------------------------------------------- class speeds
+  // per-class speed for the lap time estimate (#76): anyone reads, track-admins replace the list
+  app.get("/api/class-speeds", async () => ({ classes: getClassSpeeds(db) }));
+  app.put("/api/class-speeds", async (req) => {
+    requireOrganiser(req);
+    return { classes: setClassSpeeds(db, req.body) };
   });
 
   // ---------------------------------------------------------------- venues
