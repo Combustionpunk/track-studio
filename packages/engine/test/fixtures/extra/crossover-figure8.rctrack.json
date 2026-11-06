@@ -67,7 +67,7 @@
   }
  },
  "built": {
-  "generator": "rctrack-bake.py 1.7",
+  "generator": "rctrack-bake.py 1.8",
   "lapLength": 71.107,
   "racingLine": [
    [
