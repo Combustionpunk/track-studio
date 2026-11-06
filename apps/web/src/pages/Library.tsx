@@ -2,13 +2,13 @@ import { Plus, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { LibraryResults } from "../components/LibraryResults.js";
-import { qs, type TrackStatus, type TrackSummary, type VenueSummary } from "../lib/api.js";
+import { qs, type RacedVenues, type TrackStatus, type TrackSummary, type VenueSummary } from "../lib/api.js";
 import { STATUS_LABEL } from "../lib/format.js";
 import { useApi, useDebounced } from "../lib/hooks.js";
 import { useSession } from "../lib/session.js";
 
 /** Filters live in the URL so a filtered library can be shared as a link. */
-const KEYS = ["q", "venue", "status", "minLap", "maxLap", "minCorners", "maxCorners", "fits", "mine"] as const;
+const KEYS = ["q", "venue", "status", "minLap", "maxLap", "minCorners", "maxCorners", "fits", "mine", "racedAt"] as const;
 type Key = (typeof KEYS)[number];
 const STATUSES: TrackStatus[] = ["approved", "submitted", "draft", "archived"];
 
@@ -37,6 +37,10 @@ export function Library() {
 
   const fits = get("fits");
   const venues = useApi<{ venues: VenueSummary[] }>("/api/venues");
+  // forum venues library layouts were raced at (#66); the filter only shows when there are some
+  const raced = useApi<RacedVenues>("/api/raced-venues");
+  const racedAt = get("racedAt");
+  const racedVenues = raced.data?.venues ?? [];
   const query = qs({
     q: get("q"),
     venue: get("venue"),
@@ -47,6 +51,7 @@ export function Library() {
     maxCorners: get("maxCorners"),
     fits,
     author: get("mine") ? "me" : undefined,
+    racedAt,
   });
   // wait for the session before honouring ?mine=1, rather than flash every track
   const list = useApi<{ tracks: TrackSummary[] }>(ready || !params.get("mine") ? `/api/tracks${query}` : null);
@@ -115,6 +120,22 @@ export function Library() {
               {venueOptions("Any size")}
             </select>
           </div>
+          {(racedVenues.length > 0 || racedAt) && (
+            <div className="ts-field">
+              <label className="ts-label" htmlFor="f-raced">
+                Raced at
+              </label>
+              <select id="f-raced" className="ts-input" value={racedAt} onChange={(e) => set("racedAt", e.target.value)}>
+                <option value="">Anywhere</option>
+                {racedAt && !racedVenues.some((v) => String(v.id) === racedAt) && <option value={racedAt}>{raced.data ? "A venue no longer raced at" : "Loading venues…"}</option>}
+                {racedVenues.map((v) => (
+                  <option key={v.id} value={String(v.id)}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <fieldset className="ts-field ts-fieldset">
             <legend className="ts-label">Status</legend>
             <div className="ts-toggles">

@@ -28,7 +28,8 @@ export interface TrackSummary {
   /** error-level checks on the latest revision */
   errors: number;
   derivedFrom: { id: string; name: string | null; author: string | null } | null;
-  /** why the track can't be changed (in the library, used by an event); changes are made on a copy */
+  /** why the track can't be changed (in the library, used by an event); changes are made on a copy. Only the track
+   * page (GET /api/tracks/:id) asks the forum, so lists only ever say "library". */
   locked: "library" | "event" | null;
   latestPreviewUrl: string;
   lapLength: number;
@@ -61,6 +62,38 @@ export interface TrackResponse {
   track: TrackSummary;
   doc: RcTrack;
   can: Permissions;
+  /** where the forum says the layout was raced (#66); null when the forum couldn't be reached */
+  usedAt: UsedAt | null;
+}
+
+export interface ForumRef {
+  id: number;
+  name: string;
+}
+
+/** A forum event that used the layout (published, sold out or completed). */
+export interface ForumEvent {
+  id: number;
+  title: string;
+  startDate: string;
+  /** null when the forum sent no usable link */
+  url: string | null;
+  venue: ForumRef | null;
+  venueTrack: ForumRef | null;
+}
+
+export interface UsedAt {
+  /** newest first */
+  events: ForumEvent[];
+  /** distinct venues, most recent first */
+  venues: ForumRef[];
+}
+
+/** GET /api/raced-venues: forum venues library layouts were raced at */
+export interface RacedVenues {
+  venues: (ForumRef & { layouts: number })[];
+  /** the forum couldn't be reached */
+  unavailable?: true;
 }
 
 export interface Revision {

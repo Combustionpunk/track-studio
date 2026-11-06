@@ -282,10 +282,12 @@ const TRACK_SELECT = `SELECT t.*, u.username AS author_username, v.name AS venue
   LEFT JOIN tracks d ON d.id = t.derived_from_id
   LEFT JOIN users du ON du.forum_id = d.author_forum_id`;
 
-/** Why a track can't be changed: it's in the library ("library"), later also "event" when an event uses it. */
+/** Why a track can't be changed: a forum event uses it ("event", #66), or it's in the library ("library"). */
 export type LockReason = "library" | "event";
 
-export const lockReason = (row: Pick<TrackRow, "status">): LockReason | null => (row.status === "approved" ? "library" : null);
+/** `usedByEvent`: the forum reports one or more events using the layout (see forum-events.ts). */
+export const lockReason = (row: Pick<TrackRow, "status">, usedByEvent = false): LockReason | null =>
+  usedByEvent ? "event" : row.status === "approved" ? "library" : null;
 
 /** The revision the public sees. */
 export const publicRevision = (row: Pick<TrackRow, "approved_revision" | "current_revision">) => row.approved_revision ?? row.current_revision;
@@ -593,11 +595,11 @@ export function createTrack(db: DB, user: User, body: unknown, opts: { keepId?: 
 const canEdit = (user: User, row: TrackRow) => user.id === row.author_forum_id || user.organiser;
 
 /** What the current user may do with the track — mirrors the checks in updateTrack/changeStatus/copy/adapt. */
-export function permissions(user: User | null, row: TrackRow) {
+export function permissions(user: User | null, row: TrackRow, usedByEvent = false) {
   const live = row.status !== "archived";
   const latestApproved = row.approved_revision === row.current_revision;
   return {
-    edit: !!user && live && !lockReason(row) && canEdit(user, row),
+    edit: !!user && live && !lockReason(row, usedByEvent) && canEdit(user, row),
     /** allowed to submit (the button may still be blocked by `errors`) */
     submit: !!user && live && user.id === row.author_forum_id && row.status === "draft",
     approve: !!user && live && user.organiser && !latestApproved,
@@ -608,11 +610,16 @@ export function permissions(user: User | null, row: TrackRow) {
 }
 
 /** New revision. Author, provenance and creation date are kept; the new revision is a draft. Locked tracks are refused. */
-export function updateTrack(db: DB, user: User, id: string, body: unknown) {
-  const row = getTrackRow(db, id);
+/** Throws unless the user may change the track (author or organiser, not archived). Locks are checked separately. */
+export function assertCanChange(user: User, row: TrackRow): void {
   if (!canEdit(user, row)) throw forbidden("Only the author or an organiser can change this track");
   if (row.status === "archived") throw conflict("archived", "Archived tracks can't be changed");
-  const locked = lockReason(row);
+}
+
+export function updateTrack(db: DB, user: User, id: string, body: unknown, usedByEvent = false) {
+  const row = getTrackRow(db, id);
+  assertCanChange(user, row);
+  const locked = lockReason(row, usedByEvent);
   if (locked) {
     const where = locked === "event" ? "used by an event" : "in the library";
     throw new HttpError(409, "layout-locked", `This layout is ${where}, so it can't be changed. Copy it and edit the copy.`, { reason: locked, copy: `/api/tracks/${row.id}/copy` });

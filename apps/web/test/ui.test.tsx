@@ -271,6 +271,25 @@ describe("library page", () => {
     expect(requested.filter((p) => p?.startsWith("/api/tracks"))).toEqual([]);
   });
 
+  it("Raced at <venue>: a filter when the forum reports raced venues; it asks for racedAt and counts behind Filters (#66)", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    answers.set("/api/raced-venues", { data: { venues: [{ id: 7, name: "Misfits Hall", layouts: 2 }, { id: 9, name: "The Barn", layouts: 1 }] }, loading: false });
+    const h = html(<Library />, "/?racedAt=9");
+    expect(h).toMatch(/<label class="ts-label" for="f-raced">Raced at<\/label>/);
+    expect(h).toMatch(/<option value="9" selected="">The Barn<\/option>/);
+    expect(h).toContain(">Anywhere</option>");
+    expect(requested).toContain("/api/tracks?racedAt=9");
+    expect(text(h)).toContain("Filters · 1");
+  });
+
+  it("no raced venues (or the forum down): no Raced at filter", () => {
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    answers.set("/api/raced-venues", { data: { venues: [], unavailable: true }, loading: false });
+    expect(text(html(<Library />))).not.toContain("Raced at");
+    answers.set("/api/raced-venues", { error: new Error("down"), loading: false });
+    expect(text(html(<Library />))).not.toContain("Raced at");
+  });
+
   it("the venue list failing still leaves the library usable, and says so", () => {
     answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
     answers.set("/api/venues", { error: new Error("down"), loading: false });
@@ -407,8 +426,8 @@ describe("track page", () => {
     { revision: 3, createdAt: "2026-10-19T10:00:00Z", createdBy: { id: 1, username: "yeti" }, note: "wider", status: "approved", previewUrl: "", downloadUrl: "/d/3" },
     { revision: 2, createdAt: "2026-10-01T10:00:00Z", createdBy: { id: 999, username: null }, note: "imported", status: "draft", previewUrl: "", downloadUrl: "/d/2" },
   ];
-  const page = (c: Permissions, over: Partial<TrackSummary> = {}, d: RcTrack = doc) => {
-    const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, locked: null, ...over }), doc: d, can: c };
+  const page = (c: Permissions, over: Partial<TrackSummary> = {}, d: RcTrack = doc, used: TrackResponse["usedAt"] = { events: [], venues: [] }) => {
+    const res: TrackResponse = { track: summary({ status: "submitted", approvedRevision: null, locked: null, ...over }), doc: d, can: c, usedAt: used };
     answers.set("/api/tracks/winter-3", { data: res, loading: false });
     answers.set("/api/tracks/winter-3/revisions", { data: { revisions }, loading: false });
     return html(<TrackPage />, "/t/winter-3");
@@ -521,6 +540,38 @@ describe("track page", () => {
     expect(h).toMatch(/<button type="button" class="btn btn-primary"[^>]*>Copy and edit</);
     page(can({ copy: true }), { status: "draft", locked: null });
     expect(text(html(<EditTrackPage />, "/t/winter-3/edit"))).toContain("Make my own copy");
+  });
+
+  it("Used at: the forum's events newest first, linked, with the venue; then Raced at: the venues (#66)", () => {
+    const venue = (id: number, name: string) => ({ id, name });
+    const used: TrackResponse["usedAt"] = {
+      events: [
+        { id: 12, title: "Winter Series R3", startDate: "2026-12-06T09:00:00Z", url: "https://forum.test/t/winter-r3/120", venue: venue(9, "The Barn"), venueTrack: venue(3, "Carpet") },
+        { id: 11, title: "Club night", startDate: "2026-10-04", url: null, venue: venue(7, "Misfits Hall"), venueTrack: null },
+        { id: 10, title: "Practice", startDate: "2026-09-01", url: "https://forum.test/t/practice/100", venue: null, venueTrack: null },
+      ],
+      venues: [venue(9, "The Barn"), venue(7, "Misfits Hall")],
+    };
+    const h = page(can(), { status: "approved", locked: "event" }, doc, used);
+    const t = text(h);
+    expect(h).toMatch(/<h2 id="used-h" class="ts-heading">Used at<\/h2>/);
+    expect(h).toMatch(/<a [^>]*href="https:\/\/forum.test\/t\/winter-r3\/120"[^>]*>Winter Series R3<\/a>/);
+    expect(t).toContain("Winter Series R3 6 Dec 2026 · The Barn, Carpet");
+    expect(t).toContain("Club night 4 Oct 2026 · Misfits Hall");
+    expect(h).not.toMatch(/<a [^>]*>Club night/);
+    expect(t.indexOf("Winter Series R3")).toBeLessThan(t.indexOf("Club night"));
+    expect(t).toContain("Raced at: The Barn, Misfits Hall");
+    expect(t).toContain("3 events");
+  });
+
+  it("not raced yet: the empty state; forum down: no Used at section at all (#66)", () => {
+    const empty = text(page(can()));
+    expect(empty).toContain("Used at");
+    expect(empty).toContain("Not raced yet");
+    const down = page(can(), {}, doc, null);
+    expect(text(down)).not.toContain("Used at");
+    expect(text(down)).not.toContain("Not raced yet");
+    expect(down).not.toContain('role="alert"');
   });
 
   it("an unlocked layout shows no lock note", () => {
