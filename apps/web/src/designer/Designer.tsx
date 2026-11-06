@@ -66,7 +66,7 @@ import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, pla
 import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
-import { addCrossover, bridgeAt, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
+import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -1052,6 +1052,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     for (let r = 0; r <= g.rows; r++) lines += `M${x0} ${-(z0 + r * g.size)}H${x0 + W}`;
     const centres = cells.map((c) => cellCentre(g, c));
     const end = cells[cells.length - 1];
+    // a crossing square: a diamond where the passes cross (which goes over is chosen once the loop is closed)
+    const crossings = cells.flatMap((c, i) => {
+      if (i === 0 || i === cells.findIndex((d) => same(d, c))) return [];
+      const [x, z] = centres[i];
+      const h = g.size * 0.3;
+      return [{ key: `${c[0]},${c[1]}`, d: `M${x - h} ${-z}L${x} ${-(z + h)}L${x + h} ${-z}L${x} ${-(z - h)}Z` }];
+    });
     return (
       <g className="lay">
         <defs>
@@ -1063,10 +1070,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           const c = k.split(",").map(Number) as Cell;
           return <rect key={k} className="lay-blocked" {...box(c)} fill={`url(#${hatchId})`} />;
         })}
-        {cells.map((c) => (
-          <rect key={`${c[0]},${c[1]}`} className="lay-cell" {...box(c)} />
-        ))}
+        {cells.map((c, i) => (i === cells.findIndex((d) => same(d, c)) ? <rect key={`${c[0]},${c[1]}`} className="lay-cell" {...box(c)} /> : null))}
         <path className="lay-grid" d={lines} vectorEffect="non-scaling-stroke" />
+        {crossings.map((b) => (
+          <path key={b.key} className="lay-crossing" d={b.d} vectorEffect="non-scaling-stroke" />
+        ))}
         {end && <rect className="lay-end" {...box(end)} vectorEffect="non-scaling-stroke" />}
         {centres.length > 1 && <polyline className="lay-line" points={pts(centres)} vectorEffect="non-scaling-stroke" />}
         {centres[0] && <circle className="lay-first" cx={centres[0][0]} cy={-centres[0][1]} r={Math.min(g.size / 4, 9 * m)} vectorEffect="non-scaling-stroke" />}
@@ -1089,6 +1097,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const makeItACrossover = (i: number) => {
     setFeatures((f) => makeCrossover(f, i, liveRef.current.crossings, liveRef.current.total));
     setSel({ kind: "feature", i });
+  };
+  const bridgeIt = (c: Check) => {
+    const { crossings, total } = liveRef.current;
+    const r = bridgeCrossing(draftRef.current.design.features ?? [], c, crossings, total);
+    if (!r) return;
+    setFeatures(() => r.features);
+    setSel({ kind: "feature", i: r.index });
   };
   const showCheck = (x: number, z: number) => {
     setHighlight([x, z]);
@@ -1289,6 +1304,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           <aside className="designer-palette" aria-label="Lay the lanes">
             <span className="label">1 · Lay the lanes</span>
             <p className="lay-help">Press on a square and drag through the squares in driving order. Drag back to take squares up.</p>
+            <p className="lay-help">To cross the lane (a figure of eight), go straight across it at right angles. Add a crossover there once the loop is closed.</p>
             <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
             <button
               type="button"
@@ -1375,7 +1391,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             <div className="designer-hint">
               {laying
                 ? layNote ?? (draft.laying?.length
-                  ? "Drag on through the squares. Come back to the ring to close the loop."
+                  ? "Drag on through the squares, or straight across the lane at right angles. Come back to the ring to close the loop."
                   : "Press on a square and drag to lay the lane.")
                 : tool.kind === "feature"
                   ? tool.type === "crossover"
@@ -1437,7 +1453,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               </button>
               {sheet === "checks" ? (
                 <>
-                  <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} />
+                  <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} onBridge={bridgeIt} />
                   <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
                 </>
               ) : (
@@ -1523,7 +1539,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </aside>
         ) : (
           <aside className="designer-side" aria-label="Checks">
-            <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} />
+            <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} onBridge={bridgeIt} />
             <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
             <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
             {advanced && <Shortcuts />}
@@ -1697,6 +1713,7 @@ export function ChecksPanel({
   ready,
   onShow,
   onMakeCrossover,
+  onBridge,
 }: {
   checks: Check[];
   /** the bake's jumps, for the hints on crossing checks */
@@ -1708,6 +1725,8 @@ export function ChecksPanel({
   onShow: (x: number, z: number) => void;
   /** Quick: turn the tabletop too low to drive under into a crossover */
   onMakeCrossover?: (feature: number) => void;
+  /** Quick: put a crossover on an unbridged crossing */
+  onBridge?: (c: Check) => void;
 }) {
   const shown = visibleChecks(checks, view);
   const { errors, warnings } = checkCounts(checks);
@@ -1739,7 +1758,7 @@ export function ChecksPanel({
                   <span>
                     {c.message}
                     {view === "advanced" && <code className="check-code">{c.code}</code>}
-                    <CrossingHint c={c} features={features} view={view} onMakeCrossover={onMakeCrossover} />
+                    <CrossingHint c={c} features={features} view={view} onMakeCrossover={onMakeCrossover} onBridge={onBridge} />
                   </span>
                   {c.x !== undefined && c.z !== undefined && (
                     <button type="button" className="check-show" onClick={() => onShow(c.x!, c.z!)}>
@@ -1761,8 +1780,8 @@ export function ChecksPanel({
   );
 }
 
-/** A crossing error's hint, and Quick's one-tap fix for a tabletop too low to drive under. */
-function CrossingHint({ c, features, view, onMakeCrossover }: { c: Check; features: BuiltFeature[]; view: DesignerMode; onMakeCrossover?: (feature: number) => void }) {
+/** A crossing error's hint, and Quick's one-tap fixes: a crossover on an unbridged crossing, or for a tabletop too low to drive under. */
+function CrossingHint({ c, features, view, onMakeCrossover, onBridge }: { c: Check; features: BuiltFeature[]; view: DesignerMode; onMakeCrossover?: (feature: number) => void; onBridge?: (c: Check) => void }) {
   const fi = c.code === "crossing-too-low" ? bridgeAt(c, features) : null;
   const type = fi === null ? null : features[fi].type;
   const hint = crossingHint(c, type);
@@ -1772,6 +1791,11 @@ function CrossingHint({ c, features, view, onMakeCrossover }: { c: Check; featur
       {hint}
       {view === "quick" && type === "tabletop" && onMakeCrossover && (
         <button type="button" className="btn btn-quiet check-fix" onClick={() => onMakeCrossover(fi!)}>
+          Make it a crossover
+        </button>
+      )}
+      {view === "quick" && c.code === "crossing-unbridged" && onBridge && (
+        <button type="button" className="btn btn-quiet check-fix" onClick={() => onBridge(c)}>
           Make it a crossover
         </button>
       )}

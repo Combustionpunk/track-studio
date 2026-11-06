@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ChecksPanel, draftFromDoc, SelectionPanel, type Draft } from "../src/designer/Designer.js";
-import { addCrossover, bridgeAt, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "../src/designer/crossings.js";
+import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "../src/designer/crossings.js";
 import { liveGeometry } from "../src/designer/geometry.js";
 import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import { JumpPalette } from "../src/designer/JumpPalette.js";
@@ -186,7 +186,7 @@ describe("hints on crossing checks", () => {
   });
 
   const checksPanel = (doc: RcTrack, view: "quick" | "advanced") =>
-    renderToStaticMarkup(<ChecksPanel checks={doc.built!.checks} features={doc.built!.features} view={view} pending={false} blocked={null} ready={false} onShow={() => {}} onMakeCrossover={() => {}} />);
+    renderToStaticMarkup(<ChecksPanel checks={doc.built!.checks} features={doc.built!.features} view={view} pending={false} blocked={null} ready={false} onShow={() => {}} onMakeCrossover={() => {}} onBridge={() => {}} />);
   it("the checks list shows them; Quick offers a one-tap Make it a crossover for a low tabletop", () => {
     expect(checksPanel(fixture("unbridged-figure8"), "quick")).toContain("Add a crossover (or a long tabletop) here.");
     const low = fixture("tabletop-low-figure8");
@@ -194,6 +194,22 @@ describe("hints on crossing checks", () => {
     expect(checksPanel(low, "quick")).toContain("Too low to drive under: use a Crossover, or raise it to 0.40 m in Advanced.");
     expect(checksPanel(low, "advanced")).not.toContain("Make it a crossover");
     expect(checksPanel(fixture("crossover-low-figure8"), "quick")).not.toContain("Make it a crossover");
+  });
+  it("Quick offers Make it a crossover on an unbridged crossing too; Advanced doesn't", () => {
+    expect(checksPanel(eight, "quick")).toContain("Make it a crossover");
+    expect(checksPanel(eight, "advanced")).not.toContain("Make it a crossover");
+  });
+});
+
+describe("Make it a crossover on an unbridged crossing (#79)", () => {
+  it("adds a crossover on the crossing, the first pass over; the check clears", () => {
+    const live = liveGeometry(eight.design);
+    const c = eight.built!.checks.find((k) => k.code === "crossing-unbridged")!;
+    const r = bridgeCrossing(eight.design.features ?? [], c, live.crossings, live.total)!;
+    expect(r).toEqual({ features: [...(eight.design.features ?? []), { type: "crossover", distance: FIRST, over: "first" }], index: eight.design.features?.length ?? 0 });
+    expect(errors(withFeatures(eight, r.features))).toEqual([]);
+    // nowhere near a crossing: nothing to do
+    expect(bridgeCrossing([], { ...c, x: 50, z: 50 }, live.crossings, live.total)).toBeNull();
   });
 });
 

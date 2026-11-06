@@ -3,7 +3,9 @@ import { bakeBuilt, venueCheck, type Built, type Obstacle, type RcTrack, type Rc
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { bridgeCrossing } from "../src/designer/crossings.js";
 import { draftFromDoc, newDraft, toDoc, type Draft } from "../src/designer/Designer.js";
+import { liveGeometry } from "../src/designer/geometry.js";
 import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import {
   cellAt,
@@ -15,6 +17,7 @@ import {
   laneGrid,
   loopPoints,
   paintTo,
+  REFUSAL_TEXT,
   stepsBetween,
   withLaying,
   type Cell,
@@ -332,5 +335,144 @@ describe("closing the loop", () => {
     // the south straight, from x = -10 + 1 to 10 - 1, centre (0, -5)
     expect(b.startLine.x).toBeCloseTo(0, 2);
     expect(b.startLine.z).toBeCloseTo(-5, 2);
+  });
+});
+
+describe("crossing itself (#79)", () => {
+  const v = venue("club-hall");
+  const g = laneGrid(v.area, [], 2); // 11 × 6
+  // a figure of eight: east along row 2, round the north-east lobe, south down column 5 straight across [5, 2], round
+  // the south-west lobe and back up to the first square
+  const EIGHT: Cell[] = [[0, 2], [8, 2], [8, 5], [5, 5], [5, 0], [0, 0], [0, 2]];
+  /** up to the square before the crossing on the second pass */
+  const toCrossing = () => last(paintAll(g, [[0, 2], [8, 2], [8, 5], [5, 5], [5, 3]]));
+  const at52 = (cells: Cell[]) => cells.filter((c) => c[0] === 5 && c[1] === 2).length;
+
+  it("a figure of eight painted on the grid crosses straight over and closes", () => {
+    const states = paintAll(g, EIGHT);
+    const lay = last(states);
+    expect(lay.closed).toBe(true);
+    expect(at52(lay.cells)).toBe(2);
+    expect(isLoop(lay.cells)).toBe(true);
+    // one state (undo step) per square, the crossing too
+    const open = states.slice(0, -1);
+    expect(open.map((s) => s.cells.length)).toEqual(open.map((_, i) => i + 1));
+    // a straight-through square has no corner: the crossing adds none
+    const pts = loopPoints(g, lay.cells);
+    expect(pts).toHaveLength(6);
+    expect(pts.some((p) => p.x === 0 && p.z === -1)).toBe(false); // [5, 2]'s centre
+  });
+
+  it("refuses a crossing that turns on the second pass, and stops on the crossing", () => {
+    expect(REFUSAL_TEXT.crossing).toBe("The lane can only cross itself straight across, at right angles.");
+    // in from the north, out to the west or east
+    const at = last(paintTo(g, toCrossing(), [5, 2]).states);
+    expect(at.cells.slice(-2)).toEqual([[5, 3], [5, 2]]);
+    expect(paintTo(g, at, [4, 2])).toEqual({ states: [], refused: "crossing" });
+    expect(paintTo(g, at, [6, 2])).toEqual({ states: [], refused: "crossing" });
+    // straight on is fine
+    expect(paintTo(g, at, [5, 1]).refused).toBeUndefined();
+    // one drag straight across lays the crossing and goes on
+    expect(last(paintTo(g, toCrossing(), [5, 0]).states).cells.slice(-4)).toEqual([[5, 3], [5, 2], [5, 1], [5, 0]]);
+  });
+
+  it("refuses a crossing with nowhere to go straight on as a used square", () => {
+    // [1, 0] is straight through, but straight on from it is off the grid
+    const laid = last(paintAll(g, [[0, 0], [2, 0], [2, 1], [1, 1]]));
+    expect(paintTo(g, laid, [1, 0]).refused).toBe("used");
+    // or onto a blocked square: a pillar in [2, 0]
+    const pillar = laneGrid(v.area, [{ type: "circle", x: -6, z: -5, radius: 0.3, label: "Pillar" }], 2);
+    expect(blocked(pillar)).toEqual(["2,0"]);
+    const lane = last(paintAll(pillar, [[0, 1], [4, 1], [4, 3], [2, 3], [2, 2]]));
+    expect(paintTo(pillar, lane, [2, 1]).refused).toBe("used");
+    // straight on onto the first square closes the loop: that's fine
+    const closing = last(paintAll(g, [[2, 0], [0, 0], [0, 1], [4, 1], [4, 3], [2, 3], [2, 2]]));
+    const r = paintTo(g, closing, [2, 0]);
+    expect(r.refused).toBeUndefined();
+    expect(last(r.states).closed).toBe(true);
+    expect(isLoop(last(r.states).cells)).toBe(true);
+  });
+
+  it("refuses to cross a square where the first pass turns", () => {
+    // [8, 2] is the first pass's corner; come back into it from the east
+    const round = last(paintAll(g, [[0, 2], [8, 2], [8, 5], [10, 5], [10, 2], [9, 2]]));
+    expect(paintTo(g, round, [8, 2])).toEqual({ states: [], refused: "crossing" });
+    // the first pass's square next to its corner goes straight through: that one can be crossed
+    expect(paintTo(g, last(paintAll(g, [[0, 2], [3, 2], [3, 4], [2, 4], [2, 3]])), [2, 2]).refused).toBeUndefined();
+  });
+
+  it("isLoop: a crossing square twice at right angles; not along the same direction, three times or on the first square", () => {
+    const eight = last(paintAll(g, EIGHT)).cells;
+    expect(isLoop(eight)).toBe(true);
+    // round a ring twice: every square used twice, along the same direction
+    const ring = last(paintAll(g, [[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]])).cells;
+    expect(isLoop([...ring, ...ring])).toBe(false);
+    // the first square used twice: the figure of eight started on its crossing
+    const k = eight.findIndex((c) => c[0] === 5 && c[1] === 2);
+    expect(isLoop([...eight.slice(k), ...eight.slice(0, k)])).toBe(false);
+    // three passes: a square crossed by a third, straight, pass (hand-made: painting can't reach it, its four
+    // neighbours are already taken)
+    const third: Cell[] = [...eight, [5, 2]];
+    expect(isLoop(third)).toBe(false);
+    // a crossing where one pass turns
+    const turning: Cell[] = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 2], [1, 2], [1, 1], [2, 1], [2, 0]];
+    expect(isLoop(turning)).toBe(false);
+  });
+
+  it("back-tracking off a crossing takes up only the second pass, and the square is single-use again", () => {
+    const at = last(paintTo(g, toCrossing(), [5, 2]).states);
+    const back = paintTo(g, at, [5, 3]);
+    expect(back.states).toHaveLength(1);
+    expect(at52(last(back.states).cells)).toBe(1);
+    expect(last(back.states).cells).toEqual(toCrossing().cells);
+    // dragging back past it along the first pass takes that up too
+    const firstPass = last(paintAll(g, [[0, 2], [7, 2]]));
+    const undone = last(paintTo(g, firstPass, [4, 2]).states);
+    expect(at52(undone.cells)).toBe(0);
+  });
+
+  it("dragging back off a crossing and on along the other pass works square by square", () => {
+    // past the crossing, then back up across it: each step takes one square up
+    const past = last(paintAll(g, [[0, 2], [8, 2], [8, 5], [5, 5], [5, 0]]));
+    const back = paintTo(g, past, [5, 4]);
+    expect(back.states.map((s) => s.cells.length)).toEqual([past.cells.length - 1, past.cells.length - 2, past.cells.length - 3, past.cells.length - 4]);
+    expect(at52(last(back.states).cells)).toBe(1);
+  });
+
+  it("the painted figure of eight bakes with one crossing and no errors but crossing-unbridged", () => {
+    const doc = laidDoc(v, EIGHT);
+    const b = bakeBuilt(doc);
+    expect(b.crossings).toHaveLength(1);
+    expect(b.crossings![0].x).toBeCloseTo(0, 2);
+    expect(b.crossings![0].z).toBeCloseTo(-1, 2);
+    expect(errorsIn(doc, v).map((c) => c.code)).toEqual(["crossing-unbridged"]);
+    for (const p of doc.design.points) expect(Object.keys(p).sort()).toEqual(["radius", "x", "z"]);
+  });
+
+  it("Make it a crossover bridges it, so the check clears; undo takes it away", () => {
+    const doc = laidDoc(v, EIGHT);
+    const c = bakeBuilt(doc).checks.find((k) => k.code === "crossing-unbridged")!;
+    const live = liveGeometry(doc.design);
+    type Doc = { features: NonNullable<RcTrack["design"]["features"]> };
+    let h: HistoryState<Doc> = { past: [], present: { features: doc.design.features ?? [] }, future: [], group: null, at: 0, travels: 0 };
+    h = historyReducer(h, { type: "set", next: { features: bridgeCrossing(h.present.features, c, live.crossings, live.total)!.features }, now: 1000 });
+    const bridged = { ...doc, design: { ...doc.design, features: h.present.features } };
+    expect(h.present.features).toEqual([{ type: "crossover", distance: live.crossings[0].distances[0], over: "first" }]);
+    expect(errorsIn(bridged, v)).toEqual([]);
+    expect(bakeBuilt(bridged).crossings![0].bridge).toMatchObject({ type: "crossover", feature: 0 });
+    h = historyReducer(h, { type: "undo" });
+    expect(h.present.features).toEqual([]);
+  });
+
+  it("each step through a crossing is one undo state, and undo past the close comes back to the open lane", () => {
+    const d0 = newDraft({ area: v.area, name: "t" });
+    const states = paintAll(gridFor(d0), EIGHT);
+    let h: HistoryState<Draft> = { past: [], present: d0, future: [], group: null, at: 0, travels: 0 };
+    for (const s of states) h = historyReducer(h, { type: "set", next: withLaying(h.present, s), now: 1000 });
+    expect(h.past.length).toBe(states.length);
+    expect(designStep(h.present)).toBe(2);
+    h = historyReducer(h, { type: "undo" });
+    expect(h.present.laying).toEqual(states[states.length - 2].cells);
+    expect(at52(h.present.laying!)).toBe(2);
   });
 });
