@@ -14,7 +14,6 @@ export interface BuiltDiff {
   checks: [string[], string[]];
   features: { maxPos: number; maxHeading: number; otherSame: boolean };
   startLine: { pos: number; heading: number; width: number };
-  rostrum: number;
   stats: { dividerLength: number; dividerRuns: [number, number]; corners: [number, number] };
   footprint: { bboxMax: number; shape: [number, number, number, number]; cellsDiffer: number | null };
   /** max difference of size length/width/bbox (Infinity if either side has none) */
@@ -127,7 +126,6 @@ export function compareBuilt(actual: Built, expected: Built): BuiltDiff {
       heading: angleDiff(actual.startLine.heading, expected.startLine.heading),
       width: Math.abs(actual.startLine.width - expected.startLine.width),
     },
-    rostrum: dist([actual.rostrum.x, actual.rostrum.z], [expected.rostrum.x, expected.rostrum.z]),
     stats: {
       dividerLength: Math.abs(actual.stats.dividerLength - expected.stats.dividerLength),
       dividerRuns: [actual.stats.dividerRuns, expected.stats.dividerRuns],

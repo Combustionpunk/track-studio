@@ -20,7 +20,7 @@ const club = () => JSON.parse(readFileSync(join(__dirname, "../../../reference/e
 
 /** a loop laid in step 1 round the edge of a 12 × 8 m area: now in step 2 with `laid` kept */
 function laidDraft(): Draft {
-  const d = newDraft({ area: { length: 12, width: 8 }, obstacles: [], name: "Laid" });
+  const d = newDraft({ area: { length: 12, width: 8 }, name: "Laid" });
   const g = gridFor(d);
   let lay: Laying = { cells: [], closed: false };
   const corners: Cell[] = [[0, 0], [g.cols - 1, 0], [g.cols - 1, g.rows - 1], [0, g.rows - 1], [0, 0]];
@@ -53,7 +53,7 @@ describe("reverseDraft", () => {
   });
 
   it("does nothing while the lanes are being laid (there is no loop yet)", () => {
-    const d = newDraft({ area: { length: 12, width: 8 }, obstacles: [], name: "New" });
+    const d = newDraft({ area: { length: 12, width: 8 }, name: "New" });
     expect(reverseDraft(d)).toBe(d);
   });
 
@@ -133,7 +133,7 @@ describe("the Reverse direction button", () => {
   });
 
   it("is disabled while the lanes are being laid", () => {
-    const b = button(render(newDraft({ area: { length: 12, width: 8 }, obstacles: [], name: "New" })));
+    const b = button(render(newDraft({ area: { length: 12, width: 8 }, name: "New" })));
     expect(b).toMatch(/disabled/);
   });
 });

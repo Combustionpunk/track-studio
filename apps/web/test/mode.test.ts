@@ -66,7 +66,7 @@ describe("Quick mode edits keep custom values", () => {
     const t = customTrack();
     const before = t.design.points;
     const lw = t.design.laneWidth ?? 2;
-    const res = snapCentre([before[4].x + 0.6, before[4].z - 0.3], { area: t.area, points: before, laneWidth: lw, i: 4, mode: snapModeFor("quick", { shiftKey: true, altKey: true }, "free") });
+    const res = snapCentre([before[4].x + 0.6, before[4].z - 0.3], { area: t.area!, points: before, laneWidth: lw, i: 4, mode: snapModeFor("quick", { shiftKey: true, altKey: true }, "free") });
     const moved = movePoint(before, 4, res.p);
     expect(moved.map(custom)).toEqual(before.map(custom));
     expect([moved[4].x, moved[4].z]).toEqual(res.p);

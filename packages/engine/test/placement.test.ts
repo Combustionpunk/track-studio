@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { bakeBuilt, fits, fittedPreviewDoc, previewSvg, rostrumPosition, transformBuilt, type RcTrack, type RcVenue } from "../src/index.js";
+import { bakeBuilt, fits, fittedScene, planSvg, rostrumPosition, transformBuilt, venueCheck, type RcTrack, type RcVenue } from "../src/index.js";
 import { examples, readJson, venues } from "./helpers.js";
 
 const ex = (n: string) => readJson<RcTrack>(examples.find((e) => e.name === n)!.path);
 const venue = (n: string) => readJson<RcVenue>(venues.find((v) => v.name === n)!.path);
 
 describe("rostrumPosition", () => {
-  it("is where bake puts the rostrum", () => {
-    const t = ex("freeform-at-sports-hall-b.rctrack.json");
-    const [x, z] = rostrumPosition(t.area, "south", 3);
-    expect([x, z]).toEqual([t.built!.rostrum.x, t.built!.rostrum.z]);
+  it("is where the venue check puts the venue's rostrum", () => {
+    const v = venue("sports-hall-b.rcvenue.json");
+    const { rostrum } = venueCheck(ex("freeform-at-sports-hall-b.rctrack.json"), v);
+    expect([rostrum.x, rostrum.z]).toEqual(rostrumPosition(v.area, "south", 3));
     expect(rostrumPosition({ length: 20, width: 10 }, "west", 1)).toEqual([-11.5, 1]);
   });
 });
 
-describe("transformBuilt / fittedPreviewDoc", () => {
+describe("transformBuilt / fittedScene", () => {
   it("moved geometry lands where the re-baked adapted copy is", () => {
     const track = ex("freeform-example.rctrack.json");
     const adapted = ex("freeform-at-sports-hall-b.rctrack.json");
@@ -29,15 +29,16 @@ describe("transformBuilt / fittedPreviewDoc", () => {
     });
   });
 
-  it("the preview doc uses the venue's area, obstacles and rostrum", () => {
+  it("the scene uses the venue's area, obstacles and rostrum", () => {
     const track = ex("freeform-example.rctrack.json");
     const v = venue("sports-hall-b.rcvenue.json");
     const [fit] = fits(track, v);
-    const doc = fittedPreviewDoc({ ...track, built: bakeBuilt(track) }, v, fit);
-    expect(doc.area).toEqual(v.area);
-    expect(doc.obstacles).toEqual(v.obstacles);
-    expect([doc.built!.rostrum.x, doc.built!.rostrum.z]).toEqual(rostrumPosition(v.area, "south", 3));
-    expect(doc.info.name).toBe("Freeform example · rotated 180 in Sports hall B");
-    expect(previewSvg(doc)).toContain("area 25 x 14 m");
+    const scene = fittedScene({ ...track, built: bakeBuilt(track) }, v, fit);
+    expect(scene.area).toEqual(v.area);
+    expect(scene.obstacles).toEqual(v.obstacles);
+    expect([scene.rostrum!.x, scene.rostrum!.z]).toEqual(rostrumPosition(v.area, "south", 3));
+    const svg = planSvg(scene, { width: 600 });
+    expect(svg).toMatch(/p-rostrum/);
+    expect(svg).toMatch(/p-obstacle/);
   });
 });

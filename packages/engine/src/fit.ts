@@ -1,7 +1,8 @@
-// "Will it fit my venue?" search and adapt. A port of reference/fit.py. Pure: no DOM, no Node APIs.
-import { bake, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumPosition } from "./bake.js";
-import { pyRound, pyRoundInt, radians } from "./num.js";
-import type { Built, FitResult, Point2, RcTrack, ForumVenueRef, RcVenue, VenueRef } from "./types.js";
+// "Will it fit my venue?" search, the venue checks and adapt. A port of reference/fit.py. Pure: no DOM, no Node APIs.
+import { bake, borders, EYE_HEIGHT, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumPosition, upgradeTrack } from "./bake.js";
+import { pyRound, pyRoundInt, r3, radians } from "./num.js";
+import type { PlanScene } from "./plan.js";
+import type { BuiltRostrum, Built, Check, FitResult, ForumVenueRef, Point2, RcTrack, RcVenue, VenueCheck, VenueRef } from "./types.js";
 
 /** [label, rotation (deg), mirror] in the order results are reported. */
 export const ORIENTS: [string, number, boolean][] = [
@@ -89,12 +90,49 @@ export function fits(track: RcTrack, venue: RcVenue): FitResult[] {
   return results;
 }
 
+/** Where the venue's rostrum stands. */
+export function venueRostrumOf(venue: Pick<RcVenue, "area" | "rostrum">): BuiltRostrum {
+  const side = venue.rostrum?.side ?? "south";
+  const [x, z] = rostrumPosition(venue.area, side, venue.rostrum?.offset ?? 0.0);
+  return { side, x: r3(x), z: r3(z), eyeHeight: EYE_HEIGHT };
+}
+
+/**
+ * The layout where it is drawn (venue coordinates) against the venue (v1.7: these were built.checks): the lanes going
+ * outside the venue's area (`outside-area`), the lanes + pipe thickness over a fixed obstacle (`obstacle`), and where
+ * the venue's rostrum stands. Reads `design` (it's the designer's and the fit's), like fits().
+ */
+export function venueCheck(track: Pick<RcTrack, "design">, venue: RcVenue): VenueCheck {
+  const pts = track.design.points;
+  const L = venue.area.length, W = venue.area.width;
+  const { line, corners } = racingLine(pts, track.design.laneWidth ?? 2.0);
+  const checks: Check[] = [];
+  const e = borders(line, corners, pts);
+  outer: for (const [ex, ez] of [[e.rx, e.rz], [e.lx, e.lz]]) {
+    for (let i = 0; i < line.n; i++) {
+      if (Math.abs(ex[i]) > L / 2 + 0.01 || Math.abs(ez[i]) > W / 2 + 0.01) {
+        checks.push({ level: "error", code: "outside-area", x: r3(ex[i]), z: r3(ez[i]), message: "Track goes outside the venue's track area" });
+        break outer;
+      }
+    }
+  }
+  if (venue.obstacles?.length) {
+    const fp = laneMask(line, corners, pts);
+    const om = obstacleMask(venue.obstacles, fp.origin, fp.rows, fp.cols);
+    const hit = fp.mask.findIndex((v, k) => v === 1 && om[k] === 1);
+    if (hit >= 0) {
+      const row = Math.floor(hit / fp.cols), col = hit % fp.cols;
+      checks.push({ level: "error", code: "obstacle", x: r3(fp.origin[0] + (col + 0.5) * FOOT_CELL), z: r3(fp.origin[1] + (row + 0.5) * FOOT_CELL), message: "Track overlaps a fixed obstacle" });
+    }
+  }
+  return { checks, rostrum: venueRostrumOf(venue) };
+}
+
 export interface AdaptOptions {
   /** id for the new track; default crypto.randomUUID() */
   id?: string;
 }
 
-/** An adapted copy of the track for the venue, in the chosen fit's orientation and position, re-baked. */
 /**
  * A template's forum link as a track's `info.venue` ({id, name}, rctrack): the forum track (rcvenue 1.1) stays on the
  * template. fit.py copies the whole object; the two agree on every 1.0 template, and `built` doesn't depend on it.
@@ -103,17 +141,19 @@ export function trackVenueRef(v: ForumVenueRef | null | undefined): VenueRef | n
   return v ? ({ id: v.id, ...(v.name !== undefined ? { name: v.name } : {}) } as VenueRef) : null;
 }
 
+/**
+ * An adapted copy of the track for the venue, in the chosen fit's orientation and position, re-baked. v1.7: nothing of
+ * the venue is copied in but its area (as the drawing area) and the "drawn for" label — no obstacles, no rostrum.
+ */
 export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: AdaptOptions = {}): RcTrack {
-  const t: RcTrack = structuredClone(track);
+  const t: RcTrack = structuredClone(upgradeTrack(track));
   for (const p of t.design.points) {
     const [x, z] = transformPt(p.x, p.z, fit.rotation, fit.mirror);
     p.x = pyRound(x + fit.shift[0], 3);
     p.z = pyRound(z + fit.shift[1], 3);
   }
   t.area = { ...venue.area };
-  t.obstacles = structuredClone(venue.obstacles ?? []);
-  t.design.rostrum = { ...(venue.rostrum ?? { side: "south" }) };
-  t.basedOn = { venueTemplate: venue.id, revision: venue.revision };
+  t.info.drawnFor = { venueTemplate: venue.id, name: venue.info.name };
   t.info.venue = trackVenueRef(venue.info.venue);
   t.info.derivedFrom = { id: track.id, revision: track.revision, orientation: fit.orientation };
   t.info.name = `${track.info.name} @ ${venue.info.name}`;
@@ -150,17 +190,8 @@ export function transformBuilt(b: Built, fit: Pick<FitResult, "rotation" | "mirr
   };
 }
 
-/** The track drawn where a fit puts it in the venue (venue area, obstacles and rostrum), for previews. */
-export function fittedPreviewDoc(track: RcTrack, venue: RcVenue, fit: FitResult): RcTrack {
-  if (!track.built) throw new Error("fittedPreviewDoc: track has no built section");
-  const placed = transformBuilt(track.built, fit);
-  const side = venue.rostrum?.side ?? "south";
-  const [rx, rz] = rostrumPosition(venue.area, side, venue.rostrum?.offset ?? 0);
-  return {
-    ...track,
-    info: { ...track.info, name: `${track.info.name} · ${fit.orientation} in ${venue.info.name}` },
-    area: { ...venue.area },
-    obstacles: venue.obstacles ?? [],
-    built: { ...placed, rostrum: { ...placed.rostrum, side, x: rx, z: rz } },
-  };
+/** The track drawn where a fit puts it in the venue: the venue's area, obstacles and rostrum round the moved `built`. */
+export function fittedScene(track: RcTrack, venue: RcVenue, fit: FitResult): PlanScene {
+  if (!track.built) throw new Error("fittedScene: track has no built section");
+  return { area: { ...venue.area }, obstacles: venue.obstacles ?? [], rostrum: venueRostrumOf(venue), built: transformBuilt(track.built, fit) };
 }

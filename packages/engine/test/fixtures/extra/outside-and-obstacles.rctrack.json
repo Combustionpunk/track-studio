@@ -62,32 +62,10 @@
   ],
   "start": {
    "distance": 2.0
-  },
-  "rostrum": {
-   "side": "west",
-   "offset": 1.5
   }
  },
- "obstacles": [
-  {
-   "type": "circle",
-   "x": 0.0,
-   "z": -4.0,
-   "radius": 0.3,
-   "label": "Pillar"
-  },
-  {
-   "type": "rect",
-   "x": 5.0,
-   "z": 3.0,
-   "length": 1.5,
-   "width": 0.8,
-   "rotation": 30,
-   "label": "Desk"
-  }
- ],
  "built": {
-  "generator": "rctrack-bake.py 1.6",
+  "generator": "rctrack-bake.py 1.7",
   "lapLength": 45.82,
   "racingLine": [
    [
@@ -1231,12 +1209,6 @@
    "width": 2.196,
    "distance": 2.0
   },
-  "rostrum": {
-   "side": "west",
-   "x": -10.5,
-   "z": 1.5,
-   "eyeHeight": 2.8
-  },
   "checks": [
    {
     "level": "warning",
@@ -1244,20 +1216,6 @@
     "x": -1.671,
     "z": 1.314,
     "message": "double at 33.3 m is on or lands into a corner"
-   },
-   {
-    "level": "error",
-    "code": "outside-area",
-    "x": -10.173,
-    "z": -2.432,
-    "message": "Track goes outside the venue's track area"
-   },
-   {
-    "level": "error",
-    "code": "obstacle",
-    "x": -0.173,
-    "z": -4.218,
-    "message": "Track overlaps a fixed obstacle"
    }
   ],
   "footprint": {

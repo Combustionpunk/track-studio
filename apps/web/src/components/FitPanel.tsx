@@ -116,14 +116,15 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
             <PlanView
               area={v.area}
               obstacles={v.obstacles}
-              built={{ ...placed, rostrum: { ...placed.rostrum, ...xz(rostrumPos(v.area, v.rostrum?.side, v.rostrum?.offset)), side: v.rostrum?.side ?? "south" } }}
+              built={placed}
+              rostrum={{ ...xz(rostrumPos(v.area, v.rostrum?.side, v.rostrum?.offset)), side: v.rostrum?.side ?? "south" }}
               layers={{ lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: false, obstacles: true, grid: true, rostrum: true }}
               label={`${chosen.orientation} in ${v.info.name}`}
               className="ts-plan-well fit-plan"
             />
           )}
           <p className="ts-help">
-            Preview: the copy is re-built for {v.info.name} ({fmt.size(v.area)} area), with its obstacles and rostrum.
+            Preview: the track placed in {v.info.name} ({fmt.size(v.area)} area), with its obstacles and rostrum. The copy keeps only the track, turned to fit.
           </p>
           {error && <ErrorAlert title="Couldn't make the copy.">{error}</ErrorAlert>}
           <div>

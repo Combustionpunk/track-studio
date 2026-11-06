@@ -316,7 +316,7 @@ export function PlanView(props: PlanViewProps) {
           <span>{metres(built.startLine.distance)} from point 0</span>
         </>,
       );
-    const r = built?.rostrum ?? props.rostrum;
+    const r = props.rostrum;
     if (r)
       t.set(
         "rostrum",

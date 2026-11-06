@@ -123,26 +123,26 @@ describe("venue revisions", () => {
     expect(stale.json().error).toBe("stale");
   });
 
-  it("existing tracks keep their basedOn revision; new designs use the latest", async () => {
+  it("tracks drawn for a venue keep their label when it changes; new designs use the latest area (1.7)", async () => {
     const { app, alice, org } = await setup();
     const before = (await req(app, "GET", "/api/tracks?venue=venue-2")).json().tracks as { id: string }[];
     expect(before.length).toBeGreaterThan(0);
-    const basedOn = async () => Promise.all(before.map(async (t) => ((await req(app, "GET", `/api/tracks/${t.id}`)).json().doc as RcTrack).basedOn));
-    const was = await basedOn();
-    expect(was.every((b) => b?.venueTemplate === "venue-2" && b.revision === 1)).toBe(true);
+    const drawnFor = async () => Promise.all(before.map(async (t) => ((await req(app, "GET", `/api/tracks/${t.id}`)).json().doc as RcTrack).info.drawnFor));
+    const was = await drawnFor();
+    expect(was.every((d) => d?.venueTemplate === "venue-2")).toBe(true);
 
     const sports = referenceJson<RcVenue>("venues/sports-hall-b.rcvenue.json");
     const edited = { ...sports, area: { length: 26, width: 15 }, obstacles: [] };
     expect((await req(app, "PUT", "/api/venues/venue-2", org, { venue: edited })).json().venue.revision).toBe(2);
-    expect(await basedOn()).toEqual(was);
+    expect(await drawnFor()).toEqual(was);
 
     const track = referenceJson<RcTrack>("examples/freeform-example.rctrack.json");
     const created = await req(app, "POST", "/api/tracks", alice, { track: { info: { name: "On the new hall" }, design: track.design }, fromVenue: "venue-2" });
     expect(created.statusCode, created.body).toBe(201);
     const doc = created.json().doc as RcTrack;
-    expect(doc.basedOn).toEqual({ venueTemplate: "venue-2", revision: 2 });
+    expect(doc.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
     expect(doc.area).toEqual({ length: 26, width: 15 });
-    expect(doc.obstacles).toEqual([]);
+    expect(doc).not.toHaveProperty("obstacles");
   });
 
   it("venue summaries count the tracks drawn on each venue", async () => {

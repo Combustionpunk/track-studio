@@ -3,14 +3,14 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { adapt, bakeBuilt, BRIDGE_MARGIN, fits, transformBuilt, type Built, type DesignFeature, type RcTrack, type RcVenue } from "../src/index.js";
-import { extraDir, readJson } from "./helpers.js";
+import { as17, extraDir, readJson } from "./helpers.js";
 
 const track = (pts: [number, number][], opts: { features?: DesignFeature[]; start?: number; radius?: number; area?: [number, number] } = {}): RcTrack => ({
   format: "rctrack", version: 1, id: "t", revision: 1, info: { name: "t" },
   area: { length: opts.area?.[0] ?? 30, width: opts.area?.[1] ?? 20 },
   design: {
     laneWidth: 2, points: pts.map(([x, z]) => ({ x, z, radius: opts.radius ?? 1.5 })), features: opts.features ?? [],
-    start: { distance: opts.start ?? 0 }, rostrum: { side: "south" },
+    start: { distance: opts.start ?? 0 },
   },
 });
 /** Figure of eight: diagonals crossing square at the origin, lobes east and west. */
@@ -243,6 +243,6 @@ describe("tracks that don't cross themselves bake exactly as in 1.5", () => {
   it.each(names)("%s", (name) => {
     const before = readJson<Built>(join(dir, name.replace(".rctrack.json", ".engine-built.json")));
     const after = bakeBuilt(readJson<RcTrack>(join(dir, name)));
-    expect(JSON.stringify({ ...after, generator: "" })).toBe(JSON.stringify({ ...before, generator: "" }));
+    expect(JSON.stringify(as17(after))).toBe(JSON.stringify(as17(before))); // less the venue's parts (1.7)
   });
 });
