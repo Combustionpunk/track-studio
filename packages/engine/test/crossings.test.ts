@@ -3,7 +3,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { adapt, bakeBuilt, BRIDGE_MARGIN, fits, transformBuilt, type Built, type DesignFeature, type RcTrack, type RcVenue } from "../src/index.js";
-import { as17, extraDir, readJson } from "./helpers.js";
+import { as18, extraDir, readJson } from "./helpers.js";
 
 const track = (pts: [number, number][], opts: { features?: DesignFeature[]; start?: number; radius?: number; area?: [number, number] } = {}): RcTrack => ({
   format: "rctrack", version: 1, id: "t", revision: 1, info: { name: "t" },
@@ -243,6 +243,6 @@ describe("tracks that don't cross themselves bake exactly as in 1.5", () => {
   it.each(names)("%s", (name) => {
     const before = readJson<Built>(join(dir, name.replace(".rctrack.json", ".engine-built.json")));
     const after = bakeBuilt(readJson<RcTrack>(join(dir, name)));
-    expect(JSON.stringify(as17(after))).toBe(JSON.stringify(as17(before))); // less the venue's parts (1.7)
+    expect(JSON.stringify(as18(after))).toBe(JSON.stringify(as18(before))); // less the venue's parts (1.7), a jump in a corner as info (1.8)
   });
 });
