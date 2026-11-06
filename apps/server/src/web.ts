@@ -113,6 +113,7 @@ function pageFor(db: DB, config: Config, theme: ThemeSync, path: string, query: 
     let m: RegExpExecArray | null;
     if (path === "/" ) return plain("Track Studio");
     if (path === "/v" || path === "/v/") return plain("Venues · Track Studio");
+    if (path === "/lap-speeds" || path === "/lap-speeds/") return plain("Lap speeds · Track Studio");
     if (path === "/new" || path === "/new/" || path === "/new/design") return plain("New track · Track Studio");
     if ((m = /^\/t\/([\w-]{1,64})\/edit\/?$/.exec(path))) {
       const row = getTrackRow(db, m[1]);
@@ -221,7 +222,7 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     const themed = { ...page, head: `${themeHead(app.theme.current())}\n${page.head}` };
     return reply.code(page.status).type("text/html; charset=utf-8").send(fillTemplate(await template(req.url), themed));
   };
-  for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/new", "/v/:id", "/v/:id/edit"]) app.get(route, serve);
+  for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/new", "/v/:id", "/v/:id/edit", "/lap-speeds"]) app.get(route, serve);
   app.decorate("servePage", serve);
 }
 

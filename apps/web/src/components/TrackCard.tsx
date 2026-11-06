@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import * as fmt from "../lib/format.js";
 import type { TrackSummary } from "../lib/api.js";
+import { lapTime } from "../lib/laps.js";
 import { StatusBadge } from "./bits.js";
 
 /**
  * Library card: plan, name, status, meta and three figures. The name's link covers the whole card. In "fits venue"
- * mode (`fitVenueId`) it also lists how the track fits, each linking to the fit preview.
+ * mode (`fitVenueId`) it also lists how the track fits, each linking to the fit preview. With a class picked
+ * (`lapClass`) it adds the typical lap for that class: the forum's, or the estimate from the lap length (#76).
  */
-export function TrackCard({ track, fitVenueId }: { track: TrackSummary; fitVenueId?: string }) {
+export function TrackCard({ track, fitVenueId, lapClass }: { track: TrackSummary; fitVenueId?: string; lapClass?: string }) {
   const href = fitVenueId ? `/t/${track.id}?fit=${encodeURIComponent(fitVenueId)}` : `/t/${track.id}`;
   // in "fits venue" mode the picture shows the layout placed in the venue, as the hovered / first orientation fits
   const [shown, setShown] = useState(0);
@@ -58,6 +60,12 @@ export function TrackCard({ track, fitVenueId }: { track: TrackSummary; fitVenue
             <dt className="ts-figure__l">Size</dt>
             <dd className="ts-figure__v">{fmt.size(track.size)}</dd>
           </div>
+          {lapClass && track.typicalLap !== undefined && (
+            <div className="ts-figure">
+              <dt className="ts-figure__l">{lapClass}</dt>
+              <dd className="ts-figure__v">{track.typicalLap ? lapTime(track.typicalLap.seconds, track.typicalLap.est) : "—"}</dd>
+            </div>
+          )}
         </dl>
         {track.fit && (
           <ul className="ts-fits" aria-label="Fits as">

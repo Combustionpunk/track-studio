@@ -7,9 +7,10 @@ import { ChecksList } from "../components/ChecksList.js";
 import { FitPanel } from "../components/FitPanel.js";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import { ErrorAlert, Skeleton, TrackPageSkeleton } from "../components/states.js";
-import { ApiError, post, type Revision, type TrackResponse, type UsedAt } from "../lib/api.js";
+import { ApiError, post, type ClassSpeed, type LapRecord, type LapStats, type Revision, type TrackResponse, type UsedAt } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useApi, useStored } from "../lib/hooks.js";
+import { estimateSeconds, lapTime, recordTime, speedFor, useClassSpeeds } from "../lib/laps.js";
 import { NotFound } from "./NotFound.js";
 
 /** A bare date (no time) is that day wherever you are, not midnight UTC. */
@@ -60,6 +61,94 @@ function UsedAtSection({ used }: { used: UsedAt }) {
   );
 }
 
+/** A track record: time, then driver · car · date, the date linked to the meeting on the forum. */
+function RecordRow({ label, rec }: { label: string; rec: LapRecord }) {
+  const m = rec.meeting;
+  const when = m?.date ? fmt.date(dateOnly(m.date) ? `${m.date}T12:00:00` : m.date) : null;
+  return (
+    <div className="ts-laps__record">
+      <dt>{label}</dt>
+      <dd>
+        <span className="ts-laps__time">{recordTime(rec.ms)}</span>{" "}
+        <span className="ts-laps__meta">
+          {[rec.driver.name, rec.car].filter(Boolean).join(" · ")}
+          {when && (
+            <>
+              {" · "}
+              {m?.url ? (
+                <a href={m.url} target="_blank" rel="noopener noreferrer" title={m.title}>
+                  {when}
+                </a>
+              ) : (
+                when
+              )}
+            </>
+          )}
+        </span>
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * Lap times on this layout, from the forum's race results (#76): per class, the typical lap and both track records.
+ * Not raced yet: the estimate per class from the lap length (class speeds). Not shown when the forum can't be reached.
+ */
+function LapTimesSection({ stats, lapLength, speeds }: { stats: LapStats; lapLength: number; speeds: ClassSpeed[] | undefined }) {
+  const estimate = (cls: string) => {
+    const speed = speedFor(speeds, cls);
+    return speed && lapLength > 0 ? lapTime(estimateSeconds(lapLength, speed), true) : "—";
+  };
+  return (
+    <section className="ts-section" aria-labelledby="laps-h">
+      <h2 id="laps-h" className="ts-heading">
+        Lap times
+      </h2>
+      {stats.classes.length === 0 ? (
+        <>
+          <p className="ts-help">No races on this layout yet. Once results from a meeting on it are published on the forum, its typical lap and track records show here.</p>
+          {speeds && speeds.length > 0 && lapLength > 0 && (
+            <p className="ts-meta">
+              Estimated from the {fmt.lap(lapLength)} lap:{" "}
+              {speeds.map((c, i) => (
+                <span key={c.class}>
+                  {i > 0 && " · "}
+                  {c.class} {estimate(c.class)}
+                </span>
+              ))}
+            </p>
+          )}
+        </>
+      ) : (
+        <ul className="ts-laps">
+          {stats.classes.map((c) => (
+            <li key={c.class} className="ts-laps__class">
+              <h3 className="ts-laps__name">{c.class}</h3>
+              <dl className="ts-laps__list">
+                <div className="ts-laps__typical">
+                  <dt>Typical lap</dt>
+                  <dd>
+                    <span className="ts-laps__time">{c.typicalLap ? lapTime(c.typicalLap.medianMs / 1000) : estimate(c.class)}</span>
+                    {c.typicalLap && (
+                      <span className="ts-laps__meta">
+                        {" "}
+                        Trimmed mean {lapTime(c.typicalLap.trimmedMeanMs / 1000)} · {c.typicalLap.laps.toLocaleString("en-GB")} lap{c.typicalLap.laps === 1 ? "" : "s"} · {c.typicalLap.meetings} meeting
+                        {c.typicalLap.meetings === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+                {c.recordLap && <RecordRow label="Lap record" rec={c.recordLap} />}
+                {c.record3 && <RecordRow label="Best 3 laps" rec={c.record3} />}
+              </dl>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 const Back = () => (
   <Link to="/" className="ts-back">
     <ArrowLeft size={16} aria-hidden />
@@ -72,6 +161,7 @@ export function TrackPage() {
   const [params, setParams] = useSearchParams();
   const tr = useApi<TrackResponse>(`/api/tracks/${encodeURIComponent(id)}`);
   const revs = useApi<{ revisions: Revision[] }>(`/api/tracks/${encodeURIComponent(id)}/revisions`);
+  const speeds = useClassSpeeds();
   const [layers, setLayers] = useStored<Layers>("plan-layers", DEFAULT_LAYERS);
   const [highlight, setHighlight] = useState<Point2 | null>(null);
   const [busy, setBusy] = useState<string>();
@@ -331,6 +421,8 @@ export function TrackPage() {
           {b && <ChecksList checks={b.checks} onShow={(c) => setHighlight(c.x !== undefined && c.z !== undefined ? [c.x, c.z] : null)} />}
 
           {tr.data.usedAt && <UsedAtSection used={tr.data.usedAt} />}
+
+          {tr.data.lapStats && <LapTimesSection stats={tr.data.lapStats} lapLength={tr.data.track.lapLength} speeds={speeds} />}
 
           <section className="ts-section" aria-labelledby="share-h">
             <h2 id="share-h" className="ts-heading">

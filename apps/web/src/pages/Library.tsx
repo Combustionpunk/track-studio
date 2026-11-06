@@ -5,10 +5,11 @@ import { LibraryResults } from "../components/LibraryResults.js";
 import { qs, type RacedVenues, type TrackStatus, type TrackSummary, type VenueSummary } from "../lib/api.js";
 import { STATUS_LABEL } from "../lib/format.js";
 import { useApi, useDebounced } from "../lib/hooks.js";
+import { useClassSpeeds } from "../lib/laps.js";
 import { useSession } from "../lib/session.js";
 
 /** Filters live in the URL so a filtered library can be shared as a link. */
-const KEYS = ["q", "venue", "status", "minLap", "maxLap", "minCorners", "maxCorners", "fits", "mine", "racedAt"] as const;
+const KEYS = ["q", "venue", "status", "minLap", "maxLap", "minCorners", "maxCorners", "fits", "mine", "racedAt", "lapClass", "minTypical", "maxTypical", "sort"] as const;
 type Key = (typeof KEYS)[number];
 const STATUSES: TrackStatus[] = ["approved", "submitted", "draft", "archived"];
 
@@ -41,6 +42,10 @@ export function Library() {
   const raced = useApi<RacedVenues>("/api/raced-venues");
   const racedAt = get("racedAt");
   const racedVenues = raced.data?.venues ?? [];
+  // "Typical lap for <class> between X and Y s" and the sort by it (#76); the range and sort need a class
+  const speeds = useClassSpeeds();
+  const lapClass = get("lapClass");
+  const withClass = (k: Key) => (lapClass ? get(k) : undefined);
   const query = qs({
     q: get("q"),
     venue: get("venue"),
@@ -52,6 +57,10 @@ export function Library() {
     fits,
     author: get("mine") ? "me" : undefined,
     racedAt,
+    lapClass,
+    minTypical: withClass("minTypical"),
+    maxTypical: withClass("maxTypical"),
+    sort: withClass("sort"),
   });
   // wait for the session before honouring ?mine=1, rather than flash every track
   const list = useApi<{ tracks: TrackSummary[] }>(ready || !params.get("mine") ? `/api/tracks${query}` : null);
@@ -170,6 +179,37 @@ export function Library() {
               <input className="ts-input" type="number" inputMode="numeric" min={0} placeholder="max" aria-label="Maximum corners" value={get("maxCorners")} onChange={(e) => set("maxCorners", e.target.value)} />
             </div>
           </fieldset>
+          <div className="ts-field">
+            <label className="ts-label" htmlFor="f-class">
+              Typical lap for
+            </label>
+            <select id="f-class" className="ts-input" value={lapClass} onChange={(e) => set("lapClass", e.target.value)}>
+              <option value="">{speeds ? "Pick a class" : "Loading classes…"}</option>
+              {lapClass && !speeds?.some((c) => c.class === lapClass) && <option value={lapClass}>{lapClass}</option>}
+              {speeds?.map((c) => (
+                <option key={c.class} value={c.class}>
+                  {c.class}
+                </option>
+              ))}
+            </select>
+          </div>
+          <fieldset className="ts-field ts-fieldset">
+            <legend className="ts-label">Typical lap (s)</legend>
+            <div className="ts-range">
+              <input className="ts-input" type="number" inputMode="decimal" min={0} step={0.1} placeholder="min" aria-label="Shortest typical lap in seconds" disabled={!lapClass} value={get("minTypical")} onChange={(e) => set("minTypical", e.target.value)} />
+              <span aria-hidden="true">–</span>
+              <input className="ts-input" type="number" inputMode="decimal" min={0} step={0.1} placeholder="max" aria-label="Longest typical lap in seconds" disabled={!lapClass} value={get("maxTypical")} onChange={(e) => set("maxTypical", e.target.value)} />
+            </div>
+          </fieldset>
+          <div className="ts-field">
+            <label className="ts-label" htmlFor="f-sort">
+              Sort
+            </label>
+            <select id="f-sort" className="ts-input" value={lapClass ? get("sort") : ""} disabled={!lapClass} onChange={(e) => set("sort", e.target.value)}>
+              <option value="">Last updated first</option>
+              <option value="typical">Typical lap, fastest first</option>
+            </select>
+          </div>
           {anyFilter && (
             <button type="button" className="ts-btn ts-btn--quiet" onClick={clear}>
               <X size={16} aria-hidden />
@@ -185,7 +225,7 @@ export function Library() {
         )}
       </form>
 
-      <LibraryResults list={list} fits={fits || undefined} fitVenueName={fitVenue?.name} mine={!!get("mine")} anyFilter={KEYS.some((k) => k !== "mine" && get(k))} onClear={clear} />
+      <LibraryResults list={list} fits={fits || undefined} fitVenueName={fitVenue?.name} mine={!!get("mine")} lapClass={lapClass || undefined} anyFilter={KEYS.some((k) => k !== "mine" && get(k))} onClear={clear} />
     </div>
   );
 }
