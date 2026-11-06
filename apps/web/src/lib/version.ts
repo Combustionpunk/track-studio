@@ -109,9 +109,11 @@ export function isChunkError(e: unknown): boolean {
   return e.name === "ChunkLoadError" || /dynamically imported module|Importing a module script failed|Loading (?:CSS )?chunk|Unable to preload/i.test(e.message);
 }
 
-/** One automatic reload per version after a chunk-load failure; false when it already tried (so it never loops).
- * Reading `sessionStorage` itself throws where storage is blocked (the forum's embed frame), so it's read inside the try. */
+/** One automatic reload per version after a chunk-load failure; false when it already tried (so it never loops) or
+ * an editor holds unsaved work. Reading `sessionStorage` itself throws where storage is blocked (the forum's embed
+ * frame), so it's read inside the try. */
 export function reloadOnceForChunkError(store?: Storage): boolean {
+  if (holds > 0) return false;
   try {
     const s = store ?? sessionStorage;
     if (s.getItem(CHUNK_RELOAD_KEY) === clientVersion()) return false;
@@ -126,7 +128,7 @@ export function reloadOnceForChunkError(store?: Storage): boolean {
 /** `vite:preloadError`: a lazy chunk failed to load. Reload once, unless an editor holds unsaved work; then only the
  * banner shows, and the error goes on to the page's own handling. */
 export function onPreloadError(e: Pick<Event, "preventDefault">, store?: Storage): void {
-  if (holds === 0 && reloadOnceForChunkError(store)) e.preventDefault();
+  if (reloadOnceForChunkError(store)) e.preventDefault();
   else markStale();
 }
 

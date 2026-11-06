@@ -215,6 +215,13 @@ describe("chunk-load failures", () => {
     }
   });
 
+  it("unsaved work: the error page doesn't reload by itself either", () => {
+    const release = v.holdReload();
+    expect(v.reloadOnceForChunkError(storage())).toBe(false);
+    expect(location.reload).not.toHaveBeenCalled();
+    release();
+  });
+
   it("a preload error reloads once, and stops the error (the reload replaces the page)", () => {
     const e = { preventDefault: vi.fn() };
     v.onPreloadError(e, storage());

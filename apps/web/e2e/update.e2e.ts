@@ -134,7 +134,8 @@ test("Back and Forward across a new version add no history entry (#90)", async (
   await expect(page).toHaveURL(/\/v$/);
   const entries = await page.evaluate(() => history.length);
   await server(page, "new-build");
-  await page.evaluate(() => import(/* @vite-ignore */ "/src/lib/version.ts").then((v) => v.noteServerVersion("new-build"))); // the app's own module instance
+  // the app's own module instance (Vite serves the source)
+  await page.evaluate((path) => import(/* @vite-ignore */ path).then((v: { noteServerVersion(s: string): void }) => v.noteServerVersion("new-build")), "/src/lib/version.ts");
   await mark(page);
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
