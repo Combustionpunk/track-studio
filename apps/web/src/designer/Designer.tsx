@@ -1050,14 +1050,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     for (let r = 0; r <= g.rows; r++) lines += `M${x0} ${-(z0 + r * g.size)}H${x0 + W}`;
     const centres = cells.map((c) => cellCentre(g, c));
     const end = cells[cells.length - 1];
-    // a crossing square: a bridge mark (its two parapets) along the second pass, which goes over
+    // a crossing square: a diamond where the passes cross (which goes over is chosen once the loop is closed)
     const crossings = cells.flatMap((c, i) => {
       if (i === 0 || i === cells.findIndex((d) => same(d, c))) return [];
       const [x, z] = centres[i];
-      const along = cells[i][0] !== cells[i - 1][0];
-      const h = g.size * 0.35, o = g.size * 0.3;
-      const d = along ? `M${x - h} ${-(z + o)}H${x + h}M${x - h} ${-(z - o)}H${x + h}` : `M${x - o} ${-(z + h)}V${-(z - h)}M${x + o} ${-(z + h)}V${-(z - h)}`;
-      return [{ key: `${c[0]},${c[1]}`, d }];
+      const h = g.size * 0.3;
+      return [{ key: `${c[0]},${c[1]}`, d: `M${x - h} ${-z}L${x} ${-(z + h)}L${x + h} ${-z}L${x} ${-(z - h)}Z` }];
     });
     return (
       <g className="lay">
@@ -1073,7 +1071,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {cells.map((c, i) => (i === cells.findIndex((d) => same(d, c)) ? <rect key={`${c[0]},${c[1]}`} className="lay-cell" {...box(c)} /> : null))}
         <path className="lay-grid" d={lines} vectorEffect="non-scaling-stroke" />
         {crossings.map((b) => (
-          <path key={b.key} className="lay-bridge" d={b.d} vectorEffect="non-scaling-stroke" />
+          <path key={b.key} className="lay-crossing" d={b.d} vectorEffect="non-scaling-stroke" />
         ))}
         {end && <rect className="lay-end" {...box(end)} vectorEffect="non-scaling-stroke" />}
         {centres.length > 1 && <polyline className="lay-line" points={pts(centres)} vectorEffect="non-scaling-stroke" />}

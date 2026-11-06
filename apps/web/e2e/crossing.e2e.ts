@@ -46,7 +46,7 @@ for (const width of [1200, 1024]) {
 
     // east along row 2, round the north-east lobe, down column 5 onto the crossing at [5, 2]
     await drag(page, [[0, 2], [8, 2], [8, 5], [5, 5], [5, 2]]);
-    await expect(page.locator("path.lay-bridge")).toHaveCount(1);
+    await expect(page.locator("path.lay-crossing")).toHaveCount(1);
     // turning on the crossing is refused
     await drag(page, [[4, 2]], false);
     await expect(hint(page)).toHaveText("The lane can only cross itself straight across, at right angles.");
