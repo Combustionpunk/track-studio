@@ -2,7 +2,7 @@
 import { bake, borders, EYE_HEIGHT, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumPosition, upgradeTrack } from "./bake.js";
 import { pyRound, pyRoundInt, r3, radians } from "./num.js";
 import type { PlanScene } from "./plan.js";
-import type { BuiltRostrum, Built, Check, FitResult, Point2, RcTrack, RcVenue, VenueCheck } from "./types.js";
+import type { BuiltRostrum, Built, Check, FitResult, ForumVenueRef, Point2, RcTrack, RcVenue, VenueCheck, VenueRef } from "./types.js";
 
 /** [label, rotation (deg), mirror] in the order results are reported. */
 export const ORIENTS: [string, number, boolean][] = [
@@ -134,6 +134,14 @@ export interface AdaptOptions {
 }
 
 /**
+ * A template's forum link as a track's `info.venue` ({id, name}, rctrack): the forum track (rcvenue 1.1) stays on the
+ * template. fit.py copies the whole object; the two agree on every 1.0 template, and `built` doesn't depend on it.
+ */
+export function trackVenueRef(v: ForumVenueRef | null | undefined): VenueRef | null {
+  return v ? ({ id: v.id, ...(v.name !== undefined ? { name: v.name } : {}) } as VenueRef) : null;
+}
+
+/**
  * An adapted copy of the track for the venue, in the chosen fit's orientation and position, re-baked. v1.7: nothing of
  * the venue is copied in but its area (as the drawing area) and the "drawn for" label — no obstacles, no rostrum.
  */
@@ -146,7 +154,7 @@ export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: Adap
   }
   t.area = { ...venue.area };
   t.info.drawnFor = { venueTemplate: venue.id, name: venue.info.name };
-  t.info.venue = venue.info.venue ?? null;
+  t.info.venue = trackVenueRef(venue.info.venue);
   t.info.derivedFrom = { id: track.id, revision: track.revision, orientation: fit.orientation };
   t.info.name = `${track.info.name} @ ${venue.info.name}`;
   t.info.status = "draft";

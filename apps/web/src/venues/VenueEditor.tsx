@@ -11,6 +11,8 @@ import { useHistory } from "../designer/history.js";
 import { api, ApiError, type VenueSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { rostrumPos } from "../lib/plan.js";
+import { pickForumTrack, pickForumVenue } from "./forum.js";
+import { ForumVenuePicker } from "./ForumVenuePicker.js";
 import {
   addObstacle,
   cornerWord,
@@ -75,9 +77,12 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
   const dirty = JSON.stringify(draft) !== savedJson;
   const [sel, setSel] = useState<Selection>(null);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ kind: "info" | "error"; text: string; stale?: boolean } | null>(null);
+  const [message, setMessage] = useState<{ kind: "info" | "error"; text: string; stale?: boolean; existing?: { id: string; name: string } } | null>(null);
+  const isNew = !base;
 
-  const problems = useMemo(() => draftProblems(draft), [draft]);
+  const saved = base?.doc.info.venue;
+  const legacyVenueId = saved && saved.trackId === undefined ? saved.id : undefined;
+  const problems = useMemo(() => draftProblems(draft, { legacyVenueId }), [draft, legacyVenueId]);
   const outside = useMemo(() => outsideObstacles(draft), [draft]);
   const [badFields, setBadFields] = useState<ReadonlySet<string>>(new Set());
   const reportBad = useCallback(
@@ -165,8 +170,11 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
     } catch (e) {
       const what = base ? `Couldn't save revision ${nextRevision}.` : "Couldn't save the venue.";
       const stale = e instanceof ApiError && e.code === "stale";
+      // one template per forum track: point at the one that has it
+      const taken = e instanceof ApiError && e.code === "forum-track-taken" ? (e.details as { venue?: { id: string; name: string } } | undefined)?.venue : undefined;
       const why = stale ? "Someone else saved this venue since you opened it." : e instanceof ApiError ? e.message : "The server didn't answer.";
-      setMessage({ kind: "error", text: `${what} ${why} Your changes are still here${stale ? "." : "; try Save again in a moment."}`, stale });
+      const after = stale ? "." : taken ? "; link this one to another track, or unlink it." : "; try Save again in a moment.";
+      setMessage({ kind: "error", text: `${what} ${why} Your changes are still here${after}`, stale, existing: taken });
     } finally {
       setSaving(false);
     }
@@ -328,6 +336,12 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
         <div className="ve-msg">
           <Message kind={message.kind}>
             {message.text}
+            {message.existing && (
+              <>
+                {" "}
+                <Link to={`/v/${message.existing.id}`}>Open {message.existing.name}</Link>
+              </>
+            )}
             {message.stale && (
               <>
                 {" "}
@@ -378,13 +392,13 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
               error={problems.rostrum}
               onChange={(v) => update((d) => ({ ...d, rostrum: { ...d.rostrum, offset: fromCorner(d.area, d.rostrum.side, v) } }), "rostrum")}
             />
-            <NumberField
-              label="Forum venue ID (optional)"
-              value={draft.info.venue?.id ?? null}
-              wide
-              error={problems.forumId}
-              onChange={(v) => update((d) => ({ ...d, info: { ...d.info, venue: { ...(d.info.venue?.id === v ? d.info.venue : {}), id: v } } }), "forumId")}
-              onClear={() => update((d) => ({ ...d, info: { ...d.info, venue: null } }), "forumId")}
+            <ForumVenuePicker
+              value={draft.info.venue ?? null}
+              area={draft.area}
+              isNew={isNew}
+              error={problems.forumTrack}
+              onPick={(v, t) => update((d) => (t ? pickForumTrack(d, v, t, { isNew }) : pickForumVenue(d, v, { isNew })))}
+              onClear={() => update((d) => ({ ...d, info: { ...d.info, venue: null } }))}
             />
             <TextField label="Notes (optional)" value={draft.info.notes ?? ""} multiline wide onChange={(v) => update((d) => ({ ...d, info: { ...d.info, notes: v } }), "notes")} />
           </div>
@@ -547,19 +561,19 @@ function SelectField(props: { label: string; value: string; options: { value: st
   );
 }
 
-const show = (v: number | null) => (v === null ? "" : String(v));
+const show = (v: number) => String(v);
 
 /**
  * A number in the draft, edited as text: what's typed stays as typed while it parses to the draft's value, and
  * follows the draft at once when it changes from elsewhere (a drag, undo). Text that isn't a number doesn't change
  * the draft; the field reports it so Save waits until it's fixed.
  */
-function NumberField(props: { label: string; hint?: string; value: number | null; onChange: (v: number) => void; onClear?: () => void; unit?: string; error?: string; wide?: boolean }) {
+function NumberField(props: { label: string; hint?: string; value: number; onChange: (v: number) => void; unit?: string; error?: string; wide?: boolean }) {
   const id = useId();
-  const { label, hint, value, onChange, onClear, unit, error, wide } = props;
+  const { label, hint, value, onChange, unit, error, wide } = props;
   const reportBad = useContext(BadFieldCtx);
-  // undefined: not a number; null: cleared (optional fields only)
-  const parse = (t: string): number | null | undefined => (t.trim() === "" ? (onClear ? null : undefined) : Number.isFinite(Number(t)) ? Number(t) : undefined);
+  // undefined: not a number
+  const parse = (t: string): number | undefined => (t.trim() !== "" && Number.isFinite(Number(t)) ? Number(t) : undefined);
   const [text, setText] = useState(show(value));
   const [shown, setShown] = useState(value);
   if (shown !== value) {
@@ -591,8 +605,7 @@ function NumberField(props: { label: string; hint?: string; value: number | null
           onChange={(e) => {
             setText(e.target.value);
             const v = parse(e.target.value);
-            if (v === null) onClear?.();
-            else if (v !== undefined && v !== value) {
+            if (v !== undefined && v !== value) {
               setShown(v);
               onChange(v);
             }

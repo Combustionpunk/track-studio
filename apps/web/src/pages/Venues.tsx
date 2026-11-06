@@ -1,4 +1,4 @@
-import type { RcVenue } from "@track-studio/engine";
+import type { ForumVenueRef, RcVenue } from "@track-studio/engine";
 import { Download, Monitor, Pencil, Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Loading, Message, VenueThumb } from "../components/bits.js";
@@ -9,6 +9,7 @@ import * as fmt from "../lib/format.js";
 import { useApi } from "../lib/hooks.js";
 import { rostrumPos } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
+import { forumVenueUrl, linkName } from "../venues/forum.js";
 import { obstacleName, toCorner } from "../venues/model.js";
 import { NotFound } from "./NotFound.js";
 
@@ -45,6 +46,18 @@ export function Venues() {
   );
 }
 
+/** "<forum venue> · <track>", linked to the venue's page on the forum; asks for the track on rcvenue 1.0 templates. */
+function ForumLink({ venue }: { venue: ForumVenueRef }) {
+  const { config } = useSession();
+  const label = venue.trackName ? `${venue.name ?? `Forum venue ${venue.id}`} · ${venue.trackName}` : linkName(venue) || `Forum venue ${venue.id}`;
+  return (
+    <>
+      {config ? <a href={forumVenueUrl(config.forumUrl, venue.id)}>{label}</a> : label}
+      {venue.trackId === undefined && <span className="muted"> · Pick the track</span>}
+    </>
+  );
+}
+
 function VenueCard({ id, name }: { id: string; name: string }) {
   const v = useApi<{ doc: RcVenue }>(`/api/venues/${encodeURIComponent(id)}`);
   const doc = v.data?.doc;
@@ -74,6 +87,11 @@ function VenueCard({ id, name }: { id: string; name: string }) {
               <dd>{doc.obstacles?.length ?? 0}</dd>
             </div>
           </dl>
+        )}
+        {doc?.info.venue && (
+          <p className="card-forum">
+            On the forum: <ForumLink venue={doc.info.venue} />
+          </p>
         )}
       </div>
     </article>
@@ -131,11 +149,11 @@ export function VenuePage() {
                 {side[0].toUpperCase() + side.slice(1)} wall, {fmt.metres(toCorner(doc.area, side, doc.rostrum?.offset ?? 0))} from the {side === "north" || side === "south" ? "west" : "south"} corner
                 {doc.rostrum?.offset ? "" : " (centred)"}
               </dd>
-              {doc.info.venue?.id !== undefined && doc.info.venue !== null && (
+              {doc.info.venue && (
                 <>
                   <dt>Forum venue</dt>
                   <dd>
-                    {doc.info.venue.name ? `${doc.info.venue.name} · ` : ""}ID {doc.info.venue.id}
+                    <ForumLink venue={doc.info.venue} />
                   </dd>
                 </>
               )}

@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import type { DB } from "./db.js";
 import { requireOrganiser, requireUser } from "./auth.js";
 import { badRequest, notFound } from "./errors.js";
+import { assertTrackAtVenue, searchForumVenues, type ForumVenues } from "./forum-venues.js";
 import {
   adaptTrack,
   changeStatus,
@@ -14,6 +15,7 @@ import {
   getTrackRow,
   getVenueDoc,
   getVenueRow,
+  getVenueRowByForumTrack,
   listRevisions,
   listTracks,
   listVenueRevisions,
@@ -25,6 +27,7 @@ import {
   updateTrack,
   updateVenue,
   venuePermissions,
+  venueFromBody,
   venueSummary,
   type ListQuery,
   type StatusAction,
@@ -46,7 +49,7 @@ function revisionParam(v: string): number {
 
 const slug = (s: string) => s.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 60) || "track";
 
-export function registerRoutes(app: FastifyInstance, db: DB): void {
+export function registerRoutes(app: FastifyInstance, db: DB, forumVenues: ForumVenues): void {
   // ---------------------------------------------------------------- tracks
   app.get("/api/tracks", async (req) => {
     const q = req.query as Record<string, string | undefined>;
@@ -132,7 +135,22 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
   });
 
   // ---------------------------------------------------------------- venues
-  app.get("/api/venues", async () => ({ venues: listVenues(db) }));
+  // ?forumTrack=<id>: the template for that forum track (the forum plugin's layout picker asks, from any origin)
+  app.get("/api/venues", async (req, reply) => {
+    const { forumTrack } = req.query as { forumTrack?: string };
+    if (forumTrack === undefined) return { venues: listVenues(db) };
+    reply.header("access-control-allow-origin", "*");
+    if (!/^\d{1,9}$/.test(forumTrack)) throw notFound("Venue template for that forum track");
+    const row = getVenueRowByForumTrack(db, Number(forumTrack));
+    return { venue: venueSummary(row), doc: getVenueDoc(db, row.id) };
+  });
+
+  // the forum's venues and their tracks, for the venue editor's picker
+  app.get("/api/forum-venues", async (req) => {
+    const { q } = req.query as { q?: string };
+    const list = await forumVenues.list();
+    return { ...list, venues: searchForumVenues(list.venues, typeof q === "string" ? q : undefined) };
+  });
 
   app.get("/api/venues/:id", async (req) => {
     const { id } = req.params as { id: string };
@@ -151,7 +169,27 @@ export function registerRoutes(app: FastifyInstance, db: DB): void {
     return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 1));
   });
 
-  app.post("/api/venues", async (req, reply) => reply.code(201).send(createVenue(db, requireOrganiser(req), req.body)));
+  // a forum link that's new or changed: its track must be one of that forum venue's tracks (a link saved earlier stays,
+  // even if the forum has since dropped the track)
+  const checkForumLink = async (body: unknown, before?: { id?: unknown; trackId?: unknown }) => {
+    const info = venueFromBody(body).info;
+    const link = typeof info === "object" && info !== null ? (info as { venue?: unknown }).venue : undefined;
+    if (typeof link !== "object" || link === null) return;
+    const { id, trackId } = link as { id?: unknown; trackId?: unknown };
+    if (trackId === undefined || (before && before.id === id && before.trackId === trackId)) return;
+    await assertTrackAtVenue(forumVenues, { id, trackId });
+  };
 
-  app.put("/api/venues/:id", async (req) => updateVenue(db, requireOrganiser(req), (req.params as { id: string }).id, req.body));
+  app.post("/api/venues", async (req, reply) => {
+    const user = requireOrganiser(req);
+    await checkForumLink(req.body);
+    return reply.code(201).send(createVenue(db, user, req.body));
+  });
+
+  app.put("/api/venues/:id", async (req) => {
+    const user = requireOrganiser(req);
+    const { id } = req.params as { id: string };
+    await checkForumLink(req.body, getVenueDoc(db, id).info.venue ?? undefined);
+    return updateVenue(db, user, id, req.body);
+  });
 }
