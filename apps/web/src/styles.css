@@ -212,6 +212,8 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .check-info { color: var(--info); }
 .check-ok { color: var(--success-text); }
 .check-code { display: block; font-size: 12px; opacity: 0.85; }
+.check-hint { display: block; margin-top: 2px; color: var(--muted); }
+.check-fix { display: flex; margin-top: 6px; }
 .check-show { border: 0; padding: 0; background: none; color: inherit; font: 13px var(--font-body); text-decoration: underline; cursor: pointer; }
 .venue-check h2 { font-size: 18px; line-height: 22px; margin: 0 0 8px; }
 .venue-check-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 10px; }
@@ -351,6 +353,8 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .sheet-edge text { fill: var(--print-muted); font-family: var(--font-body); }
 .sheet-corners circle { fill: var(--print-ink); }
 .sheet-corners text { fill: var(--print-paper); font-family: var(--font-body); font-weight: 600; }
+.sheet-crossovers rect { fill: var(--print-paper); stroke: var(--print-ink); }
+.sheet-crossovers text { fill: var(--print-ink); font-family: var(--font-body); font-weight: 600; }
 .sheet-note { margin: 0; font-size: 14px; line-height: 20px; color: var(--print-muted); }
 .sheet-side { display: grid; gap: 18px; align-content: start; min-height: 0; }
 .sheet-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
@@ -365,6 +369,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .sheet-table .num { text-align: right; }
 .sheet-table .no { font-weight: 600; }
 .sheet-corner-tables .sheet-table { font-size: 14px; }
+.sheet-crossover-table td, .sheet-crossover-table th { white-space: nowrap; }
 .sheet-body-wide { grid-template-columns: minmax(0, 1fr) 520px; }
 .sheet-body-wide .sheet-corner-tables .sheet-table { font-size: 13px; white-space: nowrap; }
 .sheet-body-wide .sheet-corner-tables :is(th, td) { padding-left: 4px; padding-right: 4px; }
@@ -531,6 +536,7 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-meta { margin: 0; font-size: 13px; line-height: 18px; color: var(--text-muted); }
 .ts-meta a { color: var(--text-muted); }
 .ts-meta a:hover { color: var(--text); }
+.ts-locked { display: inline-flex; align-items: center; gap: var(--space-1); }
 .ts-panel { display: grid; gap: var(--space-4); padding: var(--space-4); background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); }
 .ts-section { display: grid; gap: var(--space-2); }
 .ts-note { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--bg-raised); border-left: 3px solid var(--accent); font-size: 14px; line-height: 20px; }

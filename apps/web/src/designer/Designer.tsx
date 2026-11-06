@@ -5,12 +5,16 @@
 // with a dock of 44 px+ controls, pinch and pan with two fingers, long-press a corner for its panel.
 import {
   ALL_PLAN_LAYERS,
+  BRIDGE_CLEARANCE,
+  CROSSOVER_HEIGHT,
+  CROSSOVER_RAMP,
   FEATURE_DEFAULTS,
   outerStyle,
   drawingArea,
   planLayers,
   type Area,
   type Built,
+  type BuiltFeature,
   type Check,
   type DesignFeature,
   type DesignPoint,
@@ -60,6 +64,7 @@ import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, pla
 import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
+import { addCrossover, bridgeAt, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
 
 // ---------------------------------------------------------------------------------------------- tuning
@@ -166,6 +171,14 @@ const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isCon
 /** the plan's checks layer on its own (the designer's problem marks) */
 const ONLY_CHECKS = Object.fromEntries(Object.keys(ALL_PLAN_LAYERS).map((k) => [k, k === "checks"])) as PlanLayers;
 
+/** Where the armed jump would go: a crossover snaps onto a crossing, sized for it. */
+function ghostFeature(live: Live, type: FeatureType, hover: { s: number; at: Point2 }): BuiltFeature {
+  if (type !== "crossover") return placeFeature(live, { type, distance: hover.s });
+  const f = addCrossover([], live.crossings, hover.at, hover.s, live.total).features[0];
+  const k = live.crossings.findIndex((c) => c.distances.includes(f.distance));
+  return placeFeature(live, f, k < 0 ? undefined : live.spans[k][f.over === "second" ? 1 : 0]);
+}
+
 export function Designer({ mode, initial, base: initialBase, fromVenue, storageKey }: DesignerProps) {
   const navigate = useNavigate();
   const { me, loginUrl } = useSession();
@@ -180,7 +193,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const [guides, setGuides] = useState<Guide[]>([]);
-  const [hoverS, setHoverS] = useState<number | null>(null);
+  const [hover, setHover] = useState<{ s: number; at: Point2 } | null>(null);
   const [highlight, setHighlight] = useState<Point2 | null>(null);
   const [layers, setLayers] = useStored<Layers>("designer-layers", { ...DEFAULT_LAYERS, checks: true });
   const [saving, setSaving] = useState(false);
@@ -280,6 +293,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       racingLine: live.racing,
       dividers: b?.dividers ?? [],
       features: live.features,
+      ...(live.crossings.length ? { crossings: live.crossings } : {}),
       startLine: live.startLine,
       checks: b?.checks ?? [],
       footprint: b?.footprint ?? { cell: 0.1, origin: [0, 0], rows: 0, cols: 0, bbox: [0, 0, 0, 0], rle: "" },
@@ -508,9 +522,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         if (d.kind === "feature") {
           const f = cur.design.features ?? [];
           if (f[d.i]?.distance === s) return;
-          hist.set({ ...cur, design: { ...cur.design, features: moveJump(f, d.i, s) } }, group);
+          const moved = f[d.i]?.type === "crossover" ? moveCrossover(f, d.i, s, liveRef.current.crossings, liveRef.current.total) : moveJump(f, d.i, s);
+          hist.set({ ...cur, design: { ...cur.design, features: moved } }, group);
         } else if (cur.design.start?.distance !== s) {
-          hist.set({ ...cur, design: { ...cur.design, start: { ...cur.design.start, distance: s } } }, group);
+          hist.set({ ...cur, design: moveStart(cur.design, liveRef.current, s) }, group);
         }
       }
     };
@@ -630,11 +645,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (tool.kind === "feature") {
       e.stopPropagation();
       const distance = wrapDistance(hit.s, liveRef.current.total);
-      const { features, index } = addJump(draftRef.current.design.features ?? [], tool.type, distance);
+      const list = draftRef.current.design.features ?? [];
+      const { features, index } = tool.type === "crossover" ? addCrossover(list, liveRef.current.crossings, p, hit.s, liveRef.current.total) : addJump(list, tool.type, distance);
       setFeatures(() => features);
       setSel({ kind: "feature", i: index });
       setTool({ kind: "select" });
-      setHoverS(null);
+      setHover(null);
       return;
     }
     const pts = draftRef.current.design.points;
@@ -872,15 +888,19 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const selPt = sel?.kind === "point" ? pointsList[sel.i] : null;
     const corner = sel?.kind === "point" ? live.corners[sel.i] : null;
     const placing = tool.kind === "feature";
-    const ghost = placing && hoverS !== null ? featureCorners(placeFeature(live, { type: tool.type, distance: hoverS })) : null;
+    const ghost = placing && hover ? featureCorners(ghostFeature(live, tool.type, hover)) : null;
     return (
       <g className={`ed ${placing ? "ed-placing" : ""}`}>
         <g
           data-handle="lane"
           className="ed-lane"
           onPointerDown={onLaneDown}
-          onPointerMove={(e) => placing && setHoverS(nearestOnLine(live, planPoint(svgOf(e.currentTarget), e.clientX, e.clientY)).s)}
-          onPointerLeave={() => setHoverS(null)}
+          onPointerMove={(e) => {
+            if (!placing) return;
+            const at = planPoint(svgOf(e.currentTarget), e.clientX, e.clientY);
+            setHover({ s: nearestOnLine(live, at).s, at });
+          }}
+          onPointerLeave={() => setHover(null)}
         >
           {laneRuns(live.racing).map((r, i) => (
             <polyline key={i} points={r.points} strokeWidth={r.w} />
@@ -1061,6 +1081,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // the area is locked to the guide's while there is one (a template that's gone leaves only the label)
   const venueName = guide?.info.name;
   const backTo = mode === "edit" && base ? { to: `/t/${base.id}`, label: "Back to track" } : { to: "/new", label: "Start over" };
+  // the bake's jumps, matched with its checks (the live ones run ahead while dragging)
+  const bakedFeatures = bake.built && !bake.pending && bake.built.features.length === built.features.length ? bake.built.features : [];
+  const makeItACrossover = (i: number) => {
+    setFeatures((f) => makeCrossover(f, i, liveRef.current.crossings, liveRef.current.total));
+    setSel({ kind: "feature", i });
+  };
   const showCheck = (x: number, z: number) => {
     setHighlight([x, z]);
     // select what the check is about: the nearest corner point or jump
@@ -1327,7 +1353,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </div>
           )}
           <p className="palette-help">
-            {tool.kind === "feature" ? `Click on the racing line to place the ${fmt.FEATURE_LABEL[tool.type].toLowerCase()}. Esc to cancel.` : "Pick a jump, then click on the racing line to place it."}
+            {tool.kind === "feature"
+              ? tool.type === "crossover"
+                ? "Click where the track crosses itself to bridge it: the pass you click goes over. Esc to cancel."
+                : `Click on the racing line to place the ${fmt.FEATURE_LABEL[tool.type].toLowerCase()}. Esc to cancel.`
+              : "Pick a jump, then click on the racing line to place it."}
           </p>
         </aside>
         )}
@@ -1345,7 +1375,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   ? "Drag on through the squares. Come back to the ring to close the loop."
                   : "Press on a square and drag to lay the lane.")
                 : tool.kind === "feature"
-                  ? `${tablet ? "Tap" : "Click"} on the racing line to place it.`
+                  ? tool.type === "crossover"
+                    ? `${tablet ? "Tap" : "Click"} where the track crosses itself: the pass you ${tablet ? "tap" : "click"} goes over.`
+                    : `${tablet ? "Tap" : "Click"} on the racing line to place it.`
                   : advanced
                     ? "Click a straight to add a corner. Drag a corner to move it."
                     : sel?.kind === "point"
@@ -1402,7 +1434,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               </button>
               {sheet === "checks" ? (
                 <>
-                  <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
+                  <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} />
                   <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
                 </>
               ) : (
@@ -1488,7 +1520,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </aside>
         ) : (
           <aside className="designer-side" aria-label="Checks">
-            <ChecksPanel checks={built.checks} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} />
+            <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} />
             <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
             <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
             {advanced && <Shortcuts />}
@@ -1647,20 +1679,26 @@ function Stats({ built, live, view }: { built: Built; live: Live; view: Designer
 const CHECK_ICON = { error: CircleX, warning: TriangleAlert, info: Info } as const;
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
-function ChecksPanel({
+export function ChecksPanel({
   checks,
+  features = [],
   view,
   pending,
   blocked,
   ready,
   onShow,
+  onMakeCrossover,
 }: {
   checks: Check[];
+  /** the bake's jumps, for the hints on crossing checks */
+  features?: BuiltFeature[];
   view: DesignerMode;
   pending: boolean;
   blocked: string | null;
   ready: boolean;
   onShow: (x: number, z: number) => void;
+  /** Quick: turn the tabletop too low to drive under into a crossover */
+  onMakeCrossover?: (feature: number) => void;
 }) {
   const shown = visibleChecks(checks, view);
   const { errors, warnings } = checkCounts(checks);
@@ -1692,6 +1730,7 @@ function ChecksPanel({
                   <span>
                     {c.message}
                     {view === "advanced" && <code className="check-code">{c.code}</code>}
+                    <CrossingHint c={c} features={features} view={view} onMakeCrossover={onMakeCrossover} />
                   </span>
                   {c.x !== undefined && c.z !== undefined && (
                     <button type="button" className="check-show" onClick={() => onShow(c.x!, c.z!)}>
@@ -1710,6 +1749,24 @@ function ChecksPanel({
         </p>
       )}
     </section>
+  );
+}
+
+/** A crossing error's hint, and Quick's one-tap fix for a tabletop too low to drive under. */
+function CrossingHint({ c, features, view, onMakeCrossover }: { c: Check; features: BuiltFeature[]; view: DesignerMode; onMakeCrossover?: (feature: number) => void }) {
+  const fi = c.code === "crossing-too-low" ? bridgeAt(c, features) : null;
+  const type = fi === null ? null : features[fi].type;
+  const hint = crossingHint(c, type);
+  if (!hint) return null;
+  return (
+    <span className="check-hint">
+      {hint}
+      {view === "quick" && type === "tabletop" && onMakeCrossover && (
+        <button type="button" className="btn btn-quiet check-fix" onClick={() => onMakeCrossover(fi!)}>
+          Make it a crossover
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -1746,6 +1803,29 @@ function NumberField({ label, value, step, min, max, placeholder, onChange, suff
         />
         <em>{suffix}</em>
       </span>
+    </label>
+  );
+}
+
+/** Advanced: change a jump's type. Sizes go back to the new type's own; a new crossover goes over the pass it's on. */
+function TypeField({ f, i, live, update }: { f: DesignFeature; i: number; live: Live; update: (fn: (d: Draft) => Draft, group?: string) => void }) {
+  const setType = (type: FeatureType) =>
+    update((d) => {
+      const list = d.design.features ?? [];
+      const features =
+        type === "crossover" ? makeCrossover(list, i, live.crossings, live.total) : list.map((g, k) => (k === i ? { type, distance: g.distance } : g));
+      return { ...d, design: { ...d.design, features } };
+    }, `ftype:${i}`);
+  return (
+    <label className="nfield">
+      <span>Type</span>
+      <select value={f.type} onChange={(e) => setType(e.target.value as FeatureType)}>
+        {FEATURE_TYPES.map((t) => (
+          <option key={t} value={t}>
+            {fmt.FEATURE_LABEL[t]}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
@@ -1885,6 +1965,35 @@ export function SelectionPanel({
         )}
       </div>
     );
+    const swap = () => update((d) => ({ ...d, design: { ...d.design, features: swapOver(d.design.features ?? [], sel.i, live.crossings, live.total) } }), `fswap:${sel.i}:${Date.now()}`);
+    if (f.type === "crossover")
+      return (
+        <section className="sel-panel" aria-labelledby="sel-h">
+          <h2 id="sel-h">Crossover</h2>
+          <p className="sel-turn">{overText(f, sel.i, live.crossings, live.total)}</p>
+          {view === "advanced" && (
+            <div className="fields">
+              <TypeField f={f} i={sel.i} live={live} update={update} />
+              <NumberField label="Along the line" value={f.distance} step={0.05} onChange={(v) => v !== undefined && setFeature(sel.i, { distance: wrapDistance(v, live.total) }, "distance")} />
+              <NumberField label="Ramp length" value={f.rampLength} placeholder={String(CROSSOVER_RAMP)} step={0.05} min={0.2} onChange={(v) => setFeature(sel.i, { rampLength: v }, "ramp")} />
+              <NumberField label="Top length" value={f.topLength} placeholder="auto" step={0.05} min={0.2} onChange={(v) => setFeature(sel.i, { topLength: v }, "top")} />
+              <NumberField label="Height" value={f.height} placeholder={String(CROSSOVER_HEIGHT)} step={0.01} min={BRIDGE_CLEARANCE} onChange={(v) => setFeature(sel.i, { height: v }, "height")} />
+            </div>
+          )}
+          <button type="button" className="btn" onClick={swap} title="The other pass goes over the bridge">
+            <ArrowRightLeft size={16} aria-hidden="true" /> Swap over/under
+          </button>
+          <p className="hint">
+            {view === "advanced"
+              ? `Drag it along the track; it sits on the crossing it's near. Empty top length = the under lane plus 1 m each side; cars need ${BRIDGE_CLEARANCE.toFixed(2)} m to pass under.`
+              : "Drag it along the track; it sits on the crossing it's near."}
+          </p>
+          <button type="button" className="btn btn-danger" onClick={onDelete}>
+            Delete crossover
+          </button>
+          {warn}
+        </section>
+      );
     if (view === "quick")
       return (
         <section className="sel-panel" aria-labelledby="sel-h">
@@ -1900,16 +2009,7 @@ export function SelectionPanel({
       <section className="sel-panel" aria-labelledby="sel-h">
         <h2 id="sel-h">{fmt.FEATURE_LABEL[f.type]}</h2>
         <div className="fields">
-          <label className="nfield">
-            <span>Type</span>
-            <select value={f.type} onChange={(e) => setFeature(sel.i, { type: e.target.value as FeatureType, length: undefined, height: undefined }, "type")}>
-              {FEATURE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {fmt.FEATURE_LABEL[t]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <TypeField f={f} i={sel.i} live={live} update={update} />
           <NumberField label="Along the line" value={f.distance} step={0.05} onChange={(v) => v !== undefined && setFeature(sel.i, { distance: wrapDistance(v, live.total) }, "distance")} />
           <NumberField label="Length" value={f.length} placeholder={String(L0)} step={0.05} min={0.2} onChange={(v) => setFeature(sel.i, { length: v }, "length")} />
           <NumberField label="Height" value={f.height} placeholder={String(H0)} step={0.01} min={0} onChange={(v) => setFeature(sel.i, { height: v }, "height")} />
@@ -1938,7 +2038,7 @@ export function SelectionPanel({
             label="Along the line"
             value={draft.design.start?.distance ?? 0}
             step={0.05}
-            onChange={(v) => v !== undefined && update((d) => ({ ...d, design: { ...d.design, start: { distance: wrapDistance(v, live.total) } } }), "start")}
+            onChange={(v) => v !== undefined && update((d) => ({ ...d, design: moveStart(d.design, live, wrapDistance(v, live.total)) }), "start")}
           />
         </div>
         <p className="hint">Drag the line along the track. Cars start towards the arrow.</p>

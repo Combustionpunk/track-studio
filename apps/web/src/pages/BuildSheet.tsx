@@ -9,7 +9,7 @@ import { Loading, Message } from "../components/bits.js";
 import { ApiError, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useApi, useElementSize } from "../lib/hooks.js";
-import { cornerRows, figures, jumpRows, PAPER, paperFrom, qrModules, SHEET_PX, sheetPlan, sheetStatus, shortLink, startText, type Paper } from "../lib/sheet.js";
+import { cornerRows, crossoverRows, figures, jumpRows, PAPER, paperFrom, qrModules, SHEET_PX, sheetPlan, sheetStatus, shortLink, startText, type Paper } from "../lib/sheet.js";
 import { NotFound } from "./NotFound.js";
 
 // the plan's room on the A3 layout: the plan column (narrower beside a split corner table) by what's left under the header
@@ -90,6 +90,7 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
   const qr = useMemo(() => qrModules(link.url), [link.url]);
   const corners = cornerRows(s);
   const jumps = jumpRows(s);
+  const crossovers = crossoverRows(s);
   const venue = track.venue?.name ?? doc.info.venue?.name;
   const m = 1 / plan.pxPerM; // one output pixel in metres
   const disc = 11 * m;
@@ -163,6 +164,16 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
                 </g>
               ))}
             </g>
+            <g className="sheet-crossovers" fontSize={11 * m} strokeWidth={1.5 * m}>
+              {s.crossovers.map((c) => (
+                <g key={c.number}>
+                  <rect x={c.x - 1.5 * disc} y={-c.z - disc} width={3 * disc} height={2 * disc} rx={3 * m} />
+                  <text x={c.x} y={-c.z} dy="0.35em" textAnchor="middle">
+                    X{c.number}
+                  </text>
+                </g>
+              ))}
+            </g>
           </svg>
           <p className="sheet-note">
             Grid: 1 m squares, bold every 5 m. All positions are measured from the south-west corner of the track area: across from the west wall, up from the south wall. Corner points are
@@ -230,12 +241,38 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
             ) : (
               <tbody>
                 <tr>
-                  <td>No jumps on this track.</td>
+                  <td>{crossovers.length ? "No other jumps on this track." : "No jumps on this track."}</td>
                 </tr>
               </tbody>
             )}
           </table>
-          <p className="sheet-note">{startText(s)}</p>
+          {crossovers.length > 0 && (
+            <table className="sheet-table sheet-crossover-table">
+              <caption>Crossovers</caption>
+              <thead>
+                <tr>
+                  <th scope="col">No.</th>
+                  <th scope="col" className="num">Position (west, south)</th>
+                  <th scope="col">Over</th>
+                  <th scope="col" className="num">Size</th>
+                </tr>
+              </thead>
+              <tbody>
+                {crossovers.map((c) => (
+                  <tr key={c.label}>
+                    <td className="no">{c.label}</td>
+                    <td className="num">{c.position}</td>
+                    <td>{c.over}</td>
+                    <td className="num">{c.size}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="sheet-note">
+            {crossovers.length > 0 && "Crossovers: X on the plan. Over is the pass that drives over the bridge, counting from the start line; size is ramp + flat top + ramp × height. "}
+            {startText(s)}
+          </p>
         </aside>
       </div>
     </article>

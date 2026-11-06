@@ -58,14 +58,15 @@ export const movePoint = (points: DesignPoint[], i: number, q: Point2): DesignPo
 export const deletePoint = (points: DesignPoint[], i: number): DesignPoint[] => points.filter((_, k) => k !== i);
 
 // ---------------------------------------------------------------------------------------------- jumps
-export const FEATURE_TYPES: FeatureType[] = ["tabletop", "double", "kicker", "stepup", "stepdown", "whoops", "bump"];
+export const FEATURE_TYPES: FeatureType[] = ["tabletop", "double", "kicker", "stepup", "stepdown", "whoops", "bump", "crossover"];
 
-/** The jumps Quick's palette offers; step-up, step-down and bump stay in Advanced. */
-export const QUICK_JUMPS: FeatureType[] = ["tabletop", "double", "kicker", "whoops"];
+/** The jumps Quick's palette offers; step-up, step-down and bump stay in Advanced. A crossover bridges a crossing. */
+export const QUICK_JUMPS: FeatureType[] = ["tabletop", "double", "kicker", "whoops", "crossover"];
 
 export const paletteJumps = (mode: DesignerMode): FeatureType[] => (mode === "quick" ? QUICK_JUMPS : FEATURE_TYPES);
 
-/** Drop a jump at `distance` along the line. Type and distance only, so it takes the engine's default size. */
+/** Drop a jump at `distance` along the line. Type and distance only, so it takes the engine's default size. (Crossovers
+ * are placed with addCrossover, crossings.ts.) */
 export function addJump(features: DesignFeature[], type: FeatureType, distance: number): { features: DesignFeature[]; index: number } {
   return { features: [...features, { type, distance }], index: features.length };
 }
@@ -122,6 +123,8 @@ export function fixFor(c: Check, points: DesignPoint[]): string {
       return `Move ${n ? `corner ${n}` : "the track"} back inside the track area to fix it.`;
     case "obstacle":
       return `${n ? `Move corner ${n} so the track clears` : "Move the track off"} the fixed obstacle to fix it.`;
+    case "crossing-unbridged":
+      return "Add a crossover (or a long tabletop) where the track crosses itself to fix it.";
     default:
       return `${c.message.replace(/\.$/, "")}.`;
   }

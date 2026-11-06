@@ -14,11 +14,11 @@ import { addJump, deleteJump, FEATURE_TYPES, jumpsInCorner, moveJump, paletteJum
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
 
 describe("which jumps each mode offers", () => {
-  it("Quick: tabletop, double, kicker and whoops", () => {
-    expect(paletteJumps("quick")).toEqual(["tabletop", "double", "kicker", "whoops"]);
+  it("Quick: tabletop, double, kicker, whoops and crossover (#51: the usual way to bridge a crossing)", () => {
+    expect(paletteJumps("quick")).toEqual(["tabletop", "double", "kicker", "whoops", "crossover"]);
     expect(QUICK_JUMPS).toEqual(paletteJumps("quick"));
   });
-  it("step-up, step-down and bump only in Advanced, which has all seven", () => {
+  it("step-up, step-down and bump only in Advanced, which has all eight", () => {
     for (const t of ["stepup", "stepdown", "bump"] as const) {
       expect(paletteJumps("quick")).not.toContain(t);
       expect(paletteJumps("advanced")).toContain(t);
@@ -33,13 +33,13 @@ describe("the palette", () => {
 
   it("one button per jump, each with its plan symbol and a plain label", () => {
     const h = html("quick");
-    expect(h.match(/<button/g)).toHaveLength(4);
-    expect(h.match(/<svg[^>]*class="jump-symbol"/g)).toHaveLength(4);
-    expect(h.match(/aria-hidden="true"/g)?.length).toBeGreaterThanOrEqual(4);
-    for (const l of ["Tabletop", "Double", "Kicker", "Whoops"]) expect(h).toContain(`${l}</button>`);
+    expect(h.match(/<button/g)).toHaveLength(5);
+    expect(h.match(/<svg[^>]*class="jump-symbol"/g)).toHaveLength(5);
+    expect(h.match(/aria-hidden="true"/g)?.length).toBeGreaterThanOrEqual(5);
+    for (const l of ["Tabletop", "Double", "Kicker", "Whoops", "Crossover"]) expect(h).toContain(`${l}</button>`);
     expect(h).not.toContain("Step-up");
   });
-  it("Advanced lists all seven", () => {
+  it("Advanced lists all eight", () => {
     for (const l of ["Step-up", "Step-down", "Bump"]) expect(html("advanced")).toContain(`${l}</button>`);
   });
   it("the armed jump is pressed, the others are not", () => {
