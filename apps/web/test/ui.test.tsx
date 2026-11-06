@@ -35,7 +35,8 @@ const { LibraryResults } = await import("../src/components/LibraryResults.js");
 const { checksSummary } = await import("../src/components/ChecksList.js");
 const { Library } = await import("../src/pages/Library.js");
 const { TrackPage } = await import("../src/pages/TrackPage.js");
-const { VenuePage } = await import("../src/pages/Venues.js");
+const { VenuePage, Venues } = await import("../src/pages/Venues.js");
+const { ForumVenuePicker } = await import("../src/venues/ForumVenuePicker.js");
 const fmt = await import("../src/lib/format.js");
 const { SessionContext } = await import("../src/lib/session.js");
 
@@ -50,9 +51,11 @@ const session = (organiser = false) => ({
   loginUrl: () => "/auth/login",
 });
 
+const FORUM = { devLogin: false, forumUrl: "https://forum.example", baseUrl: "https://tracks.example", organiserGroup: "track-admins" };
+
 function html(node: ReactNode, path = "/", signedIn = true): string {
   return renderToStaticMarkup(
-    <SessionContext.Provider value={signedIn ? session() : { ...session(), me: null }}>
+    <SessionContext.Provider value={signedIn ? { ...session(), config: FORUM } : { ...session(), me: null }}>
       <MemoryRouter initialEntries={[path]}>{node}</MemoryRouter>
     </SessionContext.Provider>,
   );
@@ -293,7 +296,7 @@ describe("revision authors (#30)", () => {
 
 describe("venue page", () => {
   const doc = JSON.parse(readFileSync(join(ROOT, "reference/venues/club-hall.rcvenue.json"), "utf8")) as RcVenue;
-  const venue: VenueSummary = { id: "winter-3", name: "Club Hall", forumVenueId: null, ownerId: 1, revision: 3, tracks: 0, createdAt: "2026-10-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z" };
+  const venue: VenueSummary = { id: "winter-3", name: "Club Hall", forumVenueId: null, forumTrackId: null, ownerId: 1, revision: 3, tracks: 0, createdAt: "2026-10-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z" };
   const rev = (revision: number, createdBy: VenueRevision["createdBy"]): VenueRevision => ({ revision, createdAt: "2026-11-02T10:00:00Z", createdBy, name: "Club Hall", area: { length: 22, width: 12 }, obstacles: 1, downloadUrl: `/d/${revision}` });
 
   it("a revision whose author has no user row shows as Unknown (#30)", () => {
@@ -303,6 +306,81 @@ describe("venue page", () => {
     const h = html(<VenuePage />, "/v/winter-3");
     expect(text(h)).toMatch(/r2 .*· Unknown · 22 × 12/);
     for (const n of [3, 2, 1]) expect(h).toContain(`aria-label="Download revision ${n}"`);
+  });
+});
+
+describe("forum venue and track (#65)", async () => {
+  const { ApiError } = await import("../src/lib/api.js");
+  const doc = JSON.parse(readFileSync(join(ROOT, "reference/venues/club-hall.rcvenue.json"), "utf8")) as RcVenue;
+  const linkedDoc: RcVenue = { ...doc, info: { ...doc.info, venue: { id: 12, name: "Misfits Main Hall", trackId: 31, trackName: "Indoor carpet" } } };
+  const venue: VenueSummary = { id: "winter-3", name: "Club Hall", forumVenueId: 12, forumTrackId: 31, ownerId: 1, revision: 3, tracks: 0, createdAt: "2026-10-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z" };
+  const list = {
+    venues: [
+      { id: 1, name: "Club hall", town: "Leeds", tracks: [{ id: 5, name: "Carpet", width_m: 12, length_m: 22 }, { id: 6, name: "Astro", width_m: null, length_m: null }] },
+      { id: 12, name: "Misfits Main Hall", town: "Otley", tracks: [{ id: 31, name: "Indoor carpet", width_m: 12, length_m: 22 }] },
+    ],
+    fetchedAt: "2026-11-06T09:00:00Z",
+    stale: false,
+  };
+  const picker = (value: RcVenue["info"]["venue"], area = { length: 22, width: 12 }) =>
+    html(<ForumVenuePicker value={value ?? null} area={area} isNew={false} onPick={() => {}} onClear={() => {}} />, "/v/winter-3/edit");
+
+  it("no link yet: a searchable list of the forum's venues; the typed ID box is gone", () => {
+    answers.set("/api/forum-venues", { data: list, loading: false });
+    const h = picker(null);
+    expect(h).toContain('role="combobox"');
+    expect(text(h)).toContain("Club hall");
+    expect(text(h)).toContain("Misfits Main Hall");
+    expect(text(h)).not.toContain("Forum venue ID");
+  });
+
+  it("a linked template shows the forum venue and track", () => {
+    answers.set("/api/forum-venues", { data: list, loading: false });
+    const t = text(picker(linkedDoc.info.venue));
+    expect(t).toContain("Misfits Main Hall");
+    expect(t).toContain("Indoor carpet");
+    expect(t).toContain("Change");
+  });
+
+  it("a template with only info.venue.id shows 'Pick the track' with that venue's tracks", () => {
+    answers.set("/api/forum-venues", { data: list, loading: false });
+    const t = text(picker({ id: 1, name: "Club hall" }));
+    expect(t).toContain("Pick the track");
+    expect(t).toContain("Carpet");
+    expect(t).toContain("Astro");
+  });
+
+  it("the area differs from the forum track: a note, nothing changed", () => {
+    answers.set("/api/forum-venues", { data: list, loading: false });
+    expect(text(picker(linkedDoc.info.venue, { length: 20, width: 10 }))).toContain("Differs from the forum (12 × 22 m).");
+    expect(text(picker(linkedDoc.info.venue))).not.toContain("Differs");
+  });
+
+  it("forum unreachable: 'Forum unavailable', and the saved link still shows", () => {
+    answers.set("/api/forum-venues", { error: new ApiError(503, "forum-unavailable", "Forum unavailable: it didn't answer."), loading: false });
+    const t = text(picker(linkedDoc.info.venue));
+    expect(t).toContain("Forum unavailable");
+    expect(t).toContain("Misfits Main Hall");
+    expect(text(picker({ id: 1, name: "Club hall" }))).toContain("Pick the track");
+    expect(text(picker(null))).toContain("Forum unavailable");
+  });
+
+  it("forum down with a cached list: the list, saying how old it is", () => {
+    answers.set("/api/forum-venues", { data: { ...list, stale: true }, loading: false });
+    const t = text(picker(null));
+    expect(t).toContain("Club hall");
+    expect(t).toMatch(/forum isn't answering.*6 Nov/);
+  });
+
+  it("venues page and venue page show the forum venue and track, linked to the forum", () => {
+    answers.set("/api/venues", { data: { venues: [venue] }, loading: false });
+    answers.set("/api/venues/winter-3", { data: { venue, doc: linkedDoc, can: { edit: false } }, loading: false });
+    answers.set("/api/venues/winter-3/revisions", { data: { revisions: [] }, loading: false });
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    for (const h of [html(<Venues />, "/v"), html(<VenuePage />, "/v/winter-3")]) {
+      expect(text(h)).toContain("Misfits Main Hall · Indoor carpet");
+      expect(h).toContain('href="https://forum.example/venues/12"');
+    }
   });
 });
 

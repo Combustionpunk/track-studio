@@ -53,7 +53,10 @@ describe("venue documents", () => {
     expect(draftProblems({ ...hall(), info: { name: " " } }).name).toBe("Give the venue a name.");
     expect(draftProblems({ ...hall(), area: { length: 0, width: 12 } }).length).toBe("Length must be more than 0 m.");
     expect(draftProblems({ ...hall(), area: { length: 22, width: 101 } }).width).toBe("Width can be at most 100 m.");
-    expect(draftProblems({ ...hall(), info: { name: "Hall", venue: { id: 1.5 } } }).forumId).toBe("Forum venue ID is a whole number.");
+    // a new template linked to a forum venue must pick the track; an older one (only the venue id) can still save
+    expect(draftProblems({ ...hall(), info: { name: "Hall", venue: { id: 12, name: "Main Hall" } } }, { isNew: true }).forumTrack).toBe("Pick the track at this forum venue.");
+    expect(draftProblems({ ...hall(), info: { name: "Hall", venue: { id: 12, name: "Main Hall" } } }).forumTrack).toBeUndefined();
+    expect(draftProblems({ ...hall(), info: { name: "Hall", venue: { id: 12, name: "Main Hall", trackId: 31, trackName: "Carpet" } } }, { isNew: true })).toEqual({});
     expect(draftProblems({ ...hall(), obstacles: [{ type: "circle", x: 0, z: 0, radius: 0 }] })["obstacle-0"]).toBe("Radius must be more than 0 m.");
     expect(draftProblems({ ...hall(), obstacles: [{ type: "rect", x: 0, z: Number.NaN, length: 1, width: 1 }] })["obstacle-0"]).toBe("Position must be a number.");
     // the rostrum stays on its wall, also when the area shrinks under it
