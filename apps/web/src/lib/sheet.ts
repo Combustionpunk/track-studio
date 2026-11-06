@@ -1,7 +1,7 @@
 // The build sheet page (#17): the figures as printed, paper sizes, the DRAFT rule, the plan with its edge labels and the
 // QR code. The figures themselves come from the engine's buildSheet (drawn from `built`, measured from the south-west
 // corner of the track area).
-import { PLAN_MARGIN, planLayers, planScene, type BuildSheet, type RcTrack, type TrackStatus } from "@track-studio/engine";
+import { drawingArea, PLAN_MARGIN, planLayers, planScene, type BuildSheet, type RcTrack, type TrackStatus } from "@track-studio/engine";
 import qrcode from "qrcode-generator";
 import { FEATURE_LABEL, size } from "./format.js";
 
@@ -64,7 +64,7 @@ export function figures(s: BuildSheet): { label: string; value: string }[] {
 export function startText(s: BuildSheet): string {
   return (
     `Start line ${metres1(s.start.fromWest)} from the west wall, ${metres1(s.start.fromSouth)} from the south wall, cars heading ${s.start.heading}. ` +
-    `Travel is ${s.direction}, shown by the arrows on the racing line. Rostrum on the ${s.rostrum} side.`
+    `Travel is ${s.direction}, shown by the arrows on the racing line.`
   );
 }
 
@@ -126,8 +126,8 @@ export interface SheetPlan {
 const LABEL_ROOM = 1.4; // m outside the plan margin for the edge labels
 
 /** The print plan fitted into widthPx × heightPx, with room round the area for the rostrum and the edge labels. */
-export function sheetPlan(doc: Pick<RcTrack, "area" | "obstacles" | "built">, widthPx: number, heightPx: number, id = "sheet"): SheetPlan {
-  const { length: L, width: W } = doc.area;
+export function sheetPlan(doc: Pick<RcTrack, "area" | "built">, widthPx: number, heightPx: number, id = "sheet"): SheetPlan {
+  const { length: L, width: W } = drawingArea(doc);
   const x = -L / 2 - PLAN_MARGIN - LABEL_ROOM, y = -W / 2 - PLAN_MARGIN;
   const viewBox = { x, y, w: L + 2 * PLAN_MARGIN + LABEL_ROOM, h: W + 2 * PLAN_MARGIN + LABEL_ROOM };
   const px = Math.max(viewBox.w / widthPx, viewBox.h / heightPx);
@@ -135,10 +135,9 @@ export function sheetPlan(doc: Pick<RcTrack, "area" | "obstacles" | "built">, wi
   // every 5 m, and the far wall unless it would crowd the last 5 m mark
   const marks = (len: number) => [...Array.from({ length: Math.floor(len / 5) + 1 }, (_, k) => k * 5), ...(len % 5 >= 1.5 ? [len] : [])];
   const label = (m: number) => (m === 0 ? "0" : `${trim(m, 1)} m`);
-  // just outside the wall, or outside the rostrum when it stands on that side
-  const side = doc.built?.rostrum.side;
-  const southAt = W / 2 + (side === "south" ? PLAN_MARGIN + LABEL_ROOM / 2 : 0.7);
-  const westAt = -L / 2 - (side === "west" ? PLAN_MARGIN + 0.35 : 0.35);
+  // just outside the wall (a layout has no rostrum since rctrack 1.7)
+  const southAt = W / 2 + 0.7;
+  const westAt = -L / 2 - 0.35;
   return {
     viewBox,
     svg,

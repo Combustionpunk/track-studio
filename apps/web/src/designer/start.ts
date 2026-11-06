@@ -42,18 +42,15 @@ export function blankArea(params: URLSearchParams): Area {
   return { length: read("length"), width: read("width") };
 }
 
-/** Start blank: the area entered, no venue and no obstacles; the rostrum is the default one on the south side. */
+/** Start blank: the area entered, no venue. */
 export function blankDraft(area: Area, name = "New track"): Draft {
-  return newDraft({ name, area, obstacles: [] });
+  return newDraft({ name, area });
 }
 
-/** From a venue: its area, obstacles and rostrum, pinned to its revision. */
+/**
+ * From a venue: its area is the drawing area and it's named in info.drawnFor. Its obstacles (and the area, live) are a
+ * guide the designer loads from the template while drawing; they're never saved in the track (rctrack 1.7).
+ */
 export function venueDraft(v: RcVenue, name?: string): Draft {
-  return newDraft({
-    name: name || `New track at ${v.info.name}`,
-    area: v.area,
-    obstacles: v.obstacles ?? [],
-    basedOn: { venueTemplate: v.id, revision: v.revision },
-    rostrum: v.rostrum,
-  });
+  return newDraft({ name: name || `New track at ${v.info.name}`, area: v.area, drawnFor: { venueTemplate: v.id, name: v.info.name } });
 }

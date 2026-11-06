@@ -1,8 +1,9 @@
 import type { RcTrack } from "@track-studio/engine";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { rebakeAll } from "../src/rebake.js";
+import { ROOT_DIR } from "../src/config.js";
 import { setRevisionColumns } from "../src/store.js";
 import { makeApp } from "./helpers.js";
 
@@ -70,5 +71,34 @@ describe("rebake", () => {
     const url = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().track.previewUrl;
     expect(url).not.toBe(before);
     expect((await app.inject({ method: "GET", url })).headers["x-preview-cache"]).toBe("miss");
+  });
+
+  it("upgrades revisions stored by rctrack 1.6: every track changes, no racing line does (#63)", async () => {
+    const { app, config } = await makeApp({ seeded: true });
+    // the seeded examples as rctrack 1.6 stored them: obstacles, basedOn, design and built rostrum
+    const v16 = join(ROOT_DIR, "packages/engine/test/fixtures/v16");
+    const rows = app.db.prepare("SELECT track_id, revision FROM track_revisions").all() as { track_id: string; revision: number }[];
+    for (const f of readdirSync(v16).filter((n) => n.endsWith(".rctrack.json"))) {
+      const doc = JSON.parse(readFileSync(join(v16, f), "utf8")) as RcTrack;
+      app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ?").run(JSON.stringify(doc), doc.id);
+    }
+    const stored = () => rows.map((r) => app.db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(r.track_id, r.revision) as string);
+    expect(stored().every((j) => j.includes('"rostrum"'))).toBe(true);
+    // read through the API before the rebake, they already come back as 1.7
+    const before = (await app.inject({ method: "GET", url: "/api/tracks/46897d82-0114-460f-9a75-984ee97bca0e" })).json().doc;
+    expect(before).not.toHaveProperty("basedOn");
+    expect(before.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
+
+    const dry = rebakeAll(app.db, config.dataDir, { dryRun: true });
+    expect(dry.changed.map((c) => c.id).sort()).toEqual([...new Set(rows.map((r) => r.track_id))].sort());
+    expect(dry.changed.every((c) => !c.racingLineChanged)).toBe(true);
+    expect(dry.changed.every((c) => c.removed.includes("design.rostrum") && c.removed.includes("built.rostrum"))).toBe(true);
+    expect(dry.changed.find((c) => c.id === "46897d82-0114-460f-9a75-984ee97bca0e")!.removed).toEqual(["obstacles", "basedOn", "design.rostrum", "built.rostrum"]);
+    expect(stored().every((j) => j.includes('"rostrum"'))).toBe(true); // dry run: nothing written
+
+    expect(rebakeAll(app.db, config.dataDir).failed).toEqual([]);
+    for (const j of stored()) expect(j).not.toMatch(/"rostrum"|"obstacles"|"basedOn"/);
+    expect(JSON.parse(stored()[rows.findIndex((r) => r.track_id === "46897d82-0114-460f-9a75-984ee97bca0e")]).info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
+    expect(rebakeAll(app.db, config.dataDir).changed).toEqual([]);
   });
 });

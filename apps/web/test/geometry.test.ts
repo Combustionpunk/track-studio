@@ -1,4 +1,4 @@
-import { bakeBuilt, type RcTrack } from "@track-studio/engine";
+import { bakeBuilt, venueCheck, type RcTrack } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -102,8 +102,8 @@ describe("starter loop", () => {
   it("shrinks to clear obstacles", () => {
     const v = ref<{ area: { length: number; width: number }; obstacles: [] }>("venues/sports-hall-b.rcvenue.json");
     const pts = starterLoop(v.area, v.obstacles);
-    const b = bakeBuilt({ format: "rctrack", version: 1, id: "x", revision: 1, info: { name: "x" }, area: v.area, obstacles: v.obstacles, design: { laneWidth: 2, points: pts } });
-    expect(b.checks.filter((c) => c.level === "error")).toEqual([]);
+    const venue = { format: "rcvenue", version: 1, id: "v", revision: 1, info: { name: "v" }, area: v.area, obstacles: v.obstacles } as const;
+    expect(venueCheck({ design: { laneWidth: 2, points: pts } }, venue).checks).toEqual([]);
   });
 });
 

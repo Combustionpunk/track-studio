@@ -215,6 +215,12 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .check-hint { display: block; margin-top: 2px; color: var(--muted); }
 .check-fix { display: flex; margin-top: 6px; }
 .check-show { border: 0; padding: 0; background: none; color: inherit; font: 13px var(--font-body); text-decoration: underline; cursor: pointer; }
+.venue-check h2 { font-size: 18px; line-height: 22px; margin: 0 0 8px; }
+.venue-check-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 10px; }
+.venue-check-row .nfield { flex: 1; }
+.venue-check-row select { min-height: 36px; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; }
+.venue-check .hint { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.venue-check-stale { opacity: 0.6; }
 .submit-why { margin: 12px 0 0; padding: 10px 12px; border-radius: 4px; background: var(--selected); font-size: 13px; line-height: 18px; color: var(--text); }
 .figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
 .figures > div { display: flex; flex-direction: column; }

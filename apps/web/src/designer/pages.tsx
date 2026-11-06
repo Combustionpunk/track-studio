@@ -17,7 +17,7 @@ export function NewTrackPage() {
     <div className="wrap page">
       <div className="page-head">
         <h1>New track</h1>
-        <p className="lede">Start from a venue template — its track area, rostrum and pillars are locked in — or start blank on an area you set. Either way you start by laying the lanes on a grid.</p>
+        <p className="lede">Start from a venue template — its track area and pillars are a guide while you draw — or start blank on an area you set. Either way you start by laying the lanes on a grid.</p>
       </div>
       <h2 className="section-h">From a venue</h2>
       {venues.error ? (

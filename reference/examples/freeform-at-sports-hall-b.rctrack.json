@@ -23,6 +23,10 @@
    "id": "3b542396-6bd2-55e8-8665-852e74dc54a9",
    "revision": 1,
    "orientation": "rotated 180"
+  },
+  "drawnFor": {
+   "venueTemplate": "venue-2",
+   "name": "Sports hall B"
   }
  },
  "area": {
@@ -123,14 +127,10 @@
   ],
   "start": {
    "distance": 4.0
-  },
-  "rostrum": {
-   "side": "south",
-   "offset": 3.0
   }
  },
  "built": {
-  "generator": "rctrack-bake.py 1.6",
+  "generator": "rctrack-bake.py 1.7",
   "lapLength": 93.534,
   "racingLine": [
    [
@@ -2315,12 +2315,6 @@
    "width": 2.0,
    "distance": 4.0
   },
-  "rostrum": {
-   "side": "south",
-   "x": 3.0,
-   "z": -8.5,
-   "eyeHeight": 2.8
-  },
   "checks": [],
   "footprint": {
    "cell": 0.1,
@@ -2519,33 +2513,5 @@
    "dividerRuns": 4,
    "corners": 9
   }
- },
- "obstacles": [
-  {
-   "type": "circle",
-   "x": -6.0,
-   "z": 1.0,
-   "radius": 0.35,
-   "label": "Pillar"
-  },
-  {
-   "type": "circle",
-   "x": 6.0,
-   "z": 1.0,
-   "radius": 0.35,
-   "label": "Pillar"
-  },
-  {
-   "type": "rect",
-   "x": 11.5,
-   "z": -5.5,
-   "length": 2.0,
-   "width": 3.0,
-   "label": "Fire exit"
-  }
- ],
- "basedOn": {
-  "venueTemplate": "venue-2",
-  "revision": 1
  }
 }

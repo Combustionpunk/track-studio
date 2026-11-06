@@ -16,7 +16,7 @@ describe("build sheet tables", () => {
     expect(rows).toHaveLength(s.cornerPoints.length);
     rows.forEach((r, i) => {
       const c = s.cornerPoints[i];
-      const sw = fromSouthWest(doc.area, c.x, c.z);
+      const sw = fromSouthWest(doc.area!, c.x, c.z);
       expect(r).toMatchObject({ label: c.label, fromWest: metres1(sw.fromWest), fromSouth: metres1(sw.fromSouth) });
     });
   });
@@ -26,7 +26,7 @@ describe("build sheet tables", () => {
     expect(rows).toHaveLength(doc.built!.features.length);
     rows.forEach((r, i) => {
       const f = doc.built!.features[i];
-      const sw = fromSouthWest(doc.area, f.x, f.z);
+      const sw = fromSouthWest(doc.area!, f.x, f.z);
       expect(r.position).toBe(`${metres1(sw.fromWest)}, ${metres1(sw.fromSouth)}`);
       expect(r.size).toBe(`${Math.round(f.length * 100) / 100} × ${Math.round(f.height * 100) / 100} m`);
     });
@@ -48,7 +48,7 @@ describe("build sheet tables", () => {
       [`Pipe, in ${club.built!.stats.dividerRuns} runs`]: metres1(club.built!.stats.dividerLength),
       "Lane width": "1.8–2.0 m",
     });
-    expect(startText(s)).toBe("Start line 5.0 m from the west wall, 1.1 m from the south wall, cars heading east. Travel is anticlockwise, shown by the arrows on the racing line. Rostrum on the north side.");
+    expect(startText(s)).toBe("Start line 5.0 m from the west wall, 1.1 m from the south wall, cars heading east. Travel is anticlockwise, shown by the arrows on the racing line.");
   });
 
   it("metres1: one decimal, always", () => {

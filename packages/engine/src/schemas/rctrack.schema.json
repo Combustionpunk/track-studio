@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forum.rcmisfits.org/schemas/rctrack-v1.json",
-  "title": "RC track design (rctrack v1.6)",
+  "title": "RC track design (rctrack v1.7)",
   "type": "object",
   "required": [
     "format",
@@ -9,7 +9,6 @@
     "id",
     "revision",
     "info",
-    "area",
     "design"
   ],
   "properties": {
@@ -93,12 +92,28 @@
           "items": {
             "type": "string"
           }
+        },
+        "drawnFor": {
+          "type": "object",
+          "description": "v1.7: the venue template the layout was drawn for. A label for people browsing; nothing checks it.",
+          "required": [
+            "venueTemplate",
+            "name"
+          ],
+          "properties": {
+            "venueTemplate": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
         }
       }
     },
     "area": {
       "type": "object",
-      "description": "Usable track area in metres. Origin at its centre, +x east (right on the plan), +z north (up on the plan).",
+      "description": "Optional (v1.7): the drawing area the designer used, in metres. Nothing checks against it; a layout belongs to no venue. Origin at its centre, +x east (right on the plan), +z north (up on the plan).",
       "required": [
         "length",
         "width"
@@ -223,19 +238,6 @@
           "properties": {
             "distance": {
               "type": "number"
-            }
-          }
-        },
-        "rostrum": {
-          "type": "object",
-          "properties": {
-            "side": {
-              "enum": [
-                "north",
-                "south",
-                "east",
-                "west"
-              ]
             }
           }
         }
@@ -419,9 +421,6 @@
         "startLine": {
           "type": "object"
         },
-        "rostrum": {
-          "type": "object"
-        },
         "checks": {
           "type": "array",
           "items": {
@@ -514,60 +513,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "basedOn": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "properties": {
-        "venueTemplate": {
-          "type": "string"
-        },
-        "revision": {
-          "type": "integer"
-        }
-      }
-    },
-    "obstacles": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "type",
-          "x",
-          "z"
-        ],
-        "properties": {
-          "type": {
-            "enum": [
-              "circle",
-              "rect"
-            ]
-          },
-          "x": {
-            "type": "number"
-          },
-          "z": {
-            "type": "number"
-          },
-          "radius": {
-            "type": "number"
-          },
-          "length": {
-            "type": "number"
-          },
-          "width": {
-            "type": "number"
-          },
-          "rotation": {
-            "type": "number"
-          },
-          "label": {
-            "type": "string"
           }
         }
       }

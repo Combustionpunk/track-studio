@@ -1,5 +1,5 @@
 // Compact viewer for forum posts (iframe). The server only lets the forum frame /embed/*.
-import type { RcTrack } from "@track-studio/engine";
+import { drawingArea, type RcTrack } from "@track-studio/engine";
 import { useParams, useSearchParams } from "react-router-dom";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import type { TrackResponse } from "../lib/api.js";
@@ -46,8 +46,7 @@ export function Embed() {
       </header>
       {doc && b ? (
         <PlanView
-          area={doc.area}
-          obstacles={doc.obstacles}
+          area={drawingArea(doc)}
           built={b}
           designFeatures={doc.design.features}
           layers={layers}

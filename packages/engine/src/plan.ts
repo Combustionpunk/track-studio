@@ -4,7 +4,7 @@
 //
 // Units are metres, SVG y = -z (north up). Lines that should look the same at any zoom (grid, racing line, outlines)
 // are sized in screen pixels via `px`, the size of one output pixel in metres.
-import { rostrumPosition } from "./bake.js";
+import { drawingArea, rostrumPosition } from "./bake.js";
 import type { Area, Built, BuiltFeature, Crossing, Obstacle, Point2, RcTrack, Side } from "./types.js";
 
 /** The fixed plan palette: tokens.json's plan-* colours (a test keeps them equal). */
@@ -63,7 +63,7 @@ export type PlanLayer = "lanes" | "racingLine" | "dividers" | "features" | "star
 export type PlanLayers = Record<PlanLayer, boolean>;
 export const ALL_PLAN_LAYERS: PlanLayers = { lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: true, obstacles: true, grid: true, rostrum: true };
 
-/** What a plan shows. `rostrum` is for venue plans, which have no `built`. */
+/** What a plan shows. `obstacles` and `rostrum` come from a venue (v1.7: layouts have none): venue plans, fits. */
 export interface PlanScene {
   area: Area;
   obstacles?: Obstacle[];
@@ -92,8 +92,9 @@ export const PIPE_THICKNESS = 0.08; // m (2 × PIPE_R in bake.ts)
 export const GRID_BOXES = 10; // a full final
 const ROSTRUM_SIZE: [number, number] = [5, 1.2]; // m, along × across its side
 
-export function planScene(doc: Pick<RcTrack, "area" | "obstacles" | "built">): PlanScene {
-  return { area: doc.area, obstacles: doc.obstacles, built: doc.built };
+/** A layout's plan: its built geometry on its drawing area. Add a venue's obstacles and rostrum to place it in one. */
+export function planScene(doc: Pick<RcTrack, "area" | "built">): PlanScene {
+  return { area: drawingArea(doc), built: doc.built };
 }
 
 /** Plan point → SVG, rounded to the millimetre. */
@@ -478,7 +479,7 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
   // bridges: the over pass on top of the under pass's pipes
   if (layers.features && built) for (const c of bridged) o.push(drawBridge(built, c, lap, lapTotal, px, tips, P, print, id));
 
-  const r = built?.rostrum ?? scene.rostrum;
+  const r = scene.rostrum;
   if (layers.rostrum && r) {
     const ew = r.side === "east" || r.side === "west";
     const [a, b] = ew ? [ROSTRUM_SIZE[1], ROSTRUM_SIZE[0]] : ROSTRUM_SIZE;
@@ -583,7 +584,7 @@ function scaleBar(scene: PlanScene, px: number): string {
   const { area } = scene;
   const b = planBounds(area);
   const m = niceLength(b.w / 6);
-  const side = (scene.built?.rostrum ?? scene.rostrum)?.side;
+  const side = scene.rostrum?.side;
   const y = side === "south" ? -area.width / 2 - PLAN_MARGIN / 2 : area.width / 2 + PLAN_MARGIN / 2;
   const x = -area.length / 2;
   const tick = Math.max(0.15, 4 * px);

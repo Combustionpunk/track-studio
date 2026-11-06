@@ -1,7 +1,12 @@
-# rctrack — shared track format (v1.6)
+# rctrack — shared track format (v1.7)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
+
+**A layout belongs to no venue** *(v1.7)*. A layout is its name, its id and the track itself (lanes, corners, jumps,
+start). Venue templates (`.rcvenue.json`, below) hold the hall: its area, pillars and obstacles, and the rostrum. A
+template is used to start a new layout (its area and obstacles are shown as a guide while drawing, and not saved into
+the layout) and to check a layout against a venue (the fit search, which says whether and in which orientations it fits).
 
 ## Principles
 - **One source of truth.** The same file is approved for a meeting, laid out in the hall and driven in the sim.
@@ -11,7 +16,8 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
   build sheets — draws `built` directly, so they can never disagree.
 - **Engine can improve without breaking files.** Consumers never recompute geometry, so the engine can be refined
   (e.g. smoother divider merging) and old files keep working; re-saving a design simply refreshes `built`.
-- **Metres, top-down plan.** Origin at the centre of the track area, **+x east (right on the plan), +z north (up on
+- **Metres, top-down plan.** Origin at the centre of the drawing area (`area`; a layout without one is drawn on a box
+  centred on the origin, see `area` below), **+x east (right on the plan), +z north (up on
   the plan)**, heights in metres. Headings in degrees: 0 = +x, counter-clockwise towards +z.
 
 ## Top level
@@ -19,10 +25,8 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 |---|---|
 | `format`, `version` | `"rctrack"`, `1` |
 | `id`, `revision` | UUID stable across edits; revision increments on every saved change. Meetings pin a revision. |
-| `info` | name, author (forum username), dates, description, venue `{id, name}`, status `draft / submitted / approved / archived`, surface, classes, tags, `derivedFrom` (below) |
-| `area` | `{length, width}` usable track area in metres — from the venue template (or set by the designer for a blank design) |
-| `basedOn` | `{venueTemplate, revision}` if the design started from a venue template, else `null` |
-| `obstacles` | fixed items inside the area, copied from the venue template: `{type: "circle", x, z, radius, label}` or `{type: "rect", x, z, length, width, rotation?, label}` |
+| `info` | name, author (forum username), dates, description, venue `{id, name}`, status `draft / submitted / approved / archived`, surface, classes, tags, `derivedFrom` (below), `drawnFor` *(v1.7)*: `{venueTemplate, name}`, the venue template the layout was drawn for — a label for people browsing ("drawn for …"); nothing checks it |
+| `area` | optional *(v1.7)*: `{length, width}` in metres, the drawing area the designer used (a venue template's, or set for a blank design). No check depends on it. Without it, draw the layout on the smallest box centred on the origin, in whole metres, that holds `built.size` with 0.5 m to spare (`drawingArea` in the engine) |
 | `design` | editable inputs, below |
 | `built` | derived geometry, below |
 
@@ -42,7 +46,6 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
   is `"first"` (the default) or `"second"`, the pass that goes over, in driving order from the start line.
 - `start.distance` — start/finish line position along the racing line.
 - Direction of travel is the order of `points`: reversing a track reorders them to `[p0, pn-1, …, p1]` and moves each `distance` so jumps and the start line stay in the same spot (no field for it).
-- `rostrum` — `{side: north/south/east/west, offset}`; offset in metres along that side from its centre.
 
 ## built
 - `lapLength` (m)
@@ -62,10 +65,9 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
   in plan (the under pass's pipes go under the bridge), so an even-odd fill of `lanes` leaves the crossing square
   empty: draw the bridge (or the under pass) on top.
 - `startLine` — `{x, z, heading, width, distance}`
-- `rostrum` — `{side, x, z, eyeHeight}`
-- `checks[]` — `{level: error|warning|info, code, message, x?, z?}`. Codes so far: `outside-area`, `tight-corner`,
-  `narrow-lane`, `feature-in-corner`, `radius-reduced`, `obstacle`, and *(v1.6)* `crossing-unbridged`, `crossing-too-low`,
-  `crossing-angle`, `crossing-too-close`, `crossover-unused` (see *Crossings*).
+- `checks[]` — `{level: error|warning|info, code, message, x?, z?}`, the track's own checks *(v1.7: no venue checks;
+  see Fit search)*. Codes: `tight-corner`, `narrow-lane`, `feature-in-corner`, `radius-reduced`, and *(v1.6)*
+  `crossing-unbridged`, `crossing-too-low`, `crossing-angle`, `crossing-too-close`, `crossover-unused` (see *Crossings*).
 - `stats` — `{dividerLength, dividerRuns, corners}` (feeds the build sheet). `corners` counts corners the way racers
   do (see *Corner count* below).
 - `lanes` — `{right: [[x, z], …], left: [[x, z], …]}`: both lane edges as closed rings (the borders below, before
@@ -76,7 +78,7 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
 - `footprint` — raster of the area the lanes and pipes cover, for fit searches only: `{cell, origin, rows, cols, bbox, rle}`
   (`rle` = row-major run lengths, starting with an empty run). Its bbox includes pipe thickness and a one-cell margin, so
   it is slightly bigger than `size`. Covered = discs of radius width/2 + 0.04 m round every other racing-line sample, plus
-  each square corner's outer half out to its mitre (see *Borders*). New check code: `obstacle`.
+  each square corner's outer half out to its mitre (see *Borders*).
 
 ## Geometry engine (reference: `bake.py`)
 1. **Racing line:** closed polyline through `points`, each corner filleted with its radius. A corner turning θ with
@@ -96,9 +98,10 @@ previews and links it to venues and meetings; the sim imports it. Files are JSON
    open run splits there into head, loop and tail and loses the shortest; a closed one keeps its longer part); repeated
    points and short (< 0.25 m) end segments doubling back (> 120°) are dropped; longest first, end vertices lying within
    0.06 m of an already kept divider are trimmed (that stretch is drawn already); anything shorter than 0.25 m is dropped.
-5. **Features / start / rostrum:** placed by distance along the racing line; crossings and their bridges (below).
-6. **Checks:** area, corner radius (min 0.6 m), lane width (min 1.4 m), features on or landing into corners
-   (crossovers too: their ramps must be on straight track, with 1 m to land), crossings.
+5. **Features / start:** placed by distance along the racing line; crossings and their bridges (below).
+6. **Checks:** corner radius (min 0.6 m), lane width (min 1.4 m), features on or landing into corners
+   (crossovers too: their ramps must be on straight track, with 1 m to land), crossings. The track only: checks
+   against a venue are the fit's (*Fit search*).
 7. **Size:** bounding box of both lane edges (step 2, before divider merging).
 
 ### Borders
@@ -115,7 +118,7 @@ the corner point's width w — not the blend):
   bisector at distance (r + w/2) / cos(60°) from the arc's centre — as far out as the mitre of a 120° corner reaches.
   For r = 0 that is width/2 / cos(60°) (= the lane width) from the corner point.
 
-So a loop whose points sit width/2 from the edges of the area reaches the area's edges *and* corners.
+So a loop whose points sit width/2 from the edges of an area reaches the area's edges *and* corners.
 
 ### Crossings *(v1.6)*
 A track may cross itself where a bridge carries one pass over the other.
@@ -153,16 +156,32 @@ engine); changing it means changing both and re-baking stored tracks.
 `examples/*.rctrack.json` are fixtures: a TypeScript or C# port must reproduce their `built` sections (within 1 cm).
 
 ## Venue templates (`.rcvenue.json`)
-A venue's starting point for designs: `{format: "rcvenue", version: 1, id, revision, info: {name, venue: {id, name}, notes},
-area: {length, width}, rostrum: {side, offset}, obstacles: [...]}`. Created by a club organiser in Track Studio; the forum
-venue record links to it. Designs started from a template copy its area, rostrum and obstacles and record `basedOn`.
+The hall: `{format: "rcvenue", version: 1, id, revision, info: {name, venue: {id, name}, notes}, area: {length, width},
+rostrum: {side, offset}, obstacles: [...]}`. `area` is the usable track area in metres, origin at its centre; `rostrum`
+stands 1.5 m outside the middle of its `side` (north/south/east/west), moved `offset` metres along it, eyes 2.8 m up;
+`obstacles` are fixed items inside the area: `{type: "circle", x, z, radius, label}` or `{type: "rect", x, z, length,
+width, rotation?, label}`. Created by a club organiser in Track Studio; the forum venue record links to it.
+
+A template is used for two things only *(v1.7)*:
+1. **Starting a new layout:** the designer shows the template's area and obstacles as a guide while drawing. They are
+   not saved into the layout; the layout keeps the area as its drawing `area` and the template as `info.drawnFor`.
+2. **Checking a layout against the venue:** the fit search and venue checks below.
 
 ## Fit search (reference: `fit.py`)
 For a track and a venue template: try 8 orientations (as designed, mirrored, rotated 90/180/270, mirrored + rotated),
 slide the footprint over the venue area on a 0.1 m grid, keep positions inside the area and clear of every obstacle
 (lanes + pipe thickness), prefer the most central. Results are labelled by orientation so organisers can judge the
-rostrum view. Choosing a result creates an adapted copy for that venue (new id, `info.derivedFrom` = original id,
-revision and orientation) and re-bakes it. Features (crossovers included) are placed by distance along the racing line, so they move
+rostrum view.
+
+**Venue checks** *(v1.7; `check` in `fit.py`, `venueCheck` in the engine)* test the layout where it is drawn (its
+coordinates taken as the venue's) and report where the venue's rostrum stands, `{checks, rostrum: {side, x, z,
+eyeHeight}}`. Check codes: `outside-area` (error: a lane edge leaves the venue's area) and `obstacle` (error: lanes +
+pipe thickness overlap a fixed obstacle). These were in `built.checks` before 1.7; they belong to the fit, which has the
+venue's area, obstacles and rostrum.
+
+Choosing a result creates an adapted copy for that venue (new id, `info.derivedFrom` = original id, revision and
+orientation), rotated or mirrored and moved to the chosen fit, and re-bakes it. Nothing of the venue is copied in but its
+area (as the drawing area) and `info.drawnFor`: no obstacles, no rostrum. Features (crossovers included) are placed by distance along the racing line, so they move
 with the track; mirroring and rotating keep the driving order, so each crossing keeps its over pass.
 
 ## Forum integration (plan)
@@ -175,10 +194,23 @@ with the track; mirroring and rotating keep the driving order, so each crossing 
   views and a "practise in the sim" download.
 
 ## Sim integration (plan)
-Import a `.rctrack.json` (file or forum link) and build directly from `built`: area → hall, dividers → pipes,
-features → ramps, startLine → timing line and grid, rostrum → VR/rostrum position.
+Import a `.rctrack.json` (file or forum link) and build directly from `built`: area (or the drawing area, see `area`)
+→ hall, dividers → pipes, features → ramps, startLine → timing line and grid. **Rostrum** *(v1.7)*: a layout has none.
+A consumer that needs one (the sim) asks the player for the side, N/S/E/W, when loading the layout (standing 1.5 m
+outside the middle of that side, eyes 2.8 m up). When the layout is loaded through an event or a venue, the side and
+position default to that venue's rostrum, which the fit check reports with its results (`venueCheck(...).rostrum`, in
+the venue's coordinates: for a copy adapted to the venue, these are the layout's own).
 
 ## Changes
+- **1.7** — a layout belongs to no venue: venue features move out of the layout. Removed: `obstacles`,
+  `design.rostrum`, `basedOn` and `built.rostrum`; `built.checks` no longer has `outside-area` or `obstacle`, which are
+  now venue checks, reported by the fit (*Fit search*) for the venue tested. `area` is optional, only the drawing area,
+  and nothing checks against it. New: `info.drawnFor = {venueTemplate, name}`, a label. Adapting a layout to a venue
+  copies no obstacles or rostrum. The sim asks for the rostrum side, or takes the venue's (*Sim integration*).
+  `version` stays `1`. **Loading a 1.6 file:** drop `obstacles`, `design.rostrum` and `built.rostrum` and the venue
+  checks; `basedOn` becomes `info.drawnFor` (named after the template; `upgrade` in `bake.py`, `upgradeTrack` in the
+  engine). Re-baking gives the same racing line, dividers, footprint and size; only those fields change. Older readers
+  that need `built.rostrum` or `area` must fall back (a rostrum south, the drawing area above).
 - **1.6** — crossovers: a track may cross itself on a bridge. `design.features` gains `type: "crossover"` (`rampLength`,
   `topLength`, `height`, `over`); `built.crossings` lists every place the racing line crosses itself, with its lap
   distances, angle, over pass, bridging feature and footprint; a long enough tabletop on the crossing also counts as

@@ -66,14 +66,13 @@ describe.each(allTracks)("bake $name", ({ path }) => {
     expect(diff.footprint.bboxMax).toBeLessThanOrEqual(CELL + 1e-9);
   });
 
-  it("features, start line, rostrum and stats match", () => {
+  it("features, start line and stats match", () => {
     expect(diff.features.maxPos).toBeLessThanOrEqual(TOL);
     expect(diff.features.maxHeading).toBeLessThanOrEqual(0.5);
     expect(diff.features.otherSame).toBe(true);
     expect(diff.startLine.pos).toBeLessThanOrEqual(TOL);
     expect(diff.startLine.heading).toBeLessThanOrEqual(0.5);
     expect(diff.startLine.width).toBeLessThanOrEqual(TOL);
-    expect(diff.rostrum).toBe(0);
     expect(diff.stats.dividerRuns[0]).toBe(diff.stats.dividerRuns[1]);
     expect(diff.stats.corners[0]).toBe(diff.stats.corners[1]);
     expect(diff.stats.dividerLength).toBeLessThanOrEqual(0.05);

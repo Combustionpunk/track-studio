@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { bakeBuilt, buildSheet, distanceToPolyline, fromSouthWest, planLayers, planScene, PRINT_PALETTE, type RcTrack } from "../src/index.js";
+import { bakeBuilt, buildSheet, distanceToPolyline, fromSouthWest, planLayers, planScene, PRINT_PALETTE, type RcTrack, type RcVenue } from "../src/index.js";
 import { allTracks, examples, readJson, repoRoot } from "./helpers.js";
 
 const ex = (name: string) => readJson<RcTrack>(examples.find((e) => e.name === name)!.path);
@@ -30,14 +30,13 @@ describe("buildSheet", () => {
     expect(s.lapLength).toBe(b.lapLength);
     expect(s.corners).toBe(b.stats.corners);
     expect(s.pipe).toEqual({ length: b.stats.dividerLength, runs: b.stats.dividerRuns });
-    expect(s.rostrum).toBe(b.rostrum.side);
     expect(s.size).toEqual(b.size ? { length: b.size.length, width: b.size.width } : null);
     expect(s.jumps).toHaveLength(b.features.length);
     s.jumps.forEach((j, i) => {
       const f = b.features[i];
-      expect(j).toMatchObject({ type: f.type, x: f.x, z: f.z, length: f.length, height: f.height, ...fromSouthWest(doc.area, f.x, f.z) });
+      expect(j).toMatchObject({ type: f.type, x: f.x, z: f.z, length: f.length, height: f.height, ...fromSouthWest(doc.area!, f.x, f.z) });
     });
-    expect(s.start).toMatchObject({ x: b.startLine.x, z: b.startLine.z, ...fromSouthWest(doc.area, b.startLine.x, b.startLine.z) });
+    expect(s.start).toMatchObject({ x: b.startLine.x, z: b.startLine.z, ...fromSouthWest(doc.area!, b.startLine.x, b.startLine.z) });
     const widths = b.racingLine.map((p) => p[2]);
     expect(s.laneWidth).toEqual({ min: Math.min(...widths), max: Math.max(...widths) });
   });
@@ -51,7 +50,7 @@ describe("buildSheet", () => {
     expect(numbers).toEqual(Array.from({ length: b.stats.corners }, (_, i) => i + 1));
     const ring = [...b.racingLine, b.racingLine[0]].map((p): [number, number] => [p[0], p[1]]);
     for (const c of s.cornerPoints) {
-      expect(c).toMatchObject(fromSouthWest(doc.area, c.x, c.z));
+      expect(c).toMatchObject(fromSouthWest(doc.area!, c.x, c.z));
       // where the corner's arc starts and ends is on the racing line in built: within 1 cm, or within 5 cm for a sharp
       // corner with no arc, whose vertex the export spacing (EXPORT_STEP, 0.25 m) can cut
       const sharp = Math.hypot(c.arcEnd[0] - c.arcStart[0], c.arcEnd[1] - c.arcStart[1]) < 1e-9;
@@ -134,8 +133,9 @@ describe("print palette", () => {
 
   it("keep-out areas are outlined in ink, not white on white", () => {
     const doc = readJson<RcTrack>(allTracks.find((t) => t.name === "freeform-at-sports-hall-b.rctrack.json")!.path);
-    expect(doc.obstacles?.some((o) => o.type === "rect")).toBe(true);
-    const svg = planLayers(planScene(doc), { px: 0.02, palette: "print" });
+    const venue = readJson<RcVenue>(join(repoRoot, "reference/venues/sports-hall-b.rcvenue.json"));
+    expect(venue.obstacles?.some((o) => o.type === "rect")).toBe(true);
+    const svg = planLayers({ ...planScene(doc), obstacles: venue.obstacles }, { px: 0.02, palette: "print" });
     for (const m of svg.matchAll(/<rect class="p-keepout"[^>]*>/g)) expect(m[0]).toContain(`stroke="${PRINT_PALETTE["print-ink"]}"`);
   });
 

@@ -4,6 +4,7 @@
 import fastifyStatic from "@fastify/static";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { drawingArea } from "@track-studio/engine";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
 import type { DB } from "./db.js";
@@ -61,7 +62,7 @@ function trackPage(db: DB, config: Config, theme: ThemeSync, row: TrackRow, path
   const card = `${config.baseUrl}${trackCard(db, theme, row, rev).url}`;
   const title = doc.info.name;
   const description = describeTrack(row);
-  const height = previewHeight(doc.area);
+  const height = previewHeight(drawingArea(doc));
   const alt = `Plan of ${title}`;
   const head = [
     `<meta name="description" content="${esc(description)}">`,

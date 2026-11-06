@@ -1,5 +1,5 @@
 // Quick mode step 1 (#38): the lane-width grid, painting, closing the loop and what it bakes.
-import { bakeBuilt, type Built, type Obstacle, type RcTrack, type RcVenue } from "@track-studio/engine";
+import { bakeBuilt, venueCheck, type Built, type Obstacle, type RcTrack, type RcVenue } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -45,13 +45,16 @@ const last = (s: Laying[]) => s[s.length - 1];
 
 /** a doc from a venue with the given lane laid and closed */
 function laidDoc(v: RcVenue, targets: Cell[], laneWidth = 2): RcTrack {
-  const d0 = newDraft({ area: v.area, obstacles: v.obstacles ?? [], name: "test", laneWidth });
-  const lay = last(paintAll(gridFor(d0), targets));
+  const d0 = newDraft({ area: v.area, name: "test", laneWidth });
+  const lay = last(paintAll(gridFor(d0, v.obstacles), targets));
   expect(lay.closed).toBe(true);
   const d = withLaying(d0, lay);
   expect(designStep(d)).toBe(2);
   return toDoc(d);
 }
+
+/** errors of the track itself and of the venue check (1.7: obstacles and the area are the venue's) */
+const errorsIn = (doc: RcTrack, v: RcVenue) => [...bakeBuilt(doc).checks, ...venueCheck(doc, v).checks].filter((c) => c.level === "error");
 
 /** the loop round the edge of the grid, leaving out columns at the east end until none of its squares is blocked */
 function edgeLoop(g: LaneGrid): Cell[] {
@@ -137,12 +140,11 @@ describe("the lane-width grid", () => {
     expect(g.blocked.has("2,2")).toBe(true);
     expect(paintTo(g, last(paintAll(g, [[0, 2], [1, 2]])), [4, 2]).refused).toBe("blocked");
     // that lane would have put its pipe on the box
-    const touching = toDoc(newDraft({ area: v.area, obstacles: v.obstacles, name: "t" }));
+    const touching = toDoc(newDraft({ area: v.area, name: "t" }));
     touching.design.points = [{ x: -10, z: -5, radius: 1 }, { x: 10, z: -5, radius: 1 }, { x: 10, z: -1, radius: 1 }, { x: -10, z: -1, radius: 1 }];
-    expect(bakeBuilt(touching).checks.map((c) => c.code)).toContain("obstacle");
+    expect(venueCheck(touching, v).checks.map((c) => c.code)).toContain("obstacle");
     // one row further away is fine
-    const b = bakeBuilt(laidDoc(v, [[0, 0], [10, 0], [10, 1], [0, 1], [0, 0]]));
-    expect(b.checks.filter((c) => c.level === "error")).toEqual([]);
+    expect(errorsIn(laidDoc(v, [[0, 0], [10, 0], [10, 1], [0, 1], [0, 0]]), v)).toEqual([]);
   });
 
   it("a turned rectangle blocks the squares the bake's obstacle check finds, turning counter-clockwise", () => {
@@ -157,11 +159,11 @@ describe("the lane-width grid", () => {
       expect(g.blocked.has(key(hit[0])), `${rotation}°`).toBe(true);
       expect(paintTo(g, empty, hit[0]).refused).toBe("blocked");
       // the loop the grid allows bakes clean; the one through the blocked square, laid anyway, hits the obstacle
-      expect(bakeBuilt(laidDoc(v, [...free])).checks.filter((c) => c.level === "error"), `${rotation}°`).toEqual([]);
-      const forced = toDoc(newDraft({ area: v.area, obstacles: v.obstacles, name: "t" }));
+      expect(errorsIn(laidDoc(v, [...free]), v), `${rotation}°`).toEqual([]);
+      const forced = toDoc(newDraft({ area: v.area, name: "t" }));
       const open = laneGrid(v.area, [], 2);
       forced.design.points = loopPoints(open, last(paintAll(open, [...hit])).cells);
-      expect(bakeBuilt(forced).checks.map((c) => c.code), `${rotation}°`).toContain("obstacle");
+      expect(venueCheck(forced, v).checks.map((c) => c.code), `${rotation}°`).toContain("obstacle");
     }
     expect(blocked(laneGrid(box(30).area, box(30).obstacles, 2))).toEqual(["4,2", "4,3", "5,2", "5,3", "5,4", "6,3", "6,4"]);
   });
@@ -221,7 +223,7 @@ describe("painting the lane", () => {
   });
 
   it("each painted step is one undo step", () => {
-    const d0 = newDraft({ area: venue("club-hall").area, obstacles: [], name: "t" });
+    const d0 = newDraft({ area: venue("club-hall").area, name: "t" });
     const grid = gridFor(d0);
     let h: HistoryState<Draft> = { past: [], present: d0, future: [], group: null, at: 0, travels: 0 };
     const states = paintAll(grid, [[0, 0], [2, 0], [2, 1], [3, 1], [3, 0]]); // paint, gap-fill, back-track
@@ -285,8 +287,8 @@ describe("closing the loop", () => {
 
   it("new designs (template and blank) open in step 1; existing tracks in step 2", () => {
     const v = venue("sports-hall-b");
-    const fromVenue = newDraft({ area: v.area, obstacles: v.obstacles ?? [], name: "t", basedOn: { venueTemplate: v.id, revision: v.revision }, rostrum: v.rostrum });
-    const blank = newDraft({ area: { length: 30, width: 15 }, obstacles: [], name: "t" });
+    const fromVenue = newDraft({ area: v.area, name: "t", drawnFor: { venueTemplate: v.id, name: v.info.name } });
+    const blank = newDraft({ area: { length: 30, width: 15 }, name: "t" });
     for (const d of [fromVenue, blank]) {
       expect(designStep(d)).toBe(1);
       expect(d.design.points).toEqual([]);
@@ -302,11 +304,9 @@ describe("closing the loop", () => {
   });
 
   for (const v of VENUES) {
-    it(`a loop round the edge of ${v.info.name} bakes with no outside-area or obstacle errors`, () => {
+    it(`a loop round the edge of ${v.info.name} bakes with no errors, and none against the venue`, () => {
       const g = laneGrid(v.area, v.obstacles ?? [], 2);
-      const b = bakeBuilt(laidDoc(v, edgeLoop(g)));
-      expect(b.checks.filter((c) => c.level === "error")).toEqual([]);
-      expect(b.checks.some((c) => c.code === "outside-area")).toBe(false);
+      expect(errorsIn(laidDoc(v, edgeLoop(g)), v)).toEqual([]);
     });
   }
 
