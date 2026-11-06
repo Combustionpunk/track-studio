@@ -76,6 +76,12 @@ for (const mode of ["quick", "advanced"] as const) {
       await expect.poll(() => corners(page)).toEqual([before[0], ...before.slice(1).reverse()]);
       // corner 2 is now a different corner, so the reverse lets it go
       await expect.poll(() => selected(page)).toBeNull();
+      // undo straight away: nothing selected, rather than whichever corner is number 2 again
+      await bar(page).getByRole("button", { name: "Undo" }).click();
+      await expect.poll(() => corners(page)).toEqual(before);
+      await expect.poll(() => selected(page)).toBeNull();
+      await bar(page).getByRole("button", { name: "Redo" }).click();
+      await expect.poll(() => corners(page)).toEqual([before[0], ...before.slice(1).reverse()]);
 
       // pick corner 2 of the reversed loop (the old corner 4), then undo: the selection stays on that corner, now 4
       await select(page, before[3]);
