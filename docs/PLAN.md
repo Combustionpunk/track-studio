@@ -26,17 +26,21 @@ read user id, username, avatar, groups) -> signed session cookie. Roles from for
 - `tracks` (id uuid, name, author_forum_id, status, venue_template_id, derived_from_id, current_revision, lap_length,
   corners, area_length, area_width, footprint_w, footprint_h, created/updated)
 - `track_revisions` (track_id, revision, rctrack_json, png_path, created_at, created_by, note)
+- `class_speeds` (class (unique, case-insensitive), speed m/s, position): the lap time estimate per race class (#76).
+  Seeded with 2WD Buggy 6.5, 4WD Buggy 7.0, Stadium Truck 6.0, Short Course 5.5; track-admins edit them on `/lap-speeds`.
 - Status: `draft` -> `submitted` -> `approved` -> `archived`. An approved track is locked (`PUT` → `409 layout-locked`); changes are made on a copy (`POST /api/tracks/:id/copy`). So is a track a forum event uses (reason `event`, from the forum's `GET /des/layouts/:id/events`; #66).
 
 ## API (JSON)
 - `GET /api/tracks?status=&venue=&fits=<venueId>&minLap=&maxLap=&q=` — list (fits= runs the fit search)
 - `GET /api/tracks?racedAt=<forum venue id>` — layouts the forum's events raced at that venue · `GET /api/raced-venues` — the forum venues library layouts were raced at (#66)
-- `GET /api/tracks/:id` (with `usedAt`: the forum's events using it, newest first, and their venues; `null` when the forum is down) · `GET /api/tracks/:id/revisions` · `GET /api/tracks/:id/r/:rev.rctrack.json` (download)
+- `GET /api/tracks?lapClass=<class>&minTypical=&maxTypical=&sort=typical` — each track gets `typicalLap {seconds, est}` for the class: the forum's median lap, else lap length ÷ class speed (`est: true`); filter between X and Y s, sort fastest first (#76)
+- `GET /api/tracks/:id` (with `usedAt`: the forum's events using it, newest first, and their venues; `lapStats`: the forum's lap times per class from `GET /des/layouts/:id/stats.json`, #76; each `null` when the forum is down) · `GET /api/tracks/:id/revisions` · `GET /api/tracks/:id/r/:rev.rctrack.json` (download)
 - `POST /api/tracks` (new, from template or blank) · `PUT /api/tracks/:id` (new revision; server re-validates + re-bakes; refused once approved)
 - `POST /api/tracks/:id/submit` · `/approve` · `/archive` (approve/archive: organisers)
 - `GET /api/tracks/:id/fit/:venueId` -> fit results · `POST /api/tracks/:id/adapt/:venueId` -> new adapted track
 - `POST /api/tracks/:id/copy` -> a new draft for the caller, credited with `info.derivedFrom` (how a locked track is changed)
 - `GET /api/venues` · `GET /api/venues?forumTrack=<id>` · `GET /api/venues/:id` · `POST/PUT /api/venues` (organisers)
+- `GET /api/class-speeds` · `PUT /api/class-speeds` `{classes: [{class, speed}]}` (organisers; replaces the list, in order)
 - `GET /api/forum-venues?q=` (the forum's venues and their tracks, cached 10 min, for the venue editor's picker)
 - `GET /p/:id/:rev.png` — preview image (cached, rendered from the engine's SVG with resvg)
 

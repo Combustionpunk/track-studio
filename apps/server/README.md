@@ -69,6 +69,20 @@ Forum embeds (`/embed/:id`, "Copy forum embed" on a track page): add `<BASE_URL>
 refuses to be framed. Link previews (onebox) read the Open Graph tags of `/t/:id`; a forum on the internet can't fetch
 a LAN `BASE_URL`, and Discourse blocks private addresses unless they're in `allowed internal hosts`.
 
+## Lap times (#76)
+
+The forum computes lap times from published race results and serves them per layout at
+`FORUM_URL/des/layouts/:id/stats.json`: for each class, the typical lap (median of the cleaned laps, 10% trimmed mean,
+IQR, laps and meetings) and two track records (fastest lap, best 3 consecutive laps), each with driver, car and meeting.
+`GET /api/tracks/:id` passes them on as `lapStats` (camelCase; `null` while the forum is down and nothing is cached).
+Answers are cached 10 minutes, the forum gets 5 s to answer, and the last good copy is kept while it's down.
+
+Layouts not raced in a class get an **estimate**: lap length ÷ the class's speed, labelled "est.". The speeds live in
+the `class_speeds` table, seeded with 2WD Buggy 6.5 m/s, 4WD Buggy 7.0, Stadium Truck 6.0 and Short Course 5.5 (the
+first is the one the designer shows). Organisers (`ORGANISER_GROUP`, forum admins) edit them on the web app's
+**Lap speeds** page (`/lap-speeds`, linked in the header) or with `PUT /api/class-speeds`; everyone can read them.
+Class names match the forum's ignoring case and spacing.
+
 ## Public vs latest revision
 A track's **public** revision is its approved one if it has one, else its latest. The library, links, link previews,
 embeds and fit searches show the public revision; editing an approved track adds a newer draft that only becomes
@@ -83,21 +97,23 @@ writes (an `Origin` header other than `BASE_URL`) are refused.
 | `GET /auth/login?return=/path` → forum → `GET /auth/callback` | login; `POST /auth/logout`; `GET /api/me` (user or `null`) |
 | `GET /api/tracks?status=&venue=&minLap=&maxLap=&minCorners=&maxCorners=&q=&author=` | list (archived hidden unless `status=archived`) |
 | `GET /api/tracks?fits=<venueId>` | approved tracks (their pinned revision) that fit, each with `fit.results` |
+| `GET /api/tracks?lapClass=<class>[&minTypical=&maxTypical=&sort=typical]` | each track gets `typicalLap: {seconds, est}` (or `null`) for the class: the forum's median lap, else the estimate lap length ÷ class speed (`est: true`, also while the forum is down). `minTypical`/`maxTypical` (s) filter, `sort=typical` puts the fastest first and unknowns last; both need `lapClass` (400 otherwise) |
 | `GET /api/tracks?author=me` | only your tracks; combines with every filter above, including `fits`. Signed out → 401; any value but `me` → 400 |
 | `POST /api/tracks` `{track, fromVenue?, note?}` (or a bare rctrack doc) | new draft; server sets id/revision/author/dates/status, re-bakes |
 | `PUT /api/tracks/:id` `{track, note?, baseRevision?}` | new revision (author or organiser), always a draft; `baseRevision` ≠ latest → 409 `stale`. Venue-based tracks keep the template's area/obstacles/rostrum |
 | `POST /api/tracks/:id/copy` `{revision?}` | "Make my own copy": a new draft for you, `info.derivedFrom` credits the original |
 | `POST /api/tracks/:id/submit` · `/approve` · `/archive` | author · organiser (pins the latest revision) · organiser. Submit/approve → 409 `has-errors` while the latest revision has error-level checks |
-| `GET /api/tracks/:id` · `/revisions` · `/r/:rev.rctrack.json` | summary + the **public** revision's doc + `can` (what you may do) · history · download (`/r/:rev` = plain JSON, e.g. the latest for the designer) |
+| `GET /api/tracks/:id` · `/revisions` · `/r/:rev.rctrack.json` | summary + the **public** revision's doc + `can` (what you may do) + `usedAt` (#66) + `lapStats` (see Lap times) · history · download (`/r/:rev` = plain JSON, e.g. the latest for the designer) |
 | `GET /api/tracks/:id/fit/:venueId[?r=]` · `POST /api/tracks/:id/adapt/:venueId` `{orientation?, revision?}` | fit search (cached per revision pair; each result has a `thumbUrl`) · adapted draft copy |
 | `GET /api/venues` · `/api/venues/:id` | venue templates; each summary has `tracks` (tracks drawn on it, archived not counted); `/:id` adds `can: {edit}` |
 | `GET /api/venues?forumTrack=<id>` | the template for that forum track, as `/:id` answers (404 if none). Open to any origin: the forum plugin's layout picker uses it |
 | `POST /api/venues` `{venue}` · `PUT /api/venues/:id` `{venue, baseRevision?}` | organisers only; every save is a new revision (`baseRevision` ≠ latest → 409 `stale`). Id `new` is reserved. One template per forum track (`info.venue.trackId`): a second → 409 `forum-track-taken` with `details.venue {id, name, url}`; a new template linked to a forum venue must name the track, and a new or changed link's track must be one of that venue's tracks on the forum (400 `invalid-venue`; not checked while the forum is down) |
+| `GET /api/class-speeds` · `PUT /api/class-speeds` `{classes: [{class, speed}]}` | the lap time estimate's speed per class, in order (see Lap times) · organisers replace the whole list: 1–40 character names, unique ignoring case, 0.5–30 m/s, at most 30 |
 | `GET /api/forum-venues?q=` | the forum's venues (`FORUM_URL/des/venues`): `{venues: [{id, name, town, tracks}], fetchedAt, stale}` (`town` comes from the address: the forum's list has none). Cached 10 min; forum down → the last copy with `stale: true`, or 503 `forum-unavailable`. `q` matches venue, town or track name |
 | `GET /api/venues/:id/revisions` · `GET /api/venues/:id/r/:rev[.rcvenue.json]` | revision history, newest first · one revision (`.rcvenue.json` = download) |
 | `GET /p/:id/:rev.png?v=<hash>` | 1200 px preview; `v` = hash of the drawing, so the exact URL is cached for a year and a changed drawing gets a new URL (no/old `v`: same image, 5 min cache) |
 | `GET /p/:id/:rev/fit/:venueId/:k.png?v=` | the track placed in the venue as fit orientation `k` (index in the engine's `ORIENTS`) — "fits venue" thumbnails |
-| `GET /`, `/t/:id`, `/t/:id/edit`, `/new`, `/new/design`, `/embed/:id[?r=]`, `/v`, `/v/:id` | web app pages; `/t` and `/embed` carry Open Graph tags (public revision); `/embed` may be framed by the forum |
+| `GET /`, `/t/:id`, `/t/:id/edit`, `/new`, `/new/design`, `/embed/:id[?r=]`, `/v`, `/v/:id`, `/lap-speeds` | web app pages; `/t` and `/embed` carry Open Graph tags (public revision); `/embed` may be framed by the forum |
 | `GET /api/config` | what the web app needs (dev login on?, forum URL) |
 | `GET /api/theme.json` | public, CORS `*`: `{source, syncedAt, scheme:{name,dark}, colors, light, fonts:{body,headings}}` — `source` is `forum`, `cache` or `fallback`; `syncedAt` is the last successful fetch (ISO, `null` if never); `colors` are hex tokens (see Theme); `light` is `{name, colors}` or `null` |
 | `POST /api/theme/refresh` | organisers: fetch the forum's scheme now → `{ok, error?, theme, css}`; on failure `ok: false` and the theme is unchanged |
