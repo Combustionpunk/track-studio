@@ -1,6 +1,6 @@
 // Quick mode jump palette (#15): which jumps each mode offers, place / move / delete as one undo step each, and the
 // corner warning on the jump.
-import { bakeBuilt, type RcTrack } from "@track-studio/engine";
+import { bakeBuilt, type CheckLevel, type RcTrack } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -9,7 +9,7 @@ import { draftFromDoc, SelectionPanel } from "../src/designer/Designer.js";
 import { liveGeometry } from "../src/designer/geometry.js";
 import { historyReducer, type HistoryState } from "../src/designer/history.js";
 import { JumpPalette } from "../src/designer/JumpPalette.js";
-import { addJump, deleteJump, FEATURE_TYPES, jumpsInCorner, moveJump, paletteJumps, QUICK_JUMPS } from "../src/designer/mode.js";
+import { addJump, checkCounts, deleteJump, FEATURE_TYPES, jumpsInCorner, moveJump, paletteJumps, QUICK_JUMPS } from "../src/designer/mode.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
 
@@ -105,7 +105,23 @@ describe("the corner warning on the jump", () => {
   });
   it("with several jumps, only the one in the corner is flagged", () => {
     const b = bake([{ type: "kicker", distance: STRAIGHTS[1] }, { type: "kicker", distance: CORNERS[0] }]);
-    expect([...jumpsInCorner(b.checks, b.features)]).toEqual([1]);
+    expect([...jumpsInCorner(b.checks, b.features).keys()]).toEqual([1]);
+  });
+  it("a jump in a corner is info (a technical section); a crossover's ramps in one are a warning (rctrack 1.8)", () => {
+    const jump = bake([{ type: "tabletop", distance: CORNERS[0] }]);
+    expect(jumpsInCorner(jump.checks, jump.features).get(0)).toBe("info");
+    const bridge = bake([{ type: "crossover", distance: CORNERS[0] }]);
+    expect(jumpsInCorner(bridge.checks, bridge.features).get(0)).toBe("warning");
+  });
+  it("a jump in a corner adds no warning or error, so submit and the library's counts ignore it", () => {
+    const b = bake([{ type: "tabletop", distance: CORNERS[0] }]);
+    expect(b.checks.filter((c) => c.level !== "info")).toEqual(bake([]).checks.filter((c) => c.level !== "info"));
+    expect(checkCounts(b.checks)).toEqual(checkCounts(bake([]).checks));
+  });
+  it("a warning on a jump wins over a note just as close", () => {
+    const at = (level: "info" | "warning") => ({ level, code: "feature-in-corner" as const, x: 0, z: 0, message: "" });
+    expect(jumpsInCorner([at("warning"), at("info")], [{ x: 0, z: 0 }]).get(0)).toBe("warning");
+    expect(jumpsInCorner([at("info"), at("warning")], [{ x: 0, z: 0 }]).get(0)).toBe("warning");
   });
   it("other warnings near a jump don't count", () => {
     expect(jumpsInCorner([{ level: "warning", code: "tight-corner", x: 0, z: 0, message: "" }], [{ x: 0, z: 0 }]).size).toBe(0);
@@ -114,20 +130,29 @@ describe("the corner warning on the jump", () => {
 
 describe("the selected jump's panel", () => {
   const t = ref<RcTrack>("examples/club-a.rctrack.json");
-  const draft = draftFromDoc({ ...t, design: { ...t.design, features: [{ type: "kicker", distance: 4 }] } });
-  const panel = (view: "quick" | "advanced", inCorner: number[]) =>
+  const doc = (type: "kicker" | "crossover") => draftFromDoc({ ...t, design: { ...t.design, features: [{ type, distance: 4 }] } });
+  const draft = doc("kicker");
+  const panel = (view: "quick" | "advanced", inCorner: [number, CheckLevel][], d = draft) =>
     renderToStaticMarkup(
-      <SelectionPanel sel={{ kind: "feature", i: 0 }} view={view} draft={draft} live={liveGeometry(draft.design)} update={() => {}} onDelete={() => {}} inCorner={new Set(inCorner)} />,
+      <SelectionPanel sel={{ kind: "feature", i: 0 }} view={view} draft={d} live={liveGeometry(d.design)} update={() => {}} onDelete={() => {}} inCorner={new Map(inCorner)} />,
     );
 
-  it("says when the jump is on or lands into a corner, in both modes, after the Delete button", () => {
+  it("notes a jump on or landing into a corner as a technical section, in both modes, after the Delete button", () => {
     for (const view of ["quick", "advanced"] as const) {
-      const h = panel(view, [0]);
-      expect(h).toContain("This kicker is on or lands into a corner.");
-      expect(h.indexOf("Delete kicker")).toBeLessThan(h.indexOf("sel-warning"));
+      const h = panel(view, [[0, "info"]]);
+      expect(h).toContain("This kicker is on or lands into a corner: a technical section.");
+      expect(h).toContain("sel-note");
+      expect(h).not.toContain("sel-warning");
+      expect(h).not.toContain("Slide it onto a straight");
+      expect(h.indexOf("Delete kicker")).toBeLessThan(h.indexOf("sel-note"));
     }
   });
-  it("says nothing otherwise, but keeps the status region so the warning is announced when it appears", () => {
+  it("warns when a crossover's ramps are on or land into a corner", () => {
+    const h = panel("quick", [[0, "warning"]], doc("crossover"));
+    expect(h).toContain("sel-warning");
+    expect(h).toContain("This crossover is on or lands into a corner. Slide it onto a straight.");
+  });
+  it("says nothing otherwise, but keeps the status region so the note is announced when it appears", () => {
     const h = panel("quick", []);
     expect(h).not.toContain("corner");
     expect(h).toContain('role="status"');

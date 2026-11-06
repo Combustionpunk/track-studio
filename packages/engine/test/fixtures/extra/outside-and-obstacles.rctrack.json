@@ -65,7 +65,7 @@
   }
  },
  "built": {
-  "generator": "rctrack-bake.py 1.7",
+  "generator": "rctrack-bake.py 1.8",
   "lapLength": 45.82,
   "racingLine": [
    [
@@ -1211,11 +1211,11 @@
   },
   "checks": [
    {
-    "level": "warning",
+    "level": "info",
     "code": "feature-in-corner",
     "x": -1.671,
     "z": 1.314,
-    "message": "double at 33.3 m is on or lands into a corner"
+    "message": "Double at 33.3 m is on or lands into a corner (technical section)"
    }
   ],
   "footprint": {

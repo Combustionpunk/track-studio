@@ -66,7 +66,7 @@
   }
  },
  "built": {
-  "generator": "rctrack-bake.py 1.7",
+  "generator": "rctrack-bake.py 1.8",
   "lapLength": 44.111,
   "racingLine": [
    [
@@ -1226,25 +1226,25 @@
   },
   "checks": [
    {
-    "level": "warning",
+    "level": "info",
     "code": "feature-in-corner",
     "x": 6.718,
     "z": -3.183,
-    "message": "kicker at 15.0 m is on or lands into a corner"
+    "message": "Kicker at 15.0 m is on or lands into a corner (technical section)"
    },
    {
-    "level": "warning",
+    "level": "info",
     "code": "feature-in-corner",
     "x": 7.001,
     "z": 3.414,
-    "message": "whoops at 22.5 m is on or lands into a corner"
+    "message": "Whoops at 22.5 m is on or lands into a corner (technical section)"
    },
    {
-    "level": "warning",
+    "level": "info",
     "code": "feature-in-corner",
     "x": 7.402,
     "z": -2.623,
-    "message": "stepdown at 60.0 m is on or lands into a corner"
+    "message": "Step-down at 60.0 m is on or lands into a corner (technical section)"
    },
    {
     "level": "warning",

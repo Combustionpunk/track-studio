@@ -18,6 +18,7 @@ import {
   headingDeg,
   laneRings,
   racingLine,
+  tangentAt,
   SAMPLE,
   venueCheck,
   type Area,
@@ -87,7 +88,7 @@ export function liveGeometry(design: Design): Live {
   live.spans = cr.map((c) => [bridgeSpan(c, 0), bridgeSpan(c, 1)]);
   const sd = design.start?.distance ?? 0;
   const st = atDistance(line.x, line.z, s, total, sd);
-  live.startLine = { x: st.p[0], z: st.p[1], heading: headingDeg(st.t), width: line.width[st.i], distance: sd };
+  live.startLine = { x: st.p[0], z: st.p[1], heading: headingDeg(tangentAt(line, s, total, sd)), width: line.width[st.i], distance: sd };
   live.lanes = laneRings(borders(line, corners, design.points));
   return live;
 }

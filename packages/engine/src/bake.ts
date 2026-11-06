@@ -21,7 +21,7 @@ import type {
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.7";
+export const GENERATOR = "track-studio-engine 1.8";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -796,6 +796,49 @@ export function atDistance(x: Float64Array, z: Float64Array, s: Float64Array, to
   return { p: [x[i] + segx * f, z[i] + segz * f] as Point2, t: [segx / L, segz / L] as Point2, i };
 }
 
+/** a lap distance this close (m) to a racing-line sample is on it */
+const VERTEX_EPS = 1e-6;
+
+/**
+ * Direction of travel at lap distance d (1.8, the start line): the segment's, except on a sample. A start at a corner
+ * join (where an arc meets a straight) sits on a sample, and the segment after it is the arc one way round and the
+ * straight the other. There it is the true tangent: each segment is a chord of a straight or an arc (curvature
+ * `curvature[k]` for the one from sample k), so it turns either way from the tangent by half the angle it subtends;
+ * the mean of the two segments' estimates is exact at a join or on an arc, and the same both ways round.
+ */
+export function tangentAt(line: Line, s: Float64Array, total: number, d: number): Point2 {
+  const { x, z, curvature } = line;
+  const { t, i } = atDistance(x, z, s, total, d);
+  d = pyMod(d, total);
+  const n = x.length;
+  let k: number;
+  if (d - s[i] < VERTEX_EPS) k = i;
+  else if ((i + 1 < n ? s[i + 1] : total) - d < VERTEX_EPS) k = (i + 1) % n;
+  else return t;
+  const h = (k - 1 + n) % n, j = (k + 1) % n;
+  const ax = x[k] - x[h], az = z[k] - z[h], bx = x[j] - x[k], bz = z[j] - z[k];
+  const clip = (v: number) => Math.min(1, Math.max(-1, v));
+  const ta = Math.atan2(az, ax) + Math.asin(clip((curvature[h] * norm(ax, az)) / 2)); // at the end of a
+  const tb = Math.atan2(bz, bx) - Math.asin(clip((curvature[k] * norm(bx, bz)) / 2)); // at the start of b
+  const ux = Math.cos(ta) + Math.cos(tb), uz = Math.sin(ta) + Math.sin(tb);
+  const L = norm(ux, uz) || 1.0;
+  return [ux / L, uz / L];
+}
+
+const FEATURE_LABEL: Record<Exclude<FeatureType, "crossover">, string> = {
+  tabletop: "Tabletop", double: "Double", kicker: "Kicker", stepup: "Step-up", stepdown: "Step-down", whoops: "Whoops", bump: "Bump",
+};
+
+/**
+ * The feature-in-corner check. 1.8: a jump on or landing into a corner is a technical section racers enjoy, so it is
+ * info; a crossover's ramps need straight track (Crossings), so for it this stays a warning.
+ */
+function featureInCorner(typ: FeatureType, dist: number, p: Point2): Check {
+  const at = { code: "feature-in-corner" as const, x: r3(p[0]), z: r3(p[1]) };
+  if (typ === "crossover") return { level: "warning", ...at, message: `crossover at ${pyFormat(dist, 1)} m is on or lands into a corner` };
+  return { level: "info", ...at, message: `${FEATURE_LABEL[typ]} at ${pyFormat(dist, 1)} m is on or lands into a corner (technical section)` };
+}
+
 export function headingDeg(t: Point2): number {
   return r3(pyMod(degrees(Math.atan2(t[1], t[0])) + 360, 360));
 }
@@ -1252,12 +1295,10 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     // check: jump on or landing into a corner
     const i0 = searchSorted(s, pyMod(dist - length / 2, total));
     let i1 = searchSorted(s, pyMod(dist + length / 2 + 1.0, total));
-    if (typ === "crossover" && i1 < i0) i1 += line.n; // ramps across lap distance 0 (older types keep their 1.5 behaviour)
+    if (i1 < i0) i1 += line.n; // across lap distance 0 (1.8: every type; 1.5-1.7 only crossovers)
     let maxCurv = -Infinity;
     for (let k = i0; k < i1; k++) maxCurv = Math.max(maxCurv, Math.abs(line.curvature[k % line.n]));
-    if (i1 > i0 && maxCurv > 0) {
-      checks.push({ level: "warning", code: "feature-in-corner", x: r3(p[0]), z: r3(p[1]), message: `${typ} at ${pyFormat(dist, 1)} m is on or lands into a corner` });
-    }
+    if (i1 > i0 && maxCurv > 0) checks.push(featureInCorner(typ, dist, p));
     if (typ === "crossover" && (!claim || (claim[0].bridge !== null && claim[0].bridge !== fi))) {
       // away from any crossing, a second on one already claimed, or on one a tabletop bridges instead
       checks.push({ level: "warning", code: "crossover-unused", x: r3(p[0]), z: r3(p[1]), message: `crossover at ${pyFormat(dist, 1)} m bridges no crossing` });
@@ -1268,7 +1309,7 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   // start line
   const sd = design.start?.distance ?? 0.0;
   const st = atDistance(x, z, s, total, sd);
-  const startLine = { x: r3(st.p[0]), z: r3(st.p[1]), heading: headingDeg(st.t), width: r3(line.width[st.i]), distance: r3(sd) };
+  const startLine = { x: r3(st.p[0]), z: r3(st.p[1]), heading: headingDeg(tangentAt(line, s, total, sd)), width: r3(line.width[st.i]), distance: r3(sd) };
 
   // checks: radius, width (the track only: venue checks are the fit's, venueCheck)
   const edges = borders(line, corners, design.points);

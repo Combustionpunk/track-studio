@@ -49,7 +49,7 @@
    }
   ],
   "start": {
-   "distance": 3.0
+   "distance": 0.0
   },
   "features": [
    {
@@ -63,7 +63,7 @@
   ]
  },
  "built": {
-  "generator": "rctrack-bake.py 1.7",
+  "generator": "rctrack-bake.py 1.8",
   "lapLength": 72.565,
   "racingLine": [
    [
@@ -1730,11 +1730,11 @@
    }
   ],
   "startLine": {
-   "x": -7.571,
-   "z": -2.0,
-   "heading": 0.0,
+   "x": -10.0,
+   "z": -1.0,
+   "heading": 270.0,
    "width": 2.0,
-   "distance": 3.0
+   "distance": 0.0
   },
   "checks": [
    {

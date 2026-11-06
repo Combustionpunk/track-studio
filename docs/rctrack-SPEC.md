@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.7)
+# rctrack — shared track format (v1.8)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -64,10 +64,16 @@ the layout) and to check a layout against a venue (the fit search, which says wh
   `footprint` and the ramps from the feature. The lanes and dividers of both passes run straight through a crossing
   in plan (the under pass's pipes go under the bridge), so an even-odd fill of `lanes` leaves the crossing square
   empty: draw the bridge (or the under pass) on top.
-- `startLine` — `{x, z, heading, width, distance}`
+- `startLine` — `{x, z, heading, width, distance}`. `heading` is the direction of travel at `distance`; where that is
+  a racing-line sample (a corner join, say), it is the true tangent there, so a track and its reverse give the same
+  line facing the other way *(v1.8)*.
 - `checks[]` — `{level: error|warning|info, code, message, x?, z?}`, the track's own checks *(v1.7: no venue checks;
   see Fit search)*. Codes: `tight-corner`, `narrow-lane`, `feature-in-corner`, `radius-reduced`, and *(v1.6)*
   `crossing-unbridged`, `crossing-too-low`, `crossing-angle`, `crossing-too-close`, `crossover-unused` (see *Crossings*).
+  `feature-in-corner` *(v1.8)*: a feature on or landing into a corner (from half its length before its distance to
+  1 m past its end, across lap distance 0 if need be). For a jump it is `info`, "Tabletop at 12.4 m is on or lands
+  into a corner (technical section)": a technical drive, not a mistake. For a crossover it is a `warning`, because a
+  bridge's ramps need straight track.
 - `stats` — `{dividerLength, dividerRuns, corners}` (feeds the build sheet). `corners` counts corners the way racers
   do (see *Corner count* below).
 - `lanes` — `{right: [[x, z], …], left: [[x, z], …]}`: both lane edges as closed rings (the borders below, before
@@ -209,6 +215,16 @@ position default to that venue's rostrum, which the fit check reports with its r
 the venue's coordinates: for a copy adapted to the venue, these are the layout's own).
 
 ## Changes
+- **1.8** — three fixes to `built`, one release. (1) `feature-in-corner` checks a jump whose span runs across lap
+  distance 0 (1.5–1.7 did this for crossovers only), so a jump just before the start that lands into point 0's corner
+  is now reported. (2) A jump on or landing into a corner is a technical section racers enjoy: its
+  `feature-in-corner` is `info`, not a `warning`, with the message "*Type* at *d* m is on or lands into a corner
+  (technical section)". A crossover's stays a `warning`. (3) `startLine.heading` is the true tangent where the start
+  sits on a racing-line sample, such as a corner join at `start.distance: 0`; it read the segment after the start, the
+  arc one way round and the straight the other, up to ~1.5° apart. `version` stays `1`. Re-baking changes only
+  tracks with a jump next to a corner (the level and message of its check; a jump across lap distance 0 may gain
+  one) or a start on a corner join (its heading); everything else bakes exactly as in 1.7. Older readers that count
+  warnings see fewer.
 - **1.7** — a layout belongs to no venue: venue features move out of the layout. Removed: `obstacles`,
   `design.rostrum`, `basedOn` and `built.rostrum`; `built.checks` no longer has `outside-area` or `obstacle`, which are
   now venue checks, reported by the fit (*Fit search*) for the venue tested. `area` is optional, only the drawing area,

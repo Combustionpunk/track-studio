@@ -5,6 +5,7 @@
   test/fixtures/extra/*.rcvenue.json   extra venues: a rotated obstacle; the obstacles a fixture runs over
   test/fixtures/fit-expected.json      fit.fits() and fit.check() for every track x venue (reference + extra)
   reference/examples/*.rctrack.json    re-baked (1.7: upgraded from 1.6 first)
+The v12/ to v17/ checks assert that older bakes re-bake the same, less what each later version changed on purpose.
 usage (from the repo root): python3 packages/engine/scripts/gen_fixtures.py"""
 import glob, json, math, os, sys
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -16,6 +17,17 @@ def as17(built):
     b = {k: v for k, v in built.items() if k not in ("rostrum", "generator")}
     b["checks"] = [c for c in built["checks"] if c["code"] not in bake.VENUE_CHECKS]
     return b
+
+def as18(built):
+    """as17, with a jump's feature-in-corner as 1.8 reports it (info, not a warning: a technical section)."""
+    b = as17(built)
+    b["checks"] = [jump18(c) for c in b["checks"]]
+    return b
+
+def jump18(c):
+    if c["code"] != "feature-in-corner" or c["level"] != "warning" or c["message"].startswith("crossover "): return c
+    typ, rest = c["message"].split(" ", 1)
+    return {**c, "level": "info", "message": f"{bake.FEATURE_LABEL[typ]} {rest} (technical section)"}
 
 fixtures = os.path.join(root, "packages/engine/test/fixtures")
 extra = os.path.join(fixtures, "extra")
@@ -113,9 +125,16 @@ EXTRA_TRACKS.update({
     # the back straight dips under the main straight twice, 6 m apart: both bridges on the main straight overlap
     "two-crossings": at_crossings(track("12", "Two crossings", {"length": 22, "width": 14}, {
         "laneWidth": 2.0, "points": [{"x": x, "z": z} for x, z in [(-10, -2), (10, -2), (10, 5), (3, 5), (3, -6), (-3, -6), (-3, 5), (-10, 5)]],
-        "start": {"distance": 3.0}}),
+        "start": {"distance": 0.0}}),   # 1.8: at point 0's corner join (the start heading's regression case, #69)
         lambda k, d: {"type": "crossover", "distance": d[0]}),
 })
+
+# rctrack 1.8: a tabletop across lap distance 0 lands into point 0's corner (info, #62); a kicker on a straight is fine;
+# the start line sits where point 0's corner arc meets the straight before it (#69)
+EXTRA_TRACKS["jump-across-start"] = track("16", "Jump across the start", {"length": 22, "width": 12}, {
+    "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": 2.0} for x, z in [(-9, -4), (9, -4), (9, 4), (-9, 4)]],
+    "features": [{"type": "tabletop", "distance": -1.5}, {"type": "kicker", "distance": 9.0}],
+    "start": {"distance": 0.0}})
 
 EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
 
@@ -158,20 +177,20 @@ json.dump(out, open(os.path.join(fixtures, "fit-expected.json"), "w"), indent=1)
 # round outer corners must reproduce rctrack 1.2 exactly (v12/: baked by bake.py 1.2)
 for f in sorted(glob.glob(os.path.join(fixtures, "v12", "*.rctrack.json"))):
     doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
-    old, new = as17(old), as17(new)
+    old, new = as18(old), as18(new)
     same = all(old[k] == new[k] for k in old)   # (1.4 adds built.lanes)
     print(f"{os.path.basename(f)}: {'same as 1.2' if same else 'DIFFERENT from 1.2'}")
     assert same
 # designs with no squeezed corners must bake exactly as in rctrack 1.4 (v14/: baked by bake.py 1.4)
 for f in sorted(glob.glob(os.path.join(fixtures, "v14", "*.rctrack.json"))):
     doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
-    same = json.dumps(as17(old)) == json.dumps(as17(new))
+    same = json.dumps(as18(old)) == json.dumps(as18(new))
     print(f"{os.path.basename(f)}: {'same as 1.4' if same else 'DIFFERENT from 1.4'}")
     assert same
 # tracks that don't cross themselves must bake exactly as in rctrack 1.5 (v15/: baked by bake.py 1.5)
 for f in sorted(glob.glob(os.path.join(fixtures, "v15", "*.rctrack.json"))):
     doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
-    same = json.dumps(as17(old)) == json.dumps(as17(new))
+    same = json.dumps(as18(old)) == json.dumps(as18(new))
     print(f"{os.path.basename(f)}: {'same as 1.5' if same else 'DIFFERENT from 1.5'}")
     assert same
 # 1.6 files load (upgrade drops obstacles, design/built rostrum and basedOn) and bake the same, less the venue's parts
@@ -179,7 +198,17 @@ for f in sorted(glob.glob(os.path.join(fixtures, "v16", "*.rctrack.json"))):
     doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))
     assert not {"obstacles", "basedOn"} & new.keys() and "rostrum" not in new["design"] and "rostrum" not in new["built"]
     assert bool(doc.get("basedOn")) == ("drawnFor" in new["info"])
-    same = json.dumps(as17(old)) == json.dumps(as17(new["built"]))
+    same = json.dumps(as18(old)) == json.dumps(as18(new["built"]))
     print(f"{os.path.basename(f)}: {'same as 1.6' if same else 'DIFFERENT from 1.6'}")
     assert same
+# 1.7 bakes (v17/: the reference examples and extras as bake.py 1.7 baked them) bake the same in 1.8, less a jump's
+# feature-in-corner level, except where 1.8 changed them on purpose: a jump across lap distance 0 next to a corner (#62),
+# a start line on a racing-line sample, such as a corner join (#69)
+CHANGED_18 = {}
+for f in sorted(glob.glob(os.path.join(fixtures, "v17", "*.rctrack.json"))):
+    doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
+    a, b = as18(old), as18(new)
+    diff = sorted(k for k in a.keys() | b.keys() if json.dumps(a.get(k)) != json.dumps(b.get(k)))
+    print(f"{os.path.basename(f)}: {'same as 1.7' if not diff else 'DIFFERENT from 1.7: ' + ', '.join(diff)}")
+    assert diff == CHANGED_18.get(os.path.basename(f), [])
 print(f"{len(out)} fit results; fitting:", sum(1 for r in out.values() if r["fits"]))

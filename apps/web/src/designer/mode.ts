@@ -80,12 +80,16 @@ export const deleteJump = (features: DesignFeature[], i: number): DesignFeature[
 /** a feature-in-corner check this close to a jump is about that jump (the bake puts it at the jump's centre) */
 const ON_JUMP = 0.25; // m
 
-/** Indexes of the jumps that are on or land into a corner, from the bake's feature-in-corner warnings. */
-export function jumpsInCorner(checks: Check[], features: Pick<BuiltFeature, "x" | "z">[]): Set<number> {
-  const out = new Set<number>();
+/**
+ * The jumps that are on or land into a corner, from the bake's feature-in-corner checks: index -> the check's level.
+ * rctrack 1.8: info for a jump (a technical section), a warning for a crossover (its ramps need straight track).
+ */
+export function jumpsInCorner(checks: Check[], features: Pick<BuiltFeature, "x" | "z">[]): Map<number, CheckLevel> {
+  const out = new Map<number, CheckLevel>();
   for (const c of checks) {
     if (c.code !== "feature-in-corner" || c.x === undefined || c.z === undefined) continue;
-    features.forEach((f, i) => Math.hypot(f.x - c.x!, f.z - c.z!) < ON_JUMP && out.add(i));
+    // a crossover's warning wins over a jump's note that happens to sit as close
+    features.forEach((f, i) => Math.hypot(f.x - c.x!, f.z - c.z!) < ON_JUMP && out.get(i) !== "warning" && out.set(i, c.level));
   }
   return out;
 }

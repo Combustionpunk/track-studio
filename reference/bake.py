@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.7"
+GENERATOR = "rctrack-bake.py 1.8"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -438,6 +438,27 @@ def at_distance(xy, s, total, d):
     p = xy[i] + seg * ((d - s[i]) / L)
     return p, seg / L, i
 
+VERTEX_EPS = 1e-6      # a lap distance this close (m) to a racing-line sample is on it
+
+def tangent_at(line, s, total, d):
+    """Direction of travel at lap distance d (1.8, the start line): the segment's, except on a sample. A start at a
+    corner join (where an arc meets a straight) sits on a sample, and the segment after it is the arc one way round and
+    the straight the other. There it is the true tangent: each segment is a chord of a straight or an arc (curvature
+    line[k, 3] for the one from sample k), so it turns either way from the tangent by half the angle it subtends; the
+    mean of the two segments' estimates is exact at a join or on an arc, and the same both ways round."""
+    xy = line[:, :2]
+    _, t, i = at_distance(xy, s, total, d)
+    d %= total; n = len(xy)
+    if d - s[i] < VERTEX_EPS: k = i
+    elif (s[i + 1] if i + 1 < n else total) - d < VERTEX_EPS: k = (i + 1) % n
+    else: return t
+    a, b = xy[k] - xy[k - 1], xy[(k + 1) % n] - xy[k]
+    la, lb = np.linalg.norm(a), np.linalg.norm(b)
+    ta = math.atan2(a[1], a[0]) + math.asin(float(np.clip(line[k - 1, 3] * la / 2, -1, 1)))     # at the end of a
+    tb = math.atan2(b[1], b[0]) - math.asin(float(np.clip(line[k, 3] * lb / 2, -1, 1)))         # at the start of b
+    u = np.array([math.cos(ta) + math.cos(tb), math.sin(ta) + math.sin(tb)])
+    return u / (np.linalg.norm(u) or 1.0)
+
 def heading_deg(t): return r3((math.degrees(math.atan2(t[1], t[0])) + 360) % 360)
 
 FOOT_CELL = 0.1        # footprint raster cell (m)
@@ -659,6 +680,18 @@ def crossing_checks(cr, built_feats, design, total, checks):
                                "message": f"Crossings at {cr[a]['d'][0]:.1f} m and {cr[b]['d'][0]:.1f} m are too close for a bridge each"})
     return out
 
+FEATURE_LABEL = {"tabletop": "Tabletop", "double": "Double", "kicker": "Kicker", "stepup": "Step-up", "stepdown": "Step-down",
+                 "whoops": "Whoops", "bump": "Bump"}
+
+def feature_in_corner(typ, dist, p):
+    """The feature-in-corner check. 1.8: a jump on or landing into a corner is a technical section racers enjoy, so it
+    is info; a crossover's ramps need straight track (Crossings), so for it this stays a warning."""
+    if typ == "crossover":
+        return {"level": "warning", "code": "feature-in-corner", "x": r3(p[0]), "z": r3(p[1]),
+                "message": f"crossover at {dist:.1f} m is on or lands into a corner"}
+    return {"level": "info", "code": "feature-in-corner", "x": r3(p[0]), "z": r3(p[1]),
+            "message": f"{FEATURE_LABEL[typ]} at {dist:.1f} m is on or lands into a corner (technical section)"}
+
 VENUE_CHECKS = ("outside-area", "obstacle")   # 1.7: checks against a venue belong to the fit (fit.check), not the layout
 
 def upgrade(doc, venue_name=None):
@@ -718,11 +751,10 @@ def bake(doc):
                       "width": r3(width), "height": r3(height), "profile": prof})
         # check: jump on or landing into a corner
         i0, i1 = int(np.searchsorted(s, (dist - length / 2) % total)), int(np.searchsorted(s, (dist + length / 2 + 1.0) % total))
-        if typ == "crossover" and i1 < i0: i1 += len(line)   # ramps across lap distance 0 (older types keep their 1.5 behaviour)
+        if i1 < i0: i1 += len(line)   # across lap distance 0 (1.8: every type; 1.5-1.7 only crossovers)
         span = np.arange(i0, i1)
         if len(span) and np.max(np.abs(line[span % len(line), 3])) > 0:
-            checks.append({"level": "warning", "code": "feature-in-corner", "x": r3(p[0]), "z": r3(p[1]),
-                           "message": f"{typ} at {dist:.1f} m is on or lands into a corner"})
+            checks.append(feature_in_corner(typ, dist, p))
         if typ == "crossover" and (fi not in claimed or claimed[fi][0]["bridge"] not in (None, fi)):
             # away from any crossing, a second on one already claimed, or on one a tabletop bridges instead
             checks.append({"level": "warning", "code": "crossover-unused", "x": r3(p[0]), "z": r3(p[1]),
@@ -731,8 +763,8 @@ def bake(doc):
 
     # start line
     sd = design.get("start", {}).get("distance", 0.0)
-    sp, st, si = at_distance(xy, s, total, sd)
-    start = {"x": r3(sp[0]), "z": r3(sp[1]), "heading": heading_deg(st), "width": r3(line[si, 2]), "distance": r3(sd)}
+    sp, _, si = at_distance(xy, s, total, sd)
+    start = {"x": r3(sp[0]), "z": r3(sp[1]), "heading": heading_deg(tangent_at(line, s, total, sd)), "width": r3(line[si, 2]), "distance": r3(sd)}
 
     # checks: radius, width (the track only: venue checks are the fit's, fit.check)
     edges = borders(line, corners, design["points"])               # lane edges, right then left
