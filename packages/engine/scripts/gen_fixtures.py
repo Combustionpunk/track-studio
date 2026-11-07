@@ -152,7 +152,7 @@ EXTRA_TRACKS["start-on-ramp"]["design"]["start"]["distance"] = round(EXTRA_TRACK
 def hairpin_legs(gap, r):
     """Main straight, a hairpin leg `gap` m above it (centre to centre), back round the west end."""
     z = round(-4.5 + gap, 3)
-    return [{"x": -9, "z": -4.5}, {"x": 9, "z": -4.5, "radius": r}, {"x": 9, "z": z, "radius": r}, {"x": -5, "z": z},
+    return [{"x": -9, "z": -4.5}, {"x": 9, "z": -4.5, "radius": r}, {"x": 9, "z": z, "radius": r}, {"x": -5, "z": z, "radius": 1.5},
             {"x": -5, "z": 4.5}, {"x": -9, "z": 4.5}]
 EXTRA_TRACKS.update({
     "overlap-straights": track("18", "Straights 1.4 m apart", {"length": 22, "width": 12}, {

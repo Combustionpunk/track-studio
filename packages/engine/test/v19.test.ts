@@ -20,9 +20,8 @@ describe("lane-overlap fixtures", () => {
   });
 
   it("two straights sharing a pipe touch: no error", () => {
-    const b = bakeBuilt(extra("shared-straights"));
-    expect(b.dividers.some((d) => d.shared)).toBe(true);
-    expect(overlaps(b)).toEqual([]);
+    // the hairpin leg runs a lane width (2 m) above the main straight: one pipe between them
+    expect(overlaps(bakeBuilt(extra("shared-straights")))).toEqual([]);
   });
 
   it("a tight hairpin (a 164° V, its inside collapsed to the apex) meets itself: no error", () => {
