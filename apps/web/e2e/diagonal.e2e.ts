@@ -50,10 +50,11 @@ for (const width of [1200, 1024]) {
     await open(page, width);
     await expect(page.locator(".designer-palette")).toContainText("corner to corner for a diagonal");
     await expect(hint(page)).toContainText("diagonally");
+    await expect(hint(page)).toContainText("Turns are 45° or 90°; a 135° turn can't be painted.");
 
     // north-east [1, 0] → [4, 3], round, then west along row 1: [3, 1] is one the diagonal passed between
     await drag(page, [[1, 0], [4, 3], [6, 3], [6, 1], [2, 1]]);
-    await expect(hint(page)).toHaveText("A diagonal can't cut past a blocked or used square.");
+    await expect(hint(page)).toHaveText("Too close to a diagonal: lanes would overlap.");
     await expect(page.locator("rect.lay-cell")).toHaveCount(10); // stops on [4, 1]
     await shot(page, "1-refused");
     await page.mouse.up();
@@ -73,3 +74,17 @@ for (const width of [1200, 1024]) {
     await shot(page, "3-octagon");
   });
 }
+
+test("a mouse released near the edge of the next square still paints it, closing the loop too (#96)", async ({ page }) => {
+  await open(page, 1200);
+  // [0, 0] → [3, 0], then just into [4, 0] (0.4 of a square off its centre): the drag never moves on to it
+  await drag(page, [[0, 0], [3, 0], [3.6, 0]]);
+  await expect(page.locator("rect.lay-cell")).toHaveCount(4);
+  await page.mouse.up();
+  await expect(page.locator("rect.lay-cell")).toHaveCount(5);
+  await shot(page, "96-released");
+  // round and back down column 0, released just inside the top of the first square: the loop closes
+  await drag(page, [[3.6, 0], [4, 0], [4, 2], [0, 2], [0, 0.4]]);
+  await page.mouse.up();
+  await expect(page.locator("g.ed-corner")).toHaveCount(4);
+});

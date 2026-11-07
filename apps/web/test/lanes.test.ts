@@ -19,6 +19,7 @@ import {
   loopPoints,
   neighbours,
   paintTo,
+  releaseStep,
   REFUSAL_TEXT,
   stepsBetween,
   withLaying,
@@ -554,7 +555,7 @@ describe("diagonal lanes (#82)", () => {
     // no 135° turns: corner to corner north-east then back west goes into a square the diagonal passed between
     expect(paintTo(g, last(paintAll(g, [[0, 0], [2, 2]])), [0, 2])).toEqual({
       states: [],
-      refused: "corner",
+      refused: "beside",
     });
   });
 
@@ -603,7 +604,7 @@ describe("diagonal lanes (#82)", () => {
     // an X of two diagonals: [0, 1] → [1, 0] then round to [1, 1] and across to [0, 0]; [1, 1] is already refused,
     // as a square the first diagonal passed between
     const x = last(paintAll(g, [[0, 1], [1, 0], [2, 0], [2, 1]]));
-    expect(paintTo(g, x, [1, 1])).toEqual({ states: [], refused: "corner" });
+    expect(paintTo(g, x, [1, 1])).toEqual({ states: [], refused: "beside" });
     // the same steps where nothing is in the way are fine
     expect(paintTo(g, last(paintAll(g, [[4, 1], [5, 1]])), [6, 0]).refused).toBeUndefined();
   });
@@ -621,12 +622,13 @@ describe("diagonal lanes (#82)", () => {
   it("refuses a step into a square an earlier diagonal passed between, so lanes are never closer than a lane width", () => {
     // north-east [1, 0] → [4, 3], round, then west along row 1: [3, 1] is one the diagonal passed between
     const round = last(paintAll(g, [[1, 0], [4, 3], [6, 3], [6, 1]]));
+    expect(REFUSAL_TEXT.beside).toBe("Too close to a diagonal: lanes would overlap.");
     const run = paintTo(g, round, [0, 1]);
-    expect(run.refused).toBe("corner");
+    expect(run.refused).toBe("beside");
     expect(last(run.states).cells.slice(-3)).toEqual([[6, 1], [5, 1], [4, 1]]); // stops before [3, 1]
     // (a lane there would be width / √2 off the diagonal's centre line, so the two lanes would overlap)
     // the same from the diagonal's other side, south down column 2 into [2, 2]
-    expect(paintTo(g, last(paintAll(g, [[1, 0], [4, 3], [4, 5], [2, 5], [2, 3]])), [2, 2]).refused).toBe("corner");
+    expect(paintTo(g, last(paintAll(g, [[1, 0], [4, 3], [4, 5], [2, 5], [2, 3]])), [2, 2]).refused).toBe("beside");
     // back-tracking off the diagonal frees its squares again: back to [2, 1], then east into [3, 1]
     const back = last(paintTo(g, last(paintAll(g, [[1, 0], [4, 3]])), [2, 1]).states);
     expect(back.cells).toEqual([[1, 0], [2, 1]]);
@@ -695,6 +697,36 @@ describe("diagonal lanes (#82)", () => {
     expect(dragCell(g, at(-0.5, 0.5), [0, 0])).toBeNull();
   });
 
+  it("lifting the pointer near the edge of the next square paints the step to it (#96)", () => {
+    const at = (c: number, r: number): [number, number] => [g.origin[0] + c * 2, g.origin[1] + r * 2]; // in squares
+    const lay = last(paintAll(g, [[0, 0], [2, 0]]));
+    // the drag reached [3, 0] but not its middle 60%: dragCell keeps [2, 0], so only the release paints it
+    expect(dragCell(g, at(3.1, 0.5), [2, 0])).toEqual([2, 0]);
+    expect(releaseStep(g, lay, at(3.1, 0.5))).toEqual([{ cells: [[0, 0], [1, 0], [2, 0], [3, 0]], closed: false }]);
+    // corner to corner too, lifted just past the shared corner
+    expect(releaseStep(g, lay, at(3.05, 1.05))).toEqual([{ cells: [[0, 0], [1, 0], [2, 0], [3, 1]], closed: false }]);
+    // over the lane's own end square, a square further away, off the grid: nothing
+    expect(releaseStep(g, lay, at(2.9, 0.5))).toEqual([]);
+    expect(releaseStep(g, lay, at(4.5, 0.5))).toEqual([]);
+    expect(releaseStep(g, lay, at(2.5, -0.1))).toEqual([]);
+    // never a step back (it would take the last square up) or a refused square, and nothing on an empty or closed lane
+    expect(releaseStep(g, lay, at(1.9, 0.5))).toEqual([]);
+    const hall = laneGrid(venue("sports-hall-b").area, venue("sports-hall-b").obstacles ?? [], 2); // [11, 0] is blocked
+    expect(releaseStep(hall, last(paintAll(hall, [[8, 0], [10, 0]])), [hall.origin[0] + 22.1, hall.origin[1] + 1])).toEqual([]);
+    expect(releaseStep(g, empty, at(0.1, 0.5))).toEqual([]);
+    expect(releaseStep(g, { cells: [[0, 0], [1, 0], [1, 1], [0, 1]], closed: true }, at(0.9, 0.5))).toEqual([]);
+  });
+
+  it("lifting the pointer at the edge of the first square closes the loop (#96)", () => {
+    const at = (c: number, r: number): [number, number] => [g.origin[0] + c * 2, g.origin[1] + r * 2];
+    const open = last(paintAll(g, [[0, 0], [2, 0], [2, 2], [0, 2], [0, 1]]));
+    expect(dragCell(g, at(0.5, 0.95), [0, 1])).toEqual([0, 1]);
+    expect(releaseStep(g, open, at(0.5, 0.95))).toEqual([{ cells: open.cells, closed: true }]);
+    // and corner to corner onto it
+    const diag = last(paintAll(g, [[1, 0], [3, 0], [3, 2], [0, 2], [0, 1]]));
+    expect(releaseStep(g, diag, at(1.05, 0.95))).toEqual([{ cells: diag.cells, closed: true }]);
+  });
+
   it("a diagonal never crosses the lane (no X): crossings stay straight across at right angles", () => {
     // a diagonal step onto a square the lane goes straight through always passes the lane's square beside it
     const lane = last(paintAll(g, [[0, 2], [6, 2], [6, 4], [4, 4], [4, 3]]));
@@ -705,7 +737,7 @@ describe("diagonal lanes (#82)", () => {
     // a straight crossing of a square the first pass went through corner to corner: the square before it is one the
     // diagonal passed between, so it stops there
     const diag = last(paintAll(g, [[0, 0], [4, 4], [6, 4], [6, 2], [4, 2]]));
-    expect(paintTo(g, diag, [2, 2])).toEqual({ states: [], refused: "corner" });
+    expect(paintTo(g, diag, [2, 2])).toEqual({ states: [], refused: "beside" });
     // and isLoop agrees: a crossing with a diagonal pass isn't a loop
     expect(isLoop([[0, 0], [1, 1], [2, 2], [3, 2], [3, 1], [2, 1], [1, 1], [0, 1]])).toBe(false);
   });
