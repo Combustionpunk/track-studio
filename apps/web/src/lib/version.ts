@@ -21,7 +21,12 @@ export function clientVersion(): string {
 
 /** A version the server reported; null when it sent none. */
 export function noteServerVersion(server: string | null | undefined): void {
-  if (!server || stale || server === clientVersion()) return;
+  if (server && server !== clientVersion()) markStale();
+}
+
+/** A deploy noticed some other way (a chunk the new build removed): the banner shows, the next page is a full load. */
+export function markStale(): void {
+  if (stale) return;
   stale = true;
   for (const l of listeners) l();
 }
@@ -61,10 +66,37 @@ export async function checkNow(fetcher: typeof fetch = fetch): Promise<void> {
   }
 }
 
+type Listens = { addEventListener(type: string, f: () => void): void; removeEventListener(type: string, f: () => void): void };
+
+/** Checks the version when the tab regains focus (at most once a minute); returns the cleanup. */
+export function watchFocus(win: Listens, doc: Listens & { visibilityState: DocumentVisibilityState }, check: () => void, now = Date.now): () => void {
+  let last = -Infinity;
+  const onFocus = () => {
+    if (doc.visibilityState !== "visible" || now() - last < 60_000) return;
+    last = now();
+    check();
+  };
+  win.addEventListener("focus", onFocus);
+  doc.addEventListener("visibilitychange", onFocus);
+  return () => {
+    win.removeEventListener("focus", onFocus);
+    doc.removeEventListener("visibilitychange", onFocus);
+  };
+}
+
+/** On every page (the embed and the build sheet too): ask the server for its version when the tab regains focus. */
+export function useCheckOnFocus(): void {
+  useEffect(() => watchFocus(window, document, () => void checkNow()), []);
+}
+
+const withoutHash = (url: string) => url.split("#")[0];
+
 /** Root route loader: out of date and nothing unsaved, so load the next page from the server instead. */
 export function versionGate({ request }: Pick<LoaderFunctionArgs, "request">): null | Promise<never> {
   if (!stale || holds > 0) return null;
-  window.location.assign(request.url);
+  // Back or Forward: the browser already shows the new address, so load it in place of that history entry
+  if (withoutHash(request.url) === withoutHash(window.location.href)) window.location.replace(request.url);
+  else window.location.assign(request.url);
   return new Promise<never>(() => {}); // keep the old page until the browser leaves it
 }
 
@@ -77,16 +109,27 @@ export function isChunkError(e: unknown): boolean {
   return e.name === "ChunkLoadError" || /dynamically imported module|Importing a module script failed|Loading (?:CSS )?chunk|Unable to preload/i.test(e.message);
 }
 
-/** One automatic reload per version after a chunk-load failure; false when it already tried (so it never loops). */
-export function reloadOnceForChunkError(store: Storage = sessionStorage): boolean {
+/** One automatic reload per version after a chunk-load failure; false when it already tried (so it never loops) or
+ * an editor holds unsaved work. Reading `sessionStorage` itself throws where storage is blocked (the forum's embed
+ * frame), so it's read inside the try. */
+export function reloadOnceForChunkError(store?: Storage): boolean {
+  if (holds > 0) return false;
   try {
-    if (store.getItem(CHUNK_RELOAD_KEY) === clientVersion()) return false;
-    store.setItem(CHUNK_RELOAD_KEY, clientVersion());
+    const s = store ?? sessionStorage;
+    if (s.getItem(CHUNK_RELOAD_KEY) === clientVersion()) return false;
+    s.setItem(CHUNK_RELOAD_KEY, clientVersion());
   } catch {
-    return false; // no session storage: can't guard, so don't reload by ourselves
+    return false; // no session storage: can't guard, so don't reload by ourselves (the error page offers Reload)
   }
   window.location.reload();
   return true;
+}
+
+/** `vite:preloadError`: a lazy chunk failed to load. Reload once, unless an editor holds unsaved work; then only the
+ * banner shows, and the error goes on to the page's own handling. */
+export function onPreloadError(e: Pick<Event, "preventDefault">, store?: Storage): void {
+  if (reloadOnceForChunkError(store)) e.preventDefault();
+  else markStale();
 }
 
 export function resetForTests(version: string): void {

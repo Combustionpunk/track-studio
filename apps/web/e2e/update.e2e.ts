@@ -82,3 +82,65 @@ test("a chunk-load failure reloads once, and never loops", async ({ page }) => {
   await page.waitForTimeout(500);
   expect(await marked(page)).toBe(true); // the same version failing again doesn't reload
 });
+
+/** Storage blocked as in a third-party frame: even reading window.sessionStorage throws (#90). */
+const blockStorage = (page: Page) =>
+  page.addInitScript(() =>
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      get() {
+        throw new DOMException("The operation is insecure.", "SecurityError");
+      },
+    }),
+  );
+const preloadError = (page: Page) => page.evaluate(() => window.dispatchEvent(new Event("vite:preloadError", { cancelable: true })));
+
+test("storage blocked: a chunk failure doesn't reload or crash; the banner shows and the error page still works (#90)", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await blockStorage(page);
+  await server(page, null, { "/api/tracks/broken": {} });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await mark(page);
+  await preloadError(page);
+  await expect(banner(page)).toBeVisible();
+  expect(await marked(page)).toBe(true); // no reload
+  expect(errors.filter((e) => e.includes("insecure"))).toEqual([]);
+
+  await page.goto("/t/broken"); // a page that throws: the app's error page, with Reload
+  await expect(page.getByRole("heading", { name: "Something went wrong showing this page." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reload" })).toBeVisible();
+  await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
+});
+
+test("unsaved designer changes: a chunk failure shows the banner and doesn't reload (#90)", async ({ page }) => {
+  await server(page, null);
+  await page.goto("/new/design?length=22&width=12");
+  await page.evaluate(() => sessionStorage.clear());
+  await expect(banner(page)).toHaveCount(0);
+  await mark(page);
+  await preloadError(page);
+  await expect(banner(page)).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(await marked(page)).toBe(true);
+});
+
+test("Back and Forward across a new version add no history entry (#90)", async ({ page }) => {
+  await server(page, "dev");
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Venues" }).click();
+  await expect(page).toHaveURL(/\/v$/);
+  const entries = await page.evaluate(() => history.length);
+  await server(page, "new-build");
+  // the app's own module instance (Vite serves the source)
+  await page.evaluate((path) => import(/* @vite-ignore */ path).then((v: { noteServerVersion(s: string): void }) => v.noteServerVersion("new-build")), "/src/lib/version.ts");
+  await mark(page);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect.poll(() => marked(page).catch(() => false)).toBe(false); // a full load from the server
+  expect(await page.evaluate(() => history.length)).toBe(entries);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/v$/); // Forward history kept
+});

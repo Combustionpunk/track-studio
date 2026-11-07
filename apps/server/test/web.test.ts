@@ -121,6 +121,9 @@ describe("app version (#88)", () => {
     expect(health.json()).toEqual({ ok: true, version: "build-one" });
     // pages and assets don't need it
     expect((await app.inject({ method: "GET", url: "/favicon.svg" })).headers["x-app-version"]).toBeUndefined();
+    // only /healthz itself (#90): a path that merely starts with it is a page like any other
+    expect((await app.inject({ method: "GET", url: "/healthz?probe=1" })).headers["x-app-version"]).toBe("build-one");
+    expect((await app.inject({ method: "GET", url: "/healthzone" })).headers["x-app-version"]).toBeUndefined();
   });
 
   it("a rebuild changes the version without a restart", async () => {
