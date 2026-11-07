@@ -990,9 +990,9 @@
    {
     "level": "error",
     "code": "lane-overlap",
-    "x": 0.563,
-    "z": 1.259,
-    "message": "Lanes overlap by 0.82 m here"
+    "x": 0.638,
+    "z": 1.32,
+    "message": "Lanes overlap by 0.17 m here"
    }
   ],
   "footprint": {

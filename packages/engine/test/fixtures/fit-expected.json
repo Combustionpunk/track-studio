@@ -1882,6 +1882,120 @@
    }
   }
  },
+ "nested-corners.rctrack.json | club-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -6.021,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "north",
+    "x": 0.0,
+    "z": 7.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "nested-corners.rctrack.json | small-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -5.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -11.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "nested-corners.rctrack.json | sports-hall-b.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -7.043,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 10.51,
+     "z": -6.99,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "nested-corners.rctrack.json | obstacles-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -5.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -10.5,
+    "z": 1.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "nested-corners.rctrack.json | rotated-desk.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -7.043,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 8.91,
+     "z": -5.99,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "east",
+    "x": 13.5,
+    "z": -1.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "outside-and-obstacles.rctrack.json | club-hall.rcvenue.json": {
   "fits": [
    {

@@ -147,8 +147,10 @@ EXTRA_TRACKS["start-on-ramp"] = at_crossings(figure8("17", "Start on the crossov
 EXTRA_TRACKS["start-on-ramp"]["design"]["start"]["distance"] = round(EXTRA_TRACKS["start-on-ramp"]["design"]["features"][0]["distance"] - 1.5, 3)
 
 # rctrack 1.9 (#95): lane-overlap. A hairpin leg 1.4 m above the main straight with a 2 m lane overlaps it by 0.6 m; at
-# 2 m the two share a pipe; a 164° V at 0.6 m (its inside collapsed to the apex) meets itself, it doesn't overlap;
-# #82's case: a 45° diagonal, then a straight back west whose square corner clips the diagonal's lane
+# 2 m the two share a pipe; a sharp V (a 164° hairpin drawn as one corner of 0.6 m, its inside collapsed to the apex)
+# meets itself, it doesn't overlap;
+# #82's case: a 45° diagonal, then a straight back west whose corner clips the diagonal's lane; a sweeper round a
+# tighter corner a lane apart shares a pipe (its square mitre reaches into the sweeper's curve), no overlap
 def hairpin_legs(gap, r):
     """Main straight, a hairpin leg `gap` m above it (centre to centre), back round the west end."""
     z = round(-4.5 + gap, 3)
@@ -157,8 +159,15 @@ def hairpin_legs(gap, r):
 EXTRA_TRACKS.update({
     "overlap-straights": track("18", "Straights 1.4 m apart", {"length": 22, "width": 12}, {
         "laneWidth": 2.0, "points": hairpin_legs(1.4, 0.7), "start": {"distance": 3.0}}),
+    # its hairpin tight too (0.6 m): the legs meet in the bend, they don't overlap
     "shared-straights": track("19", "Straights sharing a pipe", {"length": 22, "width": 12}, {
-        "laneWidth": 2.0, "points": hairpin_legs(2.0, 1.0), "start": {"distance": 3.0}}),
+        "laneWidth": 2.0, "points": hairpin_legs(2.0, 0.6), "start": {"distance": 3.0}}),
+    # a sweeper (3 m) round a tighter corner (1 m), a lane apart: the inner lane's square mitre reaches into the outer
+    # lane's curve, where the bake puts a shared pipe; not an overlap
+    "nested-corners": track("22", "Nested corners", {"length": 22, "width": 18}, {
+        "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": r} for x, z, r in
+                                     [(-10, -8, 3.0), (10, -8, 3.0), (10, 8, 1.0), (8, 8, 1.0), (8, -6, 1.0), (-8, -6, 1.0),
+                                      (-8, 8, 1.0), (-10, 8, 1.0)]], "start": {"distance": 1.0}}),
     "tight-hairpin": track("20", "Tight hairpin", {"length": 22, "width": 12}, {
         "laneWidth": 2.0, "points": [{"x": -9, "z": -4}, {"x": 9, "z": -4, "radius": 0.6}, {"x": -5, "z": 0}, {"x": -5, "z": 4},
                                      {"x": -9, "z": 4}], "start": {"distance": 3.0}}),

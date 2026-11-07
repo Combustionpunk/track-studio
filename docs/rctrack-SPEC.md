@@ -160,19 +160,20 @@ A track may cross itself where a bridge carries one pass over the other.
 ### Lane overlaps *(v1.9)*
 `lane-overlap` (error): the lane of one part of the lap runs into the lane of another, away from a crossing.
 - **Samples:** every 0.25 m of racing line (the exported `racingLine`'s samples), each a disc of half its lane width round
-  its centre, plus its two lane edges (*Borders*, so a square corner's mitre counts). Two samples overlap by how far one's
-  disc reaches into the other's, or one's lane edge into the other's disc. Up to 0.02 m (the dividers' tolerance) is no
-  overlap: two lanes sharing a pipe touch.
+  its centre. Two samples overlap by how far their discs reach into each other: half their widths' sum less the distance
+  between them. Up to 0.02 m (the dividers' tolerance) is no overlap: two lanes sharing a pipe touch. (Discs, not the lane
+  edges: a square corner's mitre reaching into a sweeper round it is where the bake puts a shared pipe.)
 - **The lane meeting itself is not an overlap:** a pair is left out if (1) one way round the lap or the other, every
-  sample between them overlaps the first (the lane never got clear of it: a corner, the inside of a hairpin), or (2) both
+  sample between them overlaps the first (the lane never got clear of it: a corner, the bend of a hairpin), or (2) both
   are in one corner's own stretch: its arc and the straight samples whose inside edge is held at its collapsed apex (a
   sharp V: the legs overlap out to where the inside edges meet), or (3) they are the two passes of a crossing, each within
-  max(lane widths) / sin(angle) + 1 m of it along its pass (`built.crossings`; bridged, or reported, by the crossing checks).
-  Rule (1) stands in for a fixed lap-distance separation, which would be either too short for a sweeper or long enough
-  to hide a real overlap next to a hairpin.
-- **Reported:** overlapping samples form runs along the lap; one check per pair of runs that overlap each other, at
-  the midpoint of the two runs' middle samples (the middle of the overlap), with the deepest overlap: "Lanes overlap by
-  0.60 m here".
+  max(lane widths) / max(sin(angle), 0.1) + 1 m of it along its pass (`built.crossings`; bridged, or reported, by the
+  crossing checks). Rule (1) stands in for a fixed lap-distance separation, which would be either too short for a
+  sweeper or long enough to hide a real overlap next to a hairpin. The legs of a hairpin closer than a lane width do
+  overlap, beyond its bend.
+- **Reported:** overlapping pairs that neighbour each other (each sample within one of the other pair's, either way
+  round) are one overlap. One check per overlap, at the mean of its pairs' midpoints (the middle of the overlap), with
+  the deepest overlap ("Lanes overlap by 0.60 m here"), in the order of each overlap's first pair (by sample).
 
 ### Corner count
 A design point whose turn is more than 20° is a corner. Turns **the same way** joined by less than **3 m** of racing line

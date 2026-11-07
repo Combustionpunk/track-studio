@@ -1172,8 +1172,8 @@
    {
     "level": "error",
     "code": "lane-overlap",
-    "x": 1.25,
-    "z": -3.8,
+    "x": 1.561,
+    "z": -3.794,
     "message": "Lanes overlap by 0.60 m here"
    }
   ],

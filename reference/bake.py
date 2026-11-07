@@ -38,7 +38,7 @@ CROSSING_MIN_ANGLE = 60.0  # crossings sharper than this (deg; i.e. outside 60-1
 CROSSING_MIN_SEP = 1.0 # the racing line crossing itself less than this far along the lap is numerical noise, not a crossing
 CROSSING_ZONE = 0.2    # divider self-crossings this close to where two lanes cross (m) are the crossing, not a loop to cut
 OVERLAP_TOL = 0.02     # (1.9) lanes overlap where their centres are closer than half their widths' sum less this (m):
-                       # two lanes sharing a pipe touch, they don't overlap (the dividers' tolerance)
+                       # two lanes sharing a pipe touch, they don't overlap (the dividers' tolerance). lane_overlaps
 
 FEATURE_PROFILES = {   # along-track distance (m), height (m), for default length/height; scaled to the feature's values
     "tabletop": [[0, 0], [0.70, 1], [1.50, 1], [2.20, 0]],
@@ -687,56 +687,54 @@ def crossing_checks(cr, built_feats, design, total, checks):
     return out
 
 # ------------------------------------------------------------------ lane overlaps (v1.9)
-def lane_overlaps(line, s, total, edges, zones, cr):
+def lane_overlaps(line, s, total, zones, cr):
     """lane-overlap checks: where the lane of one part of the lap runs into the lane of another. Sampled every
-    EXPORT_STEP along the racing line, each sample a disc of half its width round its centre, and its two lane edges
-    (borders: so a square corner's mitre counts). Two samples overlap by how far one's disc reaches into the other's,
-    or one's lane edge into the other's disc, if that is more than OVERLAP_TOL. Not an overlap, but the lane meeting
-    itself:
+    EXPORT_STEP along the racing line, each sample a disc of half its lane width round its centre; two samples overlap
+    by how far their discs reach into each other, if that is more than OVERLAP_TOL. (Discs, not the lane edges: a square
+    corner's mitre reaching into a sweeper round it is where the bake puts a shared pipe.) Not an overlap, but the lane
+    meeting itself:
     - the lane never gets clear of the first sample between the two, one way round the lap or the other (a corner,
-      the inside of a hairpin);
+      the bend of a hairpin);
     - both are in one corner's zone (borders: its arc and the straight samples held at its collapsed apex: a sharp V);
-    - they are the two passes of a crossing, each within max(lane widths) / sin(angle) + BRIDGE_MARGIN of it along
-      its pass (crossings are bridged, or reported, by the crossing checks).
-    Overlapping samples form runs along the lap; one check per pair of runs that overlap each other, at the middle of
-    the two runs' middle samples, giving the deepest overlap."""
+    - they are the two passes of a crossing, each within max(lane widths) / max(sin(angle), 0.1) + BRIDGE_MARGIN of it
+      along its pass (crossings are bridged, or reported, by the crossing checks).
+    Overlapping pairs that neighbour each other (both samples within one of the pair's, either order) are one overlap:
+    one check each, at the mean of its pairs' midpoints (the middle of the overlap), giving the deepest overlap, in
+    the order of each overlap's first pair."""
     step = max(1, int(EXPORT_STEP / SAMPLE))
     idx = np.arange(0, len(line), step); n = len(idx)
-    P = line[idx, :2]; H = line[idx, 2] / 2; S = s[idx]; ER, EL = edges[0][idx], edges[1][idx]
+    P = line[idx, :2]; H = line[idx, 2] / 2; S = s[idx]
     Z = np.array([[int(k) in z for z in zones] for k in idx], bool).reshape(n, len(zones))
     near = []                                    # per crossing: samples near its first pass, near its second
     for c in cr:
         R = max(c["w"]) / max(math.sin(math.radians(c["angle"])), 0.1) + BRIDGE_MARGIN
         near.append(tuple(np.abs((S - c["d"][p] + total / 2) % total - total / 2) <= R for p in (0, 1)))
-    pairs = []
+    depth = {}                                   # (i, j) -> overlap less OVERLAP_TOL, both orders
     for i in range(n):
         j = (i + np.arange(1, n)) % n            # the rest of the lap, forwards from i
-        gap = lambda A, B: np.linalg.norm(A - B, axis=-1)
-        short = np.max([H[i] + H[j] - gap(P[j], P[i]), H[i] - gap(ER[j], P[i]), H[i] - gap(EL[j], P[i]),
-                        H[j] - gap(ER[i], P[j]), H[j] - gap(EL[i], P[j])], axis=0) - OVERLAP_TOL
+        short = H[i] + H[j] - np.linalg.norm(P[j] - P[i], axis=1) - OVERLAP_TOL
         clear = short <= 0
         flag = ~clear & np.logical_or.accumulate(clear) & np.logical_or.accumulate(clear[::-1])[::-1]
         flag &= ~(Z[j] & Z[i]).any(1)
         for a, b in near: flag &= ~((a[i] & b[j]) | (b[i] & a[j]))
-        pairs += [(i, int(j[k]), float(short[k])) for k in np.flatnonzero(flag)]
-    if not pairs: return []
-    hit = np.zeros(n, bool)
-    for i, j, _ in pairs: hit[i] = hit[j] = True
-    u = int(np.argmin(hit)) if not hit.all() else 0
-    runs = []; run_of = {}
-    for k in range(n):
-        q = (u + k) % n
-        if not hit[q]: continue
-        if not runs or not hit[(q - 1) % n] or k == 0: runs.append([])
-        runs[-1].append(q); run_of[q] = len(runs) - 1
-    deep = {}
-    for i, j, d in pairs:
-        key = tuple(sorted((run_of[i], run_of[j]))); deep[key] = max(deep.get(key, 0.0), d)
+        for k in np.flatnonzero(flag): depth[(i, int(j[k]))] = depth[(int(j[k]), i)] = float(short[k])
+    root = {q: q for q in depth}                 # union-find over the pairs
+    def find(q):
+        while root[q] != q: root[q] = root[root[q]]; q = root[q]
+        return q
+    for i, j in sorted(depth):
+        for di in (-1, 0, 1):
+            for dj in (-1, 0, 1):
+                q = ((i + di) % n, (j + dj) % n)
+                if q in depth: root[find(q)] = find((i, j))
+        root[find((j, i))] = find((i, j))        # (j, i) is the same overlap seen from the other pass
+    groups = {}
+    for q in sorted(depth): groups.setdefault(find(q), []).append(q)
     out = []
-    for a, b in sorted(deep):
-        X = (P[runs[a][len(runs[a]) // 2]] + P[runs[b][len(runs[b]) // 2]]) / 2
+    for g in sorted(groups.values()):
+        X = sum((P[i] + P[j]) / 2 for i, j in g) / len(g)
         out.append({"level": "error", "code": "lane-overlap", "x": r3(X[0]), "z": r3(X[1]),
-                    "message": f"Lanes overlap by {deep[(a, b)] + OVERLAP_TOL:.2f} m here"})
+                    "message": f"Lanes overlap by {max(depth[q] for q in g) + OVERLAP_TOL:.2f} m here"})
     return out
 
 FEATURE_LABEL = {"tabletop": "Tabletop", "double": "Double", "kicker": "Kicker", "stepup": "Step-up", "stepdown": "Step-down",
@@ -848,7 +846,7 @@ def bake(doc):
                            "message": f"Corner radius reduced to {c['r']:.2f} m to fit the straights either side"})
     if np.min(line[:, 2]) < MIN_WIDTH:
         checks.append({"level": "warning", "code": "narrow-lane", "message": f"Lane narrower than {MIN_WIDTH} m"})
-    checks += lane_overlaps(line, s, total, edges, zones, cr)              # 1.9
+    checks += lane_overlaps(line, s, total, zones, cr)              # 1.9
 
     # footprint
     mask, origin = lane_mask(line, corners, design["points"])

@@ -14,18 +14,35 @@ describe("lane-overlap fixtures", () => {
     expect(rest).toEqual([]);
     expect(c).toMatchObject({ level: "error", code: "lane-overlap", message: "Lanes overlap by 0.60 m here" });
     // between the main straight (z -4.5) and the hairpin leg (z -3.1), along the 14 m they run side by side
-    expect(c.z).toBeCloseTo(-3.8, 2);
+    expect(c.z).toBeCloseTo(-3.8, 1);
     expect(c.x!).toBeGreaterThan(-1);
     expect(c.x!).toBeLessThan(4);
   });
 
-  it("two straights sharing a pipe touch: no error", () => {
+  it("two straights sharing a pipe touch, through a tight (0.6 m) hairpin: no error", () => {
     // the hairpin leg runs a lane width (2 m) above the main straight: one pipe between them
     expect(overlaps(bakeBuilt(extra("shared-straights")))).toEqual([]);
   });
 
-  it("a tight hairpin (a 164° V, its inside collapsed to the apex) meets itself: no error", () => {
+  it("a sharp V (a 164° hairpin drawn as one corner, its inside collapsed to the apex) meets itself: no error", () => {
     expect(overlaps(bakeBuilt(extra("tight-hairpin")))).toEqual([]);
+  });
+
+  it("a sweeper round a tighter corner, a lane apart, shares a pipe: no error (the square mitre doesn't count)", () => {
+    const b = bakeBuilt(extra("nested-corners"));
+    expect(b.dividers.some((d) => d.shared)).toBe(true);
+    expect(overlaps(b)).toEqual([]);
+  });
+
+  it("a third pass running into the hairpin gives a second overlap, each placed between its own lanes", () => {
+    // overlap-straights with its west loop pushed out east, so its back straight comes down 1.4 m past the hairpin
+    const doc = extra("overlap-straights");
+    const pts = [...doc.design.points.slice(0, 4), { x: -5, z: 4.5, radius: 1 }, { x: 10.4, z: 4.5, radius: 1 }, { x: 10.4, z: -8, radius: 1 }, { x: -9, z: -8, radius: 1 }];
+    const c = overlaps(bakeBuilt({ ...doc, design: { ...doc.design, points: pts } }));
+    // (bake.py: (1.561, -3.794) and (9.621, -3.794))
+    expect(c.map((x) => x.message)).toEqual(["Lanes overlap by 0.60 m here", "Lanes overlap by 0.60 m here"]);
+    expect(c[0]).toMatchObject({ x: expect.closeTo(1.56, 2), z: expect.closeTo(-3.79, 2) }); // the main straight and the leg
+    expect(c[1]).toMatchObject({ x: expect.closeTo(9.62, 2), z: expect.closeTo(-3.79, 2) }); // the back straight and the bend
   });
 
   it.each(["crossover-figure8", "unbridged-figure8", "shallow-crossing", "two-crossings"])("%s: no error at the crossing", (name) => {
@@ -34,9 +51,9 @@ describe("lane-overlap fixtures", () => {
     expect(overlaps(b)).toEqual([]);
   });
 
-  it("the #82 case: a straight back west whose square corner clips a 45° diagonal", () => {
+  it("the #82 case: a straight back west whose corner clips a 45° diagonal", () => {
     const c = overlaps(bakeBuilt(extra("diagonal-clip")));
-    expect(c.map((x) => [x.level, x.message])).toEqual([["error", "Lanes overlap by 0.82 m here"]]);
+    expect(c.map((x) => [x.level, x.message])).toEqual([["error", "Lanes overlap by 0.17 m here"]]);
   });
 
   it("is an error, so a layout drawn in Advanced mode with lanes run together can't pass", () => {
