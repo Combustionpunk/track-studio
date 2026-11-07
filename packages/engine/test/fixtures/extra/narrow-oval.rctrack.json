@@ -1244,7 +1244,7 @@
     "code": "feature-in-corner",
     "x": 7.402,
     "z": -2.623,
-    "message": "Step-down at 60.0 m is on or lands into a corner (technical section)"
+    "message": "Step-down at 15.9 m is on or lands into a corner (technical section)"
    },
    {
     "level": "warning",

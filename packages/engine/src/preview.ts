@@ -72,11 +72,11 @@ export function previewSvg(doc: RcTrack, { pxPerM = 40 }: PreviewOptions = {}): 
   const ax = s.x + Math.cos(h) * 2.5, az = s.z + Math.sin(h) * 2.5;
   o.push(`<line x1="${f1(X(s.x + Math.cos(h) * 0.6))}" y1="${f1(Z(s.z + Math.sin(h) * 0.6))}" x2="${f1(X(ax))}" y2="${f1(Z(az))}" stroke="#ff4fb0" stroke-width="5" marker-end="url(#a)"/>`);
   o.splice(1, 0, '<defs><marker id="a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff4fb0"/></marker></defs>');
-  // checks
+  // checks: errors and warnings (#91: no ring for info, such as a jump into a corner, a technical section)
   const checkColours: Record<string, string> = { error: "#ff4040", warning: "#ffb000" };
   for (const c of b.checks) {
-    if (c.x !== undefined && c.z !== undefined) {
-      o.push(`<circle cx="${f1(X(c.x))}" cy="${f1(Z(c.z))}" r="14" fill="none" stroke="${checkColours[c.level] ?? "#7fb2ff"}" stroke-width="4"/>`);
+    if (c.x !== undefined && c.z !== undefined && c.level !== "info") {
+      o.push(`<circle cx="${f1(X(c.x))}" cy="${f1(Z(c.z))}" r="14" fill="none" stroke="${checkColours[c.level]}" stroke-width="4"/>`);
     }
   }
   o.push(`<text x="12" y="26" fill="#fff" font-size="20">${esc(doc.info.name)}  -  ${pyFormat(b.lapLength, 0)} m lap, ${b.features.length} features, area ${g(L)} x ${g(W)} m</text>`);

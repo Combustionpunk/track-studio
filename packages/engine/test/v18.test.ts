@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { bakeBuilt, reverseDesign, type Built, type DesignFeature, type RcTrack } from "../src/index.js";
-import { as18, extraDir, readJson } from "./helpers.js";
+import { allTracks, as18, extraDir, readJson } from "./helpers.js";
 
 const pyMod = (a: number, b: number) => ((a % b) + b) % b;
 const angleDiff = (a: number, b: number) => Math.abs(pyMod(a - b + 540, 360) - 180);
@@ -23,7 +23,7 @@ describe("feature-in-corner across lap distance 0", () => {
   // centred 1.5 m before lap distance 0; it lands across 0 into point 0's corner
   it("a tabletop spanning lap distance 0 next to a corner gets it, as info", () => {
     const b = bakeBuilt(track([{ type: "tabletop", distance: -1.5 }]));
-    expect(inCorner(b)).toEqual([{ level: "info", code: "feature-in-corner", x: -9, z: -0.5, message: "Tabletop at -1.5 m is on or lands into a corner (technical section)" }]);
+    expect(inCorner(b)).toEqual([{ level: "info", code: "feature-in-corner", x: -9, z: -0.5, message: "Tabletop at 47.1 m is on or lands into a corner (technical section)" }]);
   });
 
   // 0.8 m before 0, so even a 0.5 m bump's span (to 1 m past its end) runs across 0
@@ -33,7 +33,7 @@ describe("feature-in-corner across lap distance 0", () => {
 
   it("a crossover in the same place gets it as a warning", () => {
     const b = bakeBuilt(track([{ type: "crossover", distance: -1.5, rampLength: 1, topLength: 0.5 }]));
-    expect(inCorner(b)).toEqual([{ level: "warning", code: "feature-in-corner", x: -9, z: -0.5, message: "crossover at -1.5 m is on or lands into a corner" }]);
+    expect(inCorner(b)).toEqual([{ level: "warning", code: "feature-in-corner", x: -9, z: -0.5, message: "crossover at 47.1 m is on or lands into a corner" }]);
   });
 
   it("a jump on a straight gets nothing", () => {
@@ -41,7 +41,7 @@ describe("feature-in-corner across lap distance 0", () => {
   });
 
   it("names the jump the way people do", () => {
-    expect(inCorner(bakeBuilt(track([{ type: "stepup", distance: -1.5 }])))[0].message).toBe("Step-up at -1.5 m is on or lands into a corner (technical section)");
+    expect(inCorner(bakeBuilt(track([{ type: "stepup", distance: -1.5 }])))[0].message).toBe("Step-up at 47.1 m is on or lands into a corner (technical section)");
   });
 });
 
@@ -74,5 +74,50 @@ describe("1.7 bakes", () => {
     const want = as18(doc.built!), got = bakeBuilt(doc);
     expect(got.checks).toEqual(want.checks);
     expect(got.startLine).toEqual(want.startLine);
+  });
+});
+
+describe("start-on-feature (#91)", () => {
+  const ramp = readJson<RcTrack>(join(extraDir, "start-on-ramp.rctrack.json"));
+  const startOn = (b: Built) => b.checks.filter((c) => c.code === "start-on-feature");
+  const at = (doc: RcTrack, distance: number): RcTrack => ({ ...doc, design: { ...doc.design, start: { distance } } });
+
+  it("warns for a start on a crossover's ramp, at the start line; nothing moves", () => {
+    const b = bakeBuilt(ramp);
+    expect(startOn(b)).toEqual([{ level: "warning", code: "start-on-feature", x: b.startLine.x, z: b.startLine.z, message: "Start line is on a ramp" }]);
+    expect(b.startLine.distance).toBe(ramp.design.start!.distance);
+    expect({ ...b, generator: undefined }).toEqual({ ...ramp.built, generator: undefined });
+  });
+
+  it("not for a start on a straight", () => {
+    expect(startOn(bakeBuilt(at(ramp, 2)))).toEqual([]);
+    expect(startOn(bakeBuilt(readJson<RcTrack>(join(extraDir, "crossover-figure8.rctrack.json"))))).toEqual([]);
+  });
+
+  it("for a start on a tabletop that bridges a crossing, not on one that doesn't", () => {
+    const table = readJson<RcTrack>(join(extraDir, "tabletop-figure8.rctrack.json"));
+    const d = table.design.features![0].distance;
+    expect(startOn(bakeBuilt(at(table, d - 5))).map((c) => c.level)).toEqual(["warning"]);
+    // the same tabletop on the rectangle bridges nothing
+    expect(startOn(bakeBuilt(track([{ type: "tabletop", distance: 9 }], 9)))).toEqual([]);
+  });
+});
+
+describe("distances in check messages (#91)", () => {
+  it.each(allTracks)("$name: from 0 up to the lap length", ({ path }) => {
+    const b = bakeBuilt(readJson<RcTrack>(path));
+    for (const c of b.checks)
+      for (const m of c.message.matchAll(/ at (-?\d+\.\d) m/g)) {
+        expect(Number(m[1]), c.message).toBeGreaterThanOrEqual(0);
+        expect(Number(m[1]), c.message).toBeLessThanOrEqual(b.lapLength);
+      }
+  });
+
+  it("a feature placed before the start or past a lap is named by its place on the lap", () => {
+    const b = bakeBuilt(track([{ type: "tabletop", distance: -1.5 }, { type: "crossover", distance: 48.566 + 9 }]));
+    expect(b.lapLength).toBeCloseTo(48.566, 3);
+    expect(b.checks.map((c) => c.message)).toEqual(["Tabletop at 47.1 m is on or lands into a corner (technical section)", "crossover at 9.0 m bridges no crossing"]);
+    // -0 (JSON keeps it) is 0.0, never "-0.0", as in Python
+    expect(inCorner(bakeBuilt(track([{ type: "tabletop", distance: -0 }])))[0].message).toBe("Tabletop at 0.0 m is on or lands into a corner (technical section)");
   });
 });

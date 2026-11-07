@@ -106,12 +106,13 @@ export interface Laying {
 /** fewest squares a loop can close with */
 export const MIN_LOOP = 4;
 
-export type Refusal = "blocked" | "used" | "crossing" | "corner" | "tip" | "outside";
+export type Refusal = "blocked" | "used" | "crossing" | "dead-end" | "corner" | "tip" | "outside";
 
 export const REFUSAL_TEXT: Record<Refusal, string> = {
   blocked: "That square is blocked by a fixed obstacle.",
   used: "That square is already part of the lane. Drag back to take squares up.",
   crossing: "The lane can only cross itself straight across, at right angles.",
+  "dead-end": "A crossing needs the lane to carry straight on.",
   corner: "A diagonal can't cut past a blocked or used square.",
   tip: "The point of a V needs a clear square beyond it, inside the track area.",
   outside: "Start the lane on a whole square inside the track area.",
@@ -170,7 +171,7 @@ const straightAt = (cells: Cell[], i: number) => same(dir(cells[i - 1], cells[i]
  * Can the lane step onto `step`, a square it already uses, from its end? Only as a crossing: used once before, not the
  * first square, the first pass straight through it and the new one at right angles, both along the grid (no diagonal
  * X), with somewhere to go straight on (painting refuses a turn there on the next step). A crossing with nowhere to go
- * is just a used square.
+ * straight on is a dead end.
  */
 function crossable(g: LaneGrid, cells: Cell[], step: Cell): Refusal | null {
   const uses = cells.flatMap((c, i) => (same(c, step) ? [i] : []));
@@ -181,8 +182,8 @@ function crossable(g: LaneGrid, cells: Cell[], step: Cell): Refusal | null {
   const on: Cell = [step[0] + b[0], step[1] + b[1]];
   const next = [...cells, step];
   if (same(on, cells[0])) return null; // straight on closes the loop
-  if (!cellAt(g, cellCentre(g, on)) || isBlocked(g, on) || reached(next, on)) return "used";
-  return !cells.some((c) => same(c, on)) || !crossable(g, next, on) ? null : "used";
+  if (!cellAt(g, cellCentre(g, on)) || isBlocked(g, on) || reached(next, on)) return "dead-end";
+  return !cells.some((c) => same(c, on)) || !crossable(g, next, on) ? null : "dead-end";
 }
 
 /**

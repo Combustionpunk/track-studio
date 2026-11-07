@@ -122,6 +122,14 @@ rctrack 1.7 release (#63, layouts stand alone) needs it: the rebake drops each s
 `basedOn` and re-bakes it, so the dry run lists every track as changed (none of them with "RACING LINE CHANGED"). Until
 then, 1.6 revisions are upgraded as they're read, but the library's error counts still include the old venue checks.
 
+The rctrack 1.8 release (#81, with #91's additions) needs one too, but changes much less: no fields are added or
+removed and no racing line moves. A 1.8 rebake changes only a jump next to a corner (its `feature-in-corner` check is
+`info`, with a new message), a start line on a corner join (its heading, by up to ~1.5°), checks across lap distance 0
+(a jump just before the start may gain one), a start line on a crossover's ramp or a bridging tabletop (a new
+`start-on-feature` warning) and distances in check messages (from 0 up to the lap length, never "-1.5 m"). The link
+previews are re-rendered without rings for `info` checks. Expect the dry run to list only those tracks as changed, and
+none with "RACING LINE CHANGED". Rolling back needs no restore: re-baking with the older code puts the old checks back.
+
 ```sh
 docker compose exec track-studio node dist/rebake.js --dry-run   # see what would change
 docker compose exec track-studio node dist/rebake.js

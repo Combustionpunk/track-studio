@@ -201,6 +201,21 @@ describe("hints on crossing checks", () => {
   });
 });
 
+describe("Make it a crossover while a bake is pending (#91)", () => {
+  const panel = (doc: RcTrack, pending: boolean) =>
+    renderToStaticMarkup(<ChecksPanel checks={doc.built!.checks} features={doc.built!.features} view="quick" pending={pending} blocked={null} ready={false} onShow={() => {}} onMakeCrossover={() => {}} onBridge={() => {}} />);
+  const button = (h: string) => h.match(/<button[^>]*>Make it a crossover<\/button>/)![0];
+  it.each([
+    ["an unbridged crossing", eight],
+    ["a low tabletop", fixture("tabletop-low-figure8")],
+  ])("on %s it's disabled, saying it's checking, never doing nothing silently", (_, doc) => {
+    const b = button(panel(doc, true));
+    expect(b).toMatch(/ disabled=""/);
+    expect(b).toContain('title="Checking…"');
+    expect(button(panel(doc, false))).not.toMatch(/disabled|title=/);
+  });
+});
+
 describe("Make it a crossover on an unbridged crossing (#79)", () => {
   it("adds a crossover on the crossing, the first pass over; the check clears", () => {
     const live = liveGeometry(eight.design);

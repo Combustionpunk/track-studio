@@ -210,8 +210,9 @@ describe("painting the lane", () => {
   });
 
   it("refuses a square used already, and squares off the grid", () => {
+    // [1, 0] could only be crossed, and straight on from it is off the grid (#91: said as a dead end)
     const laid = last(paintAll(g, [[0, 0], [2, 0], [2, 1], [1, 1]]));
-    expect(paintTo(g, laid, [1, 0])).toEqual({ states: [], refused: "used" });
+    expect(paintTo(g, laid, [1, 0])).toEqual({ states: [], refused: "dead-end" });
     expect(paintTo(g, empty, [12, 0]).refused).toBe("outside");
     expect(paintTo(g, empty, [0, -1]).refused).toBe("outside");
   });
@@ -379,15 +380,16 @@ describe("crossing itself (#79)", () => {
     expect(last(paintTo(g, toCrossing(), [5, 0]).states).cells.slice(-4)).toEqual([[5, 3], [5, 2], [5, 1], [5, 0]]);
   });
 
-  it("refuses a crossing with nowhere to go straight on as a used square", () => {
+  it("refuses a crossing with nowhere to go straight on: it needs the lane to carry straight on", () => {
+    expect(REFUSAL_TEXT["dead-end"]).toBe("A crossing needs the lane to carry straight on.");
     // [1, 0] is straight through, but straight on from it is off the grid
     const laid = last(paintAll(g, [[0, 0], [2, 0], [2, 1], [1, 1]]));
-    expect(paintTo(g, laid, [1, 0]).refused).toBe("used");
+    expect(paintTo(g, laid, [1, 0]).refused).toBe("dead-end");
     // or onto a blocked square: a pillar in [2, 0]
     const pillar = laneGrid(v.area, [{ type: "circle", x: -6, z: -5, radius: 0.3, label: "Pillar" }], 2);
     expect(blocked(pillar)).toEqual(["2,0"]);
     const lane = last(paintAll(pillar, [[0, 1], [4, 1], [4, 3], [2, 3], [2, 2]]));
-    expect(paintTo(pillar, lane, [2, 1]).refused).toBe("used");
+    expect(paintTo(pillar, lane, [2, 1]).refused).toBe("dead-end");
     // straight on onto the first square closes the loop: that's fine
     const closing = last(paintAll(g, [[2, 0], [0, 0], [0, 1], [4, 1], [4, 3], [2, 3], [2, 2]]));
     const r = paintTo(g, closing, [2, 0]);
@@ -404,21 +406,47 @@ describe("crossing itself (#79)", () => {
     expect(paintTo(g, last(paintAll(g, [[0, 2], [3, 2], [3, 4], [2, 4], [2, 3]])), [2, 2]).refused).toBeUndefined();
   });
 
-  it("isLoop: a crossing square twice at right angles; not along the same direction, three times or on the first square", () => {
+  it("isLoop: a crossing square twice at right angles; not on the first square", () => {
     const eight = last(paintAll(g, EIGHT)).cells;
     expect(isLoop(eight)).toBe(true);
-    // round a ring twice: every square used twice, along the same direction
+    // round a ring twice: every square used twice, the first one too
     const ring = last(paintAll(g, [[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]])).cells;
     expect(isLoop([...ring, ...ring])).toBe(false);
     // the first square used twice: the figure of eight started on its crossing
     const k = eight.findIndex((c) => c[0] === 5 && c[1] === 2);
     expect(isLoop([...eight.slice(k), ...eight.slice(0, k)])).toBe(false);
-    // three passes: a square crossed by a third, straight, pass (hand-made: painting can't reach it, its four
-    // neighbours are already taken)
-    const third: Cell[] = [...eight, [5, 2]];
+  });
+
+  // #91: hand-made loops whose squares all touch, so each is refused by the rule it's about and not for a gap
+  const touching = (cells: Cell[]) => cells.every((c, i) => {
+    const n = cells[(i + 1) % cells.length];
+    return Math.abs(n[0] - c[0]) + Math.abs(n[1] - c[1]) === 1;
+  });
+
+  it("isLoop: two passes through a square in line, not at right angles", () => {
+    // In a loop of touching squares two passes in line through a square are only possible back and forth along one
+    // row (two passes the same way would need a turn on a shared square). Every rule but the right angle holds here.
+    for (const there of [
+      [[0, 0], [1, 0], [2, 0], [1, 0]],
+      [[0, 1], [1, 1], [2, 1], [3, 1], [2, 1], [1, 1]],
+    ] as Cell[][]) {
+      expect(touching(there)).toBe(true);
+      expect(isLoop(there)).toBe(false);
+    }
+  });
+
+  it("isLoop: a third pass through a crossing", () => {
+    // [1, 1]: east, then north, then south. (A third pass can't be the only thing wrong in a loop of touching squares:
+    // two of the three are in line, which the turn or right-angle rule refuses too.)
+    const third: Cell[] = [[0, 1], [1, 1], [2, 1], [1, 1], [1, 2], [1, 1], [1, 0], [0, 0]];
+    expect(touching(third)).toBe(true);
     expect(isLoop(third)).toBe(false);
-    // a crossing where one pass turns
-    const turning: Cell[] = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 2], [1, 2], [1, 1], [2, 1], [2, 0]];
+  });
+
+  it("isLoop: a turn on the crossing square", () => {
+    // [1, 1]: the first pass straight east, the second in from the east and away north, at right angles
+    const turning: Cell[] = [[0, 1], [1, 1], [2, 1], [1, 1], [1, 2], [0, 2]];
+    expect(touching(turning)).toBe(true);
     expect(isLoop(turning)).toBe(false);
   });
 
@@ -646,11 +674,11 @@ describe("diagonal lanes (#82)", () => {
     expect(baked).toBe(40);
   });
 
-  it("a crossing whose square straight on is beside a diagonal is just a used square: the lane can't get stuck there", () => {
+  it("a crossing whose square straight on is beside a diagonal is a dead end: the lane can't get stuck there", () => {
     const fine = laneGrid(v.area, [], 1);
     const lay = last(paintAll(fine, [[3, 1], [3, 4], [5, 4], [5, 2], [4, 1], [4, 0], [1, 0], [1, 2], [2, 2]]));
     // [3, 2] would cross the first pass at right angles, but straight on is [4, 2], which [5, 2] → [4, 1] passed between
-    expect(paintTo(fine, lay, [3, 2])).toEqual({ states: [], refused: "used" });
+    expect(paintTo(fine, lay, [3, 2])).toEqual({ states: [], refused: "dead-end" });
   });
 
   it("a drag stays on its square until it's well inside the next, so a diagonal drag goes corner to corner", () => {
