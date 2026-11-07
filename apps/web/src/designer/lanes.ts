@@ -121,6 +121,12 @@ const dir = (a: Cell, b: Cell): Cell => [b[0] - a[0], b[1] - a[1]];
 const diagonal = (d: Cell) => d[0] !== 0 && d[1] !== 0;
 /** the two squares a diagonal step from `a` to `b` passes between */
 const passesBetween = (a: Cell, b: Cell): Cell[] => [[b[0], a[1]], [a[0], b[1]]];
+/**
+ * Is `step` a square an earlier diagonal step of the lane passed between? A lane there would come within width / √2
+ * of the diagonal, overlapping it, so painting refuses it like a corner cut.
+ */
+const shadowed = (cells: Cell[], step: Cell) =>
+  cells.some((c, i) => i > 0 && diagonal(dir(cells[i - 1], c)) && passesBetween(cells[i - 1], c).some((p) => same(p, step)));
 /** does the lane go straight through cells[i] (no turn there), from cells[i - 1] to cells[i + 1]? */
 const straightAt = (cells: Cell[], i: number) => same(dir(cells[i - 1], cells[i]), dir(cells[i], cells[i + 1]));
 
@@ -147,7 +153,7 @@ function crossable(g: LaneGrid, cells: Cell[], step: Cell): Refusal | null {
  * Paint from the end of the lane towards `target`: every step between is a new state (one undo step each). Stepping
  * back onto the previous square takes the last one up; stepping onto the first square with at least MIN_LOOP squares
  * closes the loop. Steps go to any of the eight neighbours, but a diagonal one can't pass between squares that are
- * blocked or already used. The lane may cross itself, straight across at right angles, once per square: off a
+ * blocked or already used, and no step can go into a square an earlier diagonal passed between. The lane may cross itself, straight across at right angles, once per square: off a
  * crossing it goes straight on. Stops at the first square it can't use, and says why.
  */
 export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Laying[]; refused?: Refusal } {
@@ -166,6 +172,8 @@ export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Layin
     } else if (n >= 2 && cells.slice(0, -1).some((c) => same(c, cells[n - 1])) && !same(dir(cells[n - 2], cells[n - 1]), dir(cells[n - 1], step))) {
       return { states, refused: "crossing" }; // on a crossing: straight on only
     } else if (diagonal(dir(cells[n - 1], step)) && passesBetween(cells[n - 1], step).some((c) => isBlocked(g, c) || cells.some((d) => same(d, c)))) {
+      return { states, refused: "corner" };
+    } else if (shadowed(cells, step)) {
       return { states, refused: "corner" };
     } else if (same(step, cells[0]) && n >= MIN_LOOP) {
       states.push({ cells, closed: true });
@@ -205,8 +213,8 @@ export function isLoop(cells: Cell[]): boolean {
 }
 
 /**
- * The closed loop as `design.points`: a corner at the centre of every square where the direction changes (by 45°, 90°
- * or 135°), in driving order, each with radius = width / 2: an apex radius of 0 whatever the turn, the inside edges
+ * The closed loop as `design.points`: a corner at the centre of every square where the direction changes (by 45° or 90°;
+ * painting allows nothing sharper), in driving order, each with radius = width / 2: an apex radius of 0 whatever the turn, the inside edges
  * of the two straights meeting at a point. Only x, z and radius are written.
  */
 export function loopPoints(g: LaneGrid, cells: Cell[]): DesignPoint[] {

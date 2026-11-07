@@ -522,10 +522,11 @@ describe("diagonal lanes (#82)", () => {
       { x: -10, z: -1, radius: 1 },
     ]);
     for (const p of pts) expect(Object.keys(p).sort()).toEqual(["radius", "x", "z"]);
-    // and at 135°: straight east, then back north-west corner to corner (diagonal to straight)
-    const sharp = last(paintAll(g, [[0, 0], [2, 2], [0, 2], [0, 0]]));
-    expect(sharp.closed).toBe(true);
-    expect(loopPoints(g, sharp.cells)).toHaveLength(3);
+    // no 135° turns: corner to corner north-east then back west goes into a square the diagonal passed between
+    expect(paintTo(g, last(paintAll(g, [[0, 0], [2, 2]])), [0, 2])).toEqual({
+      states: [],
+      refused: "corner",
+    });
   });
 
   it("a loop with 45° corners bakes with no errors, and none against the venue", () => {
@@ -570,9 +571,10 @@ describe("diagonal lanes (#82)", () => {
     expect(paintTo(g, hook, [3, 1])).toEqual({ states: [], refused: "corner" });
     // east then straight back north-west: a 135° turn back past the square it came from
     expect(paintTo(g, last(paintAll(g, [[0, 0], [1, 0]])), [0, 1])).toEqual({ states: [], refused: "corner" });
-    // an X of two diagonals: [0, 1] → [1, 0] then round to [1, 1] and across to [0, 0]
-    const x = last(paintAll(g, [[0, 1], [1, 0], [2, 0], [2, 1], [1, 1]]));
-    expect(paintTo(g, x, [0, 0])).toEqual({ states: [], refused: "corner" });
+    // an X of two diagonals: [0, 1] → [1, 0] then round to [1, 1] and across to [0, 0]; [1, 1] is already refused,
+    // as a square the first diagonal passed between
+    const x = last(paintAll(g, [[0, 1], [1, 0], [2, 0], [2, 1]]));
+    expect(paintTo(g, x, [1, 1])).toEqual({ states: [], refused: "corner" });
     // the same steps where nothing is in the way are fine
     expect(paintTo(g, last(paintAll(g, [[4, 1], [5, 1]])), [6, 0]).refused).toBeUndefined();
   });
@@ -582,9 +584,24 @@ describe("diagonal lanes (#82)", () => {
     const out = last(paintAll(g, [[0, 0], [3, 3], [4, 3]]));
     expect(paintTo(g, out, [3, 2])).toEqual({ states: [], refused: "corner" }); // past [3, 3]… and [4, 2]
     // two columns over they're 2.83 m apart, more than a lane: that loop closes and bakes clean
-    const wide: Cell[] = [[0, 0], [3, 3], [4, 3], [4, 2], [2, 0], [0, 0]];
+    const wide: Cell[] = [[0, 0], [0, 1], [2, 3], [3, 3], [3, 2], [1, 0], [0, 0]];
     expect(last(paintAll(g, wide)).closed).toBe(true);
     expect(errorsIn(laidDoc(v, wide), v)).toEqual([]);
+  });
+
+  it("refuses a step into a square an earlier diagonal passed between, so lanes are never closer than a lane width", () => {
+    // north-east [1, 0] → [4, 3], round, then west along row 1: [3, 1] is one the diagonal passed between
+    const round = last(paintAll(g, [[1, 0], [4, 3], [6, 3], [6, 1]]));
+    const run = paintTo(g, round, [0, 1]);
+    expect(run.refused).toBe("corner");
+    expect(last(run.states).cells.slice(-3)).toEqual([[6, 1], [5, 1], [4, 1]]); // stops before [3, 1]
+    // (a lane there would be width / √2 off the diagonal's centre line, so the two lanes would overlap)
+    // the same from the diagonal's other side, south down column 2 into [2, 2]
+    expect(paintTo(g, last(paintAll(g, [[1, 0], [4, 3], [4, 5], [2, 5], [2, 3]])), [2, 2]).refused).toBe("corner");
+    // back-tracking off the diagonal frees its squares again: back to [2, 1], then east into [3, 1]
+    const back = last(paintTo(g, last(paintAll(g, [[1, 0], [4, 3]])), [2, 1]).states);
+    expect(back.cells).toEqual([[1, 0], [2, 1]]);
+    expect(last(paintTo(g, back, [3, 1]).states).cells).toEqual([[1, 0], [2, 1], [3, 1]]);
   });
 
   it("a diagonal never crosses the lane (no X): crossings stay straight across at right angles", () => {
@@ -594,9 +611,10 @@ describe("diagonal lanes (#82)", () => {
     // corner to corner across a diagonal pass, at right angles: [3, 1] → [2, 2], across [1, 1] → [2, 2] → [3, 3]
     const across = last(paintAll(g, [[0, 0], [4, 4], [5, 4], [5, 1], [3, 1]]));
     expect(paintTo(g, across, [2, 2])).toEqual({ states: [], refused: "crossing" });
-    // a straight crossing of a square the first pass went through corner to corner
-    const diag = last(paintAll(g, [[0, 0], [4, 4], [6, 4], [6, 2], [3, 2]]));
-    expect(paintTo(g, diag, [2, 2]).refused).toBe("crossing");
+    // a straight crossing of a square the first pass went through corner to corner: the square before it is one the
+    // diagonal passed between, so it stops there
+    const diag = last(paintAll(g, [[0, 0], [4, 4], [6, 4], [6, 2], [4, 2]]));
+    expect(paintTo(g, diag, [2, 2])).toEqual({ states: [], refused: "corner" });
     // and isLoop agrees: a crossing with a diagonal pass isn't a loop
     expect(isLoop([[0, 0], [1, 1], [2, 2], [3, 2], [3, 1], [2, 1], [1, 1], [0, 1]])).toBe(false);
   });
