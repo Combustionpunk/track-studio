@@ -21,7 +21,7 @@ import type {
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.8";
+export const GENERATOR = "track-studio-engine 1.9";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -53,6 +53,9 @@ export const BRIDGE_MARGIN = 1.0; // a bridge's flat top spans the under pass's 
 export const CROSSING_MIN_ANGLE = 60; // crossings sharper than this (deg; i.e. outside 60-120° between the passes) are warned about
 const CROSSING_MIN_SEP = 1.0; // the racing line crossing itself less than this far along the lap is numerical noise
 const CROSSING_ZONE = 0.2; // divider self-crossings this close to where two lanes cross (m) are the crossing, not a loop to cut
+// (1.9) lanes overlap where they reach into each other by more than this (m): two lanes sharing a pipe touch, they
+// don't overlap (the dividers' tolerance)
+export const OVERLAP_TOL = 0.02;
 export const FOOT_CELL = 0.1; // footprint raster cell (m)
 export const PIPE_R = 0.04; // half the pipe thickness, added round the lanes
 export const EYE_HEIGHT = 2.8;
@@ -358,9 +361,11 @@ export function laneRings(b: Borders): Lanes {
  * Both lane edges at every sample, offset by width/2 + extra. Straights: the racing line offset sideways. Corners: the
  * inner edge follows the arc (radius r - width/2) or, where that is <= 0, collapses to the apex where the two
  * straights' inner edges meet (straight samples that would pass it are held there); the outer edge follows the arc
- * ("round") or meets in a square corner ("square", the default).
+ * ("round") or meets in a square corner ("square", the default). If `zones` is given, each corner's samples (its arc, and
+ * the straight samples held at its apex) are pushed to it as a set: the corner's own stretch of lane, which may overlap
+ * itself (laneOverlaps).
  */
-export function borders(line: Line, corners: Corner[], points: DesignPoint[], extra = 0.0): Borders {
+export function borders(line: Line, corners: Corner[], points: DesignPoint[], extra = 0.0, zones?: Set<number>[]): Borders {
   const { n, x, z } = line;
   const { lx: nx, lz: nz } = frame(x, z);
   const rx = new Float64Array(n), rz = new Float64Array(n), lx = new Float64Array(n), lz = new Float64Array(n);
@@ -374,6 +379,9 @@ export function borders(line: Line, corners: Corner[], points: DesignPoint[], ex
     const { arc0: a0, m } = c;
     const e = c.str0 % n;
     const hwc = c.w / 2 + extra;
+    const zone = new Set<number>();
+    for (let k = 0; k < m; k++) zone.add((a0 + k) % n);
+    zones?.push(zone);
     const [ox, oz, ix, iz] = c.sign > 0 ? [rx, rz, lx, lz] : [lx, lz, rx, rz];
     if (outerStyle(points[i], c) === "square") {
       spread(squareOutline(c, hwc), m).forEach((q, k) => {
@@ -398,11 +406,13 @@ export function borders(line: Line, corners: Corner[], points: DesignPoint[], ex
         const j = (((a0 - 1 - k) % n) + n) % n;
         if ((ix[j] - qx) * c.a[0] + (iz[j] - qz) * c.a[1] <= 0) break;
         ix[j] = qx; iz[j] = qz;
+        zone.add(j);
       }
       for (let k = 0; k < c.strn; k++) {
         const j = (e + k) % n;
         if ((ix[j] - qx) * c.b[0] + (iz[j] - qz) * c.b[1] >= 0) break;
         ix[j] = qx; iz[j] = qz;
+        zone.add(j);
       }
     }
   });
@@ -1252,6 +1262,94 @@ export function crossingChecks(cr: RawCrossing[], feats: BuiltFeature[], feature
   return out;
 }
 
+// ------------------------------------------------------------------ lane overlaps (v1.9)
+/**
+ * lane-overlap checks: where the lane of one part of the lap runs into the lane of another. Sampled every EXPORT_STEP
+ * along the racing line, each sample a disc of half its lane width round its centre; two samples overlap by how far
+ * their discs reach into each other, if that is more than OVERLAP_TOL. (Discs, not the lane edges: a square corner's
+ * mitre reaching into a sweeper round it is where the bake puts a shared pipe.) Not an overlap, but the lane meeting
+ * itself:
+ * - the lane never gets clear of the first sample between the two, one way round the lap or the other (a corner, the
+ *   bend of a hairpin);
+ * - both are in one corner's zone (borders: its arc and the straight samples held at its collapsed apex: a sharp V);
+ * - they are the two passes of a crossing, each within max(lane widths) / max(sin(angle), 0.1) + BRIDGE_MARGIN of it
+ *   along its pass (crossings are bridged, or reported, by the crossing checks).
+ * Overlapping pairs that neighbour each other (both samples within one of the pair's, either order) are one overlap: one
+ * check each, at the mean of its pairs' midpoints (the middle of the overlap), giving the deepest overlap, in the order
+ * of each overlap's first pair. (bake.py: lane_overlaps)
+ */
+export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: Set<number>[], cr: RawCrossing[]): Check[] {
+  const step = Math.max(1, Math.trunc(EXPORT_STEP / SAMPLE));
+  const idx: number[] = [];
+  for (let k = 0; k < line.n; k += step) idx.push(k);
+  const n = idx.length;
+  const px = idx.map((k) => line.x[k]), pz = idx.map((k) => line.z[k]), h = idx.map((k) => line.width[k] / 2);
+  const inZone = idx.map((k) => zones.map((z) => z.has(k)));
+  // per crossing: samples near its first pass, near its second
+  const near = cr.map((c) => {
+    const R = Math.max(...c.w) / Math.max(Math.sin(radians(c.angle)), 0.1) + BRIDGE_MARGIN;
+    return [0, 1].map((p) => idx.map((k) => Math.abs(pyMod(s[k] - c.d[p] + total / 2, total) - total / 2) <= R));
+  });
+  const depth = new Map<number, number>(); // pair i * n + j -> overlap less OVERLAP_TOL, both orders
+  const short = new Float64Array(n), clearAfter = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    // the rest of the lap, forwards from i: k = 1 .. n-1 is sample (i + k) % n
+    for (let k = 1; k < n; k++) {
+      const j = (i + k) % n;
+      short[k] = h[i] + h[j] - norm(px[j] - px[i], pz[j] - pz[i]) - OVERLAP_TOL;
+    }
+    clearAfter[n - 1] = short[n - 1] <= 0 ? 1 : 0;
+    for (let k = n - 2; k >= 1; k--) clearAfter[k] = clearAfter[k + 1] | (short[k] <= 0 ? 1 : 0);
+    let clearBefore = false;
+    for (let k = 1; k < n; k++) {
+      if (short[k] <= 0) { clearBefore = true; continue; }
+      if (!clearBefore || k === n - 1 || !clearAfter[k + 1]) continue;
+      const j = (i + k) % n;
+      if (inZone[i].some((z, c) => z && inZone[j][c])) continue;
+      if (near.some(([a, b]) => (a[i] && b[j]) || (b[i] && a[j]))) continue;
+      depth.set(i * n + j, short[k]);
+      depth.set(j * n + i, short[k]);
+    }
+  }
+  // union-find over the pairs
+  const root = new Map<number, number>();
+  for (const q of depth.keys()) root.set(q, q);
+  const find = (q: number): number => {
+    while (root.get(q) !== q) {
+      root.set(q, root.get(root.get(q)!)!);
+      q = root.get(q)!;
+    }
+    return q;
+  };
+  const keys = [...depth.keys()].sort((a, b) => a - b); // i, then j: Python's sorted pairs
+  for (const q of keys) {
+    const i = Math.trunc(q / n), j = q % n;
+    for (const di of [-1, 0, 1])
+      for (const dj of [-1, 0, 1]) {
+        const r = ((i + di + n) % n) * n + ((j + dj + n) % n);
+        if (depth.has(r)) root.set(find(r), find(q));
+      }
+    root.set(find(j * n + i), find(q)); // (j, i) is the same overlap seen from the other pass
+  }
+  const groups = new Map<number, number[]>();
+  for (const q of keys) {
+    const g = find(q);
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g)!.push(q);
+  }
+  return [...groups.values()]
+    .sort((a, b) => a[0] - b[0])
+    .map((g) => {
+      let sx = 0, sz = 0, d = -Infinity;
+      for (const q of g) {
+        const i = Math.trunc(q / n), j = q % n;
+        sx += (px[i] + px[j]) / 2; sz += (pz[i] + pz[j]) / 2;
+        d = Math.max(d, depth.get(q)!);
+      }
+      return { level: "error", code: "lane-overlap", x: r3(sx / g.length), z: r3(sz / g.length), message: `Lanes overlap by ${pyFormat(d + OVERLAP_TOL, 2)} m here` };
+    });
+}
+
 export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   const design = doc.design;
   const W0 = design.laneWidth ?? 2.0;
@@ -1321,7 +1419,8 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   if (onRamp) checks.push({ level: "warning", code: "start-on-feature", x: startLine.x, z: startLine.z, message: "Start line is on a ramp" });
 
   // checks: radius, width (the track only: venue checks are the fit's, venueCheck)
-  const edges = borders(line, corners, design.points);
+  const zones: Set<number>[] = [];
+  const edges = borders(line, corners, design.points, 0.0, zones);
   const sides: [Float64Array, Float64Array][] = [
     [edges.rx, edges.rz],
     [edges.lx, edges.lz],
@@ -1350,6 +1449,7 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   if (minWidth < MIN_WIDTH) {
     checks.push({ level: "warning", code: "narrow-lane", message: `Lane narrower than ${MIN_WIDTH} m` });
   }
+  checks.push(...laneOverlaps(line, s, total, zones, cr)); // 1.9
 
   // footprint
   const fp = laneMask(line, corners, design.points);
