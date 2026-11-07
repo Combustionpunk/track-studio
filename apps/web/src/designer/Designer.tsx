@@ -167,7 +167,7 @@ function planPoint(svg: SVGSVGElement, clientX: number, clientY: number): Point2
   return [p.x, -p.y];
 }
 
-/** step 1's keys (#47), in the palette, the hint and the lane grid's description */
+/** step 1's keys (#47), in the hint and the lane grid's description */
 const LAY_KEYS_HELP = "Arrows move the cursor; Enter or Space starts the lane there. Then the arrows lay it a square at a time, Shift and two arrows in turn (say Up then Right) lay a diagonal, and Backspace takes back the last square.";
 
 /** what the live geometry is worked out from while laying the lanes (nothing of it is drawn: there's no track yet) */
@@ -1342,7 +1342,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             <p className="lay-help">Press on a square and drag through the squares in driving order, straight or corner to corner for a diagonal. Drag back to take squares up.</p>
             <p className="lay-help">To cross the lane (a figure of eight), go straight across it at right angles. Add a crossover there once the loop is closed.</p>
             <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
-            <p className="lay-help">Keyboard: Tab to the plan's lane grid. {LAY_KEYS_HELP}</p>
+            <p className="lay-help">Keyboard: Tab to the plan's lane grid; the hint over the plan lists the keys.</p>
             <button
               type="button"
               className="palette-btn"
