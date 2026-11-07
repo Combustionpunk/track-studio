@@ -55,6 +55,9 @@ export const refusal = (r: Refusal) => KEY_REFUSAL[r] ?? REFUSAL_TEXT[r];
 
 const inGrid = (g: LaneGrid, c: Cell) => !!cellAt(g, cellCentre(g, c));
 
+/** "column 3, row 2", counted from 1 at the south-west corner */
+export const where = (c: Cell) => `column ${c[0] + 1}, row ${c[1] + 1}`;
+
 /** "Square 5, heading east. The first square is 2 west, 3 south." */
 export function describeLane(cells: Cell[]): string {
   const n = cells.length;
@@ -69,8 +72,6 @@ export function describeLane(cells: Cell[]): string {
   const parts = [dx && `${Math.abs(dx)} ${dx > 0 ? "east" : "west"}`, dz && `${Math.abs(dz)} ${dz > 0 ? "north" : "south"}`].filter(Boolean);
   return `${s}. The first square is ${parts.join(", ")}.`;
 }
-
-const where = (c: Cell) => `column ${c[0] + 1}, row ${c[1] + 1}`;
 
 /** One key press in step 1. Keys with Ctrl, ⌘ or Alt, and keys it doesn't use, are left to the page. */
 export function layKey(g: LaneGrid, lay: Laying, ks: LayKeys, e: KeyPress): KeyResult {
