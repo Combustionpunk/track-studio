@@ -9,6 +9,8 @@ type XY = [number, number];
 const BLANK = "/new/design?length=22&width=12&name=Touch";
 /** round the edge of the area, back to the first square */
 const LOOP: XY[] = [[0, 0], [10, 0], [10, 5], [0, 5], [0, 0]];
+/** an octagon with 45° corners, closing corner to corner onto the first square */
+const OCTAGON: XY[] = [[2, 0], [8, 0], [10, 2], [10, 3], [8, 5], [2, 5], [0, 3], [0, 2], [2, 0]];
 
 const isTouch = (name: string) => name.startsWith("tablet");
 
@@ -167,6 +169,19 @@ test.describe("tablet touch", () => {
     await page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: "Start again" }).tap();
     await expect(page.locator("rect.lay-cell")).toHaveCount(0);
     await layLoop(page, t);
+  });
+
+  test("step 1: a finger lays diagonal runs corner to corner and closes an octagon (#82)", async ({ page }) => {
+    await open(page);
+    const t = await Touch.on(page);
+    // 7 steps per move, so no sample lands exactly on a grid corner
+    const path: XY[] = [];
+    for (const [c, r] of OCTAGON) path.push(await cell(page, c, r));
+    await t.drag(path.slice(0, 3), 7);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(9); // [2, 0]…[8, 0], [9, 1], [10, 2]
+    await t.drag(path.slice(2), 7);
+    await expect(page.locator('.steps li[aria-current="step"]')).toContainText("Shape it");
+    await expect(page.locator("g.ed-corner")).toHaveCount(8);
   });
 
   test("step 1: two fingers pinch and pan the plan and never paint", async ({ page }) => {

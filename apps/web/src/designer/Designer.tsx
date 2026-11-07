@@ -1305,7 +1305,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {tablet ? null : laying ? (
           <aside className="designer-palette" aria-label="Lay the lanes">
             <span className="label">1 · Lay the lanes</span>
-            <p className="lay-help">Press on a square and drag through the squares in driving order. Drag back to take squares up.</p>
+            <p className="lay-help">Press on a square and drag through the squares in driving order, straight or corner to corner for a diagonal. Drag back to take squares up.</p>
             <p className="lay-help">To cross the lane (a figure of eight), go straight across it at right angles. Add a crossover there once the loop is closed.</p>
             <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
             <button
