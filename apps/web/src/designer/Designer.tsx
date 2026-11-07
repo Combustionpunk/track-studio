@@ -64,7 +64,7 @@ import {
   type DesignerMode,
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
-import { cellAt, cellCentre, cellCorner, designStep, gridFor, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
+import { cellAt, cellCentre, cellCorner, designStep, gridFor, neighbours, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
 import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
@@ -749,8 +749,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!cur) return;
     const cells = draftRef.current.laying ?? [];
     const end = cells[cells.length - 1];
-    // carry on from the end of the lane (or a square next to it); a press anywhere else would lay a long L
-    if (end && Math.abs(cur[0] - end[0]) + Math.abs(cur[1] - end[1]) > 1) {
+    // carry on from the end of the lane (or a square next to it, corner to corner too); a press anywhere else would
+    // lay a long run
+    if (end && !same(cur, end) && !neighbours(cur, end)) {
       setLayNote("Carry on from the end of the lane, or drag back along it to take squares up.");
       return;
     }
@@ -1392,8 +1393,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             <div className="designer-hint">
               {laying
                 ? layNote ?? (draft.laying?.length
-                  ? "Drag on through the squares, or straight across the lane at right angles. Come back to the ring to close the loop."
-                  : "Press on a square and drag to lay the lane.")
+                  ? "Drag on through the squares, corner to corner for a diagonal, or straight across the lane at right angles. Come back to the ring to close the loop."
+                  : "Press on a square and drag to lay the lane, straight or diagonally.")
                 : tool.kind === "feature"
                   ? tool.type === "crossover"
                     ? `${tablet ? "Tap" : "Click"} where the track crosses itself: the pass you ${tablet ? "tap" : "click"} goes over.`
