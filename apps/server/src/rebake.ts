@@ -21,6 +21,10 @@ export interface RebakeChange {
   racingLineChanged: boolean;
   /** fields removed from the stored document by the rctrack 1.7 upgrade (obstacles, basedOn, design/built rostrum) */
   removed: string[];
+  /** errors before and after (the library's error count) */
+  errors: [number, number];
+  /** error codes the fresh bake has and the stored one didn't (1.9: lane-overlap) */
+  gained: string[];
   /** the drawn preview changed: it gets a new URL (?v=) and the old cached PNG is dropped */
   previewChanged: boolean;
 }
@@ -47,6 +51,8 @@ function removedFields(old: RcTrack): string[] {
     ...(o.built && "rostrum" in o.built ? ["built.rostrum"] : []),
   ];
 }
+
+const errorCodes = (doc: RcTrack) => (doc.built?.checks ?? []).filter((c) => c.level === "error").map((c) => c.code as string);
 
 const sizeText = (doc: RcTrack) => (doc.built?.size ? `${doc.built.size.length} × ${doc.built.size.width} m` : "—");
 
@@ -81,6 +87,8 @@ export function rebakeAll(db: DB, dataDir: string, { dryRun = false } = {}): Reb
         size: [sizeText(old), sizeText(fresh)],
         racingLineChanged: racingLineMoved(old, fresh),
         removed: removedFields(old),
+        errors: [errorCodes(old).length, errorCodes(fresh).length],
+        gained: [...new Set(errorCodes(fresh))].filter((c) => !errorCodes(old).includes(c)),
         previewChanged,
       });
       if (!dryRun) {
@@ -122,7 +130,8 @@ if (process.argv[1] && /rebake\.(ts|js)$/.test(process.argv[1])) {
       const size = c.size[0] === c.size[1] ? `size ${c.size[1]}` : `size ${c.size[0]} → ${c.size[1]}`;
       const removed = c.removed.length ? `, removed ${c.removed.join(", ")}` : "";
       const line = c.racingLineChanged ? ", RACING LINE CHANGED" : "";
-      console.log(`  ${c.name} r${c.revision}: ${corners}, ${size}${removed}${line}${c.previewChanged ? ", preview re-rendered" : ""}`);
+      const errors = c.errors[0] === c.errors[1] ? "" : `, errors ${c.errors[0]} → ${c.errors[1]}${c.gained.length ? ` (new: ${c.gained.join(", ")})` : ""}`;
+      console.log(`  ${c.name} r${c.revision}: ${corners}, ${size}${removed}${line}${errors}${c.previewChanged ? ", preview re-rendered" : ""}`);
     }
     for (const f of r.failed) console.log(`  FAILED ${f.id} r${f.revision}: ${f.error}`);
     db.close();

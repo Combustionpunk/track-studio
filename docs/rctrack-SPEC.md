@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.8)
+# rctrack — shared track format (v1.9)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -70,7 +70,7 @@ the layout) and to check a layout against a venue (the fit search, which says wh
 - `checks[]` — `{level: error|warning|info, code, message, x?, z?}`, the track's own checks *(v1.7: no venue checks;
   see Fit search)*. Codes: `tight-corner`, `narrow-lane`, `feature-in-corner`, `radius-reduced`, and *(v1.6)*
   `crossing-unbridged`, `crossing-too-low`, `crossing-angle`, `crossing-too-close`, `crossover-unused` (see *Crossings*),
-  and *(v1.8)* `start-on-feature`. A distance in a message is on the lap, from 0 up to `lapLength` *(v1.8)*: a feature
+  *(v1.8)* `start-on-feature`, and *(v1.9)* `lane-overlap` (see *Lane overlaps*). A distance in a message is on the lap, from 0 up to `lapLength` *(v1.8)*: a feature
   at `distance` -1.5 is "at 47.1 m" on a 48.6 m lap.
   `start-on-feature` *(v1.8)*: a `warning` at the start line, "Start line is on a ramp", when `start.distance` lies
   within a crossover's length, or within the length of a tabletop that bridges a crossing (`crossings[].bridge`). Nothing
@@ -111,7 +111,7 @@ the layout) and to check a layout against a venue (the fit search, which says wh
    0.06 m of an already kept divider are trimmed (that stretch is drawn already); anything shorter than 0.25 m is dropped.
 5. **Features / start:** placed by distance along the racing line; crossings and their bridges (below).
 6. **Checks:** corner radius (min 0.6 m), lane width (min 1.4 m), features on or landing into corners
-   (crossovers too: their ramps must be on straight track, with 1 m to land), crossings. The track only: checks
+   (crossovers too: their ramps must be on straight track, with 1 m to land), crossings, lane overlaps *(v1.9)*. The track only: checks
    against a venue are the fit's (*Fit search*).
 7. **Size:** bounding box of both lane edges (step 2, before divider merging).
 
@@ -153,9 +153,26 @@ A track may cross itself where a bridge carries one pass over the other.
   on one already claimed; or a tabletop bridges the one it claims) is a warning, `crossover-unused`, at the crossover. An angle under 60° (outside 60–120° between the passes) is a warning,
   `crossing-angle`. Two crossings whose footprints overlap are an error, `crossing-too-close`; an unbridged crossing's
   footprint for this is where a default crossover over the first pass would stand. Lanes overlapping anywhere else are
-  not checked (as before).
+  a `lane-overlap` error *(v1.9, see Lane overlaps)*.
 - **Dividers:** a divider crossing itself where the lanes of a crossing overlap (within 0.2 m) is not cut (step 4):
   both passes' pipes stay whole.
+
+### Lane overlaps *(v1.9)*
+`lane-overlap` (error): the lane of one part of the lap runs into the lane of another, away from a crossing.
+- **Samples:** every 0.25 m of racing line (the exported `racingLine`'s samples), each a disc of half its lane width round
+  its centre, plus its two lane edges (*Borders*, so a square corner's mitre counts). Two samples overlap by how far one's
+  disc reaches into the other's, or one's lane edge into the other's disc. Up to 0.02 m (the dividers' tolerance) is no
+  overlap: two lanes sharing a pipe touch.
+- **The lane meeting itself is not an overlap:** a pair is left out if (1) one way round the lap or the other, every
+  sample between them overlaps the first (the lane never got clear of it: a corner, the inside of a hairpin), or (2) both
+  are in one corner's own stretch: its arc and the straight samples whose inside edge is held at its collapsed apex (a
+  sharp V: the legs overlap out to where the inside edges meet), or (3) they are the two passes of a crossing, each within
+  max(lane widths) / sin(angle) + 1 m of it along its pass (`built.crossings`; bridged, or reported, by the crossing checks).
+  Rule (1) stands in for a fixed lap-distance separation, which would be either too short for a sweeper or long enough
+  to hide a real overlap next to a hairpin.
+- **Reported:** overlapping samples form runs along the lap; one check per pair of runs that overlap each other, at
+  the midpoint of the two runs' middle samples (the middle of the overlap), with the deepest overlap: "Lanes overlap by
+  0.60 m here".
 
 ### Corner count
 A design point whose turn is more than 20° is a corner. Turns **the same way** joined by less than **3 m** of racing line
@@ -220,6 +237,12 @@ position default to that venue's rostrum, which the fit check reports with its r
 the venue's coordinates: for a copy adapted to the venue, these are the layout's own).
 
 ## Changes
+- **1.9** — a new check, `lane-overlap` (error), where the lane of one part of the lap overlaps the lane of another
+  (*Lane overlaps*): two straights closer than a lane width, or a corner clipping another pass. Crossings, shared pipes
+  and the inside of a hairpin or sharp V are not overlaps. Until 1.9 lanes overlapping away from a crossing were not
+  checked. `version` stays `1`: no field changes. Re-baking adds the error to tracks whose lanes overlap; every other
+  track bakes exactly as in 1.8. Older readers that list the check codes they know must show an unknown error code as an
+  error.
 - **1.8** — three fixes to `built`, one release. (1) `feature-in-corner` checks a jump whose span runs across lap
   distance 0 (1.5–1.7 did this for crossovers only), so a jump just before the start that lands into point 0's corner
   is now reported. (2) A jump on or landing into a corner is a technical section racers enjoy: its
