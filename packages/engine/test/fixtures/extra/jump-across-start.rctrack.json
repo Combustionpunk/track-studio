@@ -1224,7 +1224,7 @@
     "code": "feature-in-corner",
     "x": -9.0,
     "z": -0.5,
-    "message": "Tabletop at -1.5 m is on or lands into a corner (technical section)"
+    "message": "Tabletop at 47.1 m is on or lands into a corner (technical section)"
    }
   ],
   "footprint": {

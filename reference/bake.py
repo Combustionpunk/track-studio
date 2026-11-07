@@ -625,7 +625,7 @@ def bridge_crossings(cr, features, total):
             if sound and (short or low): continue
             claimed[fi] = (c, over); c["claim"] = fi
             if short: c["why"] = f"the crossover's flat top is {top:.1f} m; it needs {bridge_span(c, over):.1f} m"
-            elif low: c["low"] = too_low("crossover", f["distance"], height)
+            elif low: c["low"] = too_low("crossover", f["distance"] % total, height)
             else: c["bridge"] = fi; c["over"] = over
     prof = FEATURE_PROFILES["tabletop"]; top0, top1 = prof[1][0] / prof[-1][0], prof[2][0] / prof[-1][0]
     for c in cr:
@@ -640,9 +640,9 @@ def bridge_crossings(cr, features, total):
                 if -L / 2 + top0 * L <= off - need / 2 + 1e-9 and off + need / 2 <= -L / 2 + top1 * L + 1e-9:
                     H = float(f.get("height", FEATURE_DEFAULTS["tabletop"][1]))
                     if H >= BRIDGE_CLEARANCE - 1e-9: c["bridge"] = fi; c["over"] = p; c["why"] = None; c["low"] = None; break
-                    if c["low"] is None: c["low"] = too_low("tabletop", f["distance"], H)
+                    if c["low"] is None: c["low"] = too_low("tabletop", f["distance"] % total, H)
                 elif c["why"] is None:
-                    c["why"] = f"the tabletop at {f['distance']:.1f} m is too short to bridge it (flat top needs {need:.1f} m)"
+                    c["why"] = f"the tabletop at {f['distance'] % total:.1f} m is too short to bridge it (flat top needs {need:.1f} m)"
             if c["bridge"] is not None: break
     return claimed
 
@@ -734,7 +734,7 @@ def bake(doc):
     racing = [[r3(x), r3(z), r3(w)] for x, z, w, _ in line[::step]]
 
     # features
-    feats = []
+    feats = []; spans = []   # spans: each feature's (centre distance, length) along the lap
     for fi, f in enumerate(design.get("features", [])):
         typ = f["type"]; L0, H0 = FEATURE_DEFAULTS[typ]; dist = f["distance"]
         if typ == "crossover":   # sits on the crossing it bridges (the over pass's distance), sized for it
@@ -749,22 +749,33 @@ def bake(doc):
         width = float(line[i, 2]) - 0.08
         feats.append({"type": typ, "x": r3(p[0]), "z": r3(p[1]), "heading": heading_deg(t), "length": r3(length),
                       "width": r3(width), "height": r3(height), "profile": prof})
+        spans.append((dist, length))
+        shown = dist % total   # messages give distances from 0 up to the lap length, never "-1.5 m"
         # check: jump on or landing into a corner
         i0, i1 = int(np.searchsorted(s, (dist - length / 2) % total)), int(np.searchsorted(s, (dist + length / 2 + 1.0) % total))
         if i1 < i0: i1 += len(line)   # across lap distance 0 (1.8: every type; 1.5-1.7 only crossovers)
         span = np.arange(i0, i1)
         if len(span) and np.max(np.abs(line[span % len(line), 3])) > 0:
-            checks.append(feature_in_corner(typ, dist, p))
+            checks.append(feature_in_corner(typ, shown, p))
         if typ == "crossover" and (fi not in claimed or claimed[fi][0]["bridge"] not in (None, fi)):
             # away from any crossing, a second on one already claimed, or on one a tabletop bridges instead
             checks.append({"level": "warning", "code": "crossover-unused", "x": r3(p[0]), "z": r3(p[1]),
-                           "message": f"crossover at {dist:.1f} m bridges no crossing"})
+                           "message": f"crossover at {shown:.1f} m bridges no crossing"})
     crossings = crossing_checks(cr, feats, design, total, checks)
 
     # start line
     sd = design.get("start", {}).get("distance", 0.0)
     sp, _, si = at_distance(xy, s, total, sd)
     start = {"x": r3(sp[0]), "z": r3(sp[1]), "heading": heading_deg(tangent_at(line, s, total, sd)), "width": r3(line[si, 2]), "distance": r3(sd)}
+    # check: start line on a ramp, a crossover's or a tabletop's that bridges a crossing (not moved: the designer's call)
+    bridging = {c["bridge"] for c in cr}
+    for fi, f in enumerate(design.get("features", [])):
+        if f["type"] == "crossover" or (f["type"] == "tabletop" and fi in bridging):
+            centre, length = spans[fi]
+            if abs(cyc(sd, centre, total)) < length / 2:
+                checks.append({"level": "warning", "code": "start-on-feature", "x": start["x"], "z": start["z"],
+                               "message": "Start line is on a ramp"})
+                break
 
     # checks: radius, width (the track only: venue checks are the fit's, fit.check)
     edges = borders(line, corners, design["points"])               # lane edges, right then left
