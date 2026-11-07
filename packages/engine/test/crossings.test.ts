@@ -158,9 +158,10 @@ describe("crossover", () => {
     const seam: [number, number][] = [[0, 0], ...FIG8.slice(1), FIG8[0]]; // the lap starts on the crossing
     const d = bakeBuilt(track(seam)).crossings![0].distances[0];
     expect(d).toBeLessThan(1);
-    expect(codes(bakeBuilt(track(seam, { features: [{ type: "crossover", distance: d }] })))).toEqual([]);
+    // (the start line is on the crossover too: #91's start-on-feature)
+    expect(codes(bakeBuilt(track(seam, { features: [{ type: "crossover", distance: d }] })))).toEqual(["start-on-feature"]);
     const b = bakeBuilt(track(seam, { features: [{ type: "crossover", distance: d, rampLength: 5 }] }));
-    expect(codes(b)).toEqual(["feature-in-corner"]);
+    expect(codes(b)).toEqual(["feature-in-corner", "start-on-feature"]);
   });
 });
 

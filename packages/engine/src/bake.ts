@@ -1179,7 +1179,7 @@ export function bridgeCrossings(cr: RawCrossing[], features: DesignFeature[], to
       claimed.set(fi, [c, over]);
       c.claim = fi;
       if (short) c.why = `the crossover's flat top is ${pyFormat(top, 1)} m; it needs ${pyFormat(bridgeSpan(c, over), 1)} m`;
-      else if (low) c.low = tooLow("crossover", f.distance, height);
+      else if (low) c.low = tooLow("crossover", pyMod(f.distance, total), height);
       else {
         c.bridge = fi; c.over = over;
       }
@@ -1203,8 +1203,8 @@ export function bridgeCrossings(cr: RawCrossing[], features: DesignFeature[], to
             c.bridge = fi; c.over = p; c.why = null; c.low = null;
             break;
           }
-          if (c.low === null) c.low = tooLow("tabletop", f.distance, H);
-        } else if (c.why === null) c.why = `the tabletop at ${pyFormat(f.distance, 1)} m is too short to bridge it (flat top needs ${pyFormat(need, 1)} m)`;
+          if (c.low === null) c.low = tooLow("tabletop", pyMod(f.distance, total), H);
+        } else if (c.why === null) c.why = `the tabletop at ${pyFormat(pyMod(f.distance, total), 1)} m is too short to bridge it (flat top needs ${pyFormat(need, 1)} m)`;
       }
     }
   }
@@ -1270,6 +1270,7 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
 
   // features
   const feats: BuiltFeature[] = [];
+  const spans: [number, number][] = []; // each feature's centre distance and length along the lap
   (design.features ?? []).forEach((f, fi) => {
     const typ = f.type;
     let length: number, height: number, profile: Point2[], dist = f.distance;
@@ -1292,16 +1293,18 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     const { p, t, i } = atDistance(x, z, s, total, dist);
     const width = line.width[i] - 0.08;
     feats.push({ type: typ, x: r3(p[0]), z: r3(p[1]), heading: headingDeg(t), length: r3(length), width: r3(width), height: r3(height), profile });
+    spans.push([dist, length]);
+    const shown = pyMod(dist, total); // messages give distances from 0 up to the lap length, never "-1.5 m"
     // check: jump on or landing into a corner
     const i0 = searchSorted(s, pyMod(dist - length / 2, total));
     let i1 = searchSorted(s, pyMod(dist + length / 2 + 1.0, total));
     if (i1 < i0) i1 += line.n; // across lap distance 0 (1.8: every type; 1.5-1.7 only crossovers)
     let maxCurv = -Infinity;
     for (let k = i0; k < i1; k++) maxCurv = Math.max(maxCurv, Math.abs(line.curvature[k % line.n]));
-    if (i1 > i0 && maxCurv > 0) checks.push(featureInCorner(typ, dist, p));
+    if (i1 > i0 && maxCurv > 0) checks.push(featureInCorner(typ, shown, p));
     if (typ === "crossover" && (!claim || (claim[0].bridge !== null && claim[0].bridge !== fi))) {
       // away from any crossing, a second on one already claimed, or on one a tabletop bridges instead
-      checks.push({ level: "warning", code: "crossover-unused", x: r3(p[0]), z: r3(p[1]), message: `crossover at ${pyFormat(dist, 1)} m bridges no crossing` });
+      checks.push({ level: "warning", code: "crossover-unused", x: r3(p[0]), z: r3(p[1]), message: `crossover at ${pyFormat(shown, 1)} m bridges no crossing` });
     }
   });
   const crossings = crossingChecks(cr, feats, design.features ?? [], checks);
@@ -1310,6 +1313,12 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   const sd = design.start?.distance ?? 0.0;
   const st = atDistance(x, z, s, total, sd);
   const startLine = { x: r3(st.p[0]), z: r3(st.p[1]), heading: headingDeg(tangentAt(line, s, total, sd)), width: r3(line.width[st.i]), distance: r3(sd) };
+  // check: start line on a ramp, a crossover's or a tabletop's that bridges a crossing (not moved: the designer's call)
+  const bridging = new Set(cr.map((c) => c.bridge));
+  const onRamp = (design.features ?? []).some(
+    (f, fi) => (f.type === "crossover" || (f.type === "tabletop" && bridging.has(fi))) && Math.abs(cyc(sd, spans[fi][0], total)) < spans[fi][1] / 2,
+  );
+  if (onRamp) checks.push({ level: "warning", code: "start-on-feature", x: startLine.x, z: startLine.z, message: "Start line is on a ramp" });
 
   // checks: radius, width (the track only: venue checks are the fit's, venueCheck)
   const edges = borders(line, corners, design.points);

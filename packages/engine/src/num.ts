@@ -1,10 +1,11 @@
 // Numeric helpers that behave exactly like the Python reference (bake.py / fit.py), so rounded output matches
 // digit for digit.
 
-/** Python's float `%`: the result takes the sign of the divisor. */
+/** Python's float `%`: the result takes the sign of the divisor, a zero too (so never "-0.0" for a positive one). */
 export function pyMod(a: number, b: number): number {
   const m = a % b;
-  return m !== 0 && b < 0 !== m < 0 ? m + b : m;
+  if (m === 0) return b < 0 ? -0 : 0;
+  return b < 0 !== m < 0 ? m + b : m;
 }
 
 /**

@@ -17,7 +17,8 @@ export type CheckCode =
   | "crossing-angle"
   | "crossing-too-close"
   | "crossing-too-low"
-  | "crossover-unused";
+  | "crossover-unused"
+  | "start-on-feature";
 
 /** [x, z] in metres */
 export type Point2 = [number, number];

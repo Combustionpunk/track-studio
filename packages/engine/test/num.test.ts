@@ -26,6 +26,10 @@ describe("Python-compatible numerics", () => {
   it("% takes the sign of the divisor", () => {
     expect(pyMod(-3, 100)).toBe(97);
     expect(pyMod(103, 100)).toBe(3);
+    // a zero takes the divisor's sign, as in Python: -0.0 % 5 == 0.0, so a message never says "-0.0 m" (#91)
+    expect(Object.is(pyMod(-0, 5), 0)).toBe(true);
+    expect(Object.is(pyMod(-10, 5), 0)).toBe(true);
+    expect(Object.is(pyMod(0, -5), -0)).toBe(true);
     expect(pyMod(-Math.PI, 2 * Math.PI)).toBeCloseTo(Math.PI);
   });
 });

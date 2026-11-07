@@ -7,7 +7,7 @@
   reference/examples/*.rctrack.json    re-baked (1.7: upgraded from 1.6 first)
 The v12/ to v17/ checks assert that older bakes re-bake the same, less what each later version changed on purpose.
 usage (from the repo root): python3 packages/engine/scripts/gen_fixtures.py"""
-import glob, json, math, os, sys
+import glob, json, math, os, re, sys
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, os.path.join(root, "reference"))
 import bake, fit  # noqa: E402
@@ -19,10 +19,16 @@ def as17(built):
     return b
 
 def as18(built):
-    """as17, with a jump's feature-in-corner as 1.8 reports it (info, not a warning: a technical section)."""
+    """as17, with a jump's feature-in-corner as 1.8 reports it (info, not a warning: a technical section) and the
+    distances in messages from 0 up to the lap length (#91)."""
     b = as17(built)
-    b["checks"] = [jump18(c) for c in b["checks"]]
+    b["checks"] = [lap18(jump18(c), built["lapLength"]) for c in b["checks"]]
     return b
+
+def lap18(c, total):
+    """A check's "at d m" distances on the lap, 0 up to its length: "-1.5 m" was 1.5 m before the start."""
+    lap = lambda m: f"at {float(m.group(1)) % total:.1f} m"
+    return {**c, "message": re.sub(r"at (-?\d+\.\d) m", lap, c["message"])}
 
 def jump18(c):
     if c["code"] != "feature-in-corner" or c["level"] != "warning" or c["message"].startswith("crossover "): return c
@@ -135,6 +141,10 @@ EXTRA_TRACKS["jump-across-start"] = track("16", "Jump across the start", {"lengt
     "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": 2.0} for x, z in [(-9, -4), (9, -4), (9, 4), (-9, 4)]],
     "features": [{"type": "tabletop", "distance": -1.5}, {"type": "kicker", "distance": 9.0}],
     "start": {"distance": 0.0}})
+
+# 1.8 (#91): the start line 1.5 m before the crossing, on the crossover's up ramp: start-on-feature
+EXTRA_TRACKS["start-on-ramp"] = at_crossings(figure8("17", "Start on the crossover's ramp"), lambda k, d: {"type": "crossover", "distance": d[0]})
+EXTRA_TRACKS["start-on-ramp"]["design"]["start"]["distance"] = round(EXTRA_TRACKS["start-on-ramp"]["design"]["features"][0]["distance"] - 1.5, 3)
 
 EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
 

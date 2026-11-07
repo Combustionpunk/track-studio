@@ -1759,7 +1759,7 @@ export function ChecksPanel({
                   <span>
                     {c.message}
                     {view === "advanced" && <code className="check-code">{c.code}</code>}
-                    <CrossingHint c={c} features={features} view={view} onMakeCrossover={onMakeCrossover} onBridge={onBridge} />
+                    <CrossingHint c={c} features={features} view={view} pending={pending} onMakeCrossover={onMakeCrossover} onBridge={onBridge} />
                   </span>
                   {c.x !== undefined && c.z !== undefined && (
                     <button type="button" className="check-show" onClick={() => onShow(c.x!, c.z!)}>
@@ -1781,8 +1781,11 @@ export function ChecksPanel({
   );
 }
 
-/** A crossing error's hint, and Quick's one-tap fixes: a crossover on an unbridged crossing, or for a tabletop too low to drive under. */
-function CrossingHint({ c, features, view, onMakeCrossover, onBridge }: { c: Check; features: BuiltFeature[]; view: DesignerMode; onMakeCrossover?: (feature: number) => void; onBridge?: (c: Check) => void }) {
+/**
+ * A crossing error's hint, and Quick's one-tap fixes: a crossover on an unbridged crossing, or for a tabletop too low to
+ * drive under. While a bake is pending the fix is disabled ("Checking…"): the check may be stale, so it could do nothing.
+ */
+function CrossingHint({ c, features, view, pending, onMakeCrossover, onBridge }: { c: Check; features: BuiltFeature[]; view: DesignerMode; pending: boolean; onMakeCrossover?: (feature: number) => void; onBridge?: (c: Check) => void }) {
   const fi = c.code === "crossing-too-low" ? bridgeAt(c, features) : null;
   const type = fi === null ? null : features[fi].type;
   const hint = crossingHint(c, type);
@@ -1791,12 +1794,12 @@ function CrossingHint({ c, features, view, onMakeCrossover, onBridge }: { c: Che
     <span className="check-hint">
       {hint}
       {view === "quick" && type === "tabletop" && onMakeCrossover && (
-        <button type="button" className="btn btn-quiet check-fix" onClick={() => onMakeCrossover(fi!)}>
+        <button type="button" className="btn btn-quiet check-fix" disabled={pending} title={pending ? "Checking…" : undefined} onClick={() => onMakeCrossover(fi!)}>
           Make it a crossover
         </button>
       )}
       {view === "quick" && c.code === "crossing-unbridged" && onBridge && (
-        <button type="button" className="btn btn-quiet check-fix" onClick={() => onBridge(c)}>
+        <button type="button" className="btn btn-quiet check-fix" disabled={pending} title={pending ? "Checking…" : undefined} onClick={() => onBridge(c)}>
           Make it a crossover
         </button>
       )}

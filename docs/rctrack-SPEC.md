@@ -69,7 +69,12 @@ the layout) and to check a layout against a venue (the fit search, which says wh
   line facing the other way *(v1.8)*.
 - `checks[]` — `{level: error|warning|info, code, message, x?, z?}`, the track's own checks *(v1.7: no venue checks;
   see Fit search)*. Codes: `tight-corner`, `narrow-lane`, `feature-in-corner`, `radius-reduced`, and *(v1.6)*
-  `crossing-unbridged`, `crossing-too-low`, `crossing-angle`, `crossing-too-close`, `crossover-unused` (see *Crossings*).
+  `crossing-unbridged`, `crossing-too-low`, `crossing-angle`, `crossing-too-close`, `crossover-unused` (see *Crossings*),
+  and *(v1.8)* `start-on-feature`. A distance in a message is on the lap, from 0 up to `lapLength` *(v1.8)*: a feature
+  at `distance` -1.5 is "at 47.1 m" on a 48.6 m lap.
+  `start-on-feature` *(v1.8)*: a `warning` at the start line, "Start line is on a ramp", when `start.distance` lies
+  within a crossover's length, or within the length of a tabletop that bridges a crossing (`crossings[].bridge`). Nothing
+  is moved: it is the designer's call.
   `feature-in-corner` *(v1.8)*: a feature on or landing into a corner (from half its length before its distance to
   1 m past its end, across lap distance 0 if need be). For a jump it is `info`, "Tabletop at 12.4 m is on or lands
   into a corner (technical section)": a technical drive, not a mistake. For a crossover it is a `warning`, because a
@@ -224,7 +229,10 @@ the venue's coordinates: for a copy adapted to the venue, these are the layout's
   arc one way round and the straight the other, up to ~1.5° apart. `version` stays `1`. Re-baking changes only
   tracks with a jump next to a corner (the level and message of its check; a jump across lap distance 0 may gain
   one) or a start on a corner join (its heading); everything else bakes exactly as in 1.7. Older readers that count
-  warnings see fewer.
+  warnings see fewer. Added in the same release (#91), as they only add a code and tidy messages: a start line on a
+  crossover's ramp or on a bridging tabletop is a `warning`, `start-on-feature` ("Start line is on a ramp"); distances
+  in check messages are on the lap, 0 up to `lapLength` (a feature at `distance` -1.5 was "at -1.5 m"). The reference
+  preview draws no ring for `info` checks.
 - **1.7** — a layout belongs to no venue: venue features move out of the layout. Removed: `obstacles`,
   `design.rostrum`, `basedOn` and `built.rostrum`; `built.checks` no longer has `outside-area` or `obstacle`, which are
   now venue checks, reported by the fit (*Fit search*) for the venue tested. `area` is optional, only the drawing area,
