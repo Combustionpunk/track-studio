@@ -185,6 +185,18 @@ test.describe("tablet touch", () => {
     await expect(page.locator("g.ed-corner")).toHaveCount(8);
   });
 
+  test("step 1: a finger lifted near the edge of the next square still paints it, closing the loop too (#96)", async ({ page }) => {
+    await open(page);
+    const t = await Touch.on(page);
+    // [0, 0] → [3, 0], then just into [4, 0] (0.4 of a square off its centre): the drag never moves on to it
+    await t.drag([await cell(page, 0, 0), await cell(page, 3, 0), await cell(page, 3.6, 0)], 7);
+    await expect(page.locator("rect.lay-cell")).toHaveCount(5);
+    // round and back down column 0, lifted just inside the top of the first square: the loop closes
+    await t.drag([await cell(page, 3.6, 0), await cell(page, 4, 0), await cell(page, 4, 2), await cell(page, 0, 2), await cell(page, 0, 0.4)], 7);
+    await expect(page.locator('.steps li[aria-current="step"]')).toContainText("Shape it");
+    await expect(page.locator("g.ed-corner")).toHaveCount(4);
+  });
+
   test("step 1: two fingers pinch and pan the plan and never paint", async ({ page }) => {
     await open(page);
     const t = await Touch.on(page);

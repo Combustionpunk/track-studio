@@ -64,7 +64,7 @@ import {
   type DesignerMode,
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
-import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
+import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, releaseStep, reopenLaying, same, TURNS_HINT, withLaying, type Cell, type LaneGrid, type Laying, type Refusal } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
 import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
@@ -725,9 +725,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [layNote, setLayNote] = useState<string | null>(null);
   /** Paint from the end of the lane to `target`, one undo step per square. True once the loop has closed. */
   const paintCell = (g: LaneGrid, target: Cell): boolean => {
-    let d = draftRef.current;
+    const d = draftRef.current;
     if (!d.laying) return true;
-    const r = paintTo(g, { cells: d.laying, closed: false }, target);
+    return applyLaying(paintTo(g, { cells: d.laying, closed: false }, target));
+  };
+  /** Each painted state one undo step, and the refusal (if any) in the hint. True once the loop has closed. */
+  const applyLaying = (r: { states: Laying[]; refused?: Refusal }): boolean => {
+    let d = draftRef.current;
     for (const st of r.states) {
       d = withLaying({ ...d, area: areaRef.current }, st); // laid on the grid's area (the guide's, while there is one)
       hist.set(d);
@@ -766,6 +770,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     };
     const up = (ev?: PointerEvent) => {
       if (ev && ev.pointerId !== id) return;
+      // lifted near the edge of the next square, before the drag moved on to it: that step still counts (#96)
+      const lay = draftRef.current.laying;
+      if (ev?.type === "pointerup" && lay) applyLaying({ states: releaseStep(g, { cells: lay, closed: false }, planPoint(svg, ev.clientX, ev.clientY)) });
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
@@ -1308,6 +1315,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             <p className="lay-help">Press on a square and drag through the squares in driving order, straight or corner to corner for a diagonal. Drag back to take squares up.</p>
             <p className="lay-help">To cross the lane (a figure of eight), go straight across it at right angles. Add a crossover there once the loop is closed.</p>
             <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
+            <p className="lay-help">{TURNS_HINT}</p>
             <button
               type="button"
               className="palette-btn"
@@ -1393,8 +1401,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             <div className="designer-hint">
               {laying
                 ? layNote ?? (draft.laying?.length
-                  ? "Drag on through the squares, corner to corner for a diagonal, or straight across the lane at right angles. Come back to the ring to close the loop."
-                  : "Press on a square and drag to lay the lane, straight or diagonally.")
+                  ? `Drag on through the squares, corner to corner for a diagonal, or straight across the lane at right angles. Come back to the ring to close the loop. ${TURNS_HINT}`
+                  : `Press on a square and drag to lay the lane, straight or diagonally. ${TURNS_HINT}`)
                 : tool.kind === "feature"
                   ? tool.type === "crossover"
                     ? `${tablet ? "Tap" : "Click"} where the track crosses itself: the pass you ${tablet ? "tap" : "click"} goes over.`
