@@ -63,12 +63,34 @@ for (const width of [1200, 1024]) {
     await expect(checks).toContainText("crosses itself");
     await shot(page, "3-closed");
 
+    // #91: while a bake is pending the old check is still listed; its button is disabled, "Checking…", never a dead tap
+    await page.evaluate(() => {
+      const w = window as unknown as { seen: string[] };
+      w.seen = [];
+      new MutationObserver(() => {
+        for (const b of document.querySelectorAll<HTMLButtonElement>(".designer-side button.check-fix")) w.seen.push(`${b.disabled}|${b.title}`);
+      }).observe(document.body, { subtree: true, childList: true, attributes: true });
+    });
     await checks.getByRole("button", { name: "Make it a crossover" }).click();
     await expect(checks).not.toContainText("crosses itself");
     await expect(checks).not.toContainText("error");
+    expect(await page.evaluate(() => (window as unknown as { seen: string[] }).seen)).toContain("true|Checking…");
     await shot(page, "4-bridged");
 
     await page.locator(".designer-bar").getByRole("button", { name: "Undo" }).click();
     await expect(checks).toContainText("crosses itself");
+    await expect(checks.getByRole("button", { name: "Make it a crossover" })).toBeEnabled();
   });
 }
+
+test("a crossing with nowhere to go straight on says so (#91)", async ({ page }) => {
+  await page.goto(BLANK);
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.waitForSelector("rect.lay-hit");
+  // [1, 0] is straight through on the first pass; crossing it southwards would run off the grid
+  await drag(page, [[0, 0], [2, 0], [2, 1], [1, 1], [1, 0]]);
+  await page.mouse.up();
+  await expect(hint(page)).toHaveText("A crossing needs the lane to carry straight on.");
+  await shot(page, "5-dead-end");
+});
