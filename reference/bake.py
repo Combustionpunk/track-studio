@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.7).
+Reference implementation of the rctrack geometry engine (format v1.9).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.8"
+GENERATOR = "rctrack-bake.py 1.9"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -37,6 +37,8 @@ BRIDGE_MARGIN = 1.0    # a bridge's flat top spans the under pass's lane plus th
 CROSSING_MIN_ANGLE = 60.0  # crossings sharper than this (deg; i.e. outside 60-120° between the passes) are warned about
 CROSSING_MIN_SEP = 1.0 # the racing line crossing itself less than this far along the lap is numerical noise, not a crossing
 CROSSING_ZONE = 0.2    # divider self-crossings this close to where two lanes cross (m) are the crossing, not a loop to cut
+OVERLAP_TOL = 0.02     # (1.9) lanes overlap where their centres are closer than half their widths' sum less this (m):
+                       # two lanes sharing a pipe touch, they don't overlap (the dividers' tolerance)
 
 FEATURE_PROFILES = {   # along-track distance (m), height (m), for default length/height; scaled to the feature's values
     "tabletop": [[0, 0], [0.70, 1], [1.50, 1], [2.20, 0]],
@@ -189,11 +191,13 @@ def lane_rings(R, L):
         return [[r3(x), r3(z)] for x, z in simp]
     return {"right": ring(R), "left": ring(L)}
 
-def borders(line, corners, points, extra=0.0):
+def borders(line, corners, points, extra=0.0, zones=None):
     """Both lane edges at every sample (right side, left side), offset by width/2 + extra.
     Straights: the racing line offset sideways. Corners: the inner edge follows the arc (radius r - width/2) or, where
     that is <= 0, collapses to the apex where the two straights' inner edges meet (straight samples that would pass it
-    are held there); the outer edge follows the arc ("round") or meets in a square corner ("square", the default)."""
+    are held there); the outer edge follows the arc ("round") or meets in a square corner ("square", the default).
+    If `zones` is a list, each corner's samples (its arc, and the straight samples held at its apex) are appended to it
+    as a set: the corner's own stretch of lane, which may overlap itself (lane_overlaps)."""
     xy = line[:, :2]; n = len(xy)
     t, left = frame(xy)
     hw = line[:, 2:3] / 2 + extra
@@ -202,6 +206,8 @@ def borders(line, corners, points, extra=0.0):
         if not (c["th"] > 1e-6 and c["r"] > 0): continue
         a0, m, e = c["arc0"], c["m"], c["str0"] % n
         hwc = c["w"] / 2 + extra
+        zone = {(a0 + k) % n for k in range(m)}
+        if zones is not None: zones.append(zone)
         outer, inner = (R, L) if c["sign"] > 0 else (L, R)
         if outer_style(points[i], c) == "square":
             for k, q in enumerate(spread(square_outline(c, hwc), m)):
@@ -216,11 +222,11 @@ def borders(line, corners, points, extra=0.0):
             for k in range(prev["strn"]):                  # incoming straight, backwards from the corner
                 j = (a0 - 1 - k) % n
                 if float((inner[j] - Q) @ c["a"]) <= 0: break
-                inner[j] = Q
+                inner[j] = Q; zone.add(j)
             for k in range(c["strn"]):                     # outgoing straight
                 j = (e + k) % n
                 if float((inner[j] - Q) @ c["b"]) >= 0: break
-                inner[j] = Q
+                inner[j] = Q; zone.add(j)
     return R, L
 
 def square_corner_polygons(line, corners, points, extra=0.0):
@@ -680,6 +686,59 @@ def crossing_checks(cr, built_feats, design, total, checks):
                                "message": f"Crossings at {cr[a]['d'][0]:.1f} m and {cr[b]['d'][0]:.1f} m are too close for a bridge each"})
     return out
 
+# ------------------------------------------------------------------ lane overlaps (v1.9)
+def lane_overlaps(line, s, total, edges, zones, cr):
+    """lane-overlap checks: where the lane of one part of the lap runs into the lane of another. Sampled every
+    EXPORT_STEP along the racing line, each sample a disc of half its width round its centre, and its two lane edges
+    (borders: so a square corner's mitre counts). Two samples overlap by how far one's disc reaches into the other's,
+    or one's lane edge into the other's disc, if that is more than OVERLAP_TOL. Not an overlap, but the lane meeting
+    itself:
+    - the lane never gets clear of the first sample between the two, one way round the lap or the other (a corner,
+      the inside of a hairpin);
+    - both are in one corner's zone (borders: its arc and the straight samples held at its collapsed apex: a sharp V);
+    - they are the two passes of a crossing, each within max(lane widths) / sin(angle) + BRIDGE_MARGIN of it along
+      its pass (crossings are bridged, or reported, by the crossing checks).
+    Overlapping samples form runs along the lap; one check per pair of runs that overlap each other, at the middle of
+    the two runs' middle samples, giving the deepest overlap."""
+    step = max(1, int(EXPORT_STEP / SAMPLE))
+    idx = np.arange(0, len(line), step); n = len(idx)
+    P = line[idx, :2]; H = line[idx, 2] / 2; S = s[idx]; ER, EL = edges[0][idx], edges[1][idx]
+    Z = np.array([[int(k) in z for z in zones] for k in idx], bool).reshape(n, len(zones))
+    near = []                                    # per crossing: samples near its first pass, near its second
+    for c in cr:
+        R = max(c["w"]) / max(math.sin(math.radians(c["angle"])), 0.1) + BRIDGE_MARGIN
+        near.append(tuple(np.abs((S - c["d"][p] + total / 2) % total - total / 2) <= R for p in (0, 1)))
+    pairs = []
+    for i in range(n):
+        j = (i + np.arange(1, n)) % n            # the rest of the lap, forwards from i
+        gap = lambda A, B: np.linalg.norm(A - B, axis=-1)
+        short = np.max([H[i] + H[j] - gap(P[j], P[i]), H[i] - gap(ER[j], P[i]), H[i] - gap(EL[j], P[i]),
+                        H[j] - gap(ER[i], P[j]), H[j] - gap(EL[i], P[j])], axis=0) - OVERLAP_TOL
+        clear = short <= 0
+        flag = ~clear & np.logical_or.accumulate(clear) & np.logical_or.accumulate(clear[::-1])[::-1]
+        flag &= ~(Z[j] & Z[i]).any(1)
+        for a, b in near: flag &= ~((a[i] & b[j]) | (b[i] & a[j]))
+        pairs += [(i, int(j[k]), float(short[k])) for k in np.flatnonzero(flag)]
+    if not pairs: return []
+    hit = np.zeros(n, bool)
+    for i, j, _ in pairs: hit[i] = hit[j] = True
+    u = int(np.argmin(hit)) if not hit.all() else 0
+    runs = []; run_of = {}
+    for k in range(n):
+        q = (u + k) % n
+        if not hit[q]: continue
+        if not runs or not hit[(q - 1) % n] or k == 0: runs.append([])
+        runs[-1].append(q); run_of[q] = len(runs) - 1
+    deep = {}
+    for i, j, d in pairs:
+        key = tuple(sorted((run_of[i], run_of[j]))); deep[key] = max(deep.get(key, 0.0), d)
+    out = []
+    for a, b in sorted(deep):
+        X = (P[runs[a][len(runs[a]) // 2]] + P[runs[b][len(runs[b]) // 2]]) / 2
+        out.append({"level": "error", "code": "lane-overlap", "x": r3(X[0]), "z": r3(X[1]),
+                    "message": f"Lanes overlap by {deep[(a, b)] + OVERLAP_TOL:.2f} m here"})
+    return out
+
 FEATURE_LABEL = {"tabletop": "Tabletop", "double": "Double", "kicker": "Kicker", "stepup": "Step-up", "stepdown": "Step-down",
                  "whoops": "Whoops", "bump": "Bump"}
 
@@ -778,7 +837,8 @@ def bake(doc):
                 break
 
     # checks: radius, width (the track only: venue checks are the fit's, fit.check)
-    edges = borders(line, corners, design["points"])               # lane edges, right then left
+    zones = []
+    edges = borders(line, corners, design["points"], zones=zones)  # lane edges, right then left
     for i, c in enumerate(corners):
         if c["th"] > 1e-3 and 0 < c["r"] < MIN_RADIUS:
             checks.append({"level": "warning", "code": "tight-corner", "x": r3(design["points"][i]["x"]), "z": r3(design["points"][i]["z"]),
@@ -788,6 +848,7 @@ def bake(doc):
                            "message": f"Corner radius reduced to {c['r']:.2f} m to fit the straights either side"})
     if np.min(line[:, 2]) < MIN_WIDTH:
         checks.append({"level": "warning", "code": "narrow-lane", "message": f"Lane narrower than {MIN_WIDTH} m"})
+    checks += lane_overlaps(line, s, total, edges, zones, cr)              # 1.9
 
     # footprint
     mask, origin = lane_mask(line, corners, design["points"])

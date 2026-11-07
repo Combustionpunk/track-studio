@@ -5,7 +5,7 @@
   test/fixtures/extra/*.rcvenue.json   extra venues: a rotated obstacle; the obstacles a fixture runs over
   test/fixtures/fit-expected.json      fit.fits() and fit.check() for every track x venue (reference + extra)
   reference/examples/*.rctrack.json    re-baked (1.7: upgraded from 1.6 first)
-The v12/ to v17/ checks assert that older bakes re-bake the same, less what each later version changed on purpose.
+The v12/ to v18/ checks assert that older bakes re-bake the same, less what each later version changed on purpose.
 usage (from the repo root): python3 packages/engine/scripts/gen_fixtures.py"""
 import glob, json, math, os, re, sys
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -146,6 +146,28 @@ EXTRA_TRACKS["jump-across-start"] = track("16", "Jump across the start", {"lengt
 EXTRA_TRACKS["start-on-ramp"] = at_crossings(figure8("17", "Start on the crossover's ramp"), lambda k, d: {"type": "crossover", "distance": d[0]})
 EXTRA_TRACKS["start-on-ramp"]["design"]["start"]["distance"] = round(EXTRA_TRACKS["start-on-ramp"]["design"]["features"][0]["distance"] - 1.5, 3)
 
+# rctrack 1.9 (#95): lane-overlap. A hairpin leg 1.4 m above the main straight with a 2 m lane overlaps it by 0.6 m; at
+# 2 m the two share a pipe; a 164° V at 0.6 m (its inside collapsed to the apex) meets itself, it doesn't overlap;
+# #82's case: a 45° diagonal, then a straight back west whose square corner clips the diagonal's lane
+def hairpin_legs(gap, r):
+    """Main straight, a hairpin leg `gap` m above it (centre to centre), back round the west end."""
+    z = round(-4.5 + gap, 3)
+    return [{"x": -9, "z": -4.5}, {"x": 9, "z": -4.5, "radius": r}, {"x": 9, "z": z, "radius": r}, {"x": -5, "z": z},
+            {"x": -5, "z": 4.5}, {"x": -9, "z": 4.5}]
+EXTRA_TRACKS.update({
+    "overlap-straights": track("18", "Straights 1.4 m apart", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": hairpin_legs(1.4, 0.7), "start": {"distance": 3.0}}),
+    "shared-straights": track("19", "Straights sharing a pipe", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": hairpin_legs(2.0, 1.0), "start": {"distance": 3.0}}),
+    "tight-hairpin": track("20", "Tight hairpin", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": [{"x": -9, "z": -4}, {"x": 9, "z": -4, "radius": 0.6}, {"x": -5, "z": 0}, {"x": -5, "z": 4},
+                                     {"x": -9, "z": 4}], "start": {"distance": 3.0}}),
+    "diagonal-clip": track("21", "Diagonal clipped by a straight", {"length": 18, "width": 14}, {
+        "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": 1.0} for x, z in
+                                     [(-3, -1), (3, 5), (7, 5), (7, 1), (1, 1), (1, -5), (-7, -5), (-7, -1)]],
+        "start": {"distance": 1.0}}),
+})
+
 EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
 
 EXTRA_VENUES = {
@@ -221,4 +243,12 @@ for f in sorted(glob.glob(os.path.join(fixtures, "v17", "*.rctrack.json"))):
     diff = sorted(k for k in a.keys() | b.keys() if json.dumps(a.get(k)) != json.dumps(b.get(k)))
     print(f"{os.path.basename(f)}: {'same as 1.7' if not diff else 'DIFFERENT from 1.7: ' + ', '.join(diff)}")
     assert diff == CHANGED_18.get(os.path.basename(f), [])
+# 1.8 bakes (v18/: the reference examples and extras as bake.py 1.8 baked them) bake exactly the same in 1.9: none has
+# lanes that overlap, so none gains a lane-overlap check
+for f in sorted(glob.glob(os.path.join(fixtures, "v18", "*.rctrack.json"))):
+    doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
+    a, b = as17(old), as17(new)
+    diff = sorted(k for k in a.keys() | b.keys() if json.dumps(a.get(k)) != json.dumps(b.get(k)))
+    print(f"{os.path.basename(f)}: {'same as 1.8' if not diff else 'DIFFERENT from 1.8: ' + ', '.join(diff)}")
+    assert not diff
 print(f"{len(out)} fit results; fitting:", sum(1 for r in out.values() if r["fits"]))
