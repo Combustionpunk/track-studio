@@ -462,7 +462,7 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
     }
   }
 
-  if (layers.start && built) o.push(drawStart(built, px, tip("start"), P));
+  if (layers.start && built?.startLine) o.push(drawStart(built, px, tip("start"), P)); // a stored file may lack it (#90)
   // a feature that bridges a crossing is drawn with it, over the pipes
   if (layers.features && built) built.features.forEach((f, i) => bridges.has(i) || o.push(drawJump(f, i, px, tips, P, print, id)));
 

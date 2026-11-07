@@ -1,15 +1,19 @@
 // Tabs left open across a deploy (#88): the version check, the reload banner, the full load on the next navigation,
 // the chunk-load guard and the route error page.
+import type { RcTrack } from "@track-studio/engine";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter, type RouteObject } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as v from "../src/lib/version.js";
+import { PlanView } from "../src/components/PlanView.js";
 import { UpdateBanner } from "../src/components/UpdateBanner.js";
 import { ErrorView } from "../src/pages/ErrorPage.js";
-import { routes } from "../src/routes.js";
+import { routes, VersionWatch } from "../src/routes.js";
 import { buildVersion, stampVersion } from "../version-stamp.js";
 
-const location = { href: "https://tracks.example/", assign: vi.fn(), reload: vi.fn() };
+const location = { href: "https://tracks.example/", assign: vi.fn(), replace: vi.fn(), reload: vi.fn() };
 
 function storage(): Storage {
   const m = new Map<string, string>();
@@ -18,11 +22,25 @@ function storage(): Storage {
 
 beforeEach(() => {
   v.resetForTests("build-a");
+  location.href = "https://tracks.example/";
   location.assign.mockReset();
+  location.replace.mockReset();
   location.reload.mockReset();
   vi.stubGlobal("window", { location });
 });
 afterEach(() => vi.unstubAllGlobals());
+
+/** Storage blocked (third-party storage in the forum's embed frame): even reading `sessionStorage` throws. */
+function blockStorage() {
+  const before = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    get() {
+      throw new DOMException("The operation is insecure.", "SecurityError");
+    },
+  });
+  return () => (before ? Object.defineProperty(globalThis, "sessionStorage", before) : delete (globalThis as { sessionStorage?: unknown }).sessionStorage);
+}
 
 const nav = (from: string, to: string) => ({ currentUrl: new URL(from, "https://tracks.example"), nextUrl: new URL(to, "https://tracks.example") });
 const gate = (to: string) => v.versionGate({ request: new Request(new URL(to, "https://tracks.example")) });
@@ -51,6 +69,39 @@ describe("noticing a new version", () => {
     const { api } = await import("../src/lib/api.js");
     vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "x", message: "no" }), { status: 500, headers: { "content-type": "application/json", "x-app-version": "build-b" } }));
     await expect(api("/api/tracks")).rejects.toThrow();
+    expect(v.isStale()).toBe(true);
+  });
+
+  it("on focus or when the tab becomes visible, at most once a minute", () => {
+    const on = new Map<string, () => void>();
+    const target = { addEventListener: (t: string, f: () => void) => void on.set(t, f), removeEventListener: (t: string) => void on.delete(t) };
+    const doc = { ...target, visibilityState: "visible" as DocumentVisibilityState };
+    let t = 1_000_000;
+    const check = vi.fn();
+    const stop = v.watchFocus(target, doc, check, () => t);
+    on.get("focus")!();
+    on.get("visibilitychange")!();
+    expect(check).toHaveBeenCalledTimes(1);
+    t += 61_000;
+    doc.visibilityState = "hidden";
+    on.get("visibilitychange")!();
+    expect(check).toHaveBeenCalledTimes(1);
+    doc.visibilityState = "visible";
+    on.get("focus")!();
+    expect(check).toHaveBeenCalledTimes(2);
+    stop();
+    expect(on.size).toBe(0);
+  });
+
+  it("the focus check runs on every page, the embed and build sheet included, not only under the banner", () => {
+    const root = routes[0];
+    expect((root.element as { type?: unknown }).type).toBe(VersionWatch);
+    expect(root.children?.some((r) => r.path === "/embed/:id")).toBe(true);
+    expect(root.children?.some((r) => r.path === "/t/:id/build")).toBe(true);
+  });
+
+  it("a chunk the new build removed marks the tab out of date", () => {
+    v.markStale();
     expect(v.isStale()).toBe(true);
   });
 
@@ -87,6 +138,22 @@ describe("the next navigation is a full page load", () => {
     const result = gate("/t/abc?r=2");
     expect(location.assign).toHaveBeenCalledWith("https://tracks.example/t/abc?r=2");
     expect(result).toBeInstanceOf(Promise); // never settles: the old page stays until the new one loads
+  });
+
+  it("Back or Forward: the page loads in place of its history entry, adding none and keeping Forward", () => {
+    v.noteServerVersion("build-b");
+    location.href = "https://tracks.example/v#plan"; // a history pop: the address bar already shows where it's going
+    gate("/v");
+    expect(location.replace).toHaveBeenCalledWith("https://tracks.example/v");
+    expect(location.assign).not.toHaveBeenCalled();
+  });
+
+  it("a link or a push navigation still adds its history entry", () => {
+    v.noteServerVersion("build-b");
+    location.href = "https://tracks.example/";
+    gate("/v");
+    expect(location.assign).toHaveBeenCalledWith("https://tracks.example/v");
+    expect(location.replace).not.toHaveBeenCalled();
   });
 
   it("unsaved work holds the reload: only the banner shows, and the app navigates as usual", () => {
@@ -135,6 +202,55 @@ describe("chunk-load failures", () => {
     v.resetForTests("build-c");
     expect(v.reloadOnceForChunkError(s)).toBe(true);
     expect(location.reload).toHaveBeenCalledTimes(2);
+  });
+
+  it("storage blocked so that reading sessionStorage throws: no crash and no reload", () => {
+    const restore = blockStorage();
+    try {
+      expect(() => v.reloadOnceForChunkError()).not.toThrow();
+      expect(v.reloadOnceForChunkError()).toBe(false);
+      expect(location.reload).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it("unsaved work: the error page doesn't reload by itself either", () => {
+    const release = v.holdReload();
+    expect(v.reloadOnceForChunkError(storage())).toBe(false);
+    expect(location.reload).not.toHaveBeenCalled();
+    release();
+  });
+
+  it("a preload error reloads once, and stops the error (the reload replaces the page)", () => {
+    const e = { preventDefault: vi.fn() };
+    v.onPreloadError(e, storage());
+    expect(location.reload).toHaveBeenCalledTimes(1);
+    expect(e.preventDefault).toHaveBeenCalled();
+  });
+
+  it("a preload error with unsaved designer changes: the banner shows and nothing reloads", () => {
+    const release = v.holdReload();
+    const e = { preventDefault: vi.fn() };
+    v.onPreloadError(e, storage());
+    expect(location.reload).not.toHaveBeenCalled();
+    expect(e.preventDefault).not.toHaveBeenCalled();
+    expect(v.isStale()).toBe(true);
+    expect(renderToStaticMarkup(<UpdateBanner />)).toContain("Track Studio has been updated.");
+    release();
+  });
+
+  it("a preload error with storage blocked: no crash, no reload, the banner shows", () => {
+    const restore = blockStorage();
+    try {
+      const e = { preventDefault: vi.fn() };
+      expect(() => v.onPreloadError(e)).not.toThrow();
+      expect(location.reload).not.toHaveBeenCalled();
+      expect(e.preventDefault).not.toHaveBeenCalled(); // the import's error goes on to the error page
+      expect(v.isStale()).toBe(true);
+    } finally {
+      restore();
+    }
   });
 
   it("no session storage (private mode, blocked): never reloads automatically", () => {
@@ -187,6 +303,15 @@ describe("the error page", () => {
     // and the root gate runs before each change of page
     expect(routes[0].loader).toBe(v.versionGate);
     expect(routes[0].shouldRevalidate).toBe(v.gateRevalidates);
+  });
+});
+
+describe("defensive reads", () => {
+  it("PlanView draws a built track with no start line", () => {
+    const track = JSON.parse(readFileSync(join(__dirname, "../../../reference/examples/freeform-at-sports-hall-b.rctrack.json"), "utf8")) as RcTrack;
+    const built = { ...track.built, startLine: undefined } as unknown as NonNullable<RcTrack["built"]>;
+    const html = renderToStaticMarkup(<PlanView area={track.area!} built={built} label="Plan" />);
+    expect(html).toContain(`class="plan`); // no throw (static render: it draws once it has measured itself)
   });
 });
 

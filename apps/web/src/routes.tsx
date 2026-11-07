@@ -13,7 +13,7 @@ import { Library } from "./pages/Library.js";
 import { NotFound } from "./pages/NotFound.js";
 import { TrackPage } from "./pages/TrackPage.js";
 import { VenuePage, Venues } from "./pages/Venues.js";
-import { gateRevalidates, versionGate } from "./lib/version.js";
+import { gateRevalidates, useCheckOnFocus, versionGate } from "./lib/version.js";
 import { EditVenuePage, NewVenuePage } from "./venues/pages.js";
 
 function Layout() {
@@ -35,6 +35,12 @@ function Layout() {
   );
 }
 
+/** The root: checks the version when the tab regains focus, on every page including the embed and the build sheet. */
+export function VersionWatch() {
+  useCheckOnFocus();
+  return <Outlet />;
+}
+
 /** A fresh page per track, so panels and selections don't carry over from the previous one. */
 function TrackRoute() {
   const { id } = useParams();
@@ -43,6 +49,7 @@ function TrackRoute() {
 
 export const routes: RouteObject[] = [
   {
+    element: <VersionWatch />,
     loader: versionGate,
     shouldRevalidate: gateRevalidates,
     errorElement: <RouteError />,
