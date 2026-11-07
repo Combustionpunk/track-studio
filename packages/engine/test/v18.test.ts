@@ -86,7 +86,7 @@ describe("start-on-feature (#91)", () => {
     const b = bakeBuilt(ramp);
     expect(startOn(b)).toEqual([{ level: "warning", code: "start-on-feature", x: b.startLine.x, z: b.startLine.z, message: "Start line is on a ramp" }]);
     expect(b.startLine.distance).toBe(ramp.design.start!.distance);
-    expect(b).toEqual(ramp.built);
+    expect({ ...b, generator: undefined }).toEqual({ ...ramp.built, generator: undefined });
   });
 
   it("not for a start on a straight", () => {

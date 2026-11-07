@@ -46,10 +46,10 @@ def svg(doc, px_per_m=40):
     ax, az = s["x"] + math.cos(h) * 2.5, s["z"] + math.sin(h) * 2.5
     o.append(f'<line x1="{X(s["x"]+math.cos(h)*0.6):.1f}" y1="{Z(s["z"]+math.sin(h)*0.6):.1f}" x2="{X(ax):.1f}" y2="{Z(az):.1f}" stroke="#ff4fb0" stroke-width="5" marker-end="url(#a)"/>')
     o.insert(1, '<defs><marker id="a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff4fb0"/></marker></defs>')
-    # checks
+    # checks: errors and warnings (#91: no ring for info, such as a jump into a corner, a technical section)
     for c in b["checks"]:
-        if "x" in c:
-            col = {"error": "#ff4040", "warning": "#ffb000"}.get(c["level"], "#7fb2ff")
+        if "x" in c and c["level"] != "info":
+            col = {"error": "#ff4040", "warning": "#ffb000"}[c["level"]]
             o.append(f'<circle cx="{X(c["x"]):.1f}" cy="{Z(c["z"]):.1f}" r="14" fill="none" stroke="{col}" stroke-width="4"/>')
     i = doc["info"]
     o.append(f'<text x="12" y="26" fill="#fff" font-size="20">{i["name"]}  -  {b["lapLength"]:.0f} m lap, {len(b["features"])} features, area {L:g} x {W:g} m</text>')

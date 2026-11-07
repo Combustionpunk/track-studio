@@ -207,8 +207,9 @@ describe("painting the lane", () => {
   });
 
   it("refuses a square used already, and squares off the grid", () => {
+    // [1, 0] could only be crossed, and straight on from it is off the grid (#91: said as a dead end)
     const laid = last(paintAll(g, [[0, 0], [2, 0], [2, 1], [1, 1]]));
-    expect(paintTo(g, laid, [1, 0])).toEqual({ states: [], refused: "used" });
+    expect(paintTo(g, laid, [1, 0])).toEqual({ states: [], refused: "dead-end" });
     expect(paintTo(g, empty, [12, 0]).refused).toBe("outside");
     expect(paintTo(g, empty, [0, -1]).refused).toBe("outside");
   });
