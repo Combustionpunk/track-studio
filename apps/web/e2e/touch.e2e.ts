@@ -177,7 +177,8 @@ test.describe("tablet touch", () => {
     // 7 steps per move, so no sample lands exactly on a grid corner
     const path: XY[] = [];
     for (const [c, r] of OCTAGON) path.push(await cell(page, c, r));
-    await t.drag(path.slice(0, 3), 7);
+    // a slow finger a little off the diagonal, clipping [8, 1] beside the corner: still corner to corner
+    await t.drag([path[0], path[1], await cell(page, 8.6, 1), path[2]], 20);
     await expect(page.locator("rect.lay-cell")).toHaveCount(9); // [2, 0]…[8, 0], [9, 1], [10, 2]
     await t.drag(path.slice(2), 7);
     await expect(page.locator('.steps li[aria-current="step"]')).toContainText("Shape it");

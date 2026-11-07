@@ -11,6 +11,7 @@ import {
   cellAt,
   cellCentre,
   designStep,
+  dragCell,
   gridFor,
   isLoop,
   key,
@@ -582,7 +583,7 @@ describe("diagonal lanes (#82)", () => {
   it("two diagonal runs side by side, width / √2 apart, can't be painted: the second cuts past the first", () => {
     // north-east from [0, 0] to [3, 3], round, and back south-west one column over: [4, 3] → [1, 0]
     const out = last(paintAll(g, [[0, 0], [3, 3], [4, 3]]));
-    expect(paintTo(g, out, [3, 2])).toEqual({ states: [], refused: "corner" }); // past [3, 3]… and [4, 2]
+    expect(paintTo(g, out, [3, 2])).toEqual({ states: [], refused: "corner" }); // past [3, 3], the lane's own
     // two columns over they're 2.83 m apart, more than a lane: that loop closes and bakes clean
     const wide: Cell[] = [[0, 0], [0, 1], [2, 3], [3, 3], [3, 2], [1, 0], [0, 0]];
     expect(last(paintAll(g, wide)).closed).toBe(true);
@@ -602,6 +603,68 @@ describe("diagonal lanes (#82)", () => {
     const back = last(paintTo(g, last(paintAll(g, [[1, 0], [4, 3]])), [2, 1]).states);
     expect(back.cells).toEqual([[1, 0], [2, 1]]);
     expect(last(paintTo(g, back, [3, 1]).states).cells).toEqual([[1, 0], [2, 1], [3, 1]]);
+  });
+
+  it("a V (a 90° turn between two diagonals) needs a clear square beyond its point: its outside reaches into it", () => {
+    expect(REFUSAL_TEXT.tip).toBe("The point of a V needs a clear square beyond it, inside the track area.");
+    // on the edge row: the point of [3, 4]… [5, 5] → [4, 4] would reach past the area's north edge
+    const north = last(paintAll(g, [[5, 1], [7, 3], [5, 5]]));
+    expect(paintTo(g, north, [4, 4])).toEqual({ states: [], refused: "tip" });
+    // closing onto the first square: the V there, and the V on the last square, are checked too
+    expect(paintTo(g, last(paintAll(g, [[3, 0], [5, 2], [3, 4], [1, 2]])), [3, 0]).refused).toBe("tip"); // at [3, 0]
+    expect(paintTo(g, last(paintAll(g, [[1, 0], [2, 1], [1, 2], [0, 1]])), [1, 0]).refused).toBe("tip"); // at [0, 1]
+    // a point aimed at a blocked square: a pillar in [3, 2] only
+    const pillar = laneGrid(v.area, [{ type: "circle", x: -4, z: -1.65, radius: 0.3, label: "Pillar" }], 2);
+    expect(blocked(pillar)).toEqual(["3,2"]);
+    expect(paintTo(pillar, last(paintAll(pillar, [[2, 0], [3, 1]])), [4, 0])).toEqual({ states: [], refused: "tip" });
+    // at a square the lane uses: north up column 6, then a V at [5, 2] pointing at [6, 2]
+    expect(paintTo(g, last(paintAll(g, [[6, 0], [6, 4], [5, 4], [4, 3], [5, 2]])), [4, 1]).refused).toBe("tip");
+    // and later into the square beyond the point: a V at [5, 2] pointing east, then round into [6, 2]
+    const v5 = last(paintAll(g, [[3, 0], [5, 2], [3, 4], [4, 5], [7, 5], [7, 2]]));
+    expect(paintTo(g, v5, [6, 2])).toEqual({ states: [], refused: "tip" });
+    // away from the edge every V is fine, and the loop bakes clean on the venue
+    const diamond: Cell[] = [[5, 1], [6, 2], [5, 3], [4, 2], [5, 1]];
+    expect(last(paintAll(g, diamond)).closed).toBe(true);
+    expect(errorsIn(laidDoc(v, diamond), v)).toEqual([]);
+  });
+
+  it("every closed loop without crossings that painting allows bakes clean (fuzzed)", () => {
+    let seed = 7;
+    const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    let baked = 0;
+    for (let t = 0; t < 600 && baked < 40; t++) {
+      let lay: Laying = { cells: [[Math.floor(rand() * g.cols), Math.floor(rand() * g.rows)]], closed: false };
+      for (let k = 0; k < 60 && !lay.closed; k++) {
+        const e = lay.cells[lay.cells.length - 1];
+        const to: Cell = rand() < 0.1 ? lay.cells[0] : [e[0] + Math.floor(rand() * 3) - 1, e[1] + Math.floor(rand() * 3) - 1];
+        lay = last(paintTo(g, lay, to).states) ?? lay;
+      }
+      if (!lay.closed || new Set(lay.cells.map(key)).size < lay.cells.length) continue;
+      baked++;
+      expect(errorsIn(laidDoc(v, [...lay.cells, lay.cells[0]]), v), JSON.stringify(lay.cells)).toEqual([]);
+    }
+    expect(baked).toBe(40);
+  });
+
+  it("a crossing whose square straight on is beside a diagonal is just a used square: the lane can't get stuck there", () => {
+    const fine = laneGrid(v.area, [], 1);
+    const lay = last(paintAll(fine, [[3, 1], [3, 4], [5, 4], [5, 2], [4, 1], [4, 0], [1, 0], [1, 2], [2, 2]]));
+    // [3, 2] would cross the first pass at right angles, but straight on is [4, 2], which [5, 2] → [4, 1] passed between
+    expect(paintTo(fine, lay, [3, 2])).toEqual({ states: [], refused: "used" });
+  });
+
+  it("a drag stays on its square until it's well inside the next, so a diagonal drag goes corner to corner", () => {
+    const at = (c: number, r: number): [number, number] => [g.origin[0] + c * 2, g.origin[1] + r * 2]; // in squares
+    expect(dragCell(g, at(0.5, 0.5), null)).toEqual([0, 0]);
+    // a slow drag from [0, 0] towards [1, 1] a little off the diagonal clips [1, 0] near its corner: not taken
+    expect(dragCell(g, at(1.1, 0.95), [0, 0])).toEqual([0, 0]);
+    expect(dragCell(g, at(1.4, 1.35), [0, 0])).toEqual([1, 1]);
+    // well inside a square next to it, straight or diagonal, it moves on
+    expect(dragCell(g, at(1.3, 0.5), [0, 0])).toEqual([1, 0]);
+    expect(dragCell(g, at(0.5, 1.75), [0, 0])).toEqual([0, 1]);
+    // a fast drag that lands further away goes there at once (painting fills the gap); off the grid is null
+    expect(dragCell(g, at(3.05, 0.5), [0, 0])).toEqual([3, 0]);
+    expect(dragCell(g, at(-0.5, 0.5), [0, 0])).toBeNull();
   });
 
   it("a diagonal never crosses the lane (no X): crossings stay straight across at right angles", () => {

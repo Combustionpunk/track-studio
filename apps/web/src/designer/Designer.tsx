@@ -64,7 +64,7 @@ import {
   type DesignerMode,
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
-import { cellAt, cellCentre, cellCorner, designStep, gridFor, neighbours, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
+import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
 import { useBake } from "./useBake.js";
 import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
@@ -759,7 +759,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const id = e.pointerId; // a second finger never paints: it pinches or pans, and takes this painting back
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== id) return;
-      const c = cellAt(g, planPoint(svg, ev.clientX, ev.clientY));
+      const c = dragCell(g, planPoint(svg, ev.clientX, ev.clientY), cur);
       if (!c || (cur && same(c, cur))) return;
       cur = c;
       if (paintCell(g, c)) up();

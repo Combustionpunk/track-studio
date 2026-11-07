@@ -19,15 +19,15 @@ async function cell(page: Page, c: number, r: number): Promise<XY> {
   }, [c, r]);
 }
 
-/** 7 steps per move, so no sample lands exactly on a grid corner */
-async function drag(page: Page, cells: XY[], start = true) {
+/** 7 steps per move by default, so no sample lands exactly on a grid corner */
+async function drag(page: Page, cells: XY[], start = true, steps = 7) {
   const path: XY[] = [];
   for (const [c, r] of cells) path.push(await cell(page, c, r));
   if (start) {
     await page.mouse.move(...path[0]);
     await page.mouse.down();
   }
-  for (const p of path.slice(start ? 1 : 0)) await page.mouse.move(...p, { steps: 7 });
+  for (const p of path.slice(start ? 1 : 0)) await page.mouse.move(...p, { steps });
 }
 
 const hint = (page: Page) => page.locator(".designer-hint");
@@ -59,7 +59,9 @@ for (const width of [1200, 1024]) {
     await page.mouse.up();
 
     await open(page, width);
-    await drag(page, OCTAGON.slice(0, 3));
+    // slowly, a little off the diagonal, clipping [8, 1] beside the corner: still corner to corner
+    await drag(page, [...OCTAGON.slice(0, 2), [8.6, 1]], true, 20);
+    await drag(page, [OCTAGON[2]], false, 20);
     await expect(page.locator("rect.lay-cell")).toHaveCount(9);
     await shot(page, "2-diagonal");
     await drag(page, OCTAGON.slice(3), false);
@@ -67,7 +69,7 @@ for (const width of [1200, 1024]) {
 
     await expect(page.locator("g.ed-corner")).toHaveCount(8);
     const checks = page.locator(".designer-side .checks-panel");
-    await expect(checks).not.toContainText("error");
+    await expect(checks).toContainText("No problems found.", { timeout: 15_000 });
     await shot(page, "3-octagon");
   });
 }
