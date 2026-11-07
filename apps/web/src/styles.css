@@ -327,6 +327,9 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .lay-first { fill: none; stroke: var(--plan-line); stroke-width: 3; pointer-events: none; }
 .lay-crossing { fill: none; stroke: var(--plan-line); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
 .lay-end { fill: none; stroke: var(--ed-guide); stroke-width: 2; pointer-events: none; }
+.lay-cursor { fill: none; stroke: var(--focus); stroke-width: 3; pointer-events: none; }
+/* the lane grid (#47) is a hidden element over the plan: its focus ring goes round the plan */
+.designer-plan-wrap:has(.lay-keys:focus-visible) .plan-svg { outline: 2px solid var(--focus); outline-offset: -2px; }
 .panel .seg .seg-label { width: 100%; margin-bottom: 4px; }
 .snap-info { white-space: nowrap; }
 
