@@ -117,5 +117,7 @@ describe("distances in check messages (#91)", () => {
     const b = bakeBuilt(track([{ type: "tabletop", distance: -1.5 }, { type: "crossover", distance: 48.566 + 9 }]));
     expect(b.lapLength).toBeCloseTo(48.566, 3);
     expect(b.checks.map((c) => c.message)).toEqual(["Tabletop at 47.1 m is on or lands into a corner (technical section)", "crossover at 9.0 m bridges no crossing"]);
+    // -0 (JSON keeps it) is 0.0, never "-0.0", as in Python
+    expect(inCorner(bakeBuilt(track([{ type: "tabletop", distance: -0 }])))[0].message).toBe("Tabletop at 0.0 m is on or lands into a corner (technical section)");
   });
 });
