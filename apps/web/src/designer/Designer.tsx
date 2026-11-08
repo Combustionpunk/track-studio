@@ -66,6 +66,7 @@ import {
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, releaseStep, reopenLaying, same, TURNS_HINT, withLaying, type Cell, type LaneGrid, type Laying, type Refusal } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
+import { describeLane, layKey, startCursor, where, type LayKeys } from "./laykeys.js";
 import { useBake } from "./useBake.js";
 import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
@@ -166,6 +167,9 @@ function planPoint(svg: SVGSVGElement, clientX: number, clientY: number): Point2
   return [p.x, -p.y];
 }
 
+/** step 1's keys (#47), in the hint and the lane grid's description */
+const LAY_KEYS_HELP = "Arrows move the cursor; Enter or Space starts the lane there. Then the arrows lay it a square at a time, Shift and two arrows in turn (say Up then Right) lay a diagonal, and Backspace takes back the last square.";
+
 /** what the live geometry is worked out from while laying the lanes (nothing of it is drawn: there's no track yet) */
 const NO_TRACK: RcTrack["design"] = { laneWidth: 2, points: [{ x: -2, z: -1 }, { x: 2, z: -1 }, { x: 2, z: 1 }, { x: -2, z: 1 }] };
 
@@ -230,7 +234,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   viewRef.current = view;
   const histRef = useRef(hist);
   histRef.current = hist;
-  const { undo, redo } = hist;
+  // which way the last undo / redo went, for step 1's announcement (#47)
+  const travelRef = useRef<"Undone." | "Redone.">("Undone.");
+  const undo = useCallback(() => ((travelRef.current = "Undone."), hist.undo()), [hist.undo]);
+  const redo = useCallback(() => ((travelRef.current = "Redone."), hist.redo()), [hist.redo]);
   // undo / redo that adds or takes away corners lets the selection go (both modes), so the next edit or insert can't land
   // on the wrong corner. Judged from the history state against what was last rendered, so two undos before a render count.
   const seenRef = useRef<Seen>({ travels: hist.travels, points: draft.design.points });
@@ -743,6 +750,48 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     return closed;
   };
 
+  // from the keyboard (#47): a cursor square before the lane starts, then the arrows lay it through the same painting
+  const [layKeys, setLayKeys] = useState<LayKeys | null>(null);
+  const [gridFocus, setGridFocus] = useState(false);
+  /** the live region's text; a repeat gets a different invisible ending so it's read again */
+  const [said, setSaid] = useState("");
+  const say = (t: string) => setSaid((s) => (s === t ? `${t}\u00a0` : t));
+  /** step 1 changed other than by a key on the grid: drop a half-made diagonal and say where the lane is now */
+  const sayLane = (what: string, cells: Cell[]) => {
+    const t = `${what} ${describeLane(cells)}`;
+    setLayKeys((k) => k && { cursor: k.cursor });
+    say(t);
+    setLayNote(t);
+  };
+  const travelsRef = useRef(hist.travels);
+  useEffect(() => {
+    if (travelsRef.current === hist.travels) return;
+    travelsRef.current = hist.travels;
+    const cells = draftRef.current.laying;
+    if (cells) sayLane(travelRef.current, cells);
+  }, [hist.travels]);
+  const planWrapRef = useRef<HTMLElement>(null);
+  const onGridKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    let d = draftRef.current;
+    if (!grid || !d.laying) return;
+    const r = layKey(grid, { cells: d.laying, closed: false }, layKeys ?? { cursor: startCursor(grid) }, e);
+    setLayKeys(r.keys); // also for a key left to the page: it drops a half-made diagonal
+    if (!r.handled) return; // Tab, Ctrl+Z and the rest work as anywhere else
+    e.preventDefault();
+    e.stopPropagation();
+    for (const st of r.states) {
+      d = withLaying({ ...d, area: areaRef.current }, st); // one undo step per square, as painting
+      hist.set(d);
+    }
+    draftRef.current = d;
+    if (r.say) {
+      say(r.say);
+      setLayNote(r.say);
+    }
+    // closed: the grid goes, so focus goes on to the plan rather than being lost
+    if (!d.laying) planWrapRef.current?.querySelector<SVGSVGElement>(".plan-svg")?.focus();
+  };
+
   const onGridDown = (e: React.PointerEvent<SVGRectElement>) => {
     if (e.button !== 0 || !grid) return;
     e.stopPropagation();
@@ -1061,6 +1110,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     for (let r = 0; r <= g.rows; r++) lines += `M${x0} ${-(z0 + r * g.size)}H${x0 + W}`;
     const centres = cells.map((c) => cellCentre(g, c));
     const end = cells[cells.length - 1];
+    const cursor = end ?? layKeys?.cursor ?? startCursor(g);
     // a crossing square: a diamond where the passes cross (which goes over is chosen once the loop is closed)
     const crossings = cells.flatMap((c, i) => {
       if (i === 0 || i === cells.findIndex((d) => same(d, c))) return [];
@@ -1087,6 +1137,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {end && <rect className="lay-end" {...box(end)} vectorEffect="non-scaling-stroke" />}
         {centres.length > 1 && <polyline className="lay-line" points={pts(centres)} vectorEffect="non-scaling-stroke" />}
         {centres[0] && <circle className="lay-first" cx={centres[0][0]} cy={-centres[0][1]} r={Math.min(g.size / 4, 9 * m)} vectorEffect="non-scaling-stroke" />}
+        {gridFocus && <rect className="lay-cursor" {...box(cursor)} vectorEffect="non-scaling-stroke" />}
         <rect data-handle="grid" className="lay-hit" x={x0} y={-(z0 + H)} width={W} height={H} onPointerDown={onGridDown}>
           <title>{cells.length ? "Drag on from the end of the lane; drag back to take squares up" : "Press on a square and drag to lay the lane"}</title>
         </rect>
@@ -1191,7 +1242,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               setBackArmed(false);
               setSel(null);
               update((d) => reopenLaying(d));
-              setLayNote(null);
+              sayLane("Back to step 1.", reopenLaying(draftRef.current).laying ?? []);
             }}
           />
         )}
@@ -1315,6 +1366,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             <p className="lay-help">Press on a square and drag through the squares in driving order, straight or corner to corner for a diagonal. Drag back to take squares up.</p>
             <p className="lay-help">To cross the lane (a figure of eight), go straight across it at right angles. Add a crossover there once the loop is closed.</p>
             <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
+            <p className="lay-help">Keyboard: Tab to the plan's lane grid; the hint over the plan lists the keys.</p>
             <p className="lay-help">{TURNS_HINT}</p>
             <button
               type="button"
@@ -1322,7 +1374,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               disabled={!draft.laying?.length}
               onClick={() => {
                 update((d) => withLaying(d, { cells: [], closed: false }));
-                setLayNote(null);
+                sayLane("The lane is taken up.", []);
               }}
               title="Take up the whole lane (Undo brings it back)"
             >
@@ -1391,7 +1443,24 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         </aside>
         )}
 
-        <section className="designer-plan-wrap" aria-label="Plan">
+        <section className="designer-plan-wrap" aria-label="Plan" ref={planWrapRef}>
+          <p className="sr-only" role="status" aria-live="polite">
+            {said}
+          </p>
+          {laying && grid && (
+            <div
+              className="sr-only lay-keys"
+              tabIndex={0}
+              role="application"
+              aria-label="Lane grid"
+              aria-describedby="lay-keys-help"
+              onKeyDown={onGridKey}
+              onFocus={() => setGridFocus(true)}
+              onBlur={() => setGridFocus(false)}
+            >
+              <span id="lay-keys-help">{LAY_KEYS_HELP}</span>
+            </div>
+          )}
           {snapInfo ? (
             <div className="designer-hint" aria-live="polite">
               <b>{SNAP_LABEL[snapInfo.mode]}</b>
@@ -1400,7 +1469,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           ) : (
             <div className="designer-hint">
               {laying
-                ? layNote ?? (draft.laying?.length
+                ? layNote ?? (gridFocus
+                  ? draft.laying?.length
+                    ? LAY_KEYS_HELP
+                    : `Cursor on ${where(layKeys?.cursor ?? startCursor(grid!))}. ${LAY_KEYS_HELP}`
+                  : draft.laying?.length
                   ? `Drag on through the squares, corner to corner for a diagonal, or straight across the lane at right angles. Come back to the ring to close the loop. ${TURNS_HINT}`
                   : `Press on a square and drag to lay the lane, straight or diagonally. ${TURNS_HINT}`)
                 : tool.kind === "feature"
@@ -1487,7 +1560,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   disabled={!draft.laying?.length}
                   onClick={() => {
                     update((d) => withLaying(d, { cells: [], closed: false }));
-                    setLayNote(null);
+                    sayLane("The lane is taken up.", []);
                   }}
                 >
                   Start again
