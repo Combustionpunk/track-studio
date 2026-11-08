@@ -28,11 +28,16 @@ describe("the mode preference", () => {
 });
 
 describe("what Quick mode allows", () => {
-  it("hides radius, lane width, outer, fine/free snapping, outside-corner handles, hairpins and the full checks", () => {
-    for (const a of ["radius", "width", "outer", "fineSnap", "freeSnap", "mitre", "hairpin", "fullChecks", "sizing", "trackSettings"] as const) {
+  it("hides radius, lane width, fine/free snapping, outside-corner handles, hairpins and the full checks", () => {
+    for (const a of ["radius", "width", "fineSnap", "freeSnap", "mitre", "hairpin", "fullChecks", "sizing", "trackSettings"] as const) {
       expect(allows("quick", a)).toBe(false);
       expect(allows("advanced", a)).toBe(true);
     }
+  });
+
+  it("shows the outside corner (square / round / auto) in both modes (#106)", () => {
+    expect(allows("quick", "outer")).toBe(true);
+    expect(allows("advanced", "outer")).toBe(true);
   });
 
   it("the wheel over a corner changes nothing in Quick (the plan zooms instead)", () => {

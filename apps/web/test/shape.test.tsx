@@ -193,7 +193,7 @@ describe("the selected corner's panel (Quick)", () => {
     for (const l of ["Hairpin", "Tight", "Medium", "Sweeper"]) expect(h).toContain(l);
     expect(h).toMatch(/aria-pressed="true"[^>]*>Medium/);
     expect(h).not.toContain("(max)");
-    expect(h).not.toMatch(/Radius<|Lane width|Outside corner/); // no Advanced controls
+    expect(h).not.toMatch(/Radius<|Lane width|East \(x\)/); // no Advanced-only controls (the outside corner is in both since #106)
   });
 
   it("writes a typed apex radius to 0.1 m, as the field shows it", () => {

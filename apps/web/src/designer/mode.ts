@@ -1,5 +1,5 @@
-// Quick and Advanced designer modes. Both edit the same .rctrack.json; Quick only hides controls and never writes
-// per-corner radius, width or outer values (nor removes ones a track already has).
+// Quick and Advanced designer modes. Both edit the same .rctrack.json; Quick only hides controls: it writes a corner's
+// radius (as an apex radius) and its outside shape, never per-corner widths (nor removes values a track already has).
 import type { BuiltFeature, Check, CheckLevel, DesignFeature, DesignPoint, FeatureType, Point2 } from "@track-studio/engine";
 import { newPointBetween } from "./geometry.js";
 import type { SnapMode } from "./snap.js";
@@ -22,7 +22,7 @@ export function readMode(stored: string | null): DesignerMode {
 export type AdvancedControl =
   | "radius" // wheel / field
   | "width" // Ctrl+wheel / field
-  | "outer" // square / round / auto, O key
+  | "outer" // square / round / auto, O key (#106: in Quick too, so a corner can be shaped without changing mode)
   | "fineSnap" // Shift
   | "freeSnap" // Alt
   | "mitre" // outside-corner handles
@@ -31,7 +31,10 @@ export type AdvancedControl =
   | "sizing" // jump length / height / type
   | "trackSettings"; // lane width, area, rostrum, description
 
-export const allows = (mode: DesignerMode, _control: AdvancedControl): boolean => mode === "advanced";
+/** what Quick shows of the Advanced controls */
+const QUICK_HAS: ReadonlySet<AdvancedControl> = new Set<AdvancedControl>(["outer"]);
+
+export const allows = (mode: DesignerMode, control: AdvancedControl): boolean => mode === "advanced" || QUICK_HAS.has(control);
 
 /** What the wheel over a corner changes: radius, or lane width with Ctrl/⌘; nothing in Quick (the plan zooms instead). */
 export function wheelEdit(mode: DesignerMode, ev: { ctrlKey: boolean; metaKey: boolean }): "radius" | "width" | null {

@@ -62,7 +62,7 @@ export const outerOf = (nests: Nest[], i: number): number | null => nests.find((
 /** the corners linked to corner i, to highlight while it's edited: the one inside it and the one outside it */
 export const linkedTo = (nests: Nest[], i: number): number[] => [innerOf(nests, i), outerOf(nests, i)].filter((k): k is number => k !== null);
 
-const resolveOuter = (outer: DesignPoint["outer"], th: number): "square" | "round" => ((outer ?? "auto") === "auto" ? (th <= SQUARE_MAX_TURN ? "square" : "round") : outer!);
+const resolveOuter = (outer: DesignPoint["outer"], th: number): "square" | "round" => (outer === "square" || outer === "round" ? outer : th <= SQUARE_MAX_TURN ? "square" : "round");
 
 /**
  * What the inner corner should be for the shared pipe to be one curve: the same centre as the outer corner's arc, so

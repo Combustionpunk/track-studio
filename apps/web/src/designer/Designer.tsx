@@ -17,6 +17,7 @@ import {
   type BuiltFeature,
   type Check,
   type CheckLevel,
+  type Corner,
   type DesignFeature,
   type DesignPoint,
   type FeatureType,
@@ -66,6 +67,7 @@ import {
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, releaseStep, reopenLaying, same, TURNS_HINT, withLaying, type Cell, type LaneGrid, type Laying, type Refusal } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
+import { findNests, followNest, follows, innerOf, linkedTo, matchNest, outerOf } from "./nest.js";
 import { useBake } from "./useBake.js";
 import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
@@ -485,7 +487,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         if (!a) return;
         const r = radiusFromDrag(alongBisector(a, p) - d.dd, a.th, a.w);
         if (r === cur.design.points[d.i].radius) return;
-        hist.set({ ...cur, design: { ...cur.design, points: cur.design.points.map((q, k) => (k === d.i ? { ...q, radius: r } : q)) } }, group);
+        // a corner nested inside this one follows it (#106)
+        const shaped = followNest(cur.design.points.map((q, k) => (k === d.i ? { ...q, radius: r } : q)), d.i, lw);
+        hist.set({ ...cur, design: { ...cur.design, points: shaped } }, group);
       } else if (d.kind === "point" && viewRef.current === "quick") {
         // Quick step 2: anywhere in the area, onto a lane line within 0.2 m unless Alt or snapping is off
         const n = cur.design.points.length;
@@ -832,7 +836,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           ? { ...p, radius: wheelRadius(p.radius ?? 1, steps, WHEEL_STEP, RADIUS_RANGE) }
           : { ...p, width: Math.min(WIDTH_RANGE[1], Math.max(WIDTH_RANGE[0], roundTo((p.width ?? draftRef.current.design.laneWidth ?? 2) + steps * WHEEL_WIDTH_STEP, WHEEL_STEP))) };
       setSel({ kind: "point", i });
-      hist.set({ ...draftRef.current, design: { ...draftRef.current.design, points: pts.map((q, k) => (k === i ? next : q)) } }, key);
+      const edited = pts.map((q, k) => (k === i ? next : q));
+      // a radius change shapes the corner nested inside it too (#106)
+      const points = what === "radius" ? followNest(edited, i, draftRef.current.design.laneWidth ?? 2) : edited;
+      hist.set({ ...draftRef.current, design: { ...draftRef.current.design, points } }, key);
       return true;
     },
     [hist],
@@ -886,6 +893,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const pointsList = draft.design.points;
   const lw = draft.design.laneWidth ?? 2;
   const advanced = view === "advanced";
+  // the corners round the same pipe as the selected one highlight while it's edited (#106)
+  const linked = useMemo(() => (sel?.kind === "point" ? linkedTo(findNests(pointsList, lw), sel.i) : []), [sel, pointsList, lw]);
   // problems: the shared plan renderer's checks layer alone, drawn over the lane handle rather than under it in
   // PlanView (info is never drawn, so Quick and Advanced show the same marks; Advanced adds their hover details); the
   // bake's checks lag the live line by a moment while dragging
@@ -948,7 +957,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </g>
         ))}
         <StartHandle built={built} m={m} touch={touch} on={sel?.kind === "start"} onPointerDown={onStartDown} />
-        {!advanced && pointsList.map((p, i) => <QuickCorner key={i} p={p} i={i} m={m} touch={touch} on={sel?.kind === "point" && sel.i === i} press={press?.i === i ? press : null} onPointerDown={(e) => onPointDown(e, i)} onDelete={() => {
+        {!advanced && pointsList.map((p, i) => <QuickCorner key={i} p={p} i={i} m={m} touch={touch} on={sel?.kind === "point" && sel.i === i} linked={linked.includes(i)} press={press?.i === i ? press : null} onPointerDown={(e) => onPointDown(e, i)} onDelete={() => {
           setSel({ kind: "point", i });
           selRef.current = { kind: "point", i };
           deleteSelection();
@@ -983,7 +992,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             data-handle="point"
             data-wheel=""
             data-index={i}
-            className={`ed-point ${sel?.kind === "point" && sel.i === i ? "on" : ""}`}
+            className={`ed-point ${sel?.kind === "point" && sel.i === i ? "on" : ""} ${linked.includes(i) ? "linked" : ""}`}
             cx={p.x}
             cy={-p.z}
             r={(sel?.kind === "point" && sel.i === i ? HANDLE_PX + 2 : HANDLE_PX) * m}
@@ -1608,7 +1617,54 @@ const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${wa
  * Quick step 2: a corner point, numbered in driving order; on touch screens it's drawn bigger and takes a press 44 px
  * across. A finger held on it fills a ring round it (the long-press), which stays full while it's selected.
  */
-function QuickCorner({ p, i, m, touch, on, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
+/** The outside of the corner: square (a mitre), round (the pipe follows the arc) or auto (square up to 120°). Both modes. */
+function OuterSeg({ p, c, onPick }: { p: DesignPoint; c: Corner | undefined; onPick: (o: DesignPoint["outer"]) => void }) {
+  const now = p.outer ?? "auto";
+  return (
+    <div className="seg" role="radiogroup" aria-label="Outside corner">
+      <span className="seg-label">Outside corner</span>
+      {(["auto", "square", "round"] as const).map((o) => (
+        <button
+          key={o}
+          type="button"
+          role="radio"
+          aria-checked={now === o}
+          className={now === o ? "on" : ""}
+          onClick={() => onPick(o === "auto" ? undefined : o)}
+          title={o === "auto" ? "Square up to a 120° turn, round beyond" : o === "square" ? "Two straight pipes meeting in a corner (O)" : "The pipe follows the curve (O)"}
+        >
+          {o === "auto" ? `Auto${c && now === "auto" ? ` (${outerStyle(p, c)})` : ""}` : o === "square" ? "Square" : "Round"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Nested corners (#106): what shaping this corner also shapes (the corner inside it, round the same pipe), and what it
+ * follows (the corner outside it) or, shaped on its own, the offer to match it again.
+ */
+function NestNotes({ inner, outer, following, onMatch }: { inner: number | null; outer: number | null; following: boolean; onMatch: () => void }) {
+  if (inner === null && outer === null) return null;
+  return (
+    <div className="nest-notes">
+      {inner !== null && <p className="hint">Also shapes corner {inner + 1} (inside).</p>}
+      {outer !== null &&
+        (following ? (
+          <p className="hint">Follows corner {outer + 1} (outside).</p>
+        ) : (
+          <p className="hint">
+            Shaped on its own.{" "}
+            <button type="button" className="link-btn" onClick={onMatch} title={`Shape it to run round the same pipe as corner ${outer + 1}`}>
+              Match corner {outer + 1}
+            </button>
+          </p>
+        ))}
+    </div>
+  );
+}
+
+function QuickCorner({ p, i, m, touch, on, linked = false, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; /** round the same pipe as the selected corner (#106) */ linked?: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
   const base = touch ? CORNER_TOUCH_PX : CORNER_PX;
   const r = (on ? base + 2 : base) * m;
   const ring = (base + 7) * m;
@@ -1617,7 +1673,7 @@ function QuickCorner({ p, i, m, touch, on, press, onPointerDown, onDelete, onHov
   return (
     <g
       data-handle="point"
-      className={`ed-corner ${on ? "on" : ""}`}
+      className={`ed-corner ${on ? "on" : ""} ${linked ? "linked" : ""}`}
       onPointerDown={(e) => {
         lastPointer.current = e.pointerType;
         onPointerDown(e);
@@ -1908,12 +1964,20 @@ export function SelectionPanel({
     const p = draft.design.points[sel.i];
     const c = live.corners[sel.i];
     if (!p) return null;
+    const lw = draft.design.laneWidth ?? 2;
+    // nested corners (#106): the one inside this follows it; this follows the one outside it unless shaped on its own
+    const nests = findNests(draft.design.points, lw);
+    const inner = innerOf(nests, sel.i), outer = outerOf(nests, sel.i);
+    const nest = nests.find((n) => n.inner === sel.i);
+    const following = nest ? follows(draft.design.points, nest, lw) : false;
+    const match = () => update((d) => ({ ...d, design: { ...d.design, points: matchNest(d.design.points, sel.i, lw) } }), `match:${sel.i}:${Date.now()}`);
+    const notes = <NestNotes inner={inner} outer={outer} following={following} onMatch={match} />;
+    const outerSeg = <OuterSeg p={p} c={c} onPick={(o) => setPoint(sel.i, { outer: o }, "outer")} />;
     if (view === "quick") {
-      const lw = draft.design.laneWidth ?? 2;
       const turns = !!apexOf(draft.design.points, sel.i, lw);
       const apex = apexRadius(p, lw);
       const reduced = !!c && isReduced(p, c);
-      const setTo = (a: number, key: string) => update((d) => ({ ...d, design: { ...d.design, points: setApex(d.design.points, sel.i, a, lw) } }), `${key}:${sel.i}`);
+      const setTo = (a: number, key: string) => update((d) => ({ ...d, design: { ...d.design, points: followNest(setApex(d.design.points, sel.i, a, lw), sel.i, lw) } }), `${key}:${sel.i}`);
       return (
         <section className="sel-panel" aria-labelledby="sel-h">
           <h2 id="sel-h">Corner {sel.i + 1}</h2>
@@ -1930,6 +1994,8 @@ export function SelectionPanel({
                   </button>
                 ))}
               </div>
+              {outerSeg}
+              {notes}
               <div role="status">
                 {reduced && c && (
                   <p className="hint">
@@ -1958,7 +2024,17 @@ export function SelectionPanel({
         <div className="fields">
           <NumberField label="East (x)" value={p.x} step={0.25} onChange={(v) => v !== undefined && setPoint(sel.i, { x: v }, "x")} />
           <NumberField label="North (z)" value={p.z} step={0.25} onChange={(v) => v !== undefined && setPoint(sel.i, { z: v }, "z")} />
-          <NumberField label="Radius" value={p.radius ?? 1} step={0.05} min={0} max={RADIUS_RANGE[1]} onChange={(v) => v !== undefined && setPoint(sel.i, { radius: Math.max(0, v) }, "radius")} />
+          <NumberField
+            label="Radius"
+            value={p.radius ?? 1}
+            step={0.05}
+            min={0}
+            max={RADIUS_RANGE[1]}
+            onChange={(v) =>
+              v !== undefined &&
+              update((d) => ({ ...d, design: { ...d.design, points: followNest(d.design.points.map((q, k) => (k === sel.i ? { ...q, radius: Math.max(0, v) } : q)), sel.i, lw) } }), `radius:${sel.i}`)
+            }
+          />
           <NumberField
             label="Lane width"
             value={p.width}
@@ -1969,24 +2045,8 @@ export function SelectionPanel({
             onChange={(v) => setPoint(sel.i, { width: v }, "width")}
           />
         </div>
-        <div className="seg" role="radiogroup" aria-label="Outside corner">
-          <span className="seg-label">Outside corner</span>
-          {(["auto", "square", "round"] as const).map((o) => (
-            <button
-              key={o}
-              type="button"
-              role="radio"
-              aria-checked={(p.outer ?? "auto") === o}
-              className={(p.outer ?? "auto") === o ? "on" : ""}
-              onClick={() => setPoint(sel.i, { outer: o === "auto" ? undefined : o }, "outer")}
-              title={
-                o === "auto" ? "Square up to a 120° turn, round beyond" : o === "square" ? "Two straight pipes meeting in a corner (O)" : "The pipe follows the curve (O)"
-              }
-            >
-              {o === "auto" ? `Auto${c && (p.outer ?? "auto") === "auto" ? ` (${outerStyle(p, c)})` : ""}` : o === "square" ? "Square" : "Round"}
-            </button>
-          ))}
-        </div>
+        {outerSeg}
+        {notes}
         {c && c.th > 1e-3 && Math.abs(c.r - (p.radius ?? 1)) > 0.01 && <p className="hint">The radius is reduced to {c.r.toFixed(2)} m to fit the straights either side.</p>}
         {c && c.th <= 1e-3 && <p className="hint">This point is on a straight line — drag it to make a corner.</p>}
         <p className="hint">Wheel over the point: radius · Ctrl + wheel: lane width · O: square / round outside.</p>

@@ -280,7 +280,7 @@ describe("overriding and matching", () => {
     expect(follows(over, nest, 2)).toBe(false);
     const b = bake(withPoints(d0, over));
     // a lane-overlap error (rctrack 1.9), or the squeeze warning once 1.10 (#102) is in
-    expect(b.checks.filter((c) => c.code === "lane-overlap" || c.code === "lane-squeeze")).toHaveLength(1);
+    expect(b.checks.filter((c) => (c.code as string) === "lane-overlap" || (c.code as string) === "lane-squeeze")).toHaveLength(1);
     // Match corner 2
     const matched = matchNest(over, nest.inner, 2);
     expect(matched[nest.inner]).toEqual(linked[nest.inner]);
