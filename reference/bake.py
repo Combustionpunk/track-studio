@@ -725,7 +725,7 @@ def lane_overlaps(line, s, total, zones, cr, divs):
     straights) and a built divider (`divs`) crosses the line between the centres of its deepest pair: a pipe separates
     the lanes, one of them narrowed where two corners were rounded to different curves, and (#105) the squeeze leaves a
     lane: it is no deeper than the narrower lane of the pair less MIN_WIDTH (0.6 m at 2 m lanes; a short hairpin with
-    legs half a lane apart has no two straight samples overlapping, and pipes between its legs, but the lane left is
+    legs 1.2 m apart has no two straight samples overlapping, and pipes between its legs, but the lane left is
     narrower than any sensible lane). Otherwise it is a `lane-overlap` error: the lanes run into each other."""
     step = max(1, int(EXPORT_STEP / SAMPLE))
     idx = np.arange(0, len(line), step); n = len(idx)

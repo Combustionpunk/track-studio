@@ -187,11 +187,11 @@ A track may cross itself where a bridge carries one pass over the other.
   0.6 m at 2 m lanes. Otherwise it is a `lane-overlap` error: the lanes run into each
   other, with no pipe between them, or along straights (two straights closer than a lane width are an error even where
   the bake draws pipes between them, and even at the corners that join them), or so deep that what is left is no lane
-  (a short hairpin with legs half a lane apart: with legs short enough, every overlapping sample is in a corner's
+  (a short hairpin with legs 1.2 m apart: with legs short enough, every overlapping sample is in a corner's
   zone and a merged pipe runs between the legs, but the lane left is 1.2 m). Whether a corner clipping another pass
   by less than a pipe's merge gap (0.6 m) is a squeeze or an overlap follows the pipes the bake draws there: where the
   shared pipe survives between the two lanes, a squeeze; where the clipped lane's pipe is cut away, an overlap; and a
-  short hairpin whose legs overlap by less than the cap (2 m legs 1.5 m apart, say) is a squeeze. A squeeze doesn't
+  short hairpin whose legs overlap by less than the cap (2 m lanes, 2.5 m legs 1.45 m apart: 0.55 m) is a squeeze. A squeeze doesn't
   block submitting or approving a layout; corner handling is to be improved in a later version.
 
 ### Corner count

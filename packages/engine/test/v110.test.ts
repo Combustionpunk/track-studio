@@ -123,6 +123,12 @@ describe("a squeeze must leave a lane (#105): deeper than the narrower lane less
     expect(laneChecks(bakeBuilt(shortHairpin(1.45, 3.0, 0.6))).map((c) => [c.level, c.code, c.message])).toEqual([["error", "lane-overlap", "Lanes overlap by 0.55 m here"]]);
   });
 
+  it("the cap follows the lane width: 2.6 m lanes squeezed by 0.83 m (cap 1.2 m) are a warning", () => {
+    const pts = [[-10, -6], [10, -6], [10, 6], [1.6, 6], [1.6, 3.5], [0, 3.5], [0, 6], [-10, 6]].map(([x, z]) => ({ x, z, radius: 0.6 }));
+    const doc: RcTrack = { format: "rctrack", version: 1, id: "wide", revision: 1, info: { name: "wide" }, area: { length: 24, width: 16 }, design: { laneWidth: 2.6, points: pts, start: { distance: 3 } } };
+    expect(laneChecks(bakeBuilt(doc)).map((c) => [c.level, c.code, c.message])).toEqual([["warning", "lane-squeeze", "Lane narrows by 0.83 m at this corner"]]);
+  });
+
   it("\"Test\" (0.35 m at 2 m lanes) is well under the cap", () => {
     expect(laneChecks(bakeBuilt(extra("test-squeezed-corner"))).map((c) => c.code)).toEqual(["lane-squeeze"]);
   });
