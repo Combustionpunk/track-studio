@@ -130,6 +130,11 @@ removed and no racing line moves. A 1.8 rebake changes only a jump next to a cor
 previews are re-rendered without rings for `info` checks. Expect the dry run to list only those tracks as changed, and
 none with "RACING LINE CHANGED". Rolling back needs no restore: re-baking with the older code puts the old checks back.
 
+The rctrack 1.9 release (#95) needs one too: it adds the `lane-overlap` error, and nothing else changes. Only tracks
+whose lanes run into each other change, each gaining the error; the dry run lists them with "errors 0 → 1 (new:
+lane-overlap)" and "preview re-rendered" (a red ring at the overlap). No racing line moves. Approved layouts stay approved; the library and fit search show the new error count. Rolling back
+needs no restore: re-baking with the older code drops the check.
+
 ```sh
 docker compose exec track-studio node dist/rebake.js --dry-run   # see what would change
 docker compose exec track-studio node dist/rebake.js
