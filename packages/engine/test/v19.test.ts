@@ -1,4 +1,5 @@
 // rctrack 1.9 (#95): lane-overlap, an error where the lane of one part of the lap runs into the lane of another.
+// (1.10, #102: the allowance is 5 cm and a squeeze at a corner is a lane-squeeze warning; see v110.test.ts.)
 import { join } from "node:path";
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -39,10 +40,11 @@ describe("lane-overlap fixtures", () => {
     const doc = extra("overlap-straights");
     const pts = [...doc.design.points.slice(0, 4), { x: -5, z: 4.5, radius: 1 }, { x: 10.4, z: 4.5, radius: 1 }, { x: 10.4, z: -8, radius: 1 }, { x: -9, z: -8, radius: 1 }];
     const c = overlaps(bakeBuilt({ ...doc, design: { ...doc.design, points: pts } }));
-    // (bake.py: (1.561, -3.794) and (9.621, -3.794))
+    // (bake.py: (1.497, -3.793) and (9.629, -3.788); 1.10's 5 cm allowance drops the fringe pairs, so each sits a few cm
+    // from where 1.9 put it)
     expect(c.map((x) => x.message)).toEqual(["Lanes overlap by 0.60 m here", "Lanes overlap by 0.60 m here"]);
-    expect(c[0]).toMatchObject({ x: expect.closeTo(1.56, 2), z: expect.closeTo(-3.79, 2) }); // the main straight and the leg
-    expect(c[1]).toMatchObject({ x: expect.closeTo(9.62, 2), z: expect.closeTo(-3.79, 2) }); // the back straight and the bend
+    expect(c[0]).toMatchObject({ x: expect.closeTo(1.5, 2), z: expect.closeTo(-3.79, 2) }); // the main straight and the leg
+    expect(c[1]).toMatchObject({ x: expect.closeTo(9.63, 2), z: expect.closeTo(-3.79, 2) }); // the back straight and the bend
   });
 
   it.each(["crossover-figure8", "unbridged-figure8", "shallow-crossing", "two-crossings"])("%s: no error at the crossing", (name) => {

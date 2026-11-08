@@ -122,13 +122,52 @@ describe("rebake", () => {
     expect(got.track).toMatchObject({ revision: 1, approvedRevision: 1 });
     expect(got.doc.built.checks.filter((c: { code: string }) => c.code === "lane-overlap")).toHaveLength(1);
   });
+
+  it("reports errors lost and warnings gained: 1.9's lane-overlap errors on \"Test\" become one lane-squeeze warning (#102)", async () => {
+    const { app, config } = await makeApp({ seeded: true });
+    // club A's revision replaced by the production layout "Test" as 1.9 baked it: three lane-overlap errors, no squeeze
+    const doc = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/extra/test-squeezed-corner.rctrack.json"), "utf8")) as RcTrack;
+    const overlap = (x: number, z: number, m: string) => ({ level: "error" as const, code: "lane-overlap" as const, x, z, message: `Lanes overlap by ${m} m here` });
+    const checks19 = [...doc.built!.checks.filter((c) => c.code !== "lane-squeeze"), overlap(7.711, 3.855, "0.02"), overlap(8.504, 3.237, "0.03"), overlap(-8.185, -3.119, "0.35")];
+    const stored = { ...doc, id: CLUB_A, built: { ...doc.built!, generator: "rctrack-bake.py 1.9", checks: checks19 } };
+    app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ? AND revision = 1").run(JSON.stringify(stored), CLUB_A);
+    setRevisionColumns(app.db, CLUB_A, 1, stored);
+    const errors = () => app.db.prepare("SELECT errors FROM track_revisions WHERE track_id = ? AND revision = 1").pluck().get(CLUB_A);
+    expect(errors()).toBe(3);
+
+    const dry = rebakeAll(app.db, config.dataDir, { dryRun: true });
+    expect(dry.changed.map((c) => [c.id, c.errors, c.gained, c.warnings, c.gainedWarnings])).toEqual([[CLUB_A, [3, 0], [], [0, 1], ["lane-squeeze"]]]);
+    expect(changeLine(dry.changed[0])).toMatch(/errors 3 → 0, warnings 0 → 1 \(new: lane-squeeze\)/);
+    expect(errors()).toBe(3); // dry run: nothing written
+
+    expect(rebakeAll(app.db, config.dataDir).failed).toEqual([]);
+    expect(errors()).toBe(0);
+    const got = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json();
+    expect(got.track).toMatchObject({ revision: 1, approvedRevision: 1, errors: 0 });
+    expect(got.doc.built.checks.filter((c: { level: string }) => c.level === "error")).toEqual([]);
+    expect(got.doc.built.checks.filter((c: { code: string }) => c.code === "lane-squeeze")).toHaveLength(1);
+  });
 });
 
 describe("rebake report lines", () => {
   const change: RebakeChange = {
     id: "t", name: "Club A", revision: 2, corners: [12, 12], size: ["22 × 11.8 m", "22 × 11.8 m"], racingLineChanged: false,
-    removed: [], errors: [0, 0], gained: [], previewChanged: false,
+    removed: [], errors: [0, 0], gained: [], warnings: [0, 0], gainedWarnings: [], previewChanged: false,
   };
+
+  it("says what errors were lost and what warnings were gained (#102)", () => {
+    expect(changeLine({ ...change, errors: [3, 0], warnings: [0, 1], gainedWarnings: ["lane-squeeze"], previewChanged: true })).toBe(
+      "  Club A r2: 12 corners, size 22 × 11.8 m, errors 3 → 0, warnings 0 → 1 (new: lane-squeeze), preview re-rendered",
+    );
+  });
+
+  it("prints the warnings whenever new warning codes appear, even with the same count", () => {
+    expect(changeLine({ ...change, warnings: [1, 1], gainedWarnings: ["lane-squeeze"] })).toBe("  Club A r2: 12 corners, size 22 × 11.8 m, warnings 1 → 1 (new: lane-squeeze)");
+  });
+
+  it("says nothing about warnings when neither the count nor the codes changed", () => {
+    expect(changeLine({ ...change, errors: [1, 0] })).toBe("  Club A r2: 12 corners, size 22 × 11.8 m, errors 1 → 0");
+  });
 
   it("says what changed, and nothing about errors when neither the count nor the codes changed", () => {
     expect(changeLine({ ...change, corners: [18, 12], removed: ["obstacles"], previewChanged: true })).toBe("  Club A r2: corners 18 → 12, size 22 × 11.8 m, removed obstacles, preview re-rendered");

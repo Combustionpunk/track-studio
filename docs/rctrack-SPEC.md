@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.9)
+# rctrack — shared track format (v1.10)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -70,7 +70,8 @@ the layout) and to check a layout against a venue (the fit search, which says wh
 - `checks[]` — `{level: error|warning|info, code, message, x?, z?}`, the track's own checks *(v1.7: no venue checks;
   see Fit search)*. Codes: `tight-corner`, `narrow-lane`, `feature-in-corner`, `radius-reduced`, and *(v1.6)*
   `crossing-unbridged`, `crossing-too-low`, `crossing-angle`, `crossing-too-close`, `crossover-unused` (see *Crossings*),
-  *(v1.8)* `start-on-feature`, and *(v1.9)* `lane-overlap` (see *Lane overlaps*). A distance in a message is on the lap, from 0 up to `lapLength` *(v1.8)*: a feature
+  *(v1.8)* `start-on-feature`, *(v1.9)* `lane-overlap` and *(v1.10)* `lane-squeeze` (see *Lane overlaps*). A consumer
+  that meets a code it doesn't know treats it as the `level` it carries. A distance in a message is on the lap, from 0 up to `lapLength` *(v1.8)*: a feature
   at `distance` -1.5 is "at 47.1 m" on a 48.6 m lap.
   `start-on-feature` *(v1.8)*: a `warning` at the start line, "Start line is on a ramp", when `start.distance` lies
   within a crossover's length, or within the length of a tabletop that bridges a crossing (`crossings[].bridge`). Nothing
@@ -153,16 +154,18 @@ A track may cross itself where a bridge carries one pass over the other.
   on one already claimed; or a tabletop bridges the one it claims) is a warning, `crossover-unused`, at the crossover. An angle under 60° (outside 60–120° between the passes) is a warning,
   `crossing-angle`. Two crossings whose footprints overlap are an error, `crossing-too-close`; an unbridged crossing's
   footprint for this is where a default crossover over the first pass would stand. Lanes overlapping anywhere else are
-  a `lane-overlap` error *(v1.9, see Lane overlaps)*.
+  a `lane-overlap` error, or a `lane-squeeze` warning at a corner *(v1.9, v1.10, see Lane overlaps)*.
 - **Dividers:** a divider crossing itself where the lanes of a crossing overlap (within 0.2 m) is not cut (step 4):
   both passes' pipes stay whole.
 
 ### Lane overlaps *(v1.9)*
 `lane-overlap` (error): the lane of one part of the lap runs into the lane of another, away from a crossing.
+`lane-squeeze` (warning, *v1.10*): a lane is squeezed narrower against a pipe it shares with another at a corner.
 - **Samples:** every 0.25 m of racing line (the exported `racingLine`'s samples), each a disc of half its lane width round
   its centre. Two samples overlap by how far their discs reach into each other: half their widths' sum less the distance
-  between them. Up to 0.02 m (the dividers' tolerance) is no overlap: two lanes sharing a pipe touch. (Discs, not the lane
-  edges: a square corner's mitre reaching into a sweeper round it is where the bake puts a shared pipe.)
+  between them. Up to **0.05 m** (the shared-pipe allowance; 0.02 m in 1.9) is no overlap: two lanes sharing a pipe touch,
+  and a corner rounded against a shared pipe can reach 2–3 cm into the lane beside it. (Discs, not the lane edges: a
+  square corner's mitre reaching into a sweeper round it is where the bake puts a shared pipe.)
 - **The lane meeting itself is not an overlap:** a pair is left out if (1) one way round the lap or the other, every
   sample between them overlaps the first (the lane never got clear of it: a corner, the bend of a hairpin), or (2) both
   are in one corner's own stretch: its arc and the straight samples whose inside edge is held at its collapsed apex (a
@@ -174,6 +177,15 @@ A track may cross itself where a bridge carries one pass over the other.
 - **Reported:** overlapping pairs that neighbour each other (each sample within one of the other pair's, either way
   round) are one overlap. One check per overlap, at the mean of its pairs' midpoints (the middle of the overlap), with
   the deepest overlap ("Lanes overlap by 0.60 m here"), in the order of each overlap's first pair (by sample).
+- **Squeeze or overlap *(v1.10)*:** an overlap is a `lane-squeeze` warning, "Lane narrows by 0.35 m at this corner",
+  when (1) it is at corners only: every one of its pairs has a sample on a corner (the corner's own stretch, as in
+  rule 2 above), so no two straight samples overlap, **and** (2) a built divider (`built.dividers`) crosses the straight
+  line between the centres of its deepest pair (the first, by sample, on a tie): a pipe still separates the lanes, and
+  one of them is narrower there because two corners were rounded to different curves (a sweeper's inside against the
+  outside of a hairpin's corner sharing its pipe, say). Otherwise it is a `lane-overlap` error: the lanes run into each
+  other, with no pipe between them, or along straights (two straights closer than a lane width are an error even where
+  the bake draws pipes between them, and even at the corners that join them). A squeeze doesn't block submitting or
+  approving a layout; corner handling is to be improved in a later version.
 
 ### Corner count
 A design point whose turn is more than 20° is a corner. Turns **the same way** joined by less than **3 m** of racing line
@@ -238,6 +250,15 @@ position default to that venue's rostrum, which the fit check reports with its r
 the venue's coordinates: for a copy adapted to the venue, these are the layout's own).
 
 ## Changes
+- **1.10** — `lane-overlap` is split in two (*Lane overlaps*). An overlap at a corner where a built divider runs between
+  the two lane centres is a new **warning**, `lane-squeeze` ("Lane narrows by 0.35 m at this corner"): a pipe still
+  separates the lanes, one of them squeezed where two corners were rounded to different curves. `lane-overlap` stays an
+  error where the lanes run into each other. The shared-pipe allowance is 5 cm (was 2 cm): overlaps of a few
+  centimetres between lanes sharing a pipe are rounding, not reported. `version` stays `1`: no field changes. Re-baking
+  changes only tracks with a `lane-overlap` check: a squeeze becomes the warning, an overlap of up to 5 cm disappears,
+  and the position of a remaining error may move by a few centimetres (fewer fringe pairs). Every other track bakes
+  exactly as in 1.9. Consumers treat an unknown code as the `level` it carries, so older readers show the warning as a
+  warning.
 - **1.9** — a new check, `lane-overlap` (error), where the lane of one part of the lap overlaps the lane of another
   (*Lane overlaps*): two straights closer than a lane width, or a corner clipping another pass. Crossings, shared pipes
   and the inside of a hairpin or sharp V are not overlaps. Until 1.9 lanes overlapping away from a crossing were not
