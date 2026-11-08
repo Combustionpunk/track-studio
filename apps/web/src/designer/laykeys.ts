@@ -79,6 +79,8 @@ export function layKey(g: LaneGrid, lay: Laying, ks: LayKeys, e: KeyPress): KeyR
   if (lay.closed || e.ctrlKey || e.metaKey || e.altKey) return none;
   const cells = lay.cells;
   const n = cells.length;
+  // any key but an arrow drops a half-made Shift diagonal
+  if (!(e.key in ARROWS)) ks = { cursor: ks.cursor };
 
   if (e.key === "Backspace") {
     if (!n) return { states: [], keys: ks, say: "Nothing to take back.", handled: true };

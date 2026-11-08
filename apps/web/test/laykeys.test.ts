@@ -227,6 +227,12 @@ describe("a diagonal run from the keyboard (#82)", () => {
     expect(r.said.at(-1)).toMatch(/can't cut past/);
   });
 
+  it("any other key drops a half-made diagonal", () => {
+    const r = press(g, ["Enter", "Shift+ArrowUp", "Enter", "Shift+ArrowRight"]);
+    expect(r.ks.diagonal).toEqual([1, 0]);
+    expect(r.lay.cells).toEqual([[0, 0]]);
+  });
+
   it("Shift and two arrows move the cursor diagonally before the lane starts", () => {
     expect(press(g, ["Shift+ArrowUp", "Shift+ArrowRight"]).ks.cursor).toEqual([1, 1]);
   });
