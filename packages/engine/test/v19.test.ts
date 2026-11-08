@@ -51,6 +51,31 @@ describe("lane-overlap fixtures", () => {
     expect(overlaps(b)).toEqual([]);
   });
 
+  // #100: a figure of eight whose crossing falls on a racing-line sample. 1.9 as merged missed the crossing, so it
+  // reported a 1.93 m lane-overlap there and the crossover on it as crossover-unused: a legitimate layout couldn't pass.
+  it("a crossing on a racing-line sample is a crossing, not a lane-overlap: bridged, the layout is clean (#100)", () => {
+    const b = bakeBuilt(extra("missed-crossing"));
+    expect(b.crossings).toHaveLength(1);
+    expect(b.crossings![0]).toMatchObject({ x: 0, z: 0, over: "first", bridge: { type: "crossover", feature: 0 } });
+    expect(b.checks.filter((c) => c.code !== "radius-reduced")).toEqual([]);
+  });
+
+  it("the same figure of eight without the crossover is crossing-unbridged, not lane-overlap (#100)", () => {
+    const doc = extra("missed-crossing");
+    const b = bakeBuilt({ ...doc, design: { ...doc.design, features: [] } });
+    expect(b.checks.map((c) => c.code)).toEqual(["crossing-unbridged"]);
+  });
+
+  it("a genuine overlap next to a crossover, not on its crossing, is still reported (#100)", () => {
+    // a loop crossing once at the origin, bridged on the main straight (the crossover spans x -4..4), with a hairpin
+    // leg 1.4 m above the main straight from x 5 to 10
+    const b = bakeBuilt(extra("overlap-beside-crossing"));
+    expect(b.crossings).toHaveLength(1);
+    expect(b.crossings![0]).toMatchObject({ x: 0, z: 0, bridge: { type: "crossover", feature: 0 } });
+    expect(b.checks.map((c) => [c.level, c.code, c.message])).toEqual([["error", "lane-overlap", "Lanes overlap by 0.60 m here"]]);
+    expect(b.checks[0]).toMatchObject({ x: expect.closeTo(6.86, 1), z: expect.closeTo(0.72, 1) }); // between the main straight and the leg, east of the bridge
+  });
+
   it("the #82 case: a straight back west whose corner clips a 45° diagonal", () => {
     const c = overlaps(bakeBuilt(extra("diagonal-clip")));
     expect(c.map((x) => [x.level, x.message])).toEqual([["error", "Lanes overlap by 0.17 m here"]]);

@@ -177,6 +177,23 @@ EXTRA_TRACKS.update({
         "start": {"distance": 1.0}}),
 })
 
+# #100: a crossing on a racing-line sample, exactly between two segments. Symmetric figures of eight put a sample on the
+# crossing whenever the diagonal has an even number of samples; rounding then puts the two passes' samples a hair apart,
+# and until 1.9 (#100) the segment bounding boxes no longer touched, so self_crossings missed it: 1.9 reported a
+# lane-overlap there instead of a crossing, and a crossover on it was crossover-unused. Bridged, it is clean.
+EXTRA_TRACKS["missed-crossing"] = at_crossings(track("23", "Crossing on a sample", {"length": 24, "width": 16}, {
+    "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": 1.5} for x, z in
+                                 [(-6.75, -6.75), (6.75, 6.75), (10.75, 6.75), (10.75, -6.75), (6.75, -6.75), (-6.75, 6.75), (-10.75, 6.75), (-10.75, -6.75)]],
+    "start": {"distance": 2.0}}),
+    lambda k, d: {"type": "crossover", "distance": d[0]})
+# a genuine overlap next to a crossover, not on its crossing: a loop crossing once at the origin, bridged on the main
+# straight (the crossover spans x -4..4), with a hairpin leg 1.4 m above the main straight from x 5 to 10: 0.6 m overlap
+EXTRA_TRACKS["overlap-beside-crossing"] = at_crossings(track("24", "Overlap beside a crossing", {"length": 22, "width": 12}, {
+    "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": r} for x, z, r in
+                                 [(-10, 0, 1.5), (10, 0, 0.7), (10, 1.4, 0.7), (5, 1.4, 1.0), (5, 5, 1.0), (0, 5, 1.5), (0, -5, 1.5), (-10, -5, 1.5)]],
+    "start": {"distance": 2.0}}),
+    lambda k, d: {"type": "crossover", "distance": d[0]})
+
 EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
 
 EXTRA_VENUES = {

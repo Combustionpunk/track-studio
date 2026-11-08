@@ -37,6 +37,9 @@ BRIDGE_MARGIN = 1.0    # a bridge's flat top spans the under pass's lane plus th
 CROSSING_MIN_ANGLE = 60.0  # crossings sharper than this (deg; i.e. outside 60-120° between the passes) are warned about
 CROSSING_MIN_SEP = 1.0 # the racing line crossing itself less than this far along the lap is numerical noise, not a crossing
 CROSSING_ZONE = 0.2    # divider self-crossings this close to where two lanes cross (m) are the crossing, not a loop to cut
+CROSSING_BOX = 1e-9    # (1.9, #100) segment bounding boxes grow by this (m) before the overlap test in self_crossings, so a
+                       # crossing on a sample, which the next segment owns, isn't lost when rounding puts the two passes'
+                       # samples a hair apart and the boxes no longer touch
 OVERLAP_TOL = 0.02     # (1.9) lanes overlap where their centres are closer than half their widths' sum less this (m):
                        # two lanes sharing a pipe touch, they don't overlap (the dividers' tolerance). lane_overlaps
 
@@ -534,7 +537,7 @@ def self_crossings(xy, s, total):
     """Where the closed racing line crosses itself: [(X, d, t, i)] with both passes' lap distances d (from point 0),
     unit directions t and segment indices i, in the order the segments come in the line."""
     n = len(xy); P = xy; D = np.roll(xy, -1, 0) - xy
-    lo = np.minimum(P, P + D); hi = np.maximum(P, P + D)
+    lo = np.minimum(P, P + D) - CROSSING_BOX; hi = np.maximum(P, P + D) + CROSSING_BOX
     seg = np.linalg.norm(D, axis=1)
     found = []
     for i in range(n - 2):
