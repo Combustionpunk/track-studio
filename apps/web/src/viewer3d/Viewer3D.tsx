@@ -3,7 +3,7 @@
 // draws only when something changes, so it costs nothing while you look.
 import type { Area, Built } from "@track-studio/engine";
 import { House, Route, SquareDashed, ZoomIn, ZoomOut } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { BufferAttribute, BufferGeometry, Color, DirectionalLight, DoubleSide, HemisphereLight, Mesh, MeshLambertMaterial, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { areaBounds } from "../lib/plan.js";
@@ -19,8 +19,8 @@ export interface Viewer3DProps {
   built: Built;
   label: string;
   className?: string;
-  /** WebGL couldn't start after all (the page shows the 2D plan instead) */
-  onUnsupported?: () => void;
+  /** WebGL couldn't start after all ("none"), or stopped ("lost", e.g. a graphics reset): the page shows the 2D plan */
+  onUnsupported?: (why: "none" | "lost") => void;
 }
 
 interface Stage {
@@ -33,6 +33,8 @@ interface Stage {
 
 export default function Viewer3D({ area, built, label, className = "", onUnsupported }: Viewer3DProps) {
   const boxRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const keysId = useId();
   const stage = useRef<Stage | null>(null);
   const [showLine, setShowLine] = useState(false);
   const [ready, setReady] = useState(false);
@@ -42,19 +44,19 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
   lineRef.current = showLine;
 
   useEffect(() => {
-    const box = boxRef.current!;
+    const box = boxRef.current!, stageEl = stageRef.current!;
     let renderer: WebGLRenderer;
     try {
       renderer = new WebGLRenderer({ antialias: true, powerPreference: "low-power" });
     } catch {
-      onUnsupported?.();
+      onUnsupported?.("none");
       return;
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     const canvas = renderer.domElement;
     canvas.className = "plan3d-canvas";
     canvas.setAttribute("aria-hidden", "true");
-    box.prepend(canvas);
+    stageEl.append(canvas);
 
     const world = new Scene();
     world.background = new Color(scene.background);
@@ -97,7 +99,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     controls.maxPolarAngle = Math.PI / 2 - 0.03; // stay above the floor
     controls.minDistance = 1;
     controls.zoomToCursor = true;
-    controls.listenToKeyEvents(box); // arrows pan; Shift / Ctrl + arrows orbit
+    controls.listenToKeyEvents(stageEl); // arrows pan; Shift / Ctrl + arrows orbit
 
     let frame = 0;
     const render = () => {
@@ -130,10 +132,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     ro.observe(box);
     resize();
 
-    const lost = (e: Event) => {
-      e.preventDefault();
-      onUnsupported?.();
-    };
+    const lost = () => onUnsupported?.("lost");
     canvas.addEventListener("webglcontextlost", lost);
 
     return () => {
@@ -186,14 +185,11 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       ref={boxRef}
       className={`plan plan3d ${className}`}
       style={{ "--plan-ratio": `${bounds.x1 - bounds.x0} / ${bounds.y1 - bounds.y0}` } as React.CSSProperties}
-      role="img"
-      aria-label={label}
-      aria-describedby="plan3d-keys"
-      tabIndex={0}
-      onKeyDown={onKey}
       data-triangles={scene.triangles}
     >
-      <p id="plan3d-keys" className="sr-only">
+      {/* the canvas goes in here; the buttons stay outside it, so they aren't part of the picture */}
+      <div ref={stageRef} className="plan3d-stage" role="img" aria-label={label} aria-describedby={keysId} tabIndex={0} onKeyDown={onKey} />
+      <p id={keysId} className="sr-only">
         Drag to orbit, right-drag or two fingers to pan, scroll or pinch to zoom. Keys: arrows pan, Shift and arrows orbit, plus and minus zoom, 0 resets the view.
       </p>
       {ready && (

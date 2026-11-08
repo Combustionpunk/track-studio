@@ -132,9 +132,10 @@ test.describe("2D / 3D on the track page", () => {
     await expect(view3d(page)).toHaveAttribute("data-ready", "1", { timeout: 20_000 });
     const home = await camera(page);
 
-    await view3d(page).focus();
-    await expect(view3d(page)).toBeFocused();
-    const outline = await view3d(page).evaluate((el) => getComputedStyle(el).outlineStyle);
+    const stage = page.getByRole("img", { name: /^3D view of / });
+    await stage.focus();
+    await expect(stage).toBeFocused();
+    const outline = await stage.evaluate((el) => getComputedStyle(el).outlineStyle);
     expect(outline).toBe("solid");
     await page.keyboard.press("+");
     await expect.poll(() => camera(page)).not.toBe(home);
@@ -151,6 +152,20 @@ test.describe("2D / 3D on the track page", () => {
     await page.keyboard.press("Enter");
     await expect.poll(async () => Math.abs(Number((await camera(page))!.split(" ")[0]))).toBeLessThan(0.01);
     expect(await top.evaluate((el) => getComputedStyle(el).boxShadow)).not.toBe("none");
+  });
+
+  test("a layout without an area: the view isn't rebuilt when the page changes around it", async ({ page }) => {
+    const doc = example("club-a");
+    delete doc.area; // the page makes its drawing area from built.size
+    await serve(page, doc);
+    await open3d(page, doc.id);
+    await page.getByRole("button", { name: "Top view" }).click();
+    await expect.poll(async () => Math.abs(Number((await camera(page))!.split(" ")[0]))).toBeLessThan(0.01);
+    const top = await camera(page);
+    await page.getByRole("button", { name: "Fit to a venue" }).click(); // page state changes, the plan doesn't
+    await expect(page.getByRole("button", { name: "Fit to a venue" })).toHaveAttribute("aria-expanded", "true");
+    await page.waitForTimeout(300);
+    expect(await camera(page)).toBe(top);
   });
 
   test("loading: a skeleton holds the plan's place, so nothing shifts", async ({ page }) => {

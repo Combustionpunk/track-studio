@@ -1,6 +1,6 @@
 import { drawingArea, type Point2, type RcTrack } from "@track-studio/engine";
 import { ArrowLeft, Download, Lock } from "lucide-react";
-import { lazy, Suspense, useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CopyButton, StatusBadge } from "../components/bits.js";
 import { ChecksList } from "../components/ChecksList.js";
@@ -177,8 +177,8 @@ export function TrackPage() {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [showFit, setShowFit] = useState(params.has("fit"));
   const [view, setView] = useSessionChoice("track-view", VIEWS, "2d");
-  const [noWebGL, setNoWebGL] = useState(false);
-  const unsupported = useCallback(() => setNoWebGL(true), []);
+  const [noWebGL, setNoWebGL] = useState<"none" | "lost">();
+  const unsupported = useCallback((why: "none" | "lost") => setNoWebGL(why), []);
 
   const navigate = useNavigate();
   // the page shows the public revision (approved ?? latest) unless ?r= asks for another
@@ -186,6 +186,11 @@ export function TrackPage() {
   const r = Number(params.get("r")) || undefined;
   const viewing = r && current && r !== current ? r : undefined;
   const old = useApi<RcTrack>(viewing ? `/api/tracks/${encodeURIComponent(id)}/r/${viewing}` : null);
+
+  // the drawing area, the same object from render to render so the 3D view isn't rebuilt (drawingArea makes a new one
+  // for files without an area)
+  const shown = viewing ? old.data : tr.data?.doc;
+  const area = useMemo(() => (shown?.area || shown?.built ? drawingArea(shown) : undefined), [shown]);
 
   if (tr.error) {
     if (tr.error instanceof ApiError && tr.error.status === 404) return <NotFound what="track" />;
@@ -204,6 +209,7 @@ export function TrackPage() {
   const doc = viewing ? old.data : tr.data.doc;
   const rev = viewing ?? track.publicRevision; // the revision on screen
   const b = doc?.built;
+  const no3d = view === "3d" ? (noWebGL ?? (hasWebGL() ? undefined : "none")) : undefined;
   const origin = window.location.origin;
   const link = `${origin}/t/${track.id}${viewing ? `?r=${viewing}` : ""}`;
   const embed = `<iframe src="${origin}/embed/${track.id}${viewing ? `?r=${viewing}` : ""}" width="100%" height="460" frameborder="0" loading="lazy" title="${escAttr(track.name)} – Track Studio"></iframe>`;
@@ -374,34 +380,37 @@ export function TrackPage() {
           ) : (
             <>
               <div className="track-view">
-                {view === "3d" && !noWebGL && hasWebGL() ? (
+                {view === "3d" && !no3d ? (
                   <Suspense
                     fallback={
                       <div role="status" aria-busy="true">
                         <span className="sr-only">Loading the 3D view…</span>
-                        <Skeleton className="ts-plan-well track-plan" style={{ "--plan-ratio": planRatio(drawingArea(doc)) } as React.CSSProperties} />
+                        <Skeleton className="ts-plan-well track-plan" style={{ "--plan-ratio": planRatio(area!) } as React.CSSProperties} />
                       </div>
                     }
                   >
-                    <Viewer3D area={drawingArea(doc)} built={b} label={`3D view of ${track.name}, ${fmt.size(drawingArea(doc))}`} className="ts-plan-well track-plan" onUnsupported={unsupported} />
+                    <Viewer3D area={area!} built={b} label={`3D view of ${track.name}, ${fmt.size(area!)}`} className="ts-plan-well track-plan" onUnsupported={unsupported} />
                   </Suspense>
                 ) : (
                   <PlanView
-                    area={drawingArea(doc)}
+                    area={area!}
                     built={b}
                     designFeatures={doc.design?.features}
                     layers={layers}
                     onLayersChange={setLayers}
                     highlight={highlight}
-                    label={`Plan of ${track.name}, ${fmt.size(drawingArea(doc))}`}
+                    label={`Plan of ${track.name}, ${fmt.size(area!)}`}
                     className="ts-plan-well track-plan"
                   />
                 )}
-                {view === "3d" && (noWebGL || !hasWebGL()) && (
-                  <p className="ts-note track-view__note" role="status">
-                    The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan.
-                  </p>
-                )}
+                {/* always there, so screen readers hear the message when it appears */}
+                <p className={no3d ? "ts-note" : "sr-only"} role="status">
+                  {no3d === "lost"
+                    ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; reload the page to try 3D again."
+                    : no3d
+                      ? "The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan."
+                      : ""}
+                </p>
                 <div className="plan-viewswitch" role="group" aria-label="View">
                   {VIEWS.map((k) => (
                     <button key={k} type="button" aria-pressed={view === k} className={view === k ? "on" : ""} onClick={() => setView(k)}>

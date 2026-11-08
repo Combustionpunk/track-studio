@@ -134,7 +134,8 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .plan-viewswitch button:hover { background: var(--plan-ui-hover); }
 .plan-viewswitch button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .plan3d-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
-.plan3d:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.plan3d-stage { position: absolute; inset: 0; }
+.plan3d-stage:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 /* embed */
 .embed { height: 100vh; display: flex; flex-direction: column; background: var(--plan-floor); color: var(--plan-ink); }
