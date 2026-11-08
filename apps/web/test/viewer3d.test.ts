@@ -247,6 +247,7 @@ describe("the scene", () => {
         expect(m.positions.every(Number.isFinite), `${f} ${m.part}`).toBe(true);
         expect(m.normals.every(Number.isFinite), `${f} ${m.part} normals`).toBe(true);
         expect(Math.max(...m.indices)).toBeLessThan(m.positions.length / 3);
+        expect(backFacing(m), `${f} ${m.part}: triangles wound against their normals`).toBe(0);
       }
     }
   });
@@ -305,6 +306,21 @@ describe("the camera", () => {
     expect(p.position[2]).toBeGreaterThanOrEqual(0); // a hair to the south, so north is up on screen
   });
 });
+
+/** Triangles whose front face (counter-clockwise, three.js) points away from their vertex normals: lit as if flipped. */
+function backFacing(m: MeshData): number {
+  let bad = 0;
+  const P = m.positions, N = m.normals;
+  for (let t = 0; t < m.indices.length; t += 3) {
+    const [a, b, c] = [m.indices[t], m.indices[t + 1], m.indices[t + 2]];
+    const u = [P[3 * b] - P[3 * a], P[3 * b + 1] - P[3 * a + 1], P[3 * b + 2] - P[3 * a + 2]];
+    const v = [P[3 * c] - P[3 * a], P[3 * c + 1] - P[3 * a + 1], P[3 * c + 2] - P[3 * a + 2]];
+    const f = cross(u, v);
+    const n = [a, b, c].reduce((s, k) => [s[0] + N[3 * k], s[1] + N[3 * k + 1], s[2] + N[3 * k + 2]], [0, 0, 0]);
+    if (dot(f, n) < -1e-12) bad++;
+  }
+  return bad;
+}
 
 const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a: number[], b: number[]) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];

@@ -1,6 +1,6 @@
 import { drawingArea, type Point2, type RcTrack } from "@track-studio/engine";
 import { ArrowLeft, Download, Lock } from "lucide-react";
-import { useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CopyButton, StatusBadge } from "../components/bits.js";
 import { ChecksList } from "../components/ChecksList.js";
@@ -9,9 +9,15 @@ import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js
 import { ErrorAlert, Skeleton, TrackPageSkeleton } from "../components/states.js";
 import { ApiError, post, type ClassSpeed, type LapRecord, type LapStats, type Revision, type TrackResponse, type UsedAt } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
-import { useApi, useStored } from "../lib/hooks.js";
+import { areaBounds } from "../lib/plan.js";
+import { useApi, useSessionChoice, useStored } from "../lib/hooks.js";
 import { estimateSeconds, lapTime, recordTime, speedFor, useClassSpeeds } from "../lib/laps.js";
+import { hasWebGL } from "../viewer3d/support.js";
 import { NotFound } from "./NotFound.js";
+
+// three.js and the 3D view load only when 3D is opened (#83)
+const Viewer3D = lazy(() => import("../viewer3d/Viewer3D.js"));
+const VIEWS = ["2d", "3d"] as const;
 
 /** A bare date (no time) is that day wherever you are, not midnight UTC. */
 const dateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -170,6 +176,9 @@ export function TrackPage() {
   const [actionError, setActionError] = useState<string>();
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [showFit, setShowFit] = useState(params.has("fit"));
+  const [view, setView] = useSessionChoice("track-view", VIEWS, "2d");
+  const [noWebGL, setNoWebGL] = useState(false);
+  const unsupported = useCallback(() => setNoWebGL(true), []);
 
   const navigate = useNavigate();
   // the page shows the public revision (approved ?? latest) unless ?r= asks for another
@@ -364,16 +373,43 @@ export function TrackPage() {
             )
           ) : (
             <>
-              <PlanView
-                area={drawingArea(doc)}
-                built={b}
-                designFeatures={doc.design?.features}
-                layers={layers}
-                onLayersChange={setLayers}
-                highlight={highlight}
-                label={`Plan of ${track.name}, ${fmt.size(drawingArea(doc))}`}
-                className="ts-plan-well track-plan"
-              />
+              <div className="track-view">
+                {view === "3d" && !noWebGL && hasWebGL() ? (
+                  <Suspense
+                    fallback={
+                      <div role="status" aria-busy="true">
+                        <span className="sr-only">Loading the 3D view…</span>
+                        <Skeleton className="ts-plan-well track-plan" style={{ "--plan-ratio": planRatio(drawingArea(doc)) } as React.CSSProperties} />
+                      </div>
+                    }
+                  >
+                    <Viewer3D area={drawingArea(doc)} built={b} label={`3D view of ${track.name}, ${fmt.size(drawingArea(doc))}`} className="ts-plan-well track-plan" onUnsupported={unsupported} />
+                  </Suspense>
+                ) : (
+                  <PlanView
+                    area={drawingArea(doc)}
+                    built={b}
+                    designFeatures={doc.design?.features}
+                    layers={layers}
+                    onLayersChange={setLayers}
+                    highlight={highlight}
+                    label={`Plan of ${track.name}, ${fmt.size(drawingArea(doc))}`}
+                    className="ts-plan-well track-plan"
+                  />
+                )}
+                {view === "3d" && (noWebGL || !hasWebGL()) && (
+                  <p className="ts-note track-view__note" role="status">
+                    The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan.
+                  </p>
+                )}
+                <div className="plan-viewswitch" role="group" aria-label="View">
+                  {VIEWS.map((k) => (
+                    <button key={k} type="button" aria-pressed={view === k} className={view === k ? "on" : ""} onClick={() => setView(k)}>
+                      {k.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <ul className="ts-plan-caption">
                 <li>Layout {fmt.size(b.size, true)}</li>
                 {doc.info?.drawnFor?.name && <li>Drawn for {doc.info.drawnFor.name}</li>}
@@ -483,6 +519,12 @@ export function TrackPage() {
       </div>
     </div>
   );
+}
+
+/** The plan's shape, for wells sized like it (PlanView sets the same). */
+function planRatio(area: { length: number; width: number }): string {
+  const b = areaBounds(area);
+  return `${b.x1 - b.x0} / ${b.y1 - b.y0}`;
 }
 
 const escAttr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");

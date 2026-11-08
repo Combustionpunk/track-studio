@@ -52,11 +52,20 @@ class Mesh {
     this.nor.push(nx, ny, -nz);
     return this.pos.length / 3 - 1;
   }
+  /** A triangle, wound so its front faces the way its normals point (the renderer lights back faces as if flipped). */
   tri(a: number, b: number, c: number) {
-    this.idx.push(a, b, c);
+    const P = this.pos, N = this.nor;
+    const ux = P[3 * b] - P[3 * a], uy = P[3 * b + 1] - P[3 * a + 1], uz = P[3 * b + 2] - P[3 * a + 2];
+    const vx = P[3 * c] - P[3 * a], vy = P[3 * c + 1] - P[3 * a + 1], vz = P[3 * c + 2] - P[3 * a + 2];
+    const [fx, fy, fz] = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
+    let dot = 0;
+    for (const k of [a, b, c]) dot += fx * N[3 * k] + fy * N[3 * k + 1] + fz * N[3 * k + 2];
+    if (dot < 0) this.idx.push(a, c, b);
+    else this.idx.push(a, b, c);
   }
   quad(a: number, b: number, c: number, d: number) {
-    this.idx.push(a, b, c, a, c, d);
+    this.tri(a, b, c);
+    this.tri(a, c, d);
   }
   /** A flat quad facing `n` (plan normal), with its own vertices. */
   face(p: [number, number, number][], n: [number, number, number]) {
