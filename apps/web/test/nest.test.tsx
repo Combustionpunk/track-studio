@@ -178,7 +178,7 @@ describe("the inner corner follows the outer one", () => {
     expect(runs(d)).toBe(runs(laid));
     const curve = oneSharedCurve(d, outer);
     expect(curve.radii.length).toBeGreaterThan(5);
-    curve.radii.forEach((r) => expect(r).toBeCloseTo(4, 1));
+    curve.radii.forEach((r) => expect(r).toBeCloseTo(4, 2)); // within 1 cm of the outer lane's inside edge
     expect(curve.dividers.size).toBe(1);
   });
 
@@ -221,7 +221,7 @@ describe("the inner corner follows the outer one", () => {
       if (label === "Sweeper") {
         expect(runs(d)).toBe(runs(laid));
         const curve = oneSharedCurve(d, outer);
-        curve.radii.forEach((r) => expect(r).toBeCloseTo(4, 1));
+        curve.radii.forEach((r) => expect(r).toBeCloseTo(4, 2)); // within 1 cm of the outer lane's inside edge
         expect(curve.dividers.size).toBe(1);
       }
     }

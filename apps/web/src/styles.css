@@ -765,6 +765,8 @@ select.ts-input { padding: 0 var(--space-2); }
 .ed-corner.on .ed-corner-n { fill: var(--plan-ink); }
 /* nested corners (#106): the corner round the same pipe as the selected one, while it's edited */
 .ed-corner.linked .ed-corner-dot, .ed-point.linked { stroke: var(--ed-guide); stroke-width: 3; }
+.seg-outer { gap: 6px 0; }
+.seg-outer .seg-label { width: 100%; margin: 0 0 2px; }
 .nest-notes { margin: 0 0 10px; display: grid; gap: 4px; }
 .link-btn { border: 0; background: none; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
 @media (pointer: coarse) { .link-btn { display: inline-flex; align-items: center; min-height: 44px; } }
@@ -790,6 +792,7 @@ select.ts-input { padding: 0 var(--space-2); }
 .designer-touch .designer-bar .back, .designer-touch .designer-bar .btn { min-height: var(--touch-target); }
 .designer-touch .designer-bar .back { width: var(--touch-target); height: var(--touch-target); }
 .designer-touch .mode-toggle button { height: var(--touch-target); padding: 0 16px; }
+.designer-touch .seg button { min-height: var(--touch-target); padding: 0 14px; }
 .designer-touch .name-input { height: var(--touch-target); width: 240px; }
 .designer-touch .steps li { display: flex; align-items: center; }
 .designer-touch .designer-grid { display: flex; }

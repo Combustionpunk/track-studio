@@ -421,7 +421,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         e.preventDefault();
         const i = selRef.current.i;
         const cur = draftRef.current;
-        const hp = makeHairpin(cur.design.points, i, cur.design.laneWidth ?? 2);
+        const lw = cur.design.laneWidth ?? 2;
+        // a corner nested inside this one follows it down to a hairpin first (#106), while the corner is still one point
+        const pre = followNest(cur.design.points.map((q, k) => (k === i ? { ...q, radius: widthAt(q, lw) / 2 } : q)), i, lw);
+        const hp = makeHairpin(pre, i, lw);
         if (hp) {
           hist.set({ ...cur, design: { ...cur.design, points: hp } }, `hairpin:${Date.now()}`);
           setMessage(null);
@@ -906,6 +909,39 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     return b && b.features.length === built.features.length ? jumpsInCorner(b.checks, b.features) : new Map<number, CheckLevel>();
   }, [bake.built, built.features.length]);
   const overlay = (m: number) => {
+    /** Quick step 2: corner i's apex handle (the middle of its inside edge), with its label; null where the line runs straight */
+    const apexHandle = (p: DesignPoint, i: number) => {
+      const a = apexOf(pointsList, i, lw);
+      const c = live.corners[i];
+      if (!a || !c) return null;
+      const h = handlePoint(a, c.r);
+      const reduced = isReduced(p, c);
+      const showR = reduced || (sel?.kind === "point" && sel.i === i) || dragging === i;
+      const apexNow = Math.max(0, c.r - c.w / 2);
+      return (
+        <g key={`apex${i}`}>
+          {showR && (
+            <text className="ed-label" x={h[0] + a.b[0] * 18 * m} y={-(h[1] + a.b[1] * 18 * m)} dy={4 * m} fontSize={12 * m} strokeWidth={3 * m} textAnchor="middle">
+              R {fmt.metres(apexNow, 1)}
+              {reduced ? " (max)" : ""}
+            </text>
+          )}
+          <circle className={`ed-apex ${sel?.kind === "point" && sel.i === i ? "on" : ""}`} cx={h[0]} cy={-h[1]} r={(touch ? APEX_TOUCH_PX : APEX_PX) * m} vectorEffect="non-scaling-stroke" />
+          <circle data-handle="apex" className="ed-hit ed-hit-apex" cx={h[0]} cy={-h[1]} r={(touch ? TOUCH_PX : APEX_PX + 3) * m} onPointerDown={(e) => onApexDown(e, i)} onPointerEnter={() => setHoverPt(i)} onPointerLeave={() => setHoverPt(null)}>
+            <title>{`Corner ${i + 1}: drag in or out to cut the corner back (apex radius ${fmt.metres(apexNow, 1)})`}</title>
+          </circle>
+        </g>
+      );
+    };
+    /** does corner i's apex handle land on another corner's dot? (the outer corner of a nest: its inside edge runs by the inner corner point) */
+    const crowdedApex = (i: number) => {
+      const a = apexOf(pointsList, i, lw);
+      const c = live.corners[i];
+      if (!a || !c) return false;
+      const h = handlePoint(a, c.r);
+      const reach = (touch ? TOUCH_PX : CORNER_PX) * m;
+      return pointsList.some((q, k) => k !== i && Math.hypot(q.x - h[0], q.z - h[1]) < reach);
+    };
     const selPt = sel?.kind === "point" ? pointsList[sel.i] : null;
     const corner = sel?.kind === "point" ? live.corners[sel.i] : null;
     const placing = tool.kind === "feature";
@@ -957,35 +993,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </g>
         ))}
         <StartHandle built={built} m={m} touch={touch} on={sel?.kind === "start"} onPointerDown={onStartDown} />
+        {/* apex handles under the corner dots where one lands on another corner's dot (a nest's outer corner, #106); the
+            rest stay on top: a touch near both goes to whichever is on top, and the handle is the smaller target */}
+        {!advanced && pointsList.map((p, i) => (crowdedApex(i) ? apexHandle(p, i) : null))}
         {!advanced && pointsList.map((p, i) => <QuickCorner key={i} p={p} i={i} m={m} touch={touch} on={sel?.kind === "point" && sel.i === i} linked={linked.includes(i)} press={press?.i === i ? press : null} onPointerDown={(e) => onPointDown(e, i)} onDelete={() => {
           setSel({ kind: "point", i });
           selRef.current = { kind: "point", i };
           deleteSelection();
         }} onHover={(on) => setHoverPt(on ? i : null)} />)}
-        {!advanced &&
-          pointsList.map((p, i) => {
-            const a = apexOf(pointsList, i, lw);
-            const c = live.corners[i];
-            if (!a || !c) return null;
-            const h = handlePoint(a, c.r);
-            const reduced = isReduced(p, c);
-            const showR = reduced || (sel?.kind === "point" && sel.i === i) || dragging === i;
-            const apexNow = Math.max(0, c.r - c.w / 2);
-            return (
-              <g key={`apex${i}`}>
-                {showR && (
-                  <text className="ed-label" x={h[0] + a.b[0] * 18 * m} y={-(h[1] + a.b[1] * 18 * m)} dy={4 * m} fontSize={12 * m} strokeWidth={3 * m} textAnchor="middle">
-                    R {fmt.metres(apexNow, 1)}
-                    {reduced ? " (max)" : ""}
-                  </text>
-                )}
-                <circle className={`ed-apex ${sel?.kind === "point" && sel.i === i ? "on" : ""}`} cx={h[0]} cy={-h[1]} r={(touch ? APEX_TOUCH_PX : APEX_PX) * m} vectorEffect="non-scaling-stroke" />
-                <circle data-handle="apex" className="ed-hit ed-hit-apex" cx={h[0]} cy={-h[1]} r={(touch ? TOUCH_PX : APEX_PX + 3) * m} onPointerDown={(e) => onApexDown(e, i)} onPointerEnter={() => setHoverPt(i)} onPointerLeave={() => setHoverPt(null)}>
-                  <title>{`Corner ${i + 1}: drag in or out to cut the corner back (apex radius ${fmt.metres(apexNow, 1)})`}</title>
-                </circle>
-              </g>
-            );
-          })}
+        {!advanced && pointsList.map((p, i) => (crowdedApex(i) ? null : apexHandle(p, i)))}
         {advanced && pointsList.map((p, i) => (
           <circle
             key={i}
@@ -1621,7 +1637,7 @@ const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${wa
 function OuterSeg({ p, c, onPick }: { p: DesignPoint; c: Corner | undefined; onPick: (o: DesignPoint["outer"]) => void }) {
   const now = p.outer ?? "auto";
   return (
-    <div className="seg" role="radiogroup" aria-label="Outside corner">
+    <div className="seg seg-outer" role="radiogroup" aria-label="Outside corner">
       <span className="seg-label">Outside corner</span>
       {(["auto", "square", "round"] as const).map((o) => (
         <button

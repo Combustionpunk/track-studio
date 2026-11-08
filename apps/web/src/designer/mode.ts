@@ -1,5 +1,6 @@
 // Quick and Advanced designer modes. Both edit the same .rctrack.json; Quick only hides controls: it writes a corner's
-// radius (as an apex radius) and its outside shape, never per-corner widths (nor removes values a track already has).
+// radius (as an apex radius) and its outside shape, never per-corner widths. Neither mode removes a value a track
+// already has, except where a nested corner follows the one outside it (nest.ts) and the rule wants its outside on auto.
 import type { BuiltFeature, Check, CheckLevel, DesignFeature, DesignPoint, FeatureType, Point2 } from "@track-studio/engine";
 import { newPointBetween } from "./geometry.js";
 import type { SnapMode } from "./snap.js";
