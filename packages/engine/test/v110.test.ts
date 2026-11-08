@@ -3,7 +3,7 @@
 import { join } from "node:path";
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { bakeBuilt, OVERLAP_TOL, type Built, type Check, type RcTrack } from "../src/index.js";
+import { bakeBuilt, OVERLAP_TOL, pipeBetween, type Built, type Check, type Divider, type RcTrack } from "../src/index.js";
 import { allTracks, as17, extraDir, readJson } from "./helpers.js";
 
 const extra = (name: string) => readJson<RcTrack>(join(extraDir, `${name}.rctrack.json`));
@@ -23,8 +23,8 @@ describe("the production layout \"Test\" (8 Nov 2026)", () => {
 
   it("places the warning at the bottom-left shared corner, and keeps the other checks", () => {
     const [c] = laneChecks(b);
-    expect(c.x).toBeCloseTo(-8.2, 0);
-    expect(c.z).toBeCloseTo(-3.1, 0);
+    expect(c.x).toBeCloseTo(-8.18, 1);
+    expect(c.z).toBeCloseTo(-3.15, 1);
     expect(b.checks.filter((c) => c.code === "radius-reduced")).toHaveLength(4);
   });
 
@@ -43,6 +43,24 @@ describe("the shared-pipe allowance is 5 cm", () => {
 
   it("straights 1.94 m apart (a 6 cm overlap) are a lane-overlap error", () => {
     expect(laneChecks(bakeBuilt(extra("shared-straights-6cm"))).map((c) => [c.level, c.code, c.message])).toEqual([["error", "lane-overlap", "Lanes overlap by 0.06 m here"]]);
+  });
+});
+
+describe("a pipe between two lane centres", () => {
+  const open: Divider = { shared: true, closed: false, points: [[0, 1], [2, 1], [2, 3]] };
+  const ring: Divider = { shared: false, closed: true, points: [[5, 0], [7, 0], [7, 2], [5, 2]] };
+
+  it("is a divider segment crossing the line between them, ends included", () => {
+    expect(pipeBetween(1, 0, 1, 2, [open])).toBe(true); // across the first leg
+    expect(pipeBetween(1, 0, 1, 1, [open])).toBe(true); // ending on it
+    expect(pipeBetween(3, 0, 3, 2, [open])).toBe(false); // past its end
+    expect(pipeBetween(1, 0.5, 1.5, 0.5, [open])).toBe(false); // parallel, beside it
+    expect(pipeBetween(1, 0, 1, 2, [])).toBe(false);
+  });
+
+  it("counts a closed divider's closing segment", () => {
+    expect(pipeBetween(4, 1, 6, 1, [ring])).toBe(true); // across the west side (last point back to the first)
+    expect(pipeBetween(5.5, 0.5, 6.5, 1.5, [ring])).toBe(false); // inside the ring
   });
 });
 

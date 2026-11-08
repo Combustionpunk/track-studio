@@ -706,7 +706,7 @@ def _pipe_between(a, b, divs):
             if -1e-9 <= ta <= 1 + 1e-9 and -1e-9 <= tb <= 1 + 1e-9: return True
     return False
 
-def lane_overlaps(line, s, total, zones, cr, divs=()):
+def lane_overlaps(line, s, total, zones, cr, divs):
     """lane-overlap and lane-squeeze checks: where the lane of one part of the lap runs into the lane of another. Sampled every
     EXPORT_STEP along the racing line, each sample a disc of half its lane width round its centre; two samples overlap
     by how far their discs reach into each other, if that is more than OVERLAP_TOL. (Discs, not the lane edges: a square

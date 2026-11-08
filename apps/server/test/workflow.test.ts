@@ -130,6 +130,17 @@ describe("errors block submitting", () => {
     expect(t2.doc.built.checks.map((c: { code: string }) => c.code)).toContain("tight-corner");
     expect((await send(app, "POST", `/api/tracks/${t2.track.id}/submit`, alice)).statusCode).toBe(200);
   });
+
+  it("a lane-squeeze warning (rctrack 1.10, #102) blocks neither submit nor approve", async () => {
+    const { app, alice, org } = await setup();
+    // the production layout "Test": 1.9 gave it three lane-overlap errors, 1.10 one lane-squeeze warning
+    const squeezed = { ...freeform(), design: referenceJson<RcTrack>("../packages/engine/test/fixtures/extra/test-squeezed-corner.rctrack.json").design };
+    const { track, doc } = (await send(app, "POST", "/api/tracks", alice, { track: squeezed })).json();
+    expect(doc.built.checks.filter((c: { level: string }) => c.level !== "info").map((c: { level: string; code: string }) => [c.level, c.code])).toEqual([["warning", "lane-squeeze"]]);
+    expect(track.errors).toBe(0);
+    expect((await send(app, "POST", `/api/tracks/${track.id}/submit`, alice)).statusCode).toBe(200);
+    expect((await send(app, "POST", `/api/tracks/${track.id}/approve`, org)).json().track).toMatchObject({ approvedRevision: 1, status: "approved" });
+  });
 });
 
 describe("make my own copy", () => {

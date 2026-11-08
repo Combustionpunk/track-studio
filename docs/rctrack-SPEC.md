@@ -158,7 +158,7 @@ A track may cross itself where a bridge carries one pass over the other.
 - **Dividers:** a divider crossing itself where the lanes of a crossing overlap (within 0.2 m) is not cut (step 4):
   both passes' pipes stay whole.
 
-### Lane overlaps *(v1.9)*
+### Lane overlaps *(v1.9, v1.10)*
 `lane-overlap` (error): the lane of one part of the lap runs into the lane of another, away from a crossing.
 `lane-squeeze` (warning, *v1.10*): a lane is squeezed narrower against a pipe it shares with another at a corner.
 - **Samples:** every 0.25 m of racing line (the exported `racingLine`'s samples), each a disc of half its lane width round
@@ -184,7 +184,9 @@ A track may cross itself where a bridge carries one pass over the other.
   one of them is narrower there because two corners were rounded to different curves (a sweeper's inside against the
   outside of a hairpin's corner sharing its pipe, say). Otherwise it is a `lane-overlap` error: the lanes run into each
   other, with no pipe between them, or along straights (two straights closer than a lane width are an error even where
-  the bake draws pipes between them, and even at the corners that join them). A squeeze doesn't block submitting or
+  the bake draws pipes between them, and even at the corners that join them). Whether a corner clipping another pass
+  by less than a pipe's merge gap (0.6 m) is a squeeze or an overlap follows the pipes the bake draws there: where the
+  shared pipe survives between the two lanes, a squeeze; where the clipped lane's pipe is cut away, an overlap. A squeeze doesn't block submitting or
   approving a layout; corner handling is to be improved in a later version.
 
 ### Corner count
@@ -256,7 +258,7 @@ the venue's coordinates: for a copy adapted to the venue, these are the layout's
   error where the lanes run into each other. The shared-pipe allowance is 5 cm (was 2 cm): overlaps of a few
   centimetres between lanes sharing a pipe are rounding, not reported. `version` stays `1`: no field changes. Re-baking
   changes only tracks with a `lane-overlap` check: a squeeze becomes the warning, an overlap of up to 5 cm disappears,
-  and the position of a remaining error may move by a few centimetres (fewer fringe pairs). Every other track bakes
+  and the position of a remaining error may move by up to ~6 cm (fewer fringe pairs). Every other track bakes
   exactly as in 1.9. Consumers treat an unknown code as the `level` it carries, so older readers show the warning as a
   warning.
 - **1.9** — a new check, `lane-overlap` (error), where the lane of one part of the lap overlaps the lane of another

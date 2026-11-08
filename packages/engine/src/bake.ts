@@ -1281,27 +1281,14 @@ export function crossingChecks(cr: RawCrossing[], feats: BuiltFeature[], feature
  *   along its pass (crossings are bridged, or reported, by the crossing checks).
  * Overlapping pairs that neighbour each other (both samples within one of the pair's, either order) are one overlap: one
  * check each, at the mean of its pairs' midpoints (the middle of the overlap), giving the deepest overlap, in the order
- * of each overlap's first pair. (bake.py: lane_overlaps)
+ * of each overlap's first pair.
+ * 1.10 (#102): an overlap is a squeeze (`lane-squeeze`, a warning: "Lane narrows by 0.35 m at this corner") when every one
+ * of its pairs has a sample on a corner (its zone, as above: the overlap is at corners, not along two straights) and a
+ * built divider (`divs`) crosses the line between the centres of its deepest pair: a pipe separates the lanes, one of them
+ * narrowed where two corners were rounded to different curves. Otherwise it is a `lane-overlap` error: the lanes run into
+ * each other. (bake.py: lane_overlaps)
  */
-/** Does a built divider cross the segment from a to b (ends included)? A pipe between two lane centres. */
-function pipeBetween(ax: number, az: number, bx: number, bz: number, divs: Divider[]): boolean {
-  const d1x = bx - ax, d1z = bz - az;
-  for (const d of divs) {
-    const pts = d.closed ? [...d.points, d.points[0]] : d.points;
-    for (let k = 0; k + 1 < pts.length; k++) {
-      const [p3x, p3z] = pts[k], [p4x, p4z] = pts[k + 1];
-      const d2x = p4x - p3x, d2z = p4z - p3z;
-      const den = d1x * d2z - d1z * d2x;
-      if (Math.abs(den) < 1e-12) continue;
-      const wx = p3x - ax, wz = p3z - az;
-      const ta = (wx * d2z - wz * d2x) / den, tb = (wx * d1z - wz * d1x) / den;
-      if (ta >= -1e-9 && ta <= 1 + 1e-9 && tb >= -1e-9 && tb <= 1 + 1e-9) return true;
-    }
-  }
-  return false;
-}
-
-export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: Set<number>[], cr: RawCrossing[], divs: Divider[] = []): Check[] {
+export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: Set<number>[], cr: RawCrossing[], divs: Divider[]): Check[] {
   const step = Math.max(1, Math.trunc(EXPORT_STEP / SAMPLE));
   const idx: number[] = [];
   for (let k = 0; k < line.n; k += step) idx.push(k);
@@ -1380,6 +1367,24 @@ export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: 
       }
       return { level: "error", code: "lane-overlap", x, z, message: `Lanes overlap by ${deep} m here` };
     });
+}
+
+/** Does a built divider cross the segment from a to b (ends included)? A pipe between two lane centres. */
+export function pipeBetween(ax: number, az: number, bx: number, bz: number, divs: Divider[]): boolean {
+  const d1x = bx - ax, d1z = bz - az;
+  for (const d of divs) {
+    const pts = d.closed ? [...d.points, d.points[0]] : d.points;
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const [p3x, p3z] = pts[k], [p4x, p4z] = pts[k + 1];
+      const d2x = p4x - p3x, d2z = p4z - p3z;
+      const den = d1x * d2z - d1z * d2x;
+      if (Math.abs(den) < 1e-12) continue;
+      const wx = p3x - ax, wz = p3z - az;
+      const ta = (wx * d2z - wz * d2x) / den, tb = (wx * d1z - wz * d1x) / den;
+      if (ta >= -1e-9 && ta <= 1 + 1e-9 && tb >= -1e-9 && tb <= 1 + 1e-9) return true;
+    }
+  }
+  return false;
 }
 
 export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
