@@ -75,12 +75,14 @@ export function describeLane(cells: Cell[]): string {
 
 /** One key press in step 1. Keys with Ctrl, ⌘ or Alt, and keys it doesn't use, are left to the page. */
 export function layKey(g: LaneGrid, lay: Laying, ks: LayKeys, e: KeyPress): KeyResult {
+  // any key but an arrow (or a modifier on its own, which repeats while held) drops a half-made Shift diagonal, also
+  // a key left to the page such as Ctrl+Z
+  const modifier = e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta";
+  if (!modifier && (!(e.key in ARROWS) || e.ctrlKey || e.metaKey || e.altKey)) ks = { cursor: ks.cursor };
   const none = { states: [], keys: ks, handled: false };
   if (lay.closed || e.ctrlKey || e.metaKey || e.altKey) return none;
   const cells = lay.cells;
   const n = cells.length;
-  // any key but an arrow drops a half-made Shift diagonal
-  if (!(e.key in ARROWS)) ks = { cursor: ks.cursor };
 
   if (e.key === "Backspace") {
     if (!n) return { states: [], keys: ks, say: "Nothing to take back.", handled: true };
@@ -122,5 +124,6 @@ export function layKey(g: LaneGrid, lay: Laying, ks: LayKeys, e: KeyPress): KeyR
   const keys: LayKeys = { cursor: last && !last.closed ? last.cells[last.cells.length - 1] : from };
   if (r.refused) return { states: r.states, keys, say: refusal(r.refused), handled: true };
   if (last?.closed) return { states: r.states, keys, say: `Loop closed with ${last.cells.length} squares. On to step 2, shape it.`, handled: true };
+  if (last && last.cells.length < n) return { states: r.states, keys, say: `Took back square ${n}. ${describeLane(last.cells)}`, handled: true };
   return { states: r.states, keys, say: last ? describeLane(last.cells) : undefined, handled: true };
 }

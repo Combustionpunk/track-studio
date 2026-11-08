@@ -123,6 +123,7 @@ describe("laying the lane with the arrows", () => {
   it("stepping back onto the previous square with an arrow takes it up too, as a drag back does", () => {
     const r = press(g, ["Enter", "ArrowRight", "ArrowRight", "ArrowLeft"]);
     expect(r.lay.cells).toEqual([[0, 0], [1, 0]]);
+    expect(r.said.at(-1)).toMatch(/^Took back square 3\. Square 2 of 4 minimum/);
   });
 
   it("refuses a used square and the edge, and keeps the lane; the refusal names the keyboard's way back", () => {
@@ -232,6 +233,18 @@ describe("a diagonal run from the keyboard (#82)", () => {
     const r = press(g, ["Enter", "Shift+ArrowUp", "Enter", "Shift+ArrowRight"]);
     expect(r.ks.diagonal).toEqual([1, 0]);
     expect(r.lay.cells).toEqual([[0, 0]]);
+  });
+
+  it("a key left to the page (Ctrl+Z, Tab) drops it too, but Shift on its own, repeating while held, doesn't", () => {
+    const half = press(g, ["Enter", "Shift+ArrowUp"]);
+    for (const e of [{ key: "z", ctrlKey: true }, { key: "Tab" }]) {
+      const r = layKey(g, half.lay, half.ks, e);
+      expect(r.handled).toBe(false);
+      expect(r.keys.diagonal).toBeUndefined();
+    }
+    const shift = layKey(g, half.lay, half.ks, { key: "Shift", shiftKey: true });
+    expect(shift.handled).toBe(false);
+    expect(shift.keys.diagonal).toEqual([0, 1]);
   });
 
   it("Shift and two arrows move the cursor diagonally before the lane starts", () => {

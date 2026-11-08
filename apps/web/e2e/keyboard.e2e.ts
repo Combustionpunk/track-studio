@@ -95,3 +95,22 @@ test("a figure of eight (a crossing) and an octagon (diagonal runs) from the key
   await expect(page.locator(".designer-side .checks-panel")).toContainText("No problems found.", { timeout: 15_000 });
   await shot(page, "5-octagon");
 });
+
+test("undo, redo and Start again from the grid are announced, and drop a half-made diagonal", async ({ page }) => {
+  await open(page);
+  await tabToGrid(page);
+  await keys(page, "Enter", "ArrowRight", "ArrowRight", "Shift+ArrowUp");
+  await expect(live(page)).toHaveText("Diagonal: north, then east or west.");
+  await page.keyboard.press("Control+z");
+  await expect(live(page)).toHaveText("Undone. Square 2 of 4 minimum, heading east.");
+  await expect(page.locator(".designer-hint")).toHaveText("Undone. Square 2 of 4 minimum, heading east.");
+  // the diagonal went with the undo: Shift+Right is the first arrow of a new one, not north-east
+  await keys(page, "Shift+ArrowRight");
+  await expect(live(page)).toHaveText("Diagonal: east, then north or south.");
+  await expect(page.locator("rect.lay-cell")).toHaveCount(2);
+  await page.keyboard.press("Control+Shift+z");
+  await expect(live(page)).toHaveText("Redone. Square 3 of 4 minimum, heading east.");
+  await page.getByRole("button", { name: "Start again" }).click();
+  await expect(live(page)).toHaveText("The lane is taken up. No lane yet. Enter or Space starts it on the cursor square.");
+  await expect(page.locator("rect.lay-cell")).toHaveCount(0);
+});

@@ -66,7 +66,7 @@ import {
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, reopenLaying, same, withLaying, type Cell, type LaneGrid } from "./lanes.js";
 import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
-import { layKey, startCursor, where, type LayKeys } from "./laykeys.js";
+import { describeLane, layKey, startCursor, where, type LayKeys } from "./laykeys.js";
 import { useBake } from "./useBake.js";
 import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
@@ -234,7 +234,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   viewRef.current = view;
   const histRef = useRef(hist);
   histRef.current = hist;
-  const { undo, redo } = hist;
+  // which way the last undo / redo went, for step 1's announcement (#47)
+  const travelRef = useRef<"Undone." | "Redone.">("Undone.");
+  const undo = useCallback(() => ((travelRef.current = "Undone."), hist.undo()), [hist.undo]);
+  const redo = useCallback(() => ((travelRef.current = "Redone."), hist.redo()), [hist.redo]);
   // undo / redo that adds or takes away corners lets the selection go (both modes), so the next edit or insert can't land
   // on the wrong corner. Judged from the history state against what was last rendered, so two undos before a render count.
   const seenRef = useRef<Seen>({ travels: hist.travels, points: draft.design.points });
@@ -749,11 +752,26 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   /** the live region's text; a repeat gets a different invisible ending so it's read again */
   const [said, setSaid] = useState("");
   const say = (t: string) => setSaid((s) => (s === t ? `${t}\u00a0` : t));
+  /** step 1 changed other than by a key on the grid: drop a half-made diagonal and say where the lane is now */
+  const sayLane = (what: string, cells: Cell[]) => {
+    const t = `${what} ${describeLane(cells)}`;
+    setLayKeys((k) => k && { cursor: k.cursor });
+    say(t);
+    setLayNote(t);
+  };
+  const travelsRef = useRef(hist.travels);
+  useEffect(() => {
+    if (travelsRef.current === hist.travels) return;
+    travelsRef.current = hist.travels;
+    const cells = draftRef.current.laying;
+    if (cells) sayLane(travelRef.current, cells);
+  }, [hist.travels]);
   const planWrapRef = useRef<HTMLElement>(null);
   const onGridKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     let d = draftRef.current;
     if (!grid || !d.laying) return;
     const r = layKey(grid, { cells: d.laying, closed: false }, layKeys ?? { cursor: startCursor(grid) }, e);
+    setLayKeys(r.keys); // also for a key left to the page: it drops a half-made diagonal
     if (!r.handled) return; // Tab, Ctrl+Z and the rest work as anywhere else
     e.preventDefault();
     e.stopPropagation();
@@ -762,7 +780,6 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       hist.set(d);
     }
     draftRef.current = d;
-    setLayKeys(r.keys);
     if (r.say) {
       say(r.say);
       setLayNote(r.say);
@@ -1218,7 +1235,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               setBackArmed(false);
               setSel(null);
               update((d) => reopenLaying(d));
-              setLayNote(null);
+              sayLane("Back to step 1.", reopenLaying(draftRef.current).laying ?? []);
             }}
           />
         )}
@@ -1349,7 +1366,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               disabled={!draft.laying?.length}
               onClick={() => {
                 update((d) => withLaying(d, { cells: [], closed: false }));
-                setLayNote(null);
+                sayLane("The lane is taken up.", []);
               }}
               title="Take up the whole lane (Undo brings it back)"
             >
@@ -1535,7 +1552,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   disabled={!draft.laying?.length}
                   onClick={() => {
                     update((d) => withLaying(d, { cells: [], closed: false }));
-                    setLayNote(null);
+                    sayLane("The lane is taken up.", []);
                   }}
                 >
                   Start again
