@@ -58,8 +58,9 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
 
     const world = new Scene();
     world.background = new Color(scene.background);
-    world.add(new HemisphereLight(0xffffff, scene.background, 2.2));
-    const sun = new DirectionalLight(0xffffff, 1.6);
+    // white light (three's default colour): from the sky, and back up off the floor in its colour
+    world.add(new HemisphereLight(undefined, scene.background, 2.2));
+    const sun = new DirectionalLight(undefined, 1.6);
     sun.position.set(-0.6 * area.length, Math.max(area.length, area.width), 0.9 * area.width); // from the south-west, high
     world.add(sun);
 

@@ -202,7 +202,7 @@ test.describe("touch", () => {
     await serve(page, doc);
     await page.goto(`/t/${doc.id}`);
     const cdp = await page.context().newCDPSession(page);
-    const touch = (type: string, pts: XY[]) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+    const touch = (type: "touchStart" | "touchMove" | "touchEnd", pts: XY[]) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
     const centre = async (sel: ReturnType<Page["locator"]>): Promise<XY> => {
       const b = (await sel.boundingBox())!;
       return [b.x + b.width / 2, b.y + b.height / 2];
