@@ -331,6 +331,9 @@ describe("closing the loop", () => {
     const squeezed = structuredClone(doc);
     squeezed.design.points = squeezed.design.points.map((p) => (p.x === 2 ? { ...p, x: 1 } : p)); // column 6's corners
     expect(closestApproach(bakeBuilt(squeezed), (Math.PI * w) / 2 + 0.3)).toBeLessThan(w - 0.5);
+    // and so does the bake (1.9, #95): the squeezed legs are a lane-overlap error, the laid hairpin none
+    expect(bakeBuilt(squeezed).checks.filter((c) => c.code === "lane-overlap").map((c) => c.level)).toEqual(["error"]);
+    expect(b.checks.filter((c) => c.code === "lane-overlap")).toEqual([]);
   });
 
   it("the start line goes in the middle of the longest straight", () => {
