@@ -101,4 +101,25 @@ describe("rebake", () => {
     expect(JSON.parse(stored()[rows.findIndex((r) => r.track_id === "46897d82-0114-460f-9a75-984ee97bca0e")]).info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
     expect(rebakeAll(app.db, config.dataDir).changed).toEqual([]);
   });
+
+  it("lists tracks that gain an error, such as rctrack 1.9's lane-overlap; approvals stay (#95)", async () => {
+    const { app, config } = await makeApp({ seeded: true });
+    // club A's revision replaced by lanes that overlap, as 1.8 baked it: no lane-overlap check yet
+    const doc = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/extra/overlap-straights.rctrack.json"), "utf8")) as RcTrack;
+    const stored = { ...doc, id: CLUB_A, built: { ...doc.built!, generator: "rctrack-bake.py 1.8", checks: doc.built!.checks.filter((c) => c.code !== "lane-overlap") } };
+    app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ? AND revision = 1").run(JSON.stringify(stored), CLUB_A);
+    setRevisionColumns(app.db, CLUB_A, 1, stored);
+    const errors = () => app.db.prepare("SELECT errors FROM track_revisions WHERE track_id = ? AND revision = 1").pluck().get(CLUB_A);
+    expect(errors()).toBe(0);
+
+    const dry = rebakeAll(app.db, config.dataDir, { dryRun: true });
+    expect(dry.changed.map((c) => [c.id, c.errors, c.gained])).toEqual([[CLUB_A, [0, 1], ["lane-overlap"]]]);
+    expect(errors()).toBe(0); // dry run: nothing written
+
+    expect(rebakeAll(app.db, config.dataDir).failed).toEqual([]);
+    expect(errors()).toBe(1);
+    const got = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json();
+    expect(got.track).toMatchObject({ revision: 1, approvedRevision: 1 });
+    expect(got.doc.built.checks.filter((c: { code: string }) => c.code === "lane-overlap")).toHaveLength(1);
+  });
 });

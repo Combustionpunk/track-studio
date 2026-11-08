@@ -1,0 +1,70 @@
+# Posts one comment on each PR with the result of the workflows below, and edits the same comment on every run.
+# It lets reviewers and agents read CI results through PR comments. It runs from main and only reads run details.
+name: CI report
+ 
+on:
+  workflow_run:
+    workflows: ["PR checks", "Deploy config"]
+    types: [completed]
+ 
+permissions:
+  actions: read
+  pull-requests: write
+ 
+jobs:
+  report:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const { owner, repo } = context.repo;
+            const marker = `<!-- ci-report:${run.name} -->`;
+            
+            let prs = (run.pull_requests || []).map(p => p.number);
+            if (!prs.length) {
+              const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: run.head_sha });
+              prs = data.filter(p => p.state === 'open').map(p => p.number);
+            }
+            if (!prs.length) { core.info('No open PR for this run.'); return; }
+            
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, { owner, repo, run_id: run.id, per_page: 100 });
+            const bad = jobs.filter(j => j.conclusion && !['success', 'skipped', 'neutral'].includes(j.conclusion));
+            const verdict = run.conclusion === 'success' ? 'passed' : run.conclusion === 'cancelled' ? 'cancelled' : 'FAILED';
+            
+            const lines = [
+              marker,
+              `## CI ${verdict}: ${run.name}`,
+              `Commit \`${run.head_sha.slice(0, 7)}\` · [run ${run.run_number}](${run.html_url}) · ${run.updated_at}`,
+              '',
+              '| Job | Result |',
+              '|---|---|',
+              ...jobs.map(j => `| ${j.name} | ${j.conclusion || j.status} |`),
+            ];
+            
+            for (const job of bad.slice(0, 3)) {
+              const step = (job.steps || []).find(s => s.conclusion === 'failure');
+              lines.push('', `**${job.name}** failed${step ? ` at step "${step.name}"` : ''}.`);
+              try {
+                const res = await github.rest.actions.downloadJobLogsForWorkflowRun({ owner, repo, job_id: job.id });
+                const text = String(res.data)
+                  .replace(/\u001b\[[0-9;]*m/g, '')
+                  .replace(/^\d{4}-\d\d-\d\dT[\d:.]+Z /gm, '')
+                  .split('\n').filter(l => l.trim()).slice(-60).join('\n')
+                  .replace(/```/g, "'''");
+                lines.push('<details><summary>Last 60 log lines</summary>', '', '```', text, '```', '</details>');
+              } catch (e) {
+                lines.push(`(Couldn't read the log: ${e.status || e.message})`);
+              }
+            }
+            const body = lines.join('\n');
+            
+            for (const pr of prs) {
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr, per_page: 100 });
+              const mine = comments.find(c => c.user?.type === 'Bot' && c.body?.startsWith(marker));
+              if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+              else await github.rest.issues.createComment({ owner, repo, issue_number: pr, body });
+            }
