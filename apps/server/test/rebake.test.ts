@@ -2,7 +2,7 @@ import type { RcTrack } from "@track-studio/engine";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { rebakeAll } from "../src/rebake.js";
+import { changeLine, rebakeAll, type RebakeChange } from "../src/rebake.js";
 import { ROOT_DIR } from "../src/config.js";
 import { setRevisionColumns } from "../src/store.js";
 import { makeApp } from "./helpers.js";
@@ -121,5 +121,29 @@ describe("rebake", () => {
     const got = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json();
     expect(got.track).toMatchObject({ revision: 1, approvedRevision: 1 });
     expect(got.doc.built.checks.filter((c: { code: string }) => c.code === "lane-overlap")).toHaveLength(1);
+  });
+});
+
+describe("rebake report lines", () => {
+  const change: RebakeChange = {
+    id: "t", name: "Club A", revision: 2, corners: [12, 12], size: ["22 × 11.8 m", "22 × 11.8 m"], racingLineChanged: false,
+    removed: [], errors: [0, 0], gained: [], previewChanged: false,
+  };
+
+  it("says what changed, and nothing about errors when neither the count nor the codes changed", () => {
+    expect(changeLine({ ...change, corners: [18, 12], removed: ["obstacles"], previewChanged: true })).toBe("  Club A r2: corners 18 → 12, size 22 × 11.8 m, removed obstacles, preview re-rendered");
+  });
+
+  it("names the error codes a track gains", () => {
+    expect(changeLine({ ...change, errors: [0, 1], gained: ["lane-overlap"] })).toBe("  Club A r2: 12 corners, size 22 × 11.8 m, errors 0 → 1 (new: lane-overlap)");
+  });
+
+  it("prints the errors whenever new codes appear, even with the same count (#100)", () => {
+    // a missed crossing's lane-overlap becomes crossing-unbridged: still one error, but a different one
+    expect(changeLine({ ...change, errors: [1, 1], gained: ["crossing-unbridged"] })).toBe("  Club A r2: 12 corners, size 22 × 11.8 m, errors 1 → 1 (new: crossing-unbridged)");
+  });
+
+  it("prints a changed count without new codes", () => {
+    expect(changeLine({ ...change, errors: [1, 0] })).toBe("  Club A r2: 12 corners, size 22 × 11.8 m, errors 1 → 0");
   });
 });
