@@ -2,7 +2,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { adapt, bakeBuilt, BRIDGE_MARGIN, fits, transformBuilt, type Built, type DesignFeature, type RcTrack, type RcVenue } from "../src/index.js";
+import { adapt, bakeBuilt, BRIDGE_MARGIN, fits, racingLine, transformBuilt, type Built, type DesignFeature, type RcTrack, type RcVenue } from "../src/index.js";
 import { as18, extraDir, readJson } from "./helpers.js";
 
 const track = (pts: [number, number][], opts: { features?: DesignFeature[]; start?: number; radius?: number; area?: [number, number] } = {}): RcTrack => ({
@@ -45,6 +45,21 @@ describe("crossing detection", () => {
     expect(b.crossings).toHaveLength(1);
     const d = b.crossings![0].distances;
     expect(Math.min(d[0], b.lapLength - d[0], d[1], b.lapLength - d[1])).toBeLessThan(0.01);
+  });
+
+  it("finds a crossing that falls exactly on a racing-line sample (#100)", () => {
+    // A symmetric figure of eight puts a sample on the crossing whenever its diagonal has an even number of samples;
+    // rounding then leaves the two passes' samples a hair apart (here ±9e-16 m), so the segment bounding boxes no
+    // longer touched and the pair that owns the crossing (both segments starting on it) was never tested.
+    const pts: [number, number][] = [[-6.75, -6.75], [6.75, 6.75], [10.75, 6.75], [10.75, -6.75], [6.75, -6.75], [-6.75, 6.75], [-10.75, 6.75], [-10.75, -6.75]];
+    const doc = track(pts, { start: 2, area: [24, 16] });
+    const { line } = racingLine(doc.design.points, 2);
+    const onCrossing = Array.from(line.x, (x, i) => [x, line.z[i]]).filter(([x, z]) => Math.abs(x) < 1e-9 && Math.abs(z) < 1e-9);
+    expect(onCrossing).toHaveLength(2); // one sample of each pass sits on the crossing
+    const b = bakeBuilt(doc);
+    expect(b.crossings).toHaveLength(1);
+    expect(b.crossings![0]).toMatchObject({ x: 0, z: 0, angle: 90 });
+    expect(codes(b)).toEqual(["crossing-unbridged"]);
   });
 
   it("labels the passes from the start line: a start just past the first pass makes it the second", () => {

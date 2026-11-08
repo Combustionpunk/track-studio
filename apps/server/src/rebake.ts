@@ -117,6 +117,19 @@ export function rebakeAll(db: DB, dataDir: string, { dryRun = false } = {}): Reb
   return report;
 }
 
+/**
+ * One report line per changed revision. The errors part prints when the count changes or when the fresh bake has
+ * error codes the stored one didn't (#100): a track swapping one error for another shows "errors 1 → 1 (new: ...)".
+ */
+export function changeLine(c: RebakeChange): string {
+  const corners = c.corners[0] === c.corners[1] ? `${c.corners[1]} corners` : `corners ${c.corners[0]} → ${c.corners[1]}`;
+  const size = c.size[0] === c.size[1] ? `size ${c.size[1]}` : `size ${c.size[0]} → ${c.size[1]}`;
+  const removed = c.removed.length ? `, removed ${c.removed.join(", ")}` : "";
+  const line = c.racingLineChanged ? ", RACING LINE CHANGED" : "";
+  const errors = c.errors[0] === c.errors[1] && !c.gained.length ? "" : `, errors ${c.errors[0]} → ${c.errors[1]}${c.gained.length ? ` (new: ${c.gained.join(", ")})` : ""}`;
+  return `  ${c.name} r${c.revision}: ${corners}, ${size}${removed}${line}${errors}${c.previewChanged ? ", preview re-rendered" : ""}`;
+}
+
 if (process.argv[1] && /rebake\.(ts|js)$/.test(process.argv[1])) {
   loadDotenv({ path: join(ROOT_DIR, ".env"), quiet: true });
   try {
@@ -125,14 +138,7 @@ if (process.argv[1] && /rebake\.(ts|js)$/.test(process.argv[1])) {
     const db = openDb(config.dataDir);
     const r = rebakeAll(db, config.dataDir, { dryRun });
     console.log(`${dryRun ? "[dry run] " : ""}Re-baked ${r.revisions} revisions in ${config.dataDir}: ${r.changed.length} changed.`);
-    for (const c of r.changed) {
-      const corners = c.corners[0] === c.corners[1] ? `${c.corners[1]} corners` : `corners ${c.corners[0]} → ${c.corners[1]}`;
-      const size = c.size[0] === c.size[1] ? `size ${c.size[1]}` : `size ${c.size[0]} → ${c.size[1]}`;
-      const removed = c.removed.length ? `, removed ${c.removed.join(", ")}` : "";
-      const line = c.racingLineChanged ? ", RACING LINE CHANGED" : "";
-      const errors = c.errors[0] === c.errors[1] ? "" : `, errors ${c.errors[0]} → ${c.errors[1]}${c.gained.length ? ` (new: ${c.gained.join(", ")})` : ""}`;
-      console.log(`  ${c.name} r${c.revision}: ${corners}, ${size}${removed}${line}${errors}${c.previewChanged ? ", preview re-rendered" : ""}`);
-    }
+    for (const c of r.changed) console.log(changeLine(c));
     for (const f of r.failed) console.log(`  FAILED ${f.id} r${f.revision}: ${f.error}`);
     db.close();
     process.exit(r.failed.length ? 1 : 0);

@@ -53,6 +53,9 @@ export const BRIDGE_MARGIN = 1.0; // a bridge's flat top spans the under pass's 
 export const CROSSING_MIN_ANGLE = 60; // crossings sharper than this (deg; i.e. outside 60-120° between the passes) are warned about
 const CROSSING_MIN_SEP = 1.0; // the racing line crossing itself less than this far along the lap is numerical noise
 const CROSSING_ZONE = 0.2; // divider self-crossings this close to where two lanes cross (m) are the crossing, not a loop to cut
+// (1.9, #100) segment bounding boxes grow by this (m) before the overlap test in selfCrossings, so a crossing on a sample,
+// which the next segment owns, isn't lost when rounding puts the two passes' samples a hair apart and the boxes no longer touch
+const CROSSING_BOX = 1e-9;
 // (1.9) lanes overlap where they reach into each other by more than this (m): two lanes sharing a pipe touch, they
 // don't overlap (the dividers' tolerance)
 export const OVERLAP_TOL = 0.02;
@@ -1058,18 +1061,19 @@ export function selfCrossings(line: Line, s: Float64Array, total: number): { X: 
   const CELL = 1.0;
   let x0 = Infinity, z0 = Infinity;
   for (let i = 0; i < n; i++) { x0 = Math.min(x0, x[i]); z0 = Math.min(z0, z[i]); }
+  x0 -= CROSSING_BOX; z0 -= CROSSING_BOX; // the grown boxes start here
   const cells = new Map<number, number[]>();
   const cellsOf = (i: number, visit: (key: number) => void) => {
-    const c0 = Math.floor((Math.min(x[i], x[i] + dx[i]) - x0) / CELL), c1 = Math.floor((Math.max(x[i], x[i] + dx[i]) - x0) / CELL);
-    const r0 = Math.floor((Math.min(z[i], z[i] + dz[i]) - z0) / CELL), r1 = Math.floor((Math.max(z[i], z[i] + dz[i]) - z0) / CELL);
+    const c0 = Math.floor((Math.min(x[i], x[i] + dx[i]) - CROSSING_BOX - x0) / CELL), c1 = Math.floor((Math.max(x[i], x[i] + dx[i]) + CROSSING_BOX - x0) / CELL);
+    const r0 = Math.floor((Math.min(z[i], z[i] + dz[i]) - CROSSING_BOX - z0) / CELL), r1 = Math.floor((Math.max(z[i], z[i] + dz[i]) + CROSSING_BOX - z0) / CELL);
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) visit(r * 100003 + c);
   };
   for (let i = 0; i < n; i++) cellsOf(i, (key) => { const b = cells.get(key); if (b) b.push(i); else cells.set(key, [i]); });
   const seen = new Int32Array(n).fill(-1);
   const found: { X: Point2; d: [number, number]; t: [Point2, Point2]; i: [number, number] }[] = [];
   for (let i = 0; i < n - 2; i++) {
-    const loX = Math.min(x[i], x[i] + dx[i]), hiX = Math.max(x[i], x[i] + dx[i]);
-    const loZ = Math.min(z[i], z[i] + dz[i]), hiZ = Math.max(z[i], z[i] + dz[i]);
+    const loX = Math.min(x[i], x[i] + dx[i]) - CROSSING_BOX, hiX = Math.max(x[i], x[i] + dx[i]) + CROSSING_BOX;
+    const loZ = Math.min(z[i], z[i] + dz[i]) - CROSSING_BOX, hiZ = Math.max(z[i], z[i] + dz[i]) + CROSSING_BOX;
     const jEnd = i === 0 ? n - 1 : n; // not the segment itself or its neighbours
     const near: number[] = [];
     cellsOf(i, (key) => {
@@ -1077,8 +1081,8 @@ export function selfCrossings(line: Line, s: Float64Array, total: number): { X: 
     });
     near.sort((p, q) => p - q);
     for (const j of near) {
-      if (Math.min(x[j], x[j] + dx[j]) > hiX || Math.max(x[j], x[j] + dx[j]) < loX) continue;
-      if (Math.min(z[j], z[j] + dz[j]) > hiZ || Math.max(z[j], z[j] + dz[j]) < loZ) continue;
+      if (Math.min(x[j], x[j] + dx[j]) - CROSSING_BOX > hiX || Math.max(x[j], x[j] + dx[j]) + CROSSING_BOX < loX) continue;
+      if (Math.min(z[j], z[j] + dz[j]) - CROSSING_BOX > hiZ || Math.max(z[j], z[j] + dz[j]) + CROSSING_BOX < loZ) continue;
       const den = dx[i] * dz[j] - dz[i] * dx[j];
       if (!(Math.abs(den) > 1e-12)) continue;
       const wx = x[j] - x[i], wz = z[j] - z[i];

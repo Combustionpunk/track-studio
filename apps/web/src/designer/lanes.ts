@@ -106,7 +106,7 @@ export interface Laying {
 /** fewest squares a loop can close with */
 export const MIN_LOOP = 4;
 
-export type Refusal = "blocked" | "used" | "crossing" | "dead-end" | "corner" | "tip" | "outside";
+export type Refusal = "blocked" | "used" | "crossing" | "dead-end" | "corner" | "beside" | "tip" | "outside";
 
 export const REFUSAL_TEXT: Record<Refusal, string> = {
   blocked: "That square is blocked by a fixed obstacle.",
@@ -114,9 +114,13 @@ export const REFUSAL_TEXT: Record<Refusal, string> = {
   crossing: "The lane can only cross itself straight across, at right angles.",
   "dead-end": "A crossing needs the lane to carry straight on.",
   corner: "A diagonal can't cut past a blocked or used square.",
+  beside: "Too close to a diagonal: lanes would overlap.",
   tip: "The point of a V needs a clear square beyond it, inside the track area.",
   outside: "Start the lane on a whole square inside the track area.",
 };
+
+/** step 1's hint on turns: a 135° turn is a step into a square the diagonal before it passed between ("beside") */
+export const TURNS_HINT = "Turns are 45° or 90°; a 135° turn can't be painted.";
 
 /**
  * Squares from `a` to `b` one step at a time (`a` excluded, `b` included): diagonal steps while both the column and
@@ -152,7 +156,7 @@ function tipOf(a: Cell, b: Cell, c: Cell): Cell | null {
  */
 function reached(cells: Cell[], step: Cell): Refusal | null {
   for (let i = 1; i < cells.length; i++) {
-    if (diagonal(dir(cells[i - 1], cells[i])) && passesBetween(cells[i - 1], cells[i]).some((p) => same(p, step))) return "corner";
+    if (diagonal(dir(cells[i - 1], cells[i])) && passesBetween(cells[i - 1], cells[i]).some((p) => same(p, step))) return "beside";
     const tip = i < cells.length - 1 && tipOf(cells[i - 1], cells[i], cells[i + 1]);
     if (tip && same(tip, step)) return "tip";
   }
@@ -232,6 +236,19 @@ export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Layin
     states.push({ cells, closed: false });
   }
   return { states };
+}
+
+/**
+ * Lifting the pointer at `p`: the step to the square under it, if that's next to the end of the lane and painting takes
+ * it. A drag that ends near the edge of its last square, before dragCell moves on, still paints it, closing the loop
+ * too. Never a step back onto the previous square (that would take the last one up) and never a refused square: there
+ * the pointer only clipped it on the way out.
+ */
+export function releaseStep(g: LaneGrid, lay: Laying, p: Point2): Laying[] {
+  const c = cellAt(g, p), n = lay.cells.length;
+  if (lay.closed || !c || !n || !neighbours(c, lay.cells[n - 1]) || (n >= 2 && same(c, lay.cells[n - 2]))) return [];
+  const r = paintTo(g, lay, c);
+  return r.refused ? [] : r.states;
 }
 
 // ---------------------------------------------------------------------------------------------- closing
