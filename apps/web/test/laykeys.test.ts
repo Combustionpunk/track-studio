@@ -1,10 +1,11 @@
 // Quick mode step 1 from the keyboard (#47): a cursor square, arrows, Enter / Space, Backspace and Shift diagonals,
 // on the same painting model as the pointer (lanes.ts), with an announcement for each step and each refusal.
-import type { RcVenue } from "@track-studio/engine";
+import { bakeBuilt, venueCheck, type RcVenue } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { isLoop, laneGrid, MIN_LOOP, paintTo, REFUSAL_TEXT, type Cell, type LaneGrid, type Laying } from "../src/designer/lanes.js";
+import { newDraft, toDoc } from "../src/designer/Designer.js";
+import { designStep, gridFor, isLoop, laneGrid, withLaying, MIN_LOOP, paintTo, REFUSAL_TEXT, type Cell, type LaneGrid, type Laying } from "../src/designer/lanes.js";
 import { layKey, refusal, startCursor, type LayKeys } from "../src/designer/laykeys.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
@@ -236,4 +237,32 @@ describe("a diagonal run from the keyboard (#82)", () => {
   it("Shift and two arrows move the cursor diagonally before the lane starts", () => {
     expect(press(g, ["Shift+ArrowUp", "Shift+ArrowRight"]).ks.cursor).toEqual([1, 1]);
   });
+});
+
+describe("what the keyboard lays bakes clean (rctrack 1.9 lane-overlap, #95)", () => {
+  const NE = ["Shift+ArrowUp", "Shift+ArrowRight"], NW = ["Shift+ArrowUp", "Shift+ArrowLeft"];
+  const SW = ["Shift+ArrowDown", "Shift+ArrowLeft"], SE = ["Shift+ArrowDown", "Shift+ArrowRight"];
+  const LAYOUTS: Record<string, string[]> = {
+    loop: ["Enter", ...times("ArrowRight", 3), ...times("ArrowUp", 2), ...times("ArrowLeft", 3), ...times("ArrowDown", 2)],
+    "figure of eight": ["ArrowUp", "ArrowUp", "Enter", ...times("ArrowRight", 8), ...times("ArrowUp", 3), ...times("ArrowLeft", 3), ...times("ArrowDown", 5), ...times("ArrowLeft", 5), ...times("ArrowUp", 2)],
+    octagon: ["ArrowRight", "ArrowRight", "Enter", ...times("ArrowRight", 6), ...NE, ...NE, "ArrowUp", ...NW, ...NW, ...times("ArrowLeft", 6), ...SW, ...SW, "ArrowDown", ...SE, ...SE],
+    // straights side by side on neighbouring rows: lanes that share a pipe, not overlap
+    serpentine: ["Enter", ...times("ArrowRight", 5), "ArrowUp", ...times("ArrowLeft", 4), "ArrowUp", ...times("ArrowRight", 4), "ArrowUp", ...times("ArrowLeft", 5), ...times("ArrowDown", 3)],
+  };
+
+  for (const [name, keys] of Object.entries(LAYOUTS)) {
+    it(`the ${name} has no lane-overlap, and no errors at all`, () => {
+      const d0 = newDraft({ area: hall.area, name, laneWidth: 2 });
+      const r = press(gridFor(d0, hall.obstacles), keys);
+      expect(r.lay.closed).toBe(true);
+      const d = withLaying(d0, r.lay);
+      expect(designStep(d)).toBe(2);
+      const doc = toDoc(d);
+      const b = bakeBuilt(doc);
+      expect(b.checks.filter((c) => c.code === "lane-overlap")).toEqual([]);
+      // the figure of eight's crossing is unbridged until step 3 bridges it
+      const errors = [...b.checks, ...venueCheck(doc, hall).checks].filter((c) => c.level === "error" && c.code !== "crossing-unbridged");
+      expect(errors).toEqual([]);
+    });
+  }
 });
