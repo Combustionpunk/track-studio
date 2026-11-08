@@ -57,7 +57,7 @@ describe("lane-overlap fixtures", () => {
     const b = bakeBuilt(extra("missed-crossing"));
     expect(b.crossings).toHaveLength(1);
     expect(b.crossings![0]).toMatchObject({ x: 0, z: 0, over: "first", bridge: { type: "crossover", feature: 0 } });
-    expect(b.checks.filter((c) => c.code !== "radius-reduced")).toEqual([]);
+    expect(b.checks).toEqual([]);
   });
 
   it("the same figure of eight without the crossover is crossing-unbridged, not lane-overlap (#100)", () => {

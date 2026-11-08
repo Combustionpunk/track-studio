@@ -124,7 +124,6 @@ describe("rebake", () => {
   });
 });
 
-
 describe("rebake report lines", () => {
   const change: RebakeChange = {
     id: "t", name: "Club A", revision: 2, corners: [12, 12], size: ["22 × 11.8 m", "22 × 11.8 m"], racingLineChanged: false,

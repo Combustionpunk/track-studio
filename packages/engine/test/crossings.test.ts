@@ -49,7 +49,7 @@ describe("crossing detection", () => {
 
   it("finds a crossing that falls exactly on a racing-line sample (#100)", () => {
     // A symmetric figure of eight puts a sample on the crossing whenever its diagonal has an even number of samples;
-    // rounding then leaves the two passes' samples a hair apart (here ±4e-16 m), so the segment bounding boxes no
+    // rounding then leaves the two passes' samples a hair apart (here ±9e-16 m), so the segment bounding boxes no
     // longer touched and the pair that owns the crossing (both segments starting on it) was never tested.
     const pts: [number, number][] = [[-6.75, -6.75], [6.75, 6.75], [10.75, 6.75], [10.75, -6.75], [6.75, -6.75], [-6.75, 6.75], [-10.75, 6.75], [-10.75, -6.75]];
     const doc = track(pts, { start: 2, area: [24, 16] });

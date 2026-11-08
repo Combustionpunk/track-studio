@@ -1061,6 +1061,7 @@ export function selfCrossings(line: Line, s: Float64Array, total: number): { X: 
   const CELL = 1.0;
   let x0 = Infinity, z0 = Infinity;
   for (let i = 0; i < n; i++) { x0 = Math.min(x0, x[i]); z0 = Math.min(z0, z[i]); }
+  x0 -= CROSSING_BOX; z0 -= CROSSING_BOX; // the grown boxes start here
   const cells = new Map<number, number[]>();
   const cellsOf = (i: number, visit: (key: number) => void) => {
     const c0 = Math.floor((Math.min(x[i], x[i] + dx[i]) - CROSSING_BOX - x0) / CELL), c1 = Math.floor((Math.max(x[i], x[i] + dx[i]) + CROSSING_BOX - x0) / CELL);

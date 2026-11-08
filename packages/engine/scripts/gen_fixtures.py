@@ -179,7 +179,7 @@ EXTRA_TRACKS.update({
 
 # #100: a crossing on a racing-line sample, exactly between two segments. Symmetric figures of eight put a sample on the
 # crossing whenever the diagonal has an even number of samples; rounding then puts the two passes' samples a hair apart,
-# and until 1.9 (#100) the segment bounding boxes no longer touched, so self_crossings missed it: 1.9 reported a
+# and before #100 the segment bounding boxes no longer touched, so self_crossings missed it (since 1.6): 1.9 reported a
 # lane-overlap there instead of a crossing, and a crossover on it was crossover-unused. Bridged, it is clean.
 EXTRA_TRACKS["missed-crossing"] = at_crossings(track("23", "Crossing on a sample", {"length": 24, "width": 16}, {
     "laneWidth": 2.0, "points": [{"x": x, "z": z, "radius": 1.5} for x, z in
