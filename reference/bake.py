@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.9).
+Reference implementation of the rctrack geometry engine (format v1.10).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -723,8 +723,10 @@ def lane_overlaps(line, s, total, zones, cr, divs):
     1.10 (#102): an overlap is a squeeze (`lane-squeeze`, a warning: "Lane narrows by 0.35 m at this corner") when
     every one of its pairs has a sample on a corner (its zone, as above: the overlap is at corners, not along two
     straights) and a built divider (`divs`) crosses the line between the centres of its deepest pair: a pipe separates
-    the lanes, one of them narrowed where two corners were rounded to different curves. Otherwise it is a
-    `lane-overlap` error: the lanes run into each other."""
+    the lanes, one of them narrowed where two corners were rounded to different curves, and (#105) the squeeze leaves a
+    lane: it is no deeper than the narrower lane of the pair less MIN_WIDTH (0.6 m at 2 m lanes; a short hairpin with
+    legs half a lane apart has no two straight samples overlapping, and pipes between its legs, but the lane left is
+    narrower than any sensible lane). Otherwise it is a `lane-overlap` error: the lanes run into each other."""
     step = max(1, int(EXPORT_STEP / SAMPLE))
     idx = np.arange(0, len(line), step); n = len(idx)
     P = line[idx, :2]; H = line[idx, 2] / 2; S = s[idx]
@@ -760,7 +762,8 @@ def lane_overlaps(line, s, total, zones, cr, divs):
         i, j = max(g, key=lambda q: depth[q])        # the deepest pair (the first, by sample, on a tie)
         deep = depth[(i, j)] + OVERLAP_TOL
         at_corner = all(Z[a].any() or Z[b].any() for a, b in g)   # no pair of two straight samples: corners only
-        if at_corner and _pipe_between(P[i], P[j], divs):
+        leaves_lane = deep <= min(H[i], H[j]) * 2 - MIN_WIDTH      # what is left of the narrower lane is a lane
+        if at_corner and leaves_lane and _pipe_between(P[i], P[j], divs):
             out.append({"level": "warning", "code": "lane-squeeze", "x": r3(X[0]), "z": r3(X[1]),
                         "message": f"Lane narrows by {deep:.2f} m at this corner"})
         else:

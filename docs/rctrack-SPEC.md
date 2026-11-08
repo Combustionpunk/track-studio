@@ -182,12 +182,17 @@ A track may cross itself where a bridge carries one pass over the other.
   rule 2 above), so no two straight samples overlap, **and** (2) a built divider (`built.dividers`) crosses the straight
   line between the centres of its deepest pair (the first, by sample, on a tie): a pipe still separates the lanes, and
   one of them is narrower there because two corners were rounded to different curves (a sweeper's inside against the
-  outside of a hairpin's corner sharing its pipe, say). Otherwise it is a `lane-overlap` error: the lanes run into each
+  outside of a hairpin's corner sharing its pipe, say), **and** (3) the squeeze leaves a lane: the overlap is no deeper
+  than the narrower of the pair's two lane widths less **1.4 m** (the narrowest sensible lane, as `narrow-lane`), so
+  0.6 m at 2 m lanes. Otherwise it is a `lane-overlap` error: the lanes run into each
   other, with no pipe between them, or along straights (two straights closer than a lane width are an error even where
-  the bake draws pipes between them, and even at the corners that join them). Whether a corner clipping another pass
+  the bake draws pipes between them, and even at the corners that join them), or so deep that what is left is no lane
+  (a short hairpin with legs half a lane apart: with legs short enough, every overlapping sample is in a corner's
+  zone and a merged pipe runs between the legs, but the lane left is 1.2 m). Whether a corner clipping another pass
   by less than a pipe's merge gap (0.6 m) is a squeeze or an overlap follows the pipes the bake draws there: where the
-  shared pipe survives between the two lanes, a squeeze; where the clipped lane's pipe is cut away, an overlap. A squeeze doesn't block submitting or
-  approving a layout; corner handling is to be improved in a later version.
+  shared pipe survives between the two lanes, a squeeze; where the clipped lane's pipe is cut away, an overlap; and a
+  short hairpin whose legs overlap by less than the cap (2 m legs 1.5 m apart, say) is a squeeze. A squeeze doesn't
+  block submitting or approving a layout; corner handling is to be improved in a later version.
 
 ### Corner count
 A design point whose turn is more than 20° is a corner. Turns **the same way** joined by less than **3 m** of racing line
@@ -253,9 +258,10 @@ the venue's coordinates: for a copy adapted to the venue, these are the layout's
 
 ## Changes
 - **1.10** — `lane-overlap` is split in two (*Lane overlaps*). An overlap at a corner where a built divider runs between
-  the two lane centres is a new **warning**, `lane-squeeze` ("Lane narrows by 0.35 m at this corner"): a pipe still
+  the two lane centres, no deeper than the narrower lane less 1.4 m (0.6 m at 2 m lanes), is a new **warning**,
+  `lane-squeeze` ("Lane narrows by 0.35 m at this corner"): a pipe still
   separates the lanes, one of them squeezed where two corners were rounded to different curves. `lane-overlap` stays an
-  error where the lanes run into each other. The shared-pipe allowance is 5 cm (was 2 cm): overlaps of a few
+  error where the lanes run into each other, or what is left of a lane would be narrower than any sensible lane. The shared-pipe allowance is 5 cm (was 2 cm): overlaps of a few
   centimetres between lanes sharing a pipe are rounding, not reported. `version` stays `1`: no field changes. Re-baking
   changes only tracks with a `lane-overlap` check: a squeeze becomes the warning, an overlap of up to 5 cm disappears,
   and the position of a remaining error may move by up to ~6 cm (fewer fringe pairs). Every other track bakes

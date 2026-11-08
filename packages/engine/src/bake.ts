@@ -1285,8 +1285,10 @@ export function crossingChecks(cr: RawCrossing[], feats: BuiltFeature[], feature
  * 1.10 (#102): an overlap is a squeeze (`lane-squeeze`, a warning: "Lane narrows by 0.35 m at this corner") when every one
  * of its pairs has a sample on a corner (its zone, as above: the overlap is at corners, not along two straights) and a
  * built divider (`divs`) crosses the line between the centres of its deepest pair: a pipe separates the lanes, one of them
- * narrowed where two corners were rounded to different curves. Otherwise it is a `lane-overlap` error: the lanes run into
- * each other. (bake.py: lane_overlaps)
+ * narrowed where two corners were rounded to different curves, and (#105) the squeeze leaves a lane: it is no deeper than
+ * the narrower lane of the pair less MIN_WIDTH (0.6 m at 2 m lanes; a short hairpin with legs half a lane apart has no
+ * two straight samples overlapping, and pipes between its legs, but the lane left is narrower than any sensible lane).
+ * Otherwise it is a `lane-overlap` error: the lanes run into each other. (bake.py: lane_overlaps)
  */
 export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: Set<number>[], cr: RawCrossing[], divs: Divider[]): Check[] {
   const step = Math.max(1, Math.trunc(EXPORT_STEP / SAMPLE));
@@ -1358,11 +1360,12 @@ export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: 
       }
       const i = Math.trunc(deepest / n), j = deepest % n;
       const x = r3(sx / g.length), z = r3(sz / g.length), deep = pyFormat(d + OVERLAP_TOL, 2);
-      // 1.10 (#102): at corners only (no pair of two straight samples), with a pipe between the deepest pair's
-      // centres, the lane is squeezed, not run into
+      // 1.10 (#102): at corners only (no pair of two straight samples), no deeper than what leaves a lane (#105), with
+      // a pipe between the deepest pair's centres, the lane is squeezed, not run into
       const onCorner = (k: number) => inZone[k].some(Boolean);
       const atCorner = g.every((q) => onCorner(Math.trunc(q / n)) || onCorner(q % n));
-      if (atCorner && pipeBetween(px[i], pz[i], px[j], pz[j], divs)) {
+      const leavesLane = d + OVERLAP_TOL <= Math.min(h[i], h[j]) * 2 - MIN_WIDTH; // what is left of the narrower lane is a lane
+      if (atCorner && leavesLane && pipeBetween(px[i], pz[i], px[j], pz[j], divs)) {
         return { level: "warning", code: "lane-squeeze", x, z, message: `Lane narrows by ${deep} m at this corner` };
       }
       return { level: "error", code: "lane-overlap", x, z, message: `Lanes overlap by ${deep} m here` };

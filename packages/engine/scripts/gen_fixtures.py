@@ -216,6 +216,20 @@ EXTRA_TRACKS["test-squeezed-corner"] = track("27", "Test (squeezed corner)", {"l
                {"x": -10, "z": -5, "radius": 5}],
     "features": [], "start": {"distance": 10.571}})
 
+# #105 (Marshal's review of 1.10): a squeeze must leave a lane. A short hairpin whose legs are half a lane apart has no two
+# straight samples overlapping (every overlapping sample is in a corner's zone when the legs are short) and a merged pipe
+# between its legs, so without the depth cap it passed as a 0.80 m "squeeze". Deeper than the narrower lane less 1.4 m
+# (0.6 m at 2 m lanes) it is a lane-overlap error; its sibling 1.45 m apart (0.55 m) stays a lane-squeeze warning.
+def short_hairpin(gap):
+    """Main straight, a short hairpin (2.5 m legs, `gap` m apart) dropping from the return straight, every point radius 0.6."""
+    return [{"x": x, "z": z, "radius": 0.6} for x, z in [(-10, -5), (10, -5), (10, 5), (gap, 5), (gap, 2.5), (0, 2.5), (0, 5), (-10, 5)]]
+EXTRA_TRACKS.update({
+    "short-legs-overlap": track("28", "Short hairpin legs 1.2 m apart", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": short_hairpin(1.2), "start": {"distance": 3.0}}),
+    "short-legs-squeeze": track("29", "Short hairpin legs 1.45 m apart", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": short_hairpin(1.45), "start": {"distance": 3.0}}),
+})
+
 EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
 
 EXTRA_VENUES = {

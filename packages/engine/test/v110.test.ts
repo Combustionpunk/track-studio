@@ -96,6 +96,38 @@ describe("true overlaps are still lane-overlap errors", () => {
   });
 });
 
+describe("a squeeze must leave a lane (#105): deeper than the narrower lane less 1.4 m is an overlap", () => {
+  // Marshal's counterexample: a short hairpin (2.5 m legs) with legs half a lane apart has no two straight samples
+  // overlapping (every overlapping sample is in a corner's zone) and a merged pipe between its legs, so the corners-only
+  // and pipe tests alone made it a 0.80 m "squeeze"; the lane left would be 1.2 m, so it is an error
+  it("the short-legs-overlap fixture (legs 1.2 m apart) is a lane-overlap error of 0.80 m", () => {
+    expect(laneChecks(bakeBuilt(extra("short-legs-overlap"))).map((c) => [c.level, c.code, c.message])).toEqual([["error", "lane-overlap", "Lanes overlap by 0.80 m here"]]);
+  });
+
+  it("its sibling just under the cap (legs 1.45 m apart, 0.55 m) stays a lane-squeeze warning", () => {
+    const b = bakeBuilt(extra("short-legs-squeeze"));
+    expect(errors(b)).toEqual([]);
+    expect(laneChecks(b).map((c) => [c.level, c.code, c.message])).toEqual([["warning", "lane-squeeze", "Lane narrows by 0.55 m at this corner"]]);
+  });
+
+  const shortHairpin = (gap: number, legs: number, radius: number): RcTrack => {
+    const pts = [[-10, -5], [10, -5], [10, 5], [gap, 5], [gap, 5 - legs], [0, 5 - legs], [0, 5], [-10, 5]].map(([x, z]) => ({ x, z, radius }));
+    return { format: "rctrack", version: 1, id: "short", revision: 1, info: { name: "short" }, area: { length: 22, width: 12 }, design: { laneWidth: 2, points: pts, start: { distance: 3 } } };
+  };
+
+  it("radius-1 corners with legs 1.0 m apart are an error of 0.85 m", () => {
+    expect(laneChecks(bakeBuilt(shortHairpin(1.0, 2.5, 1))).map((c) => [c.level, c.code, c.message])).toEqual([["error", "lane-overlap", "Lanes overlap by 0.85 m here"]]);
+  });
+
+  it("the cap is on top of the corners-only rule: the same 0.55 m with 3 m legs is an error along the straights", () => {
+    expect(laneChecks(bakeBuilt(shortHairpin(1.45, 3.0, 0.6))).map((c) => [c.level, c.code, c.message])).toEqual([["error", "lane-overlap", "Lanes overlap by 0.55 m here"]]);
+  });
+
+  it("\"Test\" (0.35 m at 2 m lanes) is well under the cap", () => {
+    expect(laneChecks(bakeBuilt(extra("test-squeezed-corner"))).map((c) => c.code)).toEqual(["lane-squeeze"]);
+  });
+});
+
 describe("lanes that meet without overlapping stay clean", () => {
   it.each(["shared-straights", "nested-corners", "tight-hairpin", "crossover-figure8", "unbridged-figure8", "shallow-crossing", "two-crossings", "missed-crossing", "peel-round", "peel-square", "switchbacks"])("%s", (name) => {
     expect(laneChecks(bakeBuilt(extra(name)))).toEqual([]);
