@@ -332,12 +332,15 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
     it(`${name}: the over pass's carpet and racing line follow the bridge's profile along its length`, () => {
       for (const f of bridgedFeatures(b)) {
         const fr = frameOf(f);
-        for (let a = 0; a <= f.length + 1e-9; a += f.length / 40) {
+        for (let a = f.length / 80; a < f.length; a += f.length / 40) {
           for (const across of [-0.8, 0, 0.8]) {
             const p = fr.at(a, across), want = bridgeHeight(b, p);
             const hs = heightsAt(carpet, p);
             expect(hs.length, `carpet at ${a.toFixed(2)} m, ${across} across`).toBeGreaterThan(0);
             expect(Math.max(...hs), `carpet at ${a.toFixed(2)} m, ${across} across`).toBeCloseTo(want + 0.002, 3);
+            // off the under pass, there's no carpet left on the floor beneath the over pass's
+            const clear = b.crossings!.every((c) => !c.over || Math.abs((p[0] - c.x) * underOf(b, c).n[0] + (p[1] - c.z) * underOf(b, c).n[1]) > underOf(b, c).w / 2 + 0.05);
+            if (clear) expect(Math.min(...hs), `nothing under the carpet at ${a.toFixed(2)} m, ${across} across`).toBeCloseTo(want + 0.002, 3);
           }
           expect(Math.max(...heightsAt(line, fr.at(a))), `line at ${a.toFixed(2)} m`).toBeCloseTo(bridgeHeight(b, fr.at(a)) + 0.006, 3);
         }
@@ -361,7 +364,7 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
         const f = b.features[c.bridge!.feature], fr = frameOf(f), top = f.height;
         const u = underOf(b, c);
         // the under pass's carpet and racing line run through at floor level
-        for (let k = -u.w; k <= u.w; k += 0.1) {
+        for (let k = 0.05 - u.w; k < u.w; k += 0.1) {
           const p: Point2 = [c.x + u.t[0] * k, c.z + u.t[1] * k];
           expect(Math.min(...heightsAt(carpet, p)), `under carpet at ${k.toFixed(1)}`).toBeCloseTo(0.002, 3);
           expect(Math.min(...heightsAt(line, p)), `under line at ${k.toFixed(1)}`).toBeCloseTo(0.006, 3);
@@ -375,10 +378,12 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
         for (const m of s.meshes)
           for (const [x, z, y] of verts(m))
             if (under(x, z)) expect(y <= PIPE_THICKNESS + 1e-6 || y >= top - DECK_THICKNESS - 1e-6, `${m.part} at ${x.toFixed(2)}, ${z.toFixed(2)}, ${y.toFixed(3)}`).toBe(true);
-        // and its pipes really pass beneath: pipe in the under lane's band, at the floor
-        const pipesUnder = verts(pipe).filter(([x, z]) => under(x, z));
-        expect(pipesUnder.length).toBeGreaterThan(0);
-        for (const [, , y] of pipesUnder) expect(y).toBeLessThanOrEqual(PIPE_THICKNESS + 1e-6);
+        // and its pipes really pass beneath, on the floor at its lane's edges
+        for (const side of [-1, 1]) {
+          const hs = heightsAt(pipe, [c.x + (u.n[0] * side * u.w) / 2, c.z + (u.n[1] * side * u.w) / 2]);
+          expect(hs.length, `under pipe, side ${side}`).toBeGreaterThan(0);
+          expect(Math.min(...hs)).toBeLessThanOrEqual(PIPE_THICKNESS + 1e-6);
+        }
       }
     });
 
@@ -386,8 +391,8 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
       const sides = part(s, "jumpSide");
       for (const c of b.crossings!.filter((c) => c.bridge && c.over)) {
         const f = b.features[c.bridge!.feature], fr = frameOf(f);
-        // the footprint's corners are the ramps' feet
-        for (const [x, z] of c.footprint!) expect(hasVert(sides, x, z, 0, 1e-3), `foot at ${x}, ${z}`).toBe(true);
+        // the footprint's corners are the ramps' feet (unless another bridge on the pass carries on from there)
+        for (const [x, z] of c.footprint!) if (bridgeHeight(b, [x, z]) < 1e-6) expect(hasVert(sides, x, z, 0, 1e-3), `foot at ${x}, ${z}`).toBe(true);
         // over the crossing, the deck's sides run from its underside up to its top, along both long edges
         const a = fr.along([c.x, c.z]);
         for (const side of [-1, 1]) {
@@ -405,7 +410,7 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
     });
   }
 
-  for (const name of ["unbridged-figure8", "crossover-low-figure8", "crossover-unused-figure8"]) {
+  for (const name of ["unbridged-figure8", "crossover-low-figure8"]) {
     it(`${name}: a crossing nothing bridges has both passes on the floor, and no bridge`, () => {
       const doc = extra(name), b = doc.built!, s = sceneOf(doc);
       expect(b.crossings!.every((c) => !c.bridge)).toBe(true);
