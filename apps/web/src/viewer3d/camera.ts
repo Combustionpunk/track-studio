@@ -1,6 +1,6 @@
-// Where the 3D viewer's camera stands (#83): pure, so it's tested without WebGL. Positions in three.js axes (x east,
-// y up, z south).
-import type { Area } from "@track-studio/engine";
+// Where the 3D viewer's camera stands (#83, the rostrum view #84): pure, so it's tested without WebGL. Positions in
+// three.js axes (x east, y up, z south).
+import { rostrumEye, type Area, type Side } from "@track-studio/engine";
 
 export interface Pose {
   position: [number, number, number];
@@ -60,3 +60,48 @@ export function topPose(area: Area, fovDeg: number, aspect: number): Pose {
   const d = fitDistance(area, dir, fovDeg, aspect);
   return { position: [dir[0] * d, dir[1] * d, dir[2] * d], target: [0, 0, 0] };
 }
+
+// ------------------------------------------------------------------ rostrum view (#84)
+/** Field of view at the rostrum (degrees, vertical): a little wider than the orbit view's, like a person's. */
+export const ROSTRUM_FOV = 60;
+/** Zoom narrows the field of view down to this, and widens it up to FOV_MAX. */
+export const FOV_MIN = 12;
+export const FOV_MAX = 75;
+const PITCH_LIMIT = 85;
+
+/** Which way the head turns at the rostrum, in degrees: yaw as plan headings (0 = east, counter-clockwise towards
+ * north), pitch up from level, and the field of view. */
+export interface Head {
+  yaw: number;
+  pitch: number;
+  fov: number;
+}
+
+const DEG = Math.PI / 180;
+
+/** Standing at the rostrum on `side`, looking at the middle of the area. */
+export function rostrumHead(area: Area, side: Side): Head {
+  const e = rostrumEye(area, side);
+  return { yaw: Math.atan2(-e.z, -e.x) / DEG, pitch: Math.atan2(-e.eyeHeight, Math.hypot(e.x, e.z)) / DEG, fov: ROSTRUM_FOV };
+}
+
+/** The camera at the rostrum on `side` (where rostrumEye puts the eyes), looking where `head` turns. */
+export function headPose(area: Area, side: Side, head: Head): Pose {
+  const e = rostrumEye(area, side);
+  const y = head.yaw * DEG, p = head.pitch * DEG;
+  const position: V = [e.x, e.eyeHeight, -e.z];
+  return { position, target: [e.x + Math.cos(p) * Math.cos(y), e.eyeHeight + Math.sin(p), -e.z - Math.cos(p) * Math.sin(y)] };
+}
+
+/** The rostrum view's starting pose: the eyes on `side`, looking at the middle of the area. */
+export const rostrumPose = (area: Area, side: Side): Pose => headPose(area, side, rostrumHead(area, side));
+
+/** Turn the head by `dYaw` (degrees, counter-clockwise: to the left) and `dPitch` (up); it can't look past straight up
+ * or down. */
+export function turnHead(h: Head, dYaw: number, dPitch: number): Head {
+  const yaw = ((((h.yaw + dYaw + 180) % 360) + 360) % 360) - 180;
+  return { ...h, yaw, pitch: Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, h.pitch + dPitch)) };
+}
+
+/** Zoom: the field of view times `k` (under 1 narrows it, i.e. zooms in), within FOV_MIN..FOV_MAX. */
+export const zoomHead = (h: Head, k: number): Head => ({ ...h, fov: Math.max(FOV_MIN, Math.min(FOV_MAX, h.fov * k)) });

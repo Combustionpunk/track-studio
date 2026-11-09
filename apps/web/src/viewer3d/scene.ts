@@ -3,9 +3,9 @@
 // is still a handful of draw calls.
 //
 // Positions are in three.js axes: x = plan x (east), y = up, z = −plan z (three's +z is south). Normals likewise.
-import { crossingCarpet, drawingArea, PIPE_THICKNESS, PLAN_PALETTE, type Area, type Built, type BuiltFeature, type Divider, type Point2, type RcTrack } from "@track-studio/engine";
+import { crossingCarpet, drawingArea, EYE_HEIGHT, PIPE_THICKNESS, PLAN_PALETTE, rostrumEye, type Area, type Built, type BuiltFeature, type Divider, type Point2, type RcTrack, type Side } from "@track-studio/engine";
 
-export type Part = "area" | "carpet" | "pipe" | "jump" | "jumpSide" | "startA" | "startB" | "line";
+export type Part = "area" | "carpet" | "pipe" | "jump" | "jumpSide" | "startA" | "startB" | "line" | "rostrum" | "rail";
 
 export interface MeshData {
   part: Part;
@@ -40,6 +40,8 @@ const COLOUR: Record<Part, string> = {
   startA: PLAN_PALETTE["plan-pipe"],
   startB: PLAN_PALETTE["plan-floor"],
   line: PLAN_PALETTE["plan-line"],
+  rostrum: PLAN_PALETTE["plan-rostrum"],
+  rail: PLAN_PALETTE["plan-pipe"],
 };
 
 /** Collects one mesh. Takes plan coordinates (x, z, height) and normals (nx, up, nz). */
@@ -71,6 +73,14 @@ class Mesh {
   face(p: [number, number, number][], n: [number, number, number]) {
     const [a, b, c, d] = p.map(([x, z, y]) => this.vert(x, z, y, ...n));
     this.quad(a, b, c, d);
+  }
+  /** A box over [x0, x1] × [z0, z1] (plan), from y0 up to y1, without a bottom. */
+  box(x0: number, x1: number, z0: number, z1: number, y0: number, y1: number) {
+    this.face([[x0, z0, y1], [x1, z0, y1], [x1, z1, y1], [x0, z1, y1]], [0, 1, 0]);
+    this.face([[x0, z0, y0], [x1, z0, y0], [x1, z0, y1], [x0, z0, y1]], [0, 0, -1]);
+    this.face([[x0, z1, y0], [x1, z1, y0], [x1, z1, y1], [x0, z1, y1]], [0, 0, 1]);
+    this.face([[x0, z0, y0], [x0, z1, y0], [x0, z1, y1], [x0, z0, y1]], [-1, 0, 0]);
+    this.face([[x1, z0, y0], [x1, z1, y0], [x1, z1, y1], [x1, z0, y1]], [1, 0, 0]);
   }
   done(part: Part): MeshData {
     return { part, colour: COLOUR[part], positions: new Float32Array(this.pos), normals: new Float32Array(this.nor), indices: new Uint32Array(this.idx) };
@@ -309,6 +319,42 @@ export function buildScene({ area, built }: { area: Area; built: Built }): Scene
     (m) => m.indices.length > 0,
   );
   return { area, background: PLAN_PALETTE["plan-floor"], meshes, triangles: meshes.reduce((n, m) => n + m.indices.length / 3, 0) };
+}
+
+// ------------------------------------------------------------------ rostrum (#84)
+/** The rostrum's deck: this far up, so a driver's eyes (1.7 m over it) are at EYE_HEIGHT. */
+export const DECK_HEIGHT = EYE_HEIGHT - 1.7;
+/** The rail along its front, this high over the deck. */
+export const RAIL_HEIGHT = 1.0;
+/** Deck size, along × across its side (as the plan draws a venue's rostrum). */
+const DECK: [number, number] = [5, 1.2];
+const RAIL_BAR = 0.05;
+const RAIL_POSTS = 5;
+
+/**
+ * A simple rostrum where rostrumEye puts the drivers on `side` (a layout has none: this is the viewer's, so the orbit
+ * view shows where the rostrum view stands): a deck centred on the spot and a rail along its front, facing the area.
+ */
+export function rostrumMeshes(area: Area, side: Side): MeshData[] {
+  const e = rostrumEye(area, side);
+  const ns = side === "north" || side === "south";
+  const out = side === "north" || side === "east" ? 1 : -1; // away from the area, along the side's axis
+  const [along, across] = [DECK[0] / 2, DECK[1] / 2];
+  // a box given as [along0, along1] × [out0, out1] (out: across the side, away from the area, from the eyes)
+  const box = (m: Mesh, a0: number, a1: number, o0: number, o1: number, y0: number, y1: number) => {
+    const [c0, c1] = [out * o0, out * o1].sort((a, b) => a - b);
+    if (ns) m.box(e.x + a0, e.x + a1, e.z + c0, e.z + c1, y0, y1);
+    else m.box(e.x + c0, e.x + c1, e.z + a0, e.z + a1, y0, y1);
+  };
+  const deck = new Mesh(), rail = new Mesh();
+  box(deck, -along, along, -across, across, 0, DECK_HEIGHT);
+  const front = -across, b = RAIL_BAR / 2, top = DECK_HEIGHT + RAIL_HEIGHT;
+  box(rail, -along, along, front, front + RAIL_BAR, top - RAIL_BAR, top);
+  for (let k = 0; k < RAIL_POSTS; k++) {
+    const a = -along + b + ((2 * along - RAIL_BAR) * k) / (RAIL_POSTS - 1);
+    box(rail, a - b, a + b, front, front + RAIL_BAR, DECK_HEIGHT, top - RAIL_BAR);
+  }
+  return [deck.done("rostrum"), rail.done("rail")];
 }
 
 /** The scene for a layout file: its drawing area and built section (never its design). */
