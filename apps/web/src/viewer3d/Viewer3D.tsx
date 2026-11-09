@@ -323,11 +323,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
           <button type="button" onClick={() => zoom(1.25)} aria-label="Zoom out" title="Zoom out (−)">
             <ZoomOut size={18} aria-hidden="true" />
           </button>
-          {rostrum.at ? (
-            <button type="button" onClick={() => onRostrum(rostrum.side, false)} aria-label="Back to orbit" title="Back to orbit (Esc)">
-              <Orbit size={18} aria-hidden="true" />
-            </button>
-          ) : (
+          {!rostrum.at && (
             <>
               <button type="button" onClick={() => pose("home")} aria-label="Reset view" title="Reset view (0)">
                 <House size={18} aria-hidden="true" />
@@ -359,8 +355,9 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
             </button>
           ))}
           {rostrum.at && (
-            <button type="button" className="plan3d-orbit" onClick={() => onRostrum(rostrum.side, false)}>
-              Back to orbit
+            <button type="button" className="plan3d-orbit" onClick={() => onRostrum(rostrum.side, false)} title="Back to orbit (Esc)">
+              <Orbit size={16} aria-hidden="true" />
+              <span>Back to orbit</span>
             </button>
           )}
         </div>
