@@ -1,4 +1,4 @@
-import { drawingArea, type Point2, type RcTrack } from "@track-studio/engine";
+import { drawingArea, type Point2, type RcTrack, type RcVenue, type Side } from "@track-studio/engine";
 import { ArrowLeft, Download, Lock } from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -12,6 +12,7 @@ import * as fmt from "../lib/format.js";
 import { areaBounds } from "../lib/plan.js";
 import { useApi, useSessionChoice, useStored } from "../lib/hooks.js";
 import { estimateSeconds, lapTime, recordTime, speedFor, useClassSpeeds } from "../lib/laps.js";
+import { defaultRostrumSide, readRostrum, writeRostrum } from "../viewer3d/rostrum.js";
 import { hasWebGL } from "../viewer3d/support.js";
 import { NotFound } from "./NotFound.js";
 
@@ -192,6 +193,18 @@ export function TrackPage() {
   const shown = viewing ? old.data : tr.data?.doc;
   const area = useMemo(() => (shown?.area || shown?.built ? drawingArea(shown) : undefined), [shown]);
 
+  // the rostrum view (#84): ?view=rostrum&side=n opens 3D standing at the rostrum; without a side, the rostrum of the
+  // venue template the layout is drawn for (if it still exists), else south
+  const choice = readRostrum(params);
+  const drawnFor = shown?.info?.drawnFor?.venueTemplate;
+  const venue = useApi<{ doc: RcVenue }>(drawnFor ? `/api/venues/${encodeURIComponent(drawnFor)}` : null);
+  const venueKnown = !drawnFor || !!venue.data || !!venue.error;
+  const rostrum = useMemo(() => ({ side: choice.side ?? defaultRostrumSide(venue.data?.doc), at: choice.at }), [choice.side, choice.at, venue.data]);
+  const onRostrum = useCallback(
+    (side: Side, at: boolean) => setParams((p) => writeRostrum(p, { at, side }), { replace: true }),
+    [setParams],
+  );
+
   if (tr.error) {
     if (tr.error instanceof ApiError && tr.error.status === 404) return <NotFound what="track" />;
     return (
@@ -209,7 +222,8 @@ export function TrackPage() {
   const doc = viewing ? old.data : tr.data.doc;
   const rev = viewing ?? track.publicRevision; // the revision on screen
   const b = doc?.built;
-  const no3d = view === "3d" ? (noWebGL ?? (hasWebGL() ? undefined : "none")) : undefined;
+  const shown3d = choice.at ? "3d" : view; // a rostrum link opens in 3D
+  const no3d = shown3d === "3d" ? (noWebGL ?? (hasWebGL() ? undefined : "none")) : undefined;
   const origin = window.location.origin;
   const link = `${origin}/t/${track.id}${viewing ? `?r=${viewing}` : ""}`;
   const embed = `<iframe src="${origin}/embed/${track.id}${viewing ? `?r=${viewing}` : ""}" width="100%" height="460" frameborder="0" loading="lazy" title="${escAttr(track.name)} – Track Studio"></iframe>`;
@@ -380,7 +394,7 @@ export function TrackPage() {
           ) : (
             <>
               <div className="track-view">
-                {view === "3d" && !no3d ? (
+                {shown3d === "3d" && !no3d ? (
                   <Suspense
                     fallback={
                       <div role="status" aria-busy="true">
@@ -389,7 +403,19 @@ export function TrackPage() {
                       </div>
                     }
                   >
-                    <Viewer3D area={area!} built={b} label={`3D view of ${track.name}, ${fmt.size(area!)}`} className="ts-plan-well track-plan" onUnsupported={unsupported} />
+                    {venueKnown ? (
+                      <Viewer3D
+                        area={area!}
+                        built={b}
+                        label={`3D view of ${track.name}, ${fmt.size(area!)}`}
+                        className="ts-plan-well track-plan"
+                        onUnsupported={unsupported}
+                        rostrum={rostrum}
+                        onRostrum={onRostrum}
+                      />
+                    ) : (
+                      <Skeleton className="ts-plan-well track-plan" style={{ "--plan-ratio": planRatio(area!) } as React.CSSProperties} />
+                    )}
                   </Suspense>
                 ) : (
                   <PlanView
@@ -413,7 +439,16 @@ export function TrackPage() {
                 </p>
                 <div className="plan-viewswitch" role="group" aria-label="View">
                   {VIEWS.map((k) => (
-                    <button key={k} type="button" aria-pressed={view === k} className={view === k ? "on" : ""} onClick={() => setView(k)}>
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={shown3d === k}
+                      className={shown3d === k ? "on" : ""}
+                      onClick={() => {
+                        setView(k);
+                        if (k === "2d" && choice.at) onRostrum(rostrum.side, false);
+                      }}
+                    >
                       {k.toUpperCase()}
                     </button>
                   ))}

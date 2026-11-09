@@ -136,6 +136,13 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .plan3d-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
 .plan3d-stage { position: absolute; inset: 0; }
 .plan3d-stage:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+/* the rostrum picker, over the 3D view's bottom-left corner (#84) */
+.plan3d-rostrum { position: absolute; left: 10px; bottom: 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; max-width: calc(100% - 20px); }
+.plan3d-rostrum > span { padding: 0 8px; height: 34px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--plan-ui-bg); color: var(--plan-ink); font-size: 0.85rem; font-weight: 600; }
+.plan3d-rostrum button { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--plan-ui-border); background: var(--plan-ui-bg); color: var(--plan-ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.plan3d-rostrum button:hover { background: var(--plan-ui-hover); }
+.plan3d-rostrum button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.plan3d-rostrum button:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
 
 /* embed */
 .embed { height: 100vh; display: flex; flex-direction: column; background: var(--plan-floor); color: var(--plan-ink); }
