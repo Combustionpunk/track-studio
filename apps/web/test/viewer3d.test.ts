@@ -410,6 +410,49 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
     });
   }
 
+  /** Is the point (plan x, z, height y) on some triangle of m? */
+  function onFace(m: MeshData, [x, z, y]: [number, number, number]): boolean {
+    for (let t = 0; t < m.indices.length; t += 3) {
+      const [p, q, r] = [m.indices[t], m.indices[t + 1], m.indices[t + 2]].map((k) => vert(m, k));
+      const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]], w = [x - p[0], z - p[1], y - p[2]];
+      const nrm = cross(u, v), len = Math.hypot(nrm[0], nrm[1], nrm[2]);
+      if (len < 1e-12 || Math.abs(dot(nrm, w)) / len > 1e-6) continue;
+      // barycentric, in the triangle's plane
+      const uu = dot(u, u), uv = dot(u, v), vv = dot(v, v), wu = dot(w, u), wv = dot(w, v), den = uv * uv - uu * vv;
+      const sa = (uv * wv - vv * wu) / den, sb = (uv * wu - uu * wv) / den;
+      if (sa >= -1e-9 && sb >= -1e-9 && sa + sb <= 1 + 1e-9) return true;
+    }
+    return false;
+  }
+
+  const higher = structuredClone(extra("two-crossings"));
+  const f1 = higher.built!.features[1];
+  higher.built!.features[1] = { ...f1, height: 0.5, profile: f1.profile.map(([a, h]) => [a, h * 1.25] as Point2) };
+  for (const [name, doc] of [...BRIDGED.map((n) => [n, extra(n)] as const), ["two-crossings with the second bridge higher", higher] as const]) {
+    it(`${name}: nothing stands in the gap where the under pass runs beneath the deck, sides included`, () => {
+      const b = doc.built!, s = sceneOf(doc);
+      for (const c of b.crossings!.filter((c) => c.bridge && c.over)) {
+        const f = b.features[c.bridge!.feature], fr = frameOf(f), a = fr.along([c.x, c.z]);
+        for (const across of [-1, -0.5, 0, 0.5, 1].map((k) => (k * f.width) / 2))
+          for (const y of [0.1, 0.2, f.height - DECK_THICKNESS - 0.01]) {
+            const [x, z] = fr.at(a, across);
+            for (const m of s.meshes) expect(onFace(m, [x, z, y]), `${m.part} at ${across.toFixed(2)} across, ${y.toFixed(2)} high`).toBe(false);
+          }
+      }
+      // and the sides face out: away from the middle of the bridge
+      const sides = part(s, "jumpSide");
+      for (const f of bridgedFeatures(b)) {
+        const fr = frameOf(f);
+        for (let k = 0; k < sides.normals.length / 3; k++) {
+          const [x, z] = vert(sides, k), nx = sides.normals[3 * k], ny = sides.normals[3 * k + 1], nz = -sides.normals[3 * k + 2];
+          const across = fr.across([x, z]), along = fr.along([x, z]);
+          if (Math.abs(ny) > 1e-6 || Math.abs(Math.abs(across) - f.width / 2) > 1e-6 || along < 0 || along > f.length) continue;
+          if (Math.abs(nx * fr.n[0] + nz * fr.n[1]) > 0.5) expect(Math.sign(nx * fr.n[0] + nz * fr.n[1])).toBe(Math.sign(across));
+        }
+      }
+    });
+  }
+
   for (const name of ["unbridged-figure8", "crossover-low-figure8"]) {
     it(`${name}: a crossing nothing bridges has both passes on the floor, and no bridge`, () => {
       const doc = extra(name), b = doc.built!, s = sceneOf(doc);

@@ -303,7 +303,7 @@ export interface Bridge {
   t: Point2;
   n: Point2;
   length: number;
-  /** half the deck's width (the bridging feature's), and half the over pass's lane (the deck and a pipe) */
+  /** half the deck's width (the bridging feature's), and half the over pass's lane (out to the pipes' middles) */
   half: number;
   lane: number;
   /** [along, height], from 0 to length */
@@ -358,7 +358,7 @@ export function bridgesOf(built: Built): Bridge[] {
   const byFeature = new Map<number, Bridge>();
   (built.crossings ?? []).forEach((c, i) => {
     const f = c.bridge && c.over && c.footprint ? built.features[c.bridge.feature] : undefined;
-    if (!f) return;
+    if (!f || f.profile.length < 2) return; // (the bake always writes a profile)
     const parallel = 0.5 * Math.max(Math.sin((c.angle * Math.PI) / 180), 0.1);
     const had = byFeature.get(c.bridge!.feature);
     if (had) {
@@ -367,8 +367,7 @@ export function bridgesOf(built: Built): Bridge[] {
       return;
     }
     const h = (f.heading * Math.PI) / 180, t: Point2 = [Math.cos(h), Math.sin(h)];
-    const profile: Point2[] = f.profile.length > 1 ? f.profile : [[0, f.height], [f.length, f.height]];
-    byFeature.set(c.bridge!.feature, bridge(f.x - (t[0] * f.length) / 2, f.z - (t[1] * f.length) / 2, t, f.length, f.width / 2, profile, parallel, [i]));
+    byFeature.set(c.bridge!.feature, bridge(f.x - (t[0] * f.length) / 2, f.z - (t[1] * f.length) / 2, t, f.length, f.width / 2, f.profile, parallel, [i]));
   });
   const out = [...byFeature.values()];
   for (let joined = true; joined; ) {
@@ -445,12 +444,13 @@ function addSlope(m: Mesh, b: Bridge, half: number, lift: number) {
  * gap beneath it, and their sides. Its top is the over pass's carpet.
  */
 function addBridge(m: Mesh, b: Bridge) {
-  const P = b.profile, top = Math.max(...P.map((p) => p[1]));
+  const P = b.profile;
+  // a flat top is a deck (each bridge's own, where two on one pass are merged); a slope is a solid ramp
   const kind = (k: number): "none" | "ramp" | "deck" => {
     if (k < 0 || k + 1 >= P.length || P[k + 1][0] - P[k][0] < 1e-9) return "none";
     const [h0, h1] = [P[k][1], P[k + 1][1]];
     if (h0 <= 1e-6 && h1 <= 1e-6) return "none";
-    return h0 >= top - 1e-6 && h1 >= top - 1e-6 && top > DECK_THICKNESS ? "deck" : "ramp";
+    return Math.abs(h1 - h0) < 1e-6 && h0 > DECK_THICKNESS ? "deck" : "ramp";
   };
   const p = (a: number, c: number, h: number): [number, number, number] => [...b.at(a, c), h];
   for (let k = 0; k + 1 < P.length; k++) {
@@ -467,7 +467,7 @@ function addBridge(m: Mesh, b: Bridge) {
     // the face looks towards the side that's open below it
     const [solid, open] = before === "ramp" || (before === "deck" && after === "none") ? [before, after] : [after, before];
     const facing = solid === before ? 1 : -1;
-    const [y0, y1] = solid === "ramp" ? [open === "deck" ? 0 : 0, open === "deck" ? h - DECK_THICKNESS : h] : [h - DECK_THICKNESS, h];
+    const [y0, y1] = solid === "ramp" ? [0, open === "deck" ? h - DECK_THICKNESS : h] : [h - DECK_THICKNESS, h];
     m.face([p(a, -b.half, y0), p(a, b.half, y0), p(a, b.half, y1), p(a, -b.half, y1)], [b.t[0] * facing, 0, b.t[1] * facing]);
   }
 }
