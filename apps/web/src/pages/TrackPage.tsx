@@ -198,11 +198,17 @@ export function TrackPage() {
   const choice = readRostrum(params);
   const drawnFor = shown?.info?.drawnFor?.venueTemplate;
   const venue = useApi<{ doc: RcVenue }>(drawnFor ? `/api/venues/${encodeURIComponent(drawnFor)}` : null);
-  const venueKnown = !drawnFor || !!venue.data || !!venue.error;
-  const rostrum = useMemo(() => ({ side: choice.side ?? defaultRostrumSide(venue.data?.doc), at: choice.at }), [choice.side, choice.at, venue.data]);
+  const venueDoc = venue.data?.doc.id === drawnFor ? venue.data?.doc : undefined; // not the last revision's venue
+  // standing at the rostrum waits for the venue (so it doesn't jump sides); orbiting moves the drawn rostrum when it comes
+  const venueKnown = !drawnFor || !choice.at || choice.side || !!venueDoc || !!venue.error;
+  const rostrum = useMemo(() => ({ side: choice.side ?? defaultRostrumSide(venueDoc), at: choice.at }), [choice.side, choice.at, venueDoc]);
+  // picking a side or going back to orbit happens in 3D, so 3D stays on (a rostrum link opens 3D without choosing it)
   const onRostrum = useCallback(
-    (side: Side, at: boolean) => setParams((p) => writeRostrum(p, { at, side }), { replace: true }),
-    [setParams],
+    (side: Side, at: boolean) => {
+      setView("3d");
+      setParams((p) => writeRostrum(p, { at, side }), { replace: true });
+    },
+    [setParams, setView],
   );
 
   if (tr.error) {
@@ -446,7 +452,7 @@ export function TrackPage() {
                       className={shown3d === k ? "on" : ""}
                       onClick={() => {
                         setView(k);
-                        if (k === "2d" && choice.at) onRostrum(rostrum.side, false);
+                        if (k === "2d" && choice.at) setParams((p) => writeRostrum(p, { at: false, side: choice.side }), { replace: true });
                       }}
                     >
                       {k.toUpperCase()}

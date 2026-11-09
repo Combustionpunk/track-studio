@@ -1,6 +1,7 @@
 // Where the drivers stand (spec, Sim integration): one function for the sim and the 3D viewer (#84).
 import { describe, expect, it } from "vitest";
-import { EYE_HEIGHT, rostrumEye, venueRostrumOf, type RcVenue } from "../src/index.js";
+import { EYE_HEIGHT, rostrumEye, venueRostrumOf, type RcVenue, type VenueCheck } from "../src/index.js";
+import expected from "./fixtures/fit-expected.json";
 import { allVenues, readJson } from "./helpers.js";
 
 describe("rostrumEye", () => {
@@ -17,10 +18,13 @@ describe("rostrumEye", () => {
 
   it("eyes are 2.8 m up", () => expect(EYE_HEIGHT).toBe(2.8));
 
-  it("is what a venue's rostrum reports (venueCheck(...).rostrum)", () => {
+  it("is where the reference puts a venue's rostrum (fit.py's venue check)", () => {
+    const want = expected as unknown as Record<string, { check: VenueCheck }>;
     for (const v of allVenues) {
       const venue = readJson<RcVenue>(v.path);
-      expect(venueRostrumOf(venue)).toEqual(rostrumEye(venue.area, venue.rostrum?.side ?? "south", venue.rostrum?.offset ?? 0));
+      const key = Object.keys(want).find((k) => k.endsWith(` | ${v.name}`))!;
+      expect(rostrumEye(venue.area, venue.rostrum?.side ?? "south", venue.rostrum?.offset ?? 0)).toEqual(want[key].check.rostrum);
+      expect(venueRostrumOf(venue)).toEqual(want[key].check.rostrum);
     }
   });
 });

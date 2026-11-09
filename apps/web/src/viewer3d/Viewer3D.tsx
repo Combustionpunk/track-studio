@@ -355,7 +355,15 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
             </button>
           ))}
           {rostrum.at && (
-            <button type="button" className="plan3d-orbit" onClick={() => onRostrum(rostrum.side, false)} title="Back to orbit (Esc)">
+            <button
+              type="button"
+              className="plan3d-orbit"
+              onClick={() => {
+                onRostrum(rostrum.side, false);
+                stageRef.current?.focus(); // this button goes; the view keeps the focus
+              }}
+              title="Back to orbit (Esc)"
+            >
               <Orbit size={16} aria-hidden="true" />
               <span>Back to orbit</span>
             </button>

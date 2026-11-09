@@ -72,6 +72,13 @@ test.describe("rostrum view with mouse and keyboard", () => {
       await expect(page.getByRole("status").filter({ hasText: "Rostrum view from the west side" })).toBeAttached();
       await expect(page.getByRole("img", { name: /from the rostrum on the west side$/ })).toBeVisible();
       await shot(page, "rostrum-west");
+
+      // a fresh session (2D is its default): Back to orbit stays in 3D, and the view keeps the focus
+      await page.getByRole("button", { name: "Back to orbit" }).click();
+      await expect(view3d(page)).toHaveAttribute("data-view", "orbit");
+      await expect(page.getByRole("button", { name: "3D", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByRole("img", { name: /^3D view of Club A/ })).toBeFocused();
+      expect(new URL(page.url()).searchParams.get("side")).toBe("w");
       expect(errors).toEqual([]);
     });
   }
