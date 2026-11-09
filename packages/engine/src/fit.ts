@@ -1,5 +1,5 @@
 // "Will it fit my venue?" search, the venue checks and adapt. A port of reference/fit.py. Pure: no DOM, no Node APIs.
-import { bake, borders, EYE_HEIGHT, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumPosition, upgradeTrack } from "./bake.js";
+import { bake, borders, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumEye, upgradeTrack } from "./bake.js";
 import { pyRound, pyRoundInt, r3, radians } from "./num.js";
 import type { PlanScene } from "./plan.js";
 import type { BuiltRostrum, Built, Check, FitResult, ForumVenueRef, Point2, RcTrack, RcVenue, VenueCheck, VenueRef } from "./types.js";
@@ -92,9 +92,7 @@ export function fits(track: RcTrack, venue: RcVenue): FitResult[] {
 
 /** Where the venue's rostrum stands. */
 export function venueRostrumOf(venue: Pick<RcVenue, "area" | "rostrum">): BuiltRostrum {
-  const side = venue.rostrum?.side ?? "south";
-  const [x, z] = rostrumPosition(venue.area, side, venue.rostrum?.offset ?? 0.0);
-  return { side, x: r3(x), z: r3(z), eyeHeight: EYE_HEIGHT };
+  return rostrumEye(venue.area, venue.rostrum?.side ?? "south", venue.rostrum?.offset ?? 0.0);
 }
 
 /**
