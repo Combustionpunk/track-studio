@@ -124,6 +124,18 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .plan-tip strong.lvl-warning { color: var(--plan-warning); }
 .plan-hint { position: absolute; inset: 0; display: grid; place-items: center; background: var(--plan-dim); color: var(--plan-ink); font-weight: 600; pointer-events: none; }
 .plan-compact .plan-controls button { width: 30px; height: 30px; }
+.plan-controls button:focus-visible, .plan-viewswitch button:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
+/* the track page's 2D / 3D switch, over the plan's top-left corner (#83) */
+.track-view { position: relative; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.plan-viewswitch { position: absolute; top: 10px; left: 10px; display: flex; }
+.plan-viewswitch button { min-width: 44px; height: 34px; padding: 0 10px; border: 1px solid var(--plan-ui-border); background: var(--plan-ui-bg); color: var(--plan-ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.plan-viewswitch button:first-child { border-radius: 8px 0 0 8px; }
+.plan-viewswitch button:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+.plan-viewswitch button:hover { background: var(--plan-ui-hover); }
+.plan-viewswitch button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.plan3d-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+.plan3d-stage { position: absolute; inset: 0; }
+.plan3d-stage:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 /* embed */
 .embed { height: 100vh; display: flex; flex-direction: column; background: var(--plan-floor); color: var(--plan-ink); }

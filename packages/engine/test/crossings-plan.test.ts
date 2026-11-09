@@ -2,7 +2,7 @@
 // footprint outlined, in the plan and the print palettes. Snapshots of the #50 fixtures.
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PLAN_PALETTE, PRINT_PALETTE, planLayers, planScene, planSvg, type Point2, type RcTrack } from "../src/index.js";
+import { crossingCarpet, PLAN_PALETTE, PRINT_PALETTE, planLayers, planScene, planSvg, type Point2, type RcTrack } from "../src/index.js";
 import { extraDir, readJson } from "./helpers.js";
 
 const fixture = (name: string) => readJson<RcTrack>(join(extraDir, `${name}.rctrack.json`));
@@ -121,5 +121,26 @@ describe("crossings on the plan", () => {
 
   it.each(SNAPSHOTS)("%s matches the stored snapshot", async (name) => {
     await expect(planSvg(planScene(fixture(name)), { width: 1200 })).toMatchFileSnapshot(`__snapshots__/${name}.plan.svg`);
+  });
+});
+
+describe("crossingCarpet (#83)", () => {
+  it.each(["unbridged-figure8", "two-crossings"])("%s: the plan's crossing carpet squares, one per crossing, for other renderers", (name) => {
+    const doc = fixture(name);
+    const quads = crossingCarpet(doc.built!);
+    expect(quads).toHaveLength(doc.built!.crossings!.length);
+    const svg = draw(doc);
+    const drawn = [...svg.matchAll(/class="p-crossing-carpet" d="([^"]+)"/g)].map((m) => points(m[1]));
+    quads.forEach((q, k) => {
+      const c = doc.built!.crossings![k];
+      expect(q).toHaveLength(4);
+      expect(q.reduce((s, p) => s + p[0], 0) / 4).toBeCloseTo(c.x, 6);
+      expect(q.reduce((s, p) => s + p[1], 0) / 4).toBeCloseTo(c.z, 6);
+      for (const p of q) expect(drawn[k].some((d) => Math.hypot(d[0] - p[0], d[1] - p[1]) < 0.002)).toBe(true);
+    });
+  });
+
+  it("is empty for a track that doesn't cross itself", () => {
+    expect(crossingCarpet(readJson<RcTrack>(join(extraDir, "peel-round.rctrack.json")).built!)).toEqual([]);
   });
 });

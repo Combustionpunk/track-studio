@@ -283,6 +283,19 @@ function overlap(c: Crossing, [p1, p2]: { t: Point2; w: number }[]): Point2[] {
   return [at(-a, -b), at(a, -b), at(a, b), at(-a, b)];
 }
 
+/**
+ * The squares the even-odd carpet (built.lanes) leaves empty where the track crosses itself, one per crossing, for
+ * filling in: what the plan draws, for other renderers (the 3D viewer).
+ */
+export function crossingCarpet(built: Built): Point2[][] {
+  const crossings = built.crossings ?? [];
+  if (!crossings.length || built.racingLine.length < 2) return [];
+  const line = built.racingLine;
+  const lap = along(line);
+  const total = lap[lap.length - 1] + Math.hypot(line[0][0] - line[line.length - 1][0], line[0][1] - line[line.length - 1][1]);
+  return crossings.map((c) => overlap(c, passes(built, c, lap, total)));
+}
+
 /** The part of the line through `p` along `t` inside the convex polygon `q` (Cyrus-Beck), or null. */
 function clipLine(p: Point2, t: Point2, q: Point2[]): [Point2, Point2] | null {
   let lo = -Infinity, hi = Infinity;

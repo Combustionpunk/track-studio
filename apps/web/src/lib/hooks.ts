@@ -71,6 +71,30 @@ export function useStored<T>(key: string, initial: T): [T, (v: T) => void] {
   return [v, set];
 }
 
+/** A string choice kept in sessionStorage (this tab, until it closes); falls back to memory. */
+export function useSessionChoice<T extends string>(key: string, choices: readonly T[], initial: T): [T, (v: T) => void] {
+  const [v, setV] = useState<T>(() => {
+    try {
+      const s = sessionStorage.getItem(key) as T | null;
+      return s && choices.includes(s) ? s : initial;
+    } catch {
+      return initial;
+    }
+  });
+  const set = useCallback(
+    (nv: T) => {
+      setV(nv);
+      try {
+        sessionStorage.setItem(key, nv);
+      } catch {
+        /* private mode etc. */
+      }
+    },
+    [key],
+  );
+  return [v, set];
+}
+
 /** Size of an element, updated as it resizes. */
 export function useElementSize<E extends HTMLElement>() {
   const ref = useRef<E>(null);
