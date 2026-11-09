@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.9).
+Reference implementation of the rctrack geometry engine (format v1.10).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.9"
+GENERATOR = "rctrack-bake.py 1.10"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -40,8 +40,9 @@ CROSSING_ZONE = 0.2    # divider self-crossings this close to where two lanes cr
 CROSSING_BOX = 1e-9    # (1.9, #100) segment bounding boxes grow by this (m) before the overlap test in self_crossings, so a
                        # crossing on a sample, which the next segment owns, isn't lost when rounding puts the two passes'
                        # samples a hair apart and the boxes no longer touch
-OVERLAP_TOL = 0.02     # (1.9) lanes overlap where their centres are closer than half their widths' sum less this (m):
-                       # two lanes sharing a pipe touch, they don't overlap (the dividers' tolerance). lane_overlaps
+OVERLAP_TOL = 0.05     # (1.9) lanes overlap where their centres are closer than half their widths' sum less this (m):
+                       # two lanes sharing a pipe touch, they don't overlap. 1.10 (#102): 5 cm, was 2 cm; the shared-pipe
+                       # allowance, so a corner rounded against a shared pipe isn't an overlap of 2-3 cm. lane_overlaps
 
 FEATURE_PROFILES = {   # along-track distance (m), height (m), for default length/height; scaled to the feature's values
     "tabletop": [[0, 0], [0.70, 1], [1.50, 1], [2.20, 0]],
@@ -690,8 +691,23 @@ def crossing_checks(cr, built_feats, design, total, checks):
     return out
 
 # ------------------------------------------------------------------ lane overlaps (v1.9)
-def lane_overlaps(line, s, total, zones, cr):
-    """lane-overlap checks: where the lane of one part of the lap runs into the lane of another. Sampled every
+def _pipe_between(a, b, divs):
+    """Does a built divider cross the segment from a to b (ends included)? A pipe between two lane centres."""
+    d1 = b - a
+    for d in divs:
+        pts = [np.asarray(q, float) for q in d["points"]]
+        if d["closed"]: pts.append(pts[0])
+        for p3, p4 in zip(pts, pts[1:]):
+            d2 = p4 - p3
+            den = d1[0] * d2[1] - d1[1] * d2[0]
+            if abs(den) < 1e-12: continue
+            w = p3 - a
+            ta = (w[0] * d2[1] - w[1] * d2[0]) / den; tb = (w[0] * d1[1] - w[1] * d1[0]) / den
+            if -1e-9 <= ta <= 1 + 1e-9 and -1e-9 <= tb <= 1 + 1e-9: return True
+    return False
+
+def lane_overlaps(line, s, total, zones, cr, divs):
+    """lane-overlap and lane-squeeze checks: where the lane of one part of the lap runs into the lane of another. Sampled every
     EXPORT_STEP along the racing line, each sample a disc of half its lane width round its centre; two samples overlap
     by how far their discs reach into each other, if that is more than OVERLAP_TOL. (Discs, not the lane edges: a square
     corner's mitre reaching into a sweeper round it is where the bake puts a shared pipe.) Not an overlap, but the lane
@@ -703,7 +719,14 @@ def lane_overlaps(line, s, total, zones, cr):
       along its pass (crossings are bridged, or reported, by the crossing checks).
     Overlapping pairs that neighbour each other (both samples within one of the pair's, either order) are one overlap:
     one check each, at the mean of its pairs' midpoints (the middle of the overlap), giving the deepest overlap, in
-    the order of each overlap's first pair."""
+    the order of each overlap's first pair.
+    1.10 (#102): an overlap is a squeeze (`lane-squeeze`, a warning: "Lane narrows by 0.35 m at this corner") when
+    every one of its pairs has a sample on a corner (its zone, as above: the overlap is at corners, not along two
+    straights) and a built divider (`divs`) crosses the line between the centres of its deepest pair: a pipe separates
+    the lanes, one of them narrowed where two corners were rounded to different curves, and (#105) the squeeze leaves a
+    lane: it is no deeper than the narrower lane of the pair less MIN_WIDTH (0.6 m at 2 m lanes; a short hairpin with
+    legs 1.2 m apart has no two straight samples overlapping, and pipes between its legs, but the lane left is
+    narrower than any sensible lane). Otherwise it is a `lane-overlap` error: the lanes run into each other."""
     step = max(1, int(EXPORT_STEP / SAMPLE))
     idx = np.arange(0, len(line), step); n = len(idx)
     P = line[idx, :2]; H = line[idx, 2] / 2; S = s[idx]
@@ -736,8 +759,16 @@ def lane_overlaps(line, s, total, zones, cr):
     out = []
     for g in sorted(groups.values()):
         X = sum((P[i] + P[j]) / 2 for i, j in g) / len(g)
-        out.append({"level": "error", "code": "lane-overlap", "x": r3(X[0]), "z": r3(X[1]),
-                    "message": f"Lanes overlap by {max(depth[q] for q in g) + OVERLAP_TOL:.2f} m here"})
+        i, j = max(g, key=lambda q: depth[q])        # the deepest pair (the first, by sample, on a tie)
+        deep = depth[(i, j)] + OVERLAP_TOL
+        at_corner = all(Z[a].any() or Z[b].any() for a, b in g)   # no pair of two straight samples: corners only
+        leaves_lane = deep <= min(H[i], H[j]) * 2 - MIN_WIDTH      # what is left of the narrower lane is a lane
+        if at_corner and leaves_lane and _pipe_between(P[i], P[j], divs):
+            out.append({"level": "warning", "code": "lane-squeeze", "x": r3(X[0]), "z": r3(X[1]),
+                        "message": f"Lane narrows by {deep:.2f} m at this corner"})
+        else:
+            out.append({"level": "error", "code": "lane-overlap", "x": r3(X[0]), "z": r3(X[1]),
+                        "message": f"Lanes overlap by {deep:.2f} m here"})
     return out
 
 FEATURE_LABEL = {"tabletop": "Tabletop", "double": "Double", "kicker": "Kicker", "stepup": "Step-up", "stepdown": "Step-down",
@@ -849,7 +880,7 @@ def bake(doc):
                            "message": f"Corner radius reduced to {c['r']:.2f} m to fit the straights either side"})
     if np.min(line[:, 2]) < MIN_WIDTH:
         checks.append({"level": "warning", "code": "narrow-lane", "message": f"Lane narrower than {MIN_WIDTH} m"})
-    checks += lane_overlaps(line, s, total, zones, cr)              # 1.9
+    checks += lane_overlaps(line, s, total, zones, cr, divs)        # 1.9; 1.10: squeezes
 
     # footprint
     mask, origin = lane_mask(line, corners, design["points"])

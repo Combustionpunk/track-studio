@@ -156,6 +156,14 @@ describe("planLayers", () => {
     expect(draw(club())).not.toMatch(/p-error|p-warning/); // only info checks
   });
 
+  it("a lane-squeeze warning (1.10, #102) is an amber ring at the squeezed corner, not a red mark", () => {
+    const doc = readJson<RcTrack>(join(repoRoot, "packages/engine/test/fixtures/extra/test-squeezed-corner.rctrack.json"));
+    expect(doc.built!.checks.map((c) => c.level).filter((l) => l !== "info")).toEqual(["warning"]);
+    const svg = draw(doc);
+    expect(count(svg, /class="p-warning"/g)).toBe(1);
+    expect(svg).not.toMatch(/p-error/);
+  });
+
   it("an error near point 0 is one continuous run along the line (no chord across the infield)", () => {
     const doc = club();
     const [x, z] = doc.built!.racingLine[0];

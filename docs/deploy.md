@@ -135,6 +135,14 @@ whose lanes run into each other change, each gaining the error; the dry run list
 lane-overlap)" and "preview re-rendered" (a red ring at the overlap). No racing line moves. Approved layouts stay approved; the library and fit search show the new error count. Rolling back
 needs no restore: re-baking with the older code drops the check.
 
+The rctrack 1.10 release (#102) needs one too, and it is the one that puts 1.9's `lane-overlap` right on the stored
+layouts: a lane squeezed against a shared pipe at a corner is a `lane-squeeze` warning, not an error, and overlaps of
+up to 5 cm between lanes sharing a pipe are ignored. Only tracks with a `lane-overlap` check change. The dry run lists
+each with the errors lost and the warnings gained, for "Test" (the 15 November 2026 meeting's layout) "errors 3 → 0,
+warnings 0 → 1 (new: lane-squeeze)" and "preview re-rendered" (an amber ring instead of red marks). No racing line
+moves. The library and the forum show the new error count (0 for "Test"). Rolling back needs no restore: re-baking
+with the older code puts the errors back.
+
 ```sh
 docker compose exec track-studio node dist/rebake.js --dry-run   # see what would change
 docker compose exec track-studio node dist/rebake.js

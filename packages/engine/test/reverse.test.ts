@@ -77,9 +77,10 @@ describe.each(allTracks)("reverse $name", ({ path }) => {
     expect(after.stats.corners).toBe(before.stats.corners);
   });
 
-  // Where lanes overlap (a lane-overlap error, 1.9) their borders cross, and the pipes merged from them are no real
-  // layout; the merging settles them differently each way round.
-  const overlapping = before.checks.some((c) => c.code === "lane-overlap");
+  // Where lanes overlap (a lane-overlap error, 1.9) or a lane is squeezed against a shared pipe (a lane-squeeze warning,
+  // 1.10) their borders cross, and the pipes merged from them are no real layout; the merging settles them differently
+  // each way round.
+  const overlapping = before.checks.some((c) => c.code === "lane-overlap" || c.code === "lane-squeeze");
   it.skipIf(overlapping)(`same pipes: as many runs, every one within ${PIPE_TOL * 100} cm of the other bake's, length within ${PIPE_LENGTH_REL * 100} %`, () => {
     expect(after.dividers.length).toBe(before.dividers.length);
     expect(coverage(after.dividers, before.dividers)).toBeLessThanOrEqual(PIPE_TOL);

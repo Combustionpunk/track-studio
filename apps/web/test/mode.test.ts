@@ -156,3 +156,18 @@ describe("Submit", () => {
     expect(submitBlock({ ...base, pending: true, checks: [] })).toBe("Checking the track…");
   });
 });
+
+describe("a lane-squeeze warning (rctrack 1.10, #102)", () => {
+  const squeeze: Check = { level: "warning", code: "lane-squeeze", x: -8.2, z: -3.1, message: "Lane narrows by 0.35 m at this corner" };
+  const points: DesignPoint[] = [{ x: -8, z: -3, radius: 1 }];
+
+  it("is listed in Quick and Advanced mode, like any warning", () => {
+    expect(visibleChecks([squeeze], "quick")).toEqual([squeeze]);
+    expect(visibleChecks([squeeze], "advanced")).toEqual([squeeze]);
+    expect(checkCounts([squeeze])).toEqual({ errors: 0, warnings: 1 });
+  });
+
+  it("doesn't block Submit", () => {
+    expect(submitBlock({ dirty: false, pending: false, checks: [squeeze], points })).toBeNull();
+  });
+});

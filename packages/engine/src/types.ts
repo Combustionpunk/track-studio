@@ -1,4 +1,4 @@
-// Types for the rctrack (v1.9) and rcvenue (v1.1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
+// Types for the rctrack (v1.10) and rcvenue (v1.1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
 // Units: metres. Origin at the centre of the (drawing) area, +x east, +z north. Headings in degrees, 0 = +x, CCW.
 
 export type TrackStatus = "draft" | "submitted" | "approved" | "archived";
@@ -19,7 +19,8 @@ export type CheckCode =
   | "crossing-too-low"
   | "crossover-unused"
   | "start-on-feature"
-  | "lane-overlap";
+  | "lane-overlap"
+  | "lane-squeeze"; // 1.10 (#102): a lane squeezed against a shared pipe at a corner (warning)
 
 /** [x, z] in metres */
 export type Point2 = [number, number];

@@ -67,7 +67,7 @@
   ]
  },
  "built": {
-  "generator": "rctrack-bake.py 1.9",
+  "generator": "rctrack-bake.py 1.10",
   "lapLength": 55.964,
   "racingLine": [
    [
@@ -1407,8 +1407,8 @@
    {
     "level": "error",
     "code": "lane-overlap",
-    "x": 6.858,
-    "z": 0.718,
+    "x": 6.863,
+    "z": 0.717,
     "message": "Lanes overlap by 0.60 m here"
    }
   ],

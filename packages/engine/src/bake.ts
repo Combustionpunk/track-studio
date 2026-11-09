@@ -21,7 +21,7 @@ import type {
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.9";
+export const GENERATOR = "track-studio-engine 1.10";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -57,8 +57,9 @@ const CROSSING_ZONE = 0.2; // divider self-crossings this close to where two lan
 // which the next segment owns, isn't lost when rounding puts the two passes' samples a hair apart and the boxes no longer touch
 const CROSSING_BOX = 1e-9;
 // (1.9) lanes overlap where they reach into each other by more than this (m): two lanes sharing a pipe touch, they
-// don't overlap (the dividers' tolerance)
-export const OVERLAP_TOL = 0.02;
+// don't overlap. 1.10 (#102): 5 cm, was 2 cm; the shared-pipe allowance, so a corner rounded against a shared pipe
+// isn't an overlap of 2-3 cm
+export const OVERLAP_TOL = 0.05;
 export const FOOT_CELL = 0.1; // footprint raster cell (m)
 export const PIPE_R = 0.04; // half the pipe thickness, added round the lanes
 export const EYE_HEIGHT = 2.8;
@@ -1280,9 +1281,16 @@ export function crossingChecks(cr: RawCrossing[], feats: BuiltFeature[], feature
  *   along its pass (crossings are bridged, or reported, by the crossing checks).
  * Overlapping pairs that neighbour each other (both samples within one of the pair's, either order) are one overlap: one
  * check each, at the mean of its pairs' midpoints (the middle of the overlap), giving the deepest overlap, in the order
- * of each overlap's first pair. (bake.py: lane_overlaps)
+ * of each overlap's first pair.
+ * 1.10 (#102): an overlap is a squeeze (`lane-squeeze`, a warning: "Lane narrows by 0.35 m at this corner") when every one
+ * of its pairs has a sample on a corner (its zone, as above: the overlap is at corners, not along two straights) and a
+ * built divider (`divs`) crosses the line between the centres of its deepest pair: a pipe separates the lanes, one of them
+ * narrowed where two corners were rounded to different curves, and (#105) the squeeze leaves a lane: it is no deeper than
+ * the narrower lane of the pair less MIN_WIDTH (0.6 m at 2 m lanes; a short hairpin with legs 1.2 m apart has no
+ * two straight samples overlapping, and pipes between its legs, but the lane left is narrower than any sensible lane).
+ * Otherwise it is a `lane-overlap` error: the lanes run into each other. (bake.py: lane_overlaps)
  */
-export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: Set<number>[], cr: RawCrossing[]): Check[] {
+export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: Set<number>[], cr: RawCrossing[], divs: Divider[]): Check[] {
   const step = Math.max(1, Math.trunc(EXPORT_STEP / SAMPLE));
   const idx: number[] = [];
   for (let k = 0; k < line.n; k += step) idx.push(k);
@@ -1343,15 +1351,43 @@ export function laneOverlaps(line: Line, s: Float64Array, total: number, zones: 
   }
   return [...groups.values()]
     .sort((a, b) => a[0] - b[0])
-    .map((g) => {
-      let sx = 0, sz = 0, d = -Infinity;
+    .map((g): Check => {
+      let sx = 0, sz = 0, d = -Infinity, deepest = g[0];
       for (const q of g) {
         const i = Math.trunc(q / n), j = q % n;
         sx += (px[i] + px[j]) / 2; sz += (pz[i] + pz[j]) / 2;
-        d = Math.max(d, depth.get(q)!);
+        if (depth.get(q)! > d) [d, deepest] = [depth.get(q)!, q]; // the deepest pair (the first, by sample, on a tie)
       }
-      return { level: "error", code: "lane-overlap", x: r3(sx / g.length), z: r3(sz / g.length), message: `Lanes overlap by ${pyFormat(d + OVERLAP_TOL, 2)} m here` };
+      const i = Math.trunc(deepest / n), j = deepest % n;
+      const x = r3(sx / g.length), z = r3(sz / g.length), deep = pyFormat(d + OVERLAP_TOL, 2);
+      // 1.10 (#102): at corners only (no pair of two straight samples), no deeper than what leaves a lane (#105), with
+      // a pipe between the deepest pair's centres, the lane is squeezed, not run into
+      const onCorner = (k: number) => inZone[k].some(Boolean);
+      const atCorner = g.every((q) => onCorner(Math.trunc(q / n)) || onCorner(q % n));
+      const leavesLane = d + OVERLAP_TOL <= Math.min(h[i], h[j]) * 2 - MIN_WIDTH; // what is left of the narrower lane is a lane
+      if (atCorner && leavesLane && pipeBetween(px[i], pz[i], px[j], pz[j], divs)) {
+        return { level: "warning", code: "lane-squeeze", x, z, message: `Lane narrows by ${deep} m at this corner` };
+      }
+      return { level: "error", code: "lane-overlap", x, z, message: `Lanes overlap by ${deep} m here` };
     });
+}
+
+/** Does a built divider cross the segment from a to b (ends included)? A pipe between two lane centres. */
+export function pipeBetween(ax: number, az: number, bx: number, bz: number, divs: Divider[]): boolean {
+  const d1x = bx - ax, d1z = bz - az;
+  for (const d of divs) {
+    const pts = d.closed ? [...d.points, d.points[0]] : d.points;
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const [p3x, p3z] = pts[k], [p4x, p4z] = pts[k + 1];
+      const d2x = p4x - p3x, d2z = p4z - p3z;
+      const den = d1x * d2z - d1z * d2x;
+      if (Math.abs(den) < 1e-12) continue;
+      const wx = p3x - ax, wz = p3z - az;
+      const ta = (wx * d2z - wz * d2x) / den, tb = (wx * d1z - wz * d1x) / den;
+      if (ta >= -1e-9 && ta <= 1 + 1e-9 && tb >= -1e-9 && tb <= 1 + 1e-9) return true;
+    }
+  }
+  return false;
 }
 
 export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
@@ -1453,7 +1489,7 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
   if (minWidth < MIN_WIDTH) {
     checks.push({ level: "warning", code: "narrow-lane", message: `Lane narrower than ${MIN_WIDTH} m` });
   }
-  checks.push(...laneOverlaps(line, s, total, zones, cr)); // 1.9
+  checks.push(...laneOverlaps(line, s, total, zones, cr, divs)); // 1.9; 1.10: squeezes
 
   // footprint
   const fp = laneMask(line, corners, design.points);

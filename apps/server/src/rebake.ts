@@ -25,6 +25,10 @@ export interface RebakeChange {
   errors: [number, number];
   /** error codes the fresh bake has and the stored one didn't (1.9: lane-overlap) */
   gained: string[];
+  /** warnings before and after */
+  warnings: [number, number];
+  /** warning codes the fresh bake has and the stored one didn't (1.10: lane-squeeze) */
+  gainedWarnings: string[];
   /** the drawn preview changed: it gets a new URL (?v=) and the old cached PNG is dropped */
   previewChanged: boolean;
 }
@@ -52,7 +56,10 @@ function removedFields(old: RcTrack): string[] {
   ];
 }
 
-const errorCodes = (doc: RcTrack) => (doc.built?.checks ?? []).filter((c) => c.level === "error").map((c) => c.code as string);
+const codesAt = (doc: RcTrack, level: "error" | "warning") => (doc.built?.checks ?? []).filter((c) => c.level === level).map((c) => c.code as string);
+const errorCodes = (doc: RcTrack) => codesAt(doc, "error");
+const warningCodes = (doc: RcTrack) => codesAt(doc, "warning");
+const newCodes = (before: string[], after: string[]) => [...new Set(after)].filter((c) => !before.includes(c));
 
 const sizeText = (doc: RcTrack) => (doc.built?.size ? `${doc.built.size.length} × ${doc.built.size.width} m` : "—");
 
@@ -88,7 +95,9 @@ export function rebakeAll(db: DB, dataDir: string, { dryRun = false } = {}): Reb
         racingLineChanged: racingLineMoved(old, fresh),
         removed: removedFields(old),
         errors: [errorCodes(old).length, errorCodes(fresh).length],
-        gained: [...new Set(errorCodes(fresh))].filter((c) => !errorCodes(old).includes(c)),
+        gained: newCodes(errorCodes(old), errorCodes(fresh)),
+        warnings: [warningCodes(old).length, warningCodes(fresh).length],
+        gainedWarnings: newCodes(warningCodes(old), warningCodes(fresh)),
         previewChanged,
       });
       if (!dryRun) {
@@ -120,6 +129,7 @@ export function rebakeAll(db: DB, dataDir: string, { dryRun = false } = {}): Reb
 /**
  * One report line per changed revision. The errors part prints when the count changes or when the fresh bake has
  * error codes the stored one didn't (#100): a track swapping one error for another shows "errors 1 → 1 (new: ...)".
+ * The warnings part does the same for warnings (#102: "errors 3 → 0, warnings 0 → 1 (new: lane-squeeze)").
  */
 export function changeLine(c: RebakeChange): string {
   const corners = c.corners[0] === c.corners[1] ? `${c.corners[1]} corners` : `corners ${c.corners[0]} → ${c.corners[1]}`;
@@ -127,7 +137,8 @@ export function changeLine(c: RebakeChange): string {
   const removed = c.removed.length ? `, removed ${c.removed.join(", ")}` : "";
   const line = c.racingLineChanged ? ", RACING LINE CHANGED" : "";
   const errors = c.errors[0] === c.errors[1] && !c.gained.length ? "" : `, errors ${c.errors[0]} → ${c.errors[1]}${c.gained.length ? ` (new: ${c.gained.join(", ")})` : ""}`;
-  return `  ${c.name} r${c.revision}: ${corners}, ${size}${removed}${line}${errors}${c.previewChanged ? ", preview re-rendered" : ""}`;
+  const warnings = c.warnings[0] === c.warnings[1] && !c.gainedWarnings.length ? "" : `, warnings ${c.warnings[0]} → ${c.warnings[1]}${c.gainedWarnings.length ? ` (new: ${c.gainedWarnings.join(", ")})` : ""}`;
+  return `  ${c.name} r${c.revision}: ${corners}, ${size}${removed}${line}${errors}${warnings}${c.previewChanged ? ", preview re-rendered" : ""}`;
 }
 
 if (process.argv[1] && /rebake\.(ts|js)$/.test(process.argv[1])) {

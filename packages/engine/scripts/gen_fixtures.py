@@ -194,6 +194,42 @@ EXTRA_TRACKS["overlap-beside-crossing"] = at_crossings(track("24", "Overlap besi
     "start": {"distance": 2.0}}),
     lambda k, d: {"type": "crossover", "distance": d[0]})
 
+# rctrack 1.10 (#102): the shared-pipe allowance is 5 cm (was 2 cm): straights 1.96 m apart (a 4 cm overlap) are clean,
+# 1.94 m apart (6 cm) are a lane-overlap error
+EXTRA_TRACKS.update({
+    "shared-straights-4cm": track("25", "Straights 1.96 m apart", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": hairpin_legs(1.96, 0.6), "start": {"distance": 3.0}}),
+    "shared-straights-6cm": track("26", "Straights 1.94 m apart", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": hairpin_legs(1.94, 0.6), "start": {"distance": 3.0}}),
+})
+# #102: the production layout "Test" (tracks.rcmisfits.org, the 15 November 2026 meeting's layout, as fetched on 8 Nov
+# 2026). 1.9 gave it three lane-overlap errors: two of 2-3 cm between lanes sharing a pipe (rounding) and one of 0.35 m
+# at the bottom-left corner, where the outer lane's sweeper (radius reduced to 3.85 m) and the inner hairpin lane
+# (radius 1 m, round) share a pipe: a lane-squeeze warning in 1.10, and nothing else
+EXTRA_TRACKS["test-squeezed-corner"] = track("27", "Test (squeezed corner)", {"length": 22, "width": 12}, {
+    "laneWidth": 2.0,
+    "points": [{"x": -10, "z": 5, "radius": 2.8}, {"x": 10, "z": 5, "radius": 3.08}, {"x": 10, "z": -5, "radius": 2.8}, {"x": 4, "z": -5, "radius": 2.8},
+               {"x": 4, "z": 1, "radius": 1.6}, {"x": 8, "z": 1, "radius": 1.6}, {"x": 8, "z": 3, "radius": 1.6, "outer": "round"},
+               {"x": -8, "z": 3, "radius": 1.6, "outer": "round"}, {"x": -8, "z": -3, "radius": 1, "outer": "round"}, {"x": -6, "z": -3, "radius": 1},
+               {"x": -6, "z": 1, "radius": 2.8}, {"x": 2, "z": 1, "radius": 2.8}, {"x": 2, "z": -5, "radius": 1}, {"x": 0, "z": -5, "radius": 1},
+               {"x": 0, "z": -1, "radius": 1, "outer": "round"}, {"x": -4, "z": -1, "radius": 1, "outer": "round"}, {"x": -4, "z": -5, "radius": 2.8},
+               {"x": -10, "z": -5, "radius": 5}],
+    "features": [], "start": {"distance": 10.571}})
+
+# #105 (Marshal's review of 1.10): a squeeze must leave a lane. A short hairpin whose legs are half a lane apart has no two
+# straight samples overlapping (every overlapping sample is in a corner's zone when the legs are short) and a merged pipe
+# between its legs, so without the depth cap it passed as a 0.80 m "squeeze". Deeper than the narrower lane less 1.4 m
+# (0.6 m at 2 m lanes) it is a lane-overlap error; its sibling 1.45 m apart (0.55 m) stays a lane-squeeze warning.
+def short_hairpin(gap):
+    """Main straight, a short hairpin (2.5 m legs, `gap` m apart) dropping from the return straight, every point radius 0.6."""
+    return [{"x": x, "z": z, "radius": 0.6} for x, z in [(-10, -5), (10, -5), (10, 5), (gap, 5), (gap, 2.5), (0, 2.5), (0, 5), (-10, 5)]]
+EXTRA_TRACKS.update({
+    "short-legs-overlap": track("28", "Short hairpin legs 1.2 m apart", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": short_hairpin(1.2), "start": {"distance": 3.0}}),
+    "short-legs-squeeze": track("29", "Short hairpin legs 1.45 m apart", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": short_hairpin(1.45), "start": {"distance": 3.0}}),
+})
+
 EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
 
 EXTRA_VENUES = {
@@ -269,8 +305,8 @@ for f in sorted(glob.glob(os.path.join(fixtures, "v17", "*.rctrack.json"))):
     diff = sorted(k for k in a.keys() | b.keys() if json.dumps(a.get(k)) != json.dumps(b.get(k)))
     print(f"{os.path.basename(f)}: {'same as 1.7' if not diff else 'DIFFERENT from 1.7: ' + ', '.join(diff)}")
     assert diff == CHANGED_18.get(os.path.basename(f), [])
-# 1.8 bakes (v18/: the reference examples and extras as bake.py 1.8 baked them) bake exactly the same in 1.9: none has
-# lanes that overlap, so none gains a lane-overlap check
+# 1.8 bakes (v18/: the reference examples and extras as bake.py 1.8 baked them) bake exactly the same in 1.9 and 1.10:
+# none has lanes that overlap or squeeze, so none gains a lane-overlap or lane-squeeze check
 for f in sorted(glob.glob(os.path.join(fixtures, "v18", "*.rctrack.json"))):
     doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
     a, b = as17(old), as17(new)
