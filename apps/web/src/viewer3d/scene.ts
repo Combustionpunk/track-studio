@@ -2,6 +2,9 @@
 // from `built` and the drawing area only, never `design` (consumers draw built). One mesh per colour, so a big layout
 // is still a handful of draw calls.
 //
+// A crossing's bridge (#71) carries the over pass: its carpet, pipes and racing line follow the bridge's profile over
+// the bridging feature's length, while the under pass stays on the floor and runs beneath the deck.
+//
 // Positions are in three.js axes: x = plan x (east), y = up, z = −plan z (three's +z is south). Normals likewise.
 import { crossingCarpet, drawingArea, PIPE_THICKNESS, PLAN_PALETTE, type Area, type Built, type BuiltFeature, type Divider, type Point2, type RcTrack } from "@track-studio/engine";
 
@@ -20,10 +23,15 @@ export interface Scene3D {
   background: string;
   meshes: MeshData[];
   triangles: number;
+  /** the crossings drawn with a bridge: the bridging feature and which pass is on top */
+  bridges: { feature: number; over: "first" | "second" }[];
 }
 
 /** Round pipes: this many sides. */
 export const PIPE_SIDES = 8;
+
+/** A bridge's deck over the under pass: this thick, with its sides showing. */
+export const DECK_THICKNESS = 0.05;
 
 // heights of the flat layers, a few mm apart so they don't fight
 const CARPET_Y = 0.002;
@@ -114,17 +122,18 @@ function mitres(pts: Point2[], closed: boolean): { n: Point2; scale: number }[] 
 
 // ------------------------------------------------------------------------------------------------------------- pipes
 
-function addPipe(m: Mesh, d: Divider) {
-  const pts = clean(d.points, d.closed);
-  if (pts.length < 2) return;
-  const closed = d.closed && pts.length > 2;
+function addPipe(m: Mesh, d: Divider, bridges: Bridge[]) {
+  const cleaned = clean(d.points, d.closed);
+  if (cleaned.length < 2) return;
+  const closed = d.closed && cleaned.length > 2;
+  const { pts, y } = onBridges(bridges, cleaned, closed);
   const r = PIPE_THICKNESS / 2;
   const frames = mitres(pts, closed);
   const rings = pts.map((p, i) => {
     const { n, scale } = frames[i];
     return Array.from({ length: PIPE_SIDES }, (_, k) => {
       const a = (2 * Math.PI * k) / PIPE_SIDES, c = Math.cos(a), s = Math.sin(a);
-      return m.vert(p[0] + n[0] * r * c * scale, p[1] + n[1] * r * c * scale, r + r * s, n[0] * c, s, n[1] * c);
+      return m.vert(p[0] + n[0] * r * c * scale, p[1] + n[1] * r * c * scale, y[i] + r + r * s, n[0] * c, s, n[1] * c);
     });
   });
   const segs = closed ? pts.length : pts.length - 1;
@@ -142,16 +151,19 @@ function addPipe(m: Mesh, d: Divider) {
     const { n } = frames[i];
     const cap = Array.from({ length: PIPE_SIDES }, (_, k) => {
       const a = (2 * Math.PI * k) / PIPE_SIDES, c = Math.cos(a), s = Math.sin(a);
-      return m.vert(pts[i][0] + n[0] * r * c, pts[i][1] + n[1] * r * c, r + r * s, t[0], 0, t[1]);
+      return m.vert(pts[i][0] + n[0] * r * c, pts[i][1] + n[1] * r * c, y[i] + r + r * s, t[0], 0, t[1]);
     });
     for (let k = 1; k + 1 < PIPE_SIDES; k++) m.tri(cap[0], cap[k], cap[k + 1]);
   }
 }
 
-/** Every divider run as a round pipe of PIPE_THICKNESS, lying on the floor. Shared pipes are the same pipe. */
-export function pipeMesh(dividers: Divider[]): MeshData {
+/**
+ * Every divider run as a round pipe of PIPE_THICKNESS, lying on the floor, or on a bridge for its over pass. Shared
+ * pipes are the same pipe.
+ */
+export function pipeMesh(dividers: Divider[], bridges: Bridge[] = []): MeshData {
   const m = new Mesh();
-  for (const d of dividers) addPipe(m, d);
+  for (const d of dividers) addPipe(m, d, bridges);
   return m.done("pipe");
 }
 
@@ -238,12 +250,12 @@ function addEvenOdd(m: Mesh, rings: Point2[][], y: number) {
   }
 }
 
-/** A band along a polyline, `half(i)` either side of it, at height y (the racing line; old files' carpet). */
-function addRibbon(m: Mesh, pts: Point2[], closed: boolean, half: (i: number) => number, y: number) {
+/** A band along a polyline, `half(i)` either side of it, at height `y(i)` (the racing line; old files' carpet). */
+function addRibbon(m: Mesh, pts: Point2[], closed: boolean, half: (i: number) => number, y: (i: number) => number) {
   const frames = mitres(pts, closed);
   const sides = pts.map((p, i) => {
     const { n, scale } = frames[i], w = half(i) * scale;
-    return [m.vert(p[0] - n[0] * w, p[1] - n[1] * w, y), m.vert(p[0] + n[0] * w, p[1] + n[1] * w, y)];
+    return [m.vert(p[0] - n[0] * w, p[1] - n[1] * w, y(i)), m.vert(p[0] + n[0] * w, p[1] + n[1] * w, y(i))];
   });
   const segs = closed ? pts.length : pts.length - 1;
   for (let i = 0; i < segs; i++) {
@@ -255,31 +267,223 @@ function addRibbon(m: Mesh, pts: Point2[], closed: boolean, half: (i: number) =>
 /**
  * The carpet: the band between built.lanes' two edges (even-odd), with the squares where the track crosses itself
  * filled in, as the plan draws it. Files baked before v1.4 have no lanes: a band along the racing line at its width.
+ *
+ * Over a bridge the over pass's carpet rides it: the bridge's lane is one more even-odd ring, which takes the over
+ * pass out of the floor and leaves just the square where the under pass runs through; then the over pass's carpet
+ * follows the profile on top.
  */
-export function carpetMesh(built: Built): MeshData {
+export function carpetMesh(built: Built, bridges: Bridge[] = bridgesOf(built)): MeshData {
   const m = new Mesh();
-  if (built.lanes) addEvenOdd(m, [built.lanes.right, built.lanes.left], CARPET_Y);
+  if (built.lanes) addEvenOdd(m, [built.lanes.right, built.lanes.left, ...bridges.map((b) => [b.at(0, -b.lane), b.at(b.length, -b.lane), b.at(b.length, b.lane), b.at(0, b.lane)])], CARPET_Y);
   else {
     const line = clean(built.racingLine.map(([x, z]) => [x, z] as Point2), true);
     const w = built.racingLine.map((p) => p[2] / 2);
-    addRibbon(m, line, true, (i) => w[Math.min(i, w.length - 1)], CARPET_Y);
+    addRibbon(m, line, true, (i) => w[Math.min(i, w.length - 1)], () => CARPET_Y);
   }
-  for (const q of crossingCarpet(built)) {
+  const onBridge = new Set(bridges.flatMap((b) => b.crossings));
+  crossingCarpet(built).forEach((q, i) => {
+    if (onBridge.has(i)) return;
     const [a, b, c, d] = q.map(([x, z]) => m.vert(x, z, CARPET_Y));
     m.quad(a, b, c, d);
-  }
+  });
+  for (const b of bridges) addSlope(m, b, b.lane, CARPET_Y);
   return m.done("carpet");
+}
+
+// ----------------------------------------------------------------------------------------------- bridges (#71)
+
+/**
+ * A bridge, in its own frame: along its pass from the entry edge, across to the left. Bridges overlapping on one pass
+ * are one bridge, as high as the higher of them wherever they overlap.
+ */
+export interface Bridge {
+  at: (along: number, across: number) => Point2;
+  along: (p: Point2) => number;
+  across: (p: Point2) => number;
+  t: Point2;
+  n: Point2;
+  length: number;
+  /** half the deck's width (the bridging feature's), and half the over pass's lane (out to the pipes' middles) */
+  half: number;
+  lane: number;
+  /** [along, height], from 0 to length */
+  profile: Point2[];
+  /** a run this close to parallel to the bridge (sine of the angle) is on the over pass; the under pass crosses it */
+  parallel: number;
+  /** indexes into built.crossings */
+  crossings: number[];
+}
+
+function bridge(x0: number, z0: number, t: Point2, length: number, half: number, profile: Point2[], parallel: number, crossings: number[]): Bridge {
+  const n: Point2 = [-t[1], t[0]];
+  return {
+    at: (a, c) => [x0 + t[0] * a + n[0] * c, z0 + t[1] * a + n[1] * c],
+    along: ([x, z]) => (x - x0) * t[0] + (z - z0) * t[1],
+    across: ([x, z]) => (x - x0) * n[0] + (z - z0) * n[1],
+    t, n, length, half, lane: half + PIPE_THICKNESS / 2, profile, parallel, crossings,
+  };
+}
+
+/** A profile's height at `along` (0 off either end). */
+function heightOn(profile: Point2[], along: number): number {
+  if (along < profile[0][0] - 1e-9 || along > profile[profile.length - 1][0] + 1e-9) return 0;
+  for (let k = 0; k + 1 < profile.length; k++) {
+    const [a0, h0] = profile[k], [a1, h1] = profile[k + 1];
+    if (along <= a1 + 1e-9) return a1 - a0 > 1e-12 ? h0 + ((h1 - h0) * Math.min(1, Math.max(0, (along - a0) / (a1 - a0)))) : Math.max(h0, h1);
+  }
+  return 0;
+}
+
+/** Two bridges on one pass that overlap, as one; else null. */
+function merged(a: Bridge, b: Bridge): Bridge | null {
+  if (Math.abs(a.t[0] * b.t[1] - a.t[1] * b.t[0]) > 1e-3 || Math.abs(a.across(b.at(0, 0))) > 0.05) return null;
+  const ends = [a.along(b.at(0, 0)), a.along(b.at(b.length, 0))];
+  const lo = Math.min(0, ...ends), hi = Math.max(a.length, ...ends);
+  if (Math.min(...ends) >= a.length - 1e-6 || Math.max(...ends) <= 1e-6) return null; // end to end at most
+  const toB = (al: number) => b.along(a.at(al, 0));
+  const stops = [...new Set([...a.profile.map((p) => p[0]), ...b.profile.map((p) => a.along(b.at(p[0], 0)))].map((v) => +v.toFixed(9)))].sort((p, q) => p - q);
+  // where one bridge's ramp crosses the other's, the higher swaps over: a stop there too
+  const diff = (s: number) => heightOn(a.profile, s) - heightOn(b.profile, toB(s));
+  for (let k = stops.length - 2; k >= 0; k--) {
+    const d0 = diff(stops[k]), d1 = diff(stops[k + 1]);
+    if (d0 * d1 < 0) stops.splice(k + 1, 0, stops[k] + ((stops[k + 1] - stops[k]) * d0) / (d0 - d1));
+  }
+  const profile = stops.map((s): Point2 => [s - lo, Math.max(heightOn(a.profile, s), heightOn(b.profile, toB(s)))]);
+  const [x0, z0] = a.at(lo, 0);
+  return bridge(x0, z0, a.t, hi - lo, Math.max(a.half, b.half), profile, Math.min(a.parallel, b.parallel), [...a.crossings, ...b.crossings]);
+}
+
+/** The bridges over built.crossings: one per bridging feature, overlapping ones on one pass merged. */
+export function bridgesOf(built: Built): Bridge[] {
+  const byFeature = new Map<number, Bridge>();
+  (built.crossings ?? []).forEach((c, i) => {
+    const f = c.bridge && c.over && c.footprint ? built.features[c.bridge.feature] : undefined;
+    if (!f || f.profile.length < 2) return; // (the bake always writes a profile)
+    const parallel = 0.5 * Math.max(Math.sin((c.angle * Math.PI) / 180), 0.1);
+    const had = byFeature.get(c.bridge!.feature);
+    if (had) {
+      had.crossings.push(i);
+      had.parallel = Math.min(had.parallel, parallel);
+      return;
+    }
+    const h = (f.heading * Math.PI) / 180, t: Point2 = [Math.cos(h), Math.sin(h)];
+    byFeature.set(c.bridge!.feature, bridge(f.x - (t[0] * f.length) / 2, f.z - (t[1] * f.length) / 2, t, f.length, f.width / 2, f.profile, parallel, [i]));
+  });
+  const out = [...byFeature.values()];
+  for (let joined = true; joined; ) {
+    joined = false;
+    for (let i = 0; i < out.length && !joined; i++)
+      for (let j = i + 1; j < out.length && !joined; j++) {
+        const m = merged(out[i], out[j]);
+        if (m) [out[i], joined] = [m, true], out.splice(j, 1);
+      }
+  }
+  return out;
+}
+
+/** How far a bridge lifts point p of a run heading `dir`: if it's on the bridge's pass (along it, in its lane). */
+function liftAt(bridges: Bridge[], p: Point2, dir: Point2): number {
+  let y = 0;
+  for (const b of bridges) {
+    if (Math.abs(dir[0] * b.t[1] - dir[1] * b.t[0]) > b.parallel || Math.abs(b.across(p)) > b.lane + PIPE_THICKNESS) continue;
+    y = Math.max(y, heightOn(b.profile, b.along(p)));
+  }
+  return y;
+}
+
+/**
+ * A run (racing line, pipe) with a point wherever a bridge's profile bends under it, and the height of each point:
+ * the over pass's on the bridge, 0 elsewhere (the under pass crosses the bridge, so it stays on the floor).
+ */
+function onBridges(bridges: Bridge[], pts: Point2[], closed: boolean): { pts: Point2[]; y: number[] } {
+  if (!bridges.length) return { pts, y: pts.map(() => 0) };
+  const out: Point2[] = [];
+  const dirs: Point2[] = []; // the direction from each point to the next
+  const segs = closed ? pts.length : pts.length - 1;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i];
+    out.push(a);
+    if (i >= segs) break;
+    const b = pts[(i + 1) % pts.length], d = unit(b[0] - a[0], b[1] - a[1]);
+    dirs[out.length - 1] = d;
+    const cuts: number[] = [];
+    for (const br of bridges) {
+      if (Math.abs(d[0] * br.t[1] - d[1] * br.t[0]) > br.parallel) continue;
+      if (Math.abs(br.across(a)) > br.lane + PIPE_THICKNESS && Math.abs(br.across(b)) > br.lane + PIPE_THICKNESS) continue;
+      const aa = br.along(a), ab = br.along(b);
+      for (const [k] of br.profile) {
+        const u = (k - aa) / (ab - aa);
+        if (u > 1e-6 && u < 1 - 1e-6) cuts.push(u);
+      }
+    }
+    for (const u of cuts.sort((p, q) => p - q)) {
+      out.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]);
+      dirs[out.length - 1] = d;
+    }
+  }
+  const y = out.map((p, k) => {
+    const prev = k > 0 ? dirs[k - 1] : closed ? dirs[out.length - 1] : undefined;
+    return Math.max(...[prev, dirs[k]].filter((d): d is Point2 => !!d).map((d) => liftAt(bridges, p, d)));
+  });
+  return { pts: out, y };
+}
+
+/** The top of a bridge, `half` either side of its middle, `lift` above its profile, tilted with it. */
+function addSlope(m: Mesh, b: Bridge, half: number, lift: number) {
+  for (let k = 0; k + 1 < b.profile.length; k++) {
+    const [a0, h0] = b.profile[k], [a1, h1] = b.profile[k + 1];
+    if (a1 - a0 < 1e-9) continue;
+    const [ua, uy] = unit(a1 - a0, h1 - h0);
+    const p = (a: number, c: number, h: number): [number, number, number] => [...b.at(a, c), h + lift];
+    m.face([p(a0, -half, h0), p(a1, -half, h1), p(a1, half, h1), p(a0, half, h0)], [-b.t[0] * uy, ua, -b.t[1] * uy]);
+  }
+}
+
+/**
+ * A bridge's body: the ramps solid down to the floor, the flat top a deck DECK_THICKNESS thick with the under pass's
+ * gap beneath it, and their sides. Its top is the over pass's carpet.
+ */
+function addBridge(m: Mesh, b: Bridge) {
+  const P = b.profile;
+  // a flat top is a deck (each bridge's own, where two on one pass are merged); a slope is a solid ramp
+  const kind = (k: number): "none" | "ramp" | "deck" => {
+    if (k < 0 || k + 1 >= P.length || P[k + 1][0] - P[k][0] < 1e-9) return "none";
+    const [h0, h1] = [P[k][1], P[k + 1][1]];
+    if (h0 <= 1e-6 && h1 <= 1e-6) return "none";
+    return Math.abs(h1 - h0) < 1e-6 && h0 > DECK_THICKNESS ? "deck" : "ramp";
+  };
+  const p = (a: number, c: number, h: number): [number, number, number] => [...b.at(a, c), h];
+  for (let k = 0; k + 1 < P.length; k++) {
+    const [a0, h0] = P[k], [a1, h1] = P[k + 1], what = kind(k);
+    if (what === "none") continue;
+    const low = what === "deck" ? (h: number) => h - DECK_THICKNESS : () => 0;
+    for (const s of [-1, 1]) m.face([p(a0, s * b.half, low(h0)), p(a1, s * b.half, low(h1)), p(a1, s * b.half, h1), p(a0, s * b.half, h0)], [b.n[0] * s, 0, b.n[1] * s]);
+    if (what === "deck") m.face([p(a0, -b.half, low(h0)), p(a1, -b.half, low(h1)), p(a1, b.half, low(h1)), p(a0, b.half, low(h0))], [0, -1, 0]);
+  }
+  // the ends of each solid part, square across: where a ramp meets the deck (below the deck) or the profile stops above the floor
+  for (let k = 0; k < P.length; k++) {
+    const [a, h] = P[k], before = kind(k - 1), after = kind(k);
+    if (h <= 1e-6 || before === after) continue;
+    // the face looks towards the side that's open below it
+    const [solid, open] = before === "ramp" || (before === "deck" && after === "none") ? [before, after] : [after, before];
+    const facing = solid === before ? 1 : -1;
+    const [y0, y1] = solid === "ramp" ? [0, open === "deck" ? h - DECK_THICKNESS : h] : [h - DECK_THICKNESS, h];
+    m.face([p(a, -b.half, y0), p(a, b.half, y0), p(a, b.half, y1), p(a, -b.half, y1)], [b.t[0] * facing, 0, b.t[1] * facing]);
+  }
 }
 
 // ------------------------------------------------------------------------------------------------------------- scene
 
-/** Chequered start line: two rows of squares across the lane at built.startLine, as the plan draws it. */
-function addStart(a: Mesh, b: Mesh, built: Built) {
+/** Chequered start line: two rows of squares across the lane at built.startLine, as the plan draws it (on a bridge too). */
+function addStart(a: Mesh, b: Mesh, built: Built, bridges: Bridge[]) {
   const s = built.startLine;
   if (!s) return;
   const h = (s.heading * Math.PI) / 180;
   const t: Point2 = [Math.cos(h), Math.sin(h)], n: Point2 = [-t[1], t[0]];
-  const at = (u: number, v: number): [number, number, number] => [s.x + t[0] * u + n[0] * v, s.z + t[1] * u + n[1] * v, START_Y];
+  const at = (u: number, v: number): [number, number, number] => {
+    const p: Point2 = [s.x + t[0] * u + n[0] * v, s.z + t[1] * u + n[1] * v];
+    return [p[0], p[1], START_Y + liftAt(bridges, p, t)];
+  };
   const across = Math.max(4, Math.round(s.width / 0.2));
   const sq = s.width / across;
   for (let row = 0; row < 2; row++)
@@ -289,26 +493,33 @@ function addStart(a: Mesh, b: Mesh, built: Built) {
     }
 }
 
-/** The whole layout: the area as the floor, carpet, pipes, jumps, start line and racing line. */
+/** The whole layout: the area as the floor, carpet, pipes, jumps and bridges, start line and racing line. */
 export function buildScene({ area, built }: { area: Area; built: Built }): Scene3D {
   const floor = new Mesh();
   const L = area.length / 2, W = area.width / 2;
   floor.face([[-L, -W, 0], [L, -W, 0], [L, W, 0], [-L, W, 0]], [0, 1, 0]);
 
+  const bridges = bridgesOf(built);
+  const bridging = new Set(bridges.flatMap((b) => b.crossings.map((i) => built.crossings![i].bridge!.feature)));
   const top = new Mesh(), sides = new Mesh();
-  for (const f of built.features ?? []) addJump(top, sides, f);
+  (built.features ?? []).forEach((f, i) => bridging.has(i) || addJump(top, sides, f));
+  for (const b of bridges) addBridge(sides, b);
 
   const startA = new Mesh(), startB = new Mesh();
-  addStart(startA, startB, built);
+  addStart(startA, startB, built, bridges);
 
   const line = new Mesh();
   const rl = clean(built.racingLine.map(([x, z]) => [x, z] as Point2), true);
-  if (rl.length > 2) addRibbon(line, rl, true, () => LINE_WIDTH / 2, LINE_Y);
+  if (rl.length > 2) {
+    const { pts, y } = onBridges(bridges, rl, true);
+    addRibbon(line, pts, true, () => LINE_WIDTH / 2, (i) => LINE_Y + y[i]);
+  }
 
-  const meshes = [floor.done("area"), carpetMesh(built), pipeMesh(built.dividers ?? []), top.done("jump"), sides.done("jumpSide"), startA.done("startA"), startB.done("startB"), line.done("line")].filter(
+  const meshes = [floor.done("area"), carpetMesh(built, bridges), pipeMesh(built.dividers ?? [], bridges), top.done("jump"), sides.done("jumpSide"), startA.done("startA"), startB.done("startB"), line.done("line")].filter(
     (m) => m.indices.length > 0,
   );
-  return { area, background: PLAN_PALETTE["plan-floor"], meshes, triangles: meshes.reduce((n, m) => n + m.indices.length / 3, 0) };
+  const shown = (built.crossings ?? []).flatMap((c, i) => (bridges.some((b) => b.crossings.includes(i)) ? [{ feature: c.bridge!.feature, over: c.over! }] : []));
+  return { area, background: PLAN_PALETTE["plan-floor"], meshes, triangles: meshes.reduce((n, m) => n + m.indices.length / 3, 0), bridges: shown };
 }
 
 /** The scene for a layout file: its drawing area and built section (never its design). */

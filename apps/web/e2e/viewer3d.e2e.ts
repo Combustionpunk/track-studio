@@ -5,12 +5,14 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
+import type { RcTrack } from "@track-studio/engine";
 
 type XY = [number, number];
 const SHOTS = process.env.SHOTS;
 const dir = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 const EXAMPLES = dir("../../../reference/examples/");
 const EXTRA = dir("../../../packages/engine/test/fixtures/extra/");
+const ENGINE = `/@fs${dir("../../../packages/engine/src/index.ts")}`;
 const files = [
   ...readdirSync(EXAMPLES).filter((f) => f.endsWith(".rctrack.json")).map((f) => EXAMPLES + f),
   ...readdirSync(EXTRA).filter((f) => f.endsWith(".rctrack.json")).map((f) => EXTRA + f),
@@ -206,6 +208,83 @@ test.describe("2D / 3D on the track page", () => {
     await expect(view3d(page)).toHaveCount(0);
     await shot(page, "5-no-webgl");
     expect(errors).toEqual([]);
+  });
+});
+
+test.describe("crossovers in 3D (#71)", () => {
+  /** Low and close, from the south-west: the gap under the bridge shows. */
+  async function lowAngle(page: Page) {
+    const b = (await view3d(page).boundingBox())!;
+    const [x, y] = [b.x + b.width / 2, b.y + b.height / 2];
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + b.width / 6, y - b.height / 9, { steps: 8 });
+    await page.mouse.up();
+    const stage = page.locator(".plan3d-stage");
+    await stage.focus();
+    for (let k = 0; k < 3; k++) await stage.press("+");
+  }
+
+  for (const width of [1200, 375]) {
+    test(`${width} px: the over pass is on the bridge and the under pass beneath`, async ({ page }, info) => {
+      test.skip(info.project.name !== "desktop-mouse", "once is enough");
+      await page.setViewportSize({ width, height: 860 });
+      for (const [name, over] of [["crossover-figure8", "first"], ["tabletop-figure8", "second"], ["two-crossings", "first first"], ["unbridged-figure8", ""]]) {
+        const doc = fixture(name);
+        await page.unrouteAll();
+        const errors = await serve(page, doc);
+        await open3d(page, doc.id);
+        await expect(view3d(page)).toHaveAttribute("data-bridges", over);
+        await lowAngle(page);
+        await shot(page, `7-${name}`);
+        expect(errors).toEqual([]);
+      }
+    });
+  }
+
+  test("swapping the over pass in the designer, saving and viewing in 3D puts the other pass on top", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop-mouse", "mouse only");
+    let doc = fixture("crossover-figure8") as RcTrack & { id: string; info: { name: string } };
+    let revision = 1;
+    let saved: RcTrack | undefined;
+    const answer = () => {
+      const r = response(doc);
+      return { ...r, track: { ...r.track, revision }, can: { edit: true, submit: false, approve: false, archive: false, adapt: false, copy: true }, usedAt: null };
+    };
+    await page.route("**/api/**", async (route) => {
+      const path = new URL(route.request().url()).pathname, method = route.request().method();
+      if (path === "/api/me") return route.fulfill({ json: { id: 1, username: "alice", name: "Alice", avatarUrl: null, organiser: false, admin: false, moderator: false } });
+      if (path === "/api/config") return route.fulfill({ json: { devLogin: false, forumUrl: "", baseUrl: "", organiserGroup: "" } });
+      if (path === `/api/tracks/${doc.id}` && method === "PUT") {
+        saved = (route.request().postDataJSON() as { track: RcTrack }).track;
+        // the server bakes what it's sent: here the engine does, in the page (Node can't load its JSON schemas)
+        const baked = await page.evaluate(async ([engine, track]) => (await import(/* @vite-ignore */ engine)).bake(track), [ENGINE, saved] as const);
+        doc = { ...(baked as typeof doc), revision: ++revision };
+        return route.fulfill({ json: answer() });
+      }
+      if (path === `/api/tracks/${doc.id}`) return route.fulfill({ json: answer() });
+      if (path.startsWith(`/api/tracks/${doc.id}/r/`)) return route.fulfill({ json: doc });
+      return route.fulfill({ status: 404, json: { error: "not found" } });
+    });
+
+    await page.goto(`/t/${doc.id}`);
+    await page.getByRole("button", { name: "3D", exact: true }).click();
+    await expect(view3d(page)).toHaveAttribute("data-bridges", "first");
+
+    await page.goto(`/t/${doc.id}/edit`);
+    await page.locator("polygon.ed-feature").first().click();
+    await page.getByRole("button", { name: "Swap over/under" }).click();
+    await page.getByRole("button", { name: "Save revision" }).click();
+    await page.getByRole("button", { name: "Save as revision 2" }).click();
+    await expect(page.locator(".save-state")).toHaveText("Saved · revision 2");
+    expect(saved!.design.features![0].over).toBe("second");
+
+    await page.goto(`/t/${doc.id}`);
+    await page.getByRole("button", { name: "3D", exact: true }).click();
+    await expect(view3d(page)).toHaveAttribute("data-ready", "1", { timeout: 20_000 });
+    await expect(view3d(page)).toHaveAttribute("data-bridges", "second");
+    await lowAngle(page);
+    await shot(page, "8-swapped");
   });
 });
 
