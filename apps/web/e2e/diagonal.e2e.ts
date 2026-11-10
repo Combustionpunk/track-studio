@@ -51,7 +51,7 @@ for (const width of [1200, 1024]) {
     await open(page, width);
     await expect(page.locator(".designer-palette")).toContainText("corner to corner for a diagonal");
     await expect(hint(page)).toContainText("diagonally");
-    await expect(hint(page)).toContainText("Turns are 45°, 90° or 135°. Step 2 rounds them and shows where lanes squeeze or overlap.");
+    await expect(hint(page)).toContainText("Turns are 45°, 90° or 135°. Step 2 shapes them and shows where lanes squeeze or overlap.");
 
     // north-east [1, 0] → [4, 3], round, then west along row 1: [3, 1] is one the diagonal passed between (#104:
     // painted), and [2, 1] is on the diagonal, a crossing not at right angles

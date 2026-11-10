@@ -13,7 +13,9 @@ const PIPE_TOL = 0.15;
 const PIPE_LENGTH_REL = 0.005;
 const RING_TOL = SIMPLIFY_TOL + 0.001; // lane rings are simplified to SIMPLIFY_TOL and rounded to mm
 const INNER_CUSP_TOL = 0.12; // one extra vertex at an inside corner, see the lane edges test
-const SQUEEZE_CUSP_TOL = 0.2; // the same at a squeezed or overlapping corner, either way round (#104: diagonal-past-lane 9.5 and 17.6 cm)
+const SQUEEZE_CUSP_TOL = 0.2; // the same at a squeezed hook, either way round (#104: diagonal-past-lane 9.5 and 17.6 cm)
+/** #104: where a squeezed hook's inside edges collapse, the cusp settles differently each way round, both ways */
+const CUSP_SETTLES = new Set(["diagonal-past-lane.rctrack.json"]);
 const pyMod = (a: number, b: number) => ((a % b) + b) % b;
 const xz = (pts: number[][]): Point2[] => pts.map((p) => [p[0], p[1]]);
 const angleDiff = (a: number, b: number) => Math.abs(pyMod(a - b + 540, 360) - 180);
@@ -29,7 +31,7 @@ const coverage = (a: Divider[], b: Divider[]) =>
 /** shoelace: > 0 counter-clockwise */
 const signedArea = (pts: Point2[]) => pts.reduce((a, p, i) => { const q = pts[(i + 1) % pts.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
 
-describe.each(allTracks)("reverse $name", ({ path }) => {
+describe.each(allTracks)("reverse $name", ({ name, path }) => {
   const doc = readJson<RcTrack>(path);
   const before = bakeBuilt(doc);
   const reversed = { ...doc, design: reverseDesign(doc.design) };
@@ -100,12 +102,12 @@ describe.each(allTracks)("reverse $name", ({ path }) => {
     // cusp settles differently (club-a 11.3 cm, sharp-v 5.9 cm, others under 3 cm); every other vertex is on the old edge.
     const far = [...offs(l1.right, l0.left), ...offs(l1.left, l0.right)].filter((d) => d > RING_TOL);
     expect(far.length).toBeLessThanOrEqual(1);
-    if (!overlapping) {
+    if (!CUSP_SETTLES.has(name)) {
       expect(Math.max(...old)).toBeLessThanOrEqual(RING_TOL);
       expect(Math.max(0, ...far)).toBeLessThanOrEqual(INNER_CUSP_TOL);
       return;
     }
-    // #104: at a squeeze the lanes' borders cross, and the cusp where a squeezed hook's inside edges collapse settles
+    // #104: in a squeezed hook (a diagonal past the lane's own square) the cusp where the inside edges collapse settles
     // differently each way round too: one vertex each way off the other bake's edge, by up to 18 cm
     expect(old.filter((d) => d > RING_TOL).length).toBeLessThanOrEqual(1);
     expect(Math.max(...old, ...far)).toBeLessThanOrEqual(SQUEEZE_CUSP_TOL);

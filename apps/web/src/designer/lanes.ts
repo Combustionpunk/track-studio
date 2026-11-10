@@ -119,9 +119,9 @@ export const REFUSAL_TEXT: Record<Refusal, string> = {
 
 /**
  * step 1's hint on turns. #104: tight corners paint (a 135° turn, a diagonal beside the lane, a lane beside a V's
- * point); step 2 rounds them and the bake says where lanes squeeze (a warning) or overlap (an error).
+ * point); step 2 shapes them and the bake says where lanes squeeze (a warning) or overlap (an error).
  */
-export const TURNS_HINT = "Turns are 45°, 90° or 135°. Step 2 rounds them and shows where lanes squeeze or overlap.";
+export const TURNS_HINT = "Turns are 45°, 90° or 135°. Step 2 shapes them and shows where lanes squeeze or overlap.";
 
 /**
  * Squares from `a` to `b` one step at a time (`a` excluded, `b` included): diagonal steps while both the column and
@@ -235,7 +235,8 @@ export function releaseStep(g: LaneGrid, lay: Laying, p: Point2): Laying[] {
 // ---------------------------------------------------------------------------------------------- closing
 /**
  * Is this a closed loop of neighbouring squares (straight or corner to corner)? A square may be used twice only as a
- * crossing: not the first square, and both passes straight through it, at right angles along the grid.
+ * crossing: not the first square, and both passes straight through it, at right angles along the grid. No diagonal
+ * step crosses another (an X between two squares).
  */
 export function isLoop(cells: Cell[]): boolean {
   const n = cells.length;
@@ -249,7 +250,8 @@ export function isLoop(cells: Cell[]): boolean {
     const [a, b] = uses.map((i) => dir(at(i), at(i + 1)));
     if (!uses.every((i) => same(dir(at(i - 1), at(i)), dir(at(i), at(i + 1)))) || diagonal(a) || diagonal(b) || a[0] * b[0] + a[1] * b[1] !== 0) return false;
   }
-  return cells.every((c, i) => neighbours(c, at(i + 1)));
+  const ring = [...cells, cells[0]];
+  return cells.every((c, i) => neighbours(c, at(i + 1)) && !(diagonal(dir(c, at(i + 1))) && stepsAcross(ring, passesBetween(c, at(i + 1)))));
 }
 
 /**

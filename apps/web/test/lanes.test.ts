@@ -607,6 +607,8 @@ describe("diagonal lanes (#82)", () => {
     expect(paintTo(g, x, [0, 0])).toEqual({ states: [], refused: "crossing" });
     // the other way round too: the X's second diagonal laid first, then [1, 0] → [0, 1] across it
     expect(paintTo(g, last(paintAll(g, [[0, 0], [1, 1], [2, 1], [2, 0], [1, 0]])), [0, 1]).refused).toBe("crossing");
+    // and isLoop agrees: an X between two squares isn't a loop
+    expect(isLoop([[0, 1], [1, 0], [2, 0], [2, 1], [1, 1], [0, 0]])).toBe(false);
   });
 
   it("a hook past the lane's own square bakes as a squeeze: the lanes share a pipe, one narrower (#104)", () => {
