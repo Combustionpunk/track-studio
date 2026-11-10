@@ -2,21 +2,31 @@
 // when 3D is opened, so three.js isn't in the main bundle. Orbit, pan and zoom with mouse, touch or keyboard; it
 // draws only when something changes, so it costs nothing while you look. The rostrum view (#84) stands the camera
 // where the drivers stand on a side: looking around turns the head there, and zoom narrows the field of view.
-import type { Area, Built, Side } from "@track-studio/engine";
+//
+// In the designer (#85) the layout changes under it: the renderer and the camera stay, and a new scene swaps only the
+// meshes whose data changed. It also draws the guide's obstacles, highlights the selected item, and a click (or tap)
+// on a jump picks it.
+import { PLAN_PALETTE, type Area, type Built, type Obstacle, type Side } from "@track-studio/engine";
 import { House, Orbit, Route, SquareDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { BufferAttribute, BufferGeometry, Color, DirectionalLight, DoubleSide, HemisphereLight, Mesh, MeshLambertMaterial, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
+import { BufferAttribute, BufferGeometry, Color, DirectionalLight, DoubleSide, EdgesGeometry, HemisphereLight, LineBasicMaterial, LineSegments, Mesh, MeshLambertMaterial, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { areaBounds } from "../lib/plan.js";
 import { headPose, homePose, rostrumHead, topPose, turnHead, zoomHead, type Head, type Pose } from "./camera.js";
 import { SIDES } from "./rostrum.js";
-import { buildScene, rostrumMeshes, type MeshData, type Part } from "./scene.js";
+import { buildScene, featureAt, highlightMesh, rostrumMeshes, sameMesh, type Highlight, type MeshData, type Part } from "./scene.js";
 
 const FOV = 45;
 /** Flat layers over the floor, lowest first. */
 const FLAT_LAYER: Partial<Record<Part, number>> = { carpet: 1, startA: 2, startB: 2, line: 3 };
 /** Arrow keys turn the head this far at the rostrum (degrees). */
 const TURN_STEP = 5;
+/** A press that moves less than this (px) is a click, not a drag. */
+const CLICK_SLOP = 6;
+/** What a click can land on: a jump, a bridge, or the carpet over one. */
+const PICKABLE: Part[] = ["jump", "jumpSide", "carpet"];
+/** The guide's blocks and the highlight are see-through. */
+const SEE_THROUGH: Partial<Record<Part, number>> = { guide: 0.55, highlight: 0.3 };
 
 export interface Viewer3DProps {
   area: Area;
@@ -28,14 +38,34 @@ export interface Viewer3DProps {
   /** the rostrum drawn (picked, else the default), and whether the camera stands on it (#84) */
   rostrum: { side: Side; at: boolean };
   onRostrum: (side: Side, at: boolean) => void;
+  /** the designer's guide: the drawn-for venue's obstacles, drawn as plain blocks (#85) */
+  obstacles?: Obstacle[];
+  /** the designer's selection, highlighted (#85) */
+  highlight?: Highlight;
+  /** a click or tap on a jump (its index in built.features); without it, clicks do nothing (#85) */
+  onPick?: (feature: number) => void;
+  /**
+   * where the orbit camera was when the view last closed, kept here and taken up again when it opens, so going to 2D
+   * to edit and back doesn't move it (#85)
+   */
+  keep?: { current: KeptCamera | null };
 }
+
+export interface KeptCamera {
+  position: Pose["position"];
+  target: Pose["target"];
+}
+
+type ThreeMesh = Mesh<BufferGeometry, MeshLambertMaterial>;
 
 interface Stage {
   renderer: WebGLRenderer;
   world: Scene;
   camera: PerspectiveCamera;
   controls: OrbitControls;
-  line?: Mesh;
+  sun: DirectionalLight;
+  /** the scene's meshes by part, with the data they were made from */
+  parts: Map<Part, { data: MeshData; mesh: ThreeMesh }>;
   render: () => void;
   /** at the rostrum: which way the head turns (null: orbiting) */
   head: Head | null;
@@ -45,19 +75,30 @@ interface Stage {
 
 const SIDE_NAME = (s: Side) => s[0].toUpperCase() + s.slice(1);
 
-export default function Viewer3D({ area, built, label, className = "", onUnsupported, rostrum, onRostrum }: Viewer3DProps) {
+export default function Viewer3D({ area, built, label, className = "", onUnsupported, rostrum, onRostrum, obstacles, highlight = null, onPick, keep }: Viewer3DProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const keysId = useId();
   const stage = useRef<Stage | null>(null);
   const [showLine, setShowLine] = useState(false);
   const [ready, setReady] = useState(false);
-  const scene = useMemo(() => buildScene({ area, built }), [area, built]);
+  const scene = useMemo(() => buildScene({ area, built, obstacles }), [area, built, obstacles]);
   const bounds = useMemo(() => areaBounds(area), [area]);
   const lineRef = useRef(showLine);
   lineRef.current = showLine;
   const rostrumRef = useRef(rostrum);
   rostrumRef.current = rostrum;
+  // the stage is made once; these are read when it needs them
+  const areaRef = useRef(area);
+  areaRef.current = area;
+  const builtRef = useRef(built);
+  builtRef.current = built;
+  const pickRef = useRef(onPick);
+  pickRef.current = onPick;
+  const unsupportedRef = useRef(onUnsupported);
+  unsupportedRef.current = onUnsupported;
+  const keepRef = useRef(keep);
+  keepRef.current = keep;
 
   useEffect(() => {
     const box = boxRef.current!, stageEl = stageRef.current!;
@@ -65,7 +106,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     try {
       renderer = new WebGLRenderer({ antialias: true, powerPreference: "low-power" });
     } catch {
-      onUnsupported?.("none");
+      unsupportedRef.current?.("none");
       return;
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -75,36 +116,12 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     stageEl.append(canvas);
 
     const world = new Scene();
-    world.background = new Color(scene.background);
+    const background = PLAN_PALETTE["plan-floor"];
+    world.background = new Color(background);
     // white light (three's default colour): from the sky, and back up off the floor in its colour
-    world.add(new HemisphereLight(undefined, scene.background, 2.2));
+    world.add(new HemisphereLight(undefined, background, 2.2));
     const sun = new DirectionalLight(undefined, 1.6);
-    sun.position.set(-0.6 * area.length, Math.max(area.length, area.width), 0.9 * area.width); // from the south-west, high
     world.add(sun);
-
-    const geometries: BufferGeometry[] = [];
-    const materials: MeshLambertMaterial[] = [];
-    let line: Mesh | undefined;
-    for (const m of scene.meshes) {
-      const mesh = toMesh(m);
-      const mat = mesh.material;
-      // the flat layers are millimetres apart: far off, depth can't tell them apart, so they're layered by hand
-      if (m.part === "area") {
-        mat.depthWrite = false;
-        mesh.renderOrder = -1;
-      } else if (FLAT_LAYER[m.part]) {
-        mat.polygonOffset = true;
-        mat.polygonOffsetFactor = -FLAT_LAYER[m.part]!;
-        mat.polygonOffsetUnits = -4 * FLAT_LAYER[m.part]!;
-      }
-      if (m.part === "line") {
-        line = mesh;
-        mesh.visible = lineRef.current;
-      }
-      world.add(mesh);
-      geometries.push(mesh.geometry);
-      materials.push(mat);
-    }
 
     const camera = new PerspectiveCamera(FOV, 1, 0.1, 2000);
     const controls = new OrbitControls(camera, canvas);
@@ -113,9 +130,9 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     controls.zoomToCursor = true;
     controls.listenToKeyEvents(stageEl); // arrows pan; Shift / Ctrl + arrows orbit
 
-    let frame = 0;
+    let frame = 0, disposed = false;
     const render = () => {
-      if (frame) return;
+      if (frame || disposed) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
         renderer.render(world, camera);
@@ -126,7 +143,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       });
     };
     controls.addEventListener("change", render);
-    const s: Stage = { renderer, world, camera, controls, line, render, head: null };
+    const s: Stage = { renderer, world, camera, controls, sun, parts: new Map(), render, head: null };
     stage.current = s;
 
     // at the rostrum, OrbitControls is off and these turn the head: drag (one finger) looks around, the wheel or a
@@ -138,8 +155,41 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     };
     const look = (h: Head) => {
       s.head = h;
-      poseHead(s, area, rostrumRef.current.side);
+      poseHead(s, areaRef.current, rostrumRef.current.side);
     };
+    // a click (or tap) on a jump picks it: a press that hardly moves, with one pointer down all along
+    let press: { id: number; x: number; y: number; alone: boolean } | null = null;
+    const pressed = new Set<number>();
+    const raycaster = new Raycaster();
+    const pick = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      raycaster.setFromCamera(new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+      const targets = PICKABLE.flatMap((p) => s.parts.get(p)?.mesh ?? []);
+      const hit = raycaster.intersectObjects(targets, false)[0];
+      const i = hit ? featureAt(builtRef.current, [hit.point.x, -hit.point.z]) : null;
+      if (i !== null) pickRef.current?.(i);
+    };
+    const pressDown = (e: PointerEvent) => {
+      if (e.button !== 0) return; // the main button or a finger; the others pan
+      pressed.add(e.pointerId);
+      press = pressed.size === 1 ? { id: e.pointerId, x: e.clientX, y: e.clientY, alone: true } : press && { ...press, alone: false };
+    };
+    const pressUp = (e: PointerEvent) => {
+      pressed.delete(e.pointerId);
+      const p = press;
+      if (!p || p.id !== e.pointerId) return;
+      press = null;
+      if (p.alone && e.type === "pointerup" && Math.hypot(e.clientX - p.x, e.clientY - p.y) < CLICK_SLOP && pickRef.current) pick(e);
+    };
+    canvas.addEventListener("pointerdown", pressDown);
+    canvas.addEventListener("pointerup", pressUp);
+    canvas.addEventListener("pointercancel", pressUp);
+    // for the browser tests: where a plan point (x, z, height) is on the screen
+    (box as ProjectingBox).project3d = (x, z, y = 0) => {
+      const v = new Vector3(x, y, -z).project(camera), r = canvas.getBoundingClientRect();
+      return [r.left + ((v.x + 1) / 2) * r.width, r.top + ((1 - v.y) / 2) * r.height];
+    };
+
     const down = (e: PointerEvent) => {
       if (!s.head) return;
       canvas.setPointerCapture?.(e.pointerId);
@@ -176,9 +226,10 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       camera.updateProjectionMatrix();
       if (!posed) {
         posed = true;
-        const r = rostrumRef.current;
-        if (r.at) stand(s, area, r.side);
-        else apply(s, homePose(area, FOV, w / h), area);
+        const r = rostrumRef.current, a = areaRef.current, kept = keepRef.current?.current;
+        if (kept) apply(s, kept, a);
+        if (r.at) stand(s, a, r.side);
+        else if (!kept) apply(s, homePose(a, FOV, w / h), a);
         setReady(true);
       }
       render();
@@ -187,10 +238,13 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     ro.observe(box);
     resize();
 
-    const lost = () => onUnsupported?.("lost");
+    const lost = () => unsupportedRef.current?.("lost");
     canvas.addEventListener("webglcontextlost", lost);
 
     return () => {
+      // the orbit camera (from before standing at the rostrum, if there), for next time
+      disposed = true;
+      if (posed && keepRef.current) keepRef.current.current = s.orbit ?? { position: camera.position.toArray() as Pose["position"], target: controls.target.toArray() as Pose["target"] };
       ro.disconnect();
       cancelAnimationFrame(frame);
       canvas.removeEventListener("webglcontextlost", lost);
@@ -199,10 +253,17 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       canvas.removeEventListener("pointerup", up);
       canvas.removeEventListener("pointercancel", up);
       canvas.removeEventListener("wheel", wheel);
+      canvas.removeEventListener("pointerdown", pressDown);
+      canvas.removeEventListener("pointerup", pressUp);
+      canvas.removeEventListener("pointercancel", pressUp);
+      delete (box as ProjectingBox).project3d;
       controls.dispose();
-      geometries.forEach((g) => g.dispose());
-      materials.forEach((m) => m.dispose());
+      s.parts.forEach(({ mesh }) => dispose(mesh));
+      s.parts.clear();
       renderer.dispose();
+      // give the context back now (unless it's already gone): a browser keeps only so many, and 2D-and-back makes a new
+      // one each time
+      if (!renderer.getContext().isContextLost()) renderer.forceContextLoss();
       canvas.remove();
       stage.current = null;
       delete box.dataset.ready;
@@ -210,7 +271,55 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       delete box.dataset.fov;
       delete box.dataset.look;
     };
-  }, [scene, area, onUnsupported]);
+  }, []);
+
+  // the scene's meshes: the ones whose data changed are swapped, the rest stay (the camera only moves for a new area size)
+  const sized = useRef("");
+  useEffect(() => {
+    const s = stage.current;
+    if (!s) return;
+    const size = `${area.length}x${area.width}`;
+    if (sized.current && sized.current !== size && s.camera.aspect) {
+      if (s.head) stand(s, area, rostrumRef.current.side);
+      else apply(s, homePose(area, FOV, s.camera.aspect), area);
+    }
+    sized.current = size;
+    const next = new Map(scene.meshes.map((m) => [m.part, m]));
+    for (const [part, had] of s.parts)
+      if (!next.has(part) || !sameMesh(had.data, next.get(part)!)) {
+        s.world.remove(had.mesh);
+        dispose(had.mesh);
+        s.parts.delete(part);
+      }
+    for (const [part, data] of next) {
+      if (s.parts.has(part)) continue;
+      const mesh = partMesh(data);
+      if (part === "line") mesh.visible = lineRef.current;
+      s.world.add(mesh);
+      s.parts.set(part, { data, mesh });
+    }
+    s.sun.position.set(-0.6 * area.length, Math.max(area.length, area.width), 0.9 * area.width); // from the south-west, high
+    s.render();
+  }, [scene, area]);
+
+  // the selected item, highlighted: see-through, with its edges drawn
+  const lit = useMemo(() => highlightMesh(built, highlight), [built, highlight]);
+  useEffect(() => {
+    const s = stage.current;
+    if (!s || !lit) return;
+    const fill = partMesh(lit);
+    const edges = new LineSegments(new EdgesGeometry(fill.geometry), new LineBasicMaterial({ color: lit.colour }));
+    edges.renderOrder = fill.renderOrder;
+    s.world.add(fill, edges);
+    s.render();
+    return () => {
+      s.world.remove(fill, edges);
+      dispose(fill);
+      edges.geometry.dispose();
+      edges.material.dispose();
+      s.render();
+    };
+  }, [lit]);
 
   // the rostrum on its side, in the scene
   useEffect(() => {
@@ -226,7 +335,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
         m.material.dispose();
       });
     };
-  }, [scene, area, rostrum.side]);
+  }, [area, rostrum.side]);
 
   // standing at the rostrum, or back to the orbit camera
   useEffect(() => {
@@ -238,8 +347,9 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
 
   useEffect(() => {
     const s = stage.current;
-    if (!s?.line) return;
-    s.line.visible = showLine;
+    const line = s?.parts.get("line")?.mesh;
+    if (!s || !line) return;
+    line.visible = showLine;
     s.render();
   }, [showLine]);
 
@@ -297,6 +407,10 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       data-triangles={scene.triangles}
       data-view={rostrum.at ? "rostrum" : "orbit"}
       data-bridges={scene.bridges.map((b) => b.over).join(" ")}
+      // for the browser tests: what's drawn, where the jumps are, what's highlighted
+      data-parts={scene.meshes.map((m) => m.part).join(" ")}
+      data-jumps={built.features.map((f) => `${f.x.toFixed(2)},${f.z.toFixed(2)}`).join(" ")}
+      data-highlight={lit && highlight ? (highlight.kind === "feature" ? `feature:${highlight.i}` : highlight.kind) : ""}
     >
       {/* the canvas goes in here; the buttons stay outside it, so they aren't part of the picture */}
       <div
@@ -375,8 +489,37 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
   );
 }
 
+/** The browser tests' handle on the view: where a plan point is on the screen. */
+type ProjectingBox = HTMLDivElement & { project3d?: (x: number, z: number, y?: number) => [number, number] };
+
+/** A mesh for one part of the scene, layered and see-through as that part is drawn. */
+function partMesh(m: MeshData): ThreeMesh {
+  const mesh = toMesh(m);
+  const mat = mesh.material;
+  // the flat layers are millimetres apart: far off, depth can't tell them apart, so they're layered by hand
+  if (m.part === "area") {
+    mat.depthWrite = false;
+    mesh.renderOrder = -1;
+  } else if (FLAT_LAYER[m.part]) {
+    mat.polygonOffset = true;
+    mat.polygonOffsetFactor = -FLAT_LAYER[m.part]!;
+    mat.polygonOffsetUnits = -4 * FLAT_LAYER[m.part]!;
+  } else if (SEE_THROUGH[m.part]) {
+    mat.transparent = true;
+    mat.opacity = SEE_THROUGH[m.part]!;
+    mat.depthWrite = false;
+    mesh.renderOrder = 1; // after the solid layout, so it shows through
+  }
+  return mesh;
+}
+
+function dispose(m: ThreeMesh) {
+  m.geometry.dispose();
+  m.material.dispose();
+}
+
 /** A mesh for three.js from the scene's data. */
-function toMesh(m: MeshData): Mesh<BufferGeometry, MeshLambertMaterial> {
+function toMesh(m: MeshData): ThreeMesh {
   const g = new BufferGeometry();
   g.setAttribute("position", new BufferAttribute(m.positions, 3));
   g.setAttribute("normal", new BufferAttribute(m.normals, 3));

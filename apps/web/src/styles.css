@@ -221,6 +221,10 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .seg-snap .snap-info { width: 100%; font-size: 12px; }
 .designer-plan-wrap { position: relative; min-width: 0; min-height: 0; background: var(--selected); }
 .designer-plan { height: 100%; }
+/* the plan, or the 3D preview (#85), with the 2D / 3D switch over its bottom-right corner */
+.designer-canvas { position: relative; height: 100%; min-height: 0; }
+.designer-viewswitch { top: auto; left: auto; right: 16px; bottom: 16px; z-index: 3; }
+.designer-3d-note { position: absolute; left: 16px; bottom: 36px; z-index: 3; max-width: calc(100% - 160px); margin: 0; padding: 6px 10px; border-radius: 6px; background: var(--header-bg); box-shadow: var(--shadow-pop); font-size: 13px; color: var(--text); }
 .designer-hint { position: absolute; left: 16px; top: 14px; z-index: 3; display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 6px; background: var(--header-bg); box-shadow: var(--shadow-pop); font-size: 13px; color: var(--text); pointer-events: none; max-width: calc(100% - 76px); }
 .designer-hint b { color: var(--accent); }
 .designer-side { display: flex; flex-direction: column; gap: 16px; padding: 16px; background: var(--surface); border-left: 1px solid var(--border); overflow-y: auto; min-width: 0; }
@@ -824,6 +828,11 @@ select.ts-input { padding: 0 var(--space-2); }
 .designer-touch .designer-grid { display: flex; }
 .designer-touch .designer-plan-wrap { flex: 1 1 auto; display: flex; flex-direction: column; }
 .designer-touch .designer-plan { flex: 1 1 auto; height: auto; min-height: 0; -webkit-touch-callout: none; }
+.designer-touch .designer-canvas { flex: 1 1 auto; height: auto; display: flex; flex-direction: column; }
+.designer-touch .designer-viewswitch button { height: var(--touch-target); min-width: var(--touch-target); }
+/* the 3D view's buttons clear the checks pill */
+.designer-touch .plan3d .plan-controls { top: 72px; right: 16px; }
+.designer-touch .plan3d .plan3d-rostrum { left: 16px; bottom: 16px; }
 .designer-touch .designer-hint { font-size: 14px; padding: 8px 12px; max-width: calc(100% - 220px); }
 .designer-touch .plan-scale { bottom: auto; top: 56px; }
 .designer-dock { margin: 8px 16px 16px; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border-radius: var(--radius-lg); background: var(--bg-raised); border: 1px solid var(--line); box-shadow: var(--shadow-float); }

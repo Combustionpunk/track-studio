@@ -27,15 +27,17 @@ import {
   type DrawnFor,
   type RcTrack,
   type RcVenue,
+  type Side,
 } from "@track-studio/engine";
 import { ArrowRightLeft, ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { CopyButton, Message, StatusBadge } from "../components/bits.js";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
+import { Skeleton } from "../components/states.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
-import { useApi, useMediaQuery, useStored } from "../lib/hooks.js";
+import { useApi, useDebounced, useMediaQuery, useSessionChoice, useStored } from "../lib/hooks.js";
 import { designerEstimate, useClassSpeeds } from "../lib/laps.js";
 import { LONG_PRESS_MS, slopFor } from "../lib/touch.js";
 import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
@@ -72,6 +74,16 @@ import { describeLane, layKey, startCursor, where, type LayKeys } from "./laykey
 import { useBake } from "./useBake.js";
 import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
+import { defaultRostrumSide } from "../viewer3d/rostrum.js";
+import type { Highlight } from "../viewer3d/scene.js";
+import { hasWebGL } from "../viewer3d/support.js";
+import type { KeptCamera } from "../viewer3d/Viewer3D.js";
+
+// the 3D preview (#85): three.js and the viewer load only when 3D is opened
+const Viewer3D = lazy(() => import("../viewer3d/Viewer3D.js"));
+const VIEWS = ["2d", "3d"] as const;
+/** 3D waits this long after the last bake before it rebuilds, so a drag doesn't rebuild it on every step */
+const BAKE_SETTLE_MS = 200;
 
 // ---------------------------------------------------------------------------------------------- tuning
 /** wheel delta (pixels) per step = one mouse-wheel notch; trackpads add up their small deltas */
@@ -315,6 +327,37 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     };
   }, [bake.built, live]);
 
+  // the 3D preview (#85): view only, of the latest bake (as the checks panel), once it has settled; not on phones, and
+  // not while laying the lanes (no track yet)
+  const [view3d, setView3d] = useSessionChoice("designer-view", VIEWS, "2d");
+  const shown3d = view3d === "3d" && !laying;
+  const [noWebGL, setNoWebGL] = useState<"none" | "lost">();
+  const no3d = shown3d ? (noWebGL ?? (hasWebGL() ? undefined : "none")) : undefined;
+  // the 3D view is on the screen (not its 2D fallback, which edits as usual): the plan's editing keys wait for 2D
+  const viewing3d = shown3d && !no3d;
+  const viewing3dRef = useRef(viewing3d);
+  viewing3dRef.current = viewing3d;
+  // the 3D view is made afresh each time 3D is chosen, so a lost graphics context is left behind then
+  const chooseView = useCallback(
+    (k: (typeof VIEWS)[number]) => {
+      setView3d(k);
+      if (k === "3d") setNoWebGL((w) => (w === "lost" ? undefined : w));
+    },
+    [setView3d],
+  );
+  // the bake drawn in 3D: the latest, once it has settled; the one there when 3D opens is drawn straight away
+  const settled3d = useDebounced(shown3d ? bake.built : null, BAKE_SETTLE_MS);
+  const built3d = shown3d ? settled3d ?? bake.built : null;
+  // the bake drawn in 3D is of the design as it stands: its jumps are the design's, index for index (a click or the
+  // highlight on a stale one could land on the wrong jump)
+  const synced3d = !!built3d && built3d === bake.built && !bake.pending && built3d.features.length === (draft.design.features?.length ?? 0);
+  // the rostrum view: the guide's rostrum side unless one is picked
+  const [rostrumPick, setRostrumPick] = useState<{ side?: Side; at: boolean }>({ at: false });
+  const rostrum = useMemo(() => ({ side: rostrumPick.side ?? defaultRostrumSide(guide), at: rostrumPick.at }), [rostrumPick, guide]);
+  const onRostrum = useCallback((side: Side, at: boolean) => setRostrumPick({ side, at }), []);
+  // the 3D camera, kept while 2D is shown for editing
+  const keep3d = useRef<KeptCamera | null>(null);
+
   // refs for window-level handlers
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -417,6 +460,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         return;
       }
       if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
+      // 3D is view only: undo and redo still work (3D follows), but the plan's editing keys wait for 2D; a key the 3D
+      // view took (Escape leaving the rostrum) is its own
+      if (viewing3dRef.current && (e.defaultPrevented || ["Delete", "Backspace", "h", "H", "o", "O"].includes(e.key))) return;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -945,6 +991,26 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const pointsList = draft.design.points;
   const lw = draft.design.laneWidth ?? 2;
   const advanced = view === "advanced";
+  // what 3D highlights: the selected jump, corner (on its point) or start line
+  const selPoint = sel?.kind === "point" ? draft.design.points[sel.i] : undefined;
+  const highlight3d = useMemo<Highlight>(
+    () => (sel?.kind === "point" ? (selPoint ? { kind: "point", at: [selPoint.x, selPoint.z] } : null) : sel?.kind === "feature" ? (synced3d ? { kind: "feature", i: sel.i } : null) : sel?.kind === "start" ? { kind: "start" } : null),
+    [sel, selPoint, synced3d],
+  );
+  // a jump clicked in 3D: selected, and back to 2D to edit it
+  const pick3d = useCallback(
+    (i: number) => {
+      setTool({ kind: "select" });
+      setSel({ kind: "feature", i });
+      setView3d("2d");
+    },
+    [setView3d],
+  );
+  const unsupported3d = useCallback((why: "none" | "lost") => setNoWebGL(why), []);
+  // a jump picked from the palette is placed on the plan: back to 2D
+  useEffect(() => {
+    if (tool.kind === "feature") setView3d("2d");
+  }, [tool.kind, setView3d]);
   // the corners round the same pipe as the selected one highlight while it's edited (#106)
   const linked = useMemo(() => (sel?.kind === "point" ? linkedTo(findNests(pointsList, lw), sel.i) : []), [sel, pointsList, lw]);
   // problems: the shared plan renderer's checks layer alone, drawn over the lane handle rather than under it in
@@ -1493,7 +1559,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </div>
           ) : (
             <div className="designer-hint">
-              {laying
+              {viewing3d
+                ? `3D is view only: switch to 2D to edit.${synced3d ? ` ${tablet ? "Tap" : "Click"} a jump to select it there.` : ""}`
+                : laying
                 ? layNote ?? (gridFocus
                   ? draft.laying?.length
                     ? LAY_KEYS_HELP
@@ -1514,6 +1582,38 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                         : "Drag a corner, or its inside handle to cut it back. Tap the track to add one."}
             </div>
           )}
+          <div className="designer-canvas">
+          {viewing3d ? (
+            <Suspense
+              fallback={
+                <div role="status" aria-busy="true" className="designer-plan">
+                  <span className="sr-only">Loading the 3D view…</span>
+                  <Skeleton className="designer-plan" />
+                </div>
+              }
+            >
+              {built3d ? (
+                <Viewer3D
+                  area={area}
+                  built={built3d}
+                  obstacles={guideObstacles}
+                  highlight={highlight3d}
+                  onPick={synced3d ? pick3d : undefined}
+                  label={`3D preview of ${draft.info.name || "this track"}, view only`}
+                  className="designer-plan"
+                  onUnsupported={unsupported3d}
+                  rostrum={rostrum}
+                  onRostrum={onRostrum}
+                  keep={keep3d}
+                />
+              ) : (
+                <div role="status" aria-busy="true" className="designer-plan">
+                  <span className="sr-only">Loading the 3D view…</span>
+                  <Skeleton className="designer-plan" />
+                </div>
+              )}
+            </Suspense>
+          ) : (
           <PlanView
             area={area}
             obstacles={guideObstacles}
@@ -1543,6 +1643,28 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               setSel(null);
             }}
           />
+          )}
+          {/* there while 3D is picked (an alert, so it's heard even when it comes with the region), so the plan's own
+              status stays the only one */}
+          {shown3d && (
+            <p className={no3d ? "designer-3d-note" : "sr-only"} role="alert">
+              {no3d === "lost"
+                ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; press 3D to try again."
+                : no3d
+                  ? "The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan."
+                  : ""}
+            </p>
+          )}
+          {!laying && (
+            <div className="plan-viewswitch designer-viewswitch" role="group" aria-label="View">
+              {VIEWS.map((k) => (
+                <button key={k} type="button" aria-pressed={view3d === k} className={view3d === k ? "on" : ""} onClick={() => chooseView(k)} title={k === "3d" ? "See the track in 3D (view only)" : "Back to the plan, to edit"}>
+                  {k.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
+          </div>
           {tablet && !laying && (
             <ChecksPill checks={built.checks} pending={bake.pending} open={sheet === "checks"} onToggle={() => setSheet((s) => (s === "checks" ? null : "checks"))} />
           )}
