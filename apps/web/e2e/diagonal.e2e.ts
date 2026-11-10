@@ -1,5 +1,6 @@
-// Quick mode step 1 diagonal lanes (#82): lay 45° runs corner to corner, the refusal for a step into a square a
-// diagonal passed between, and an octagon that closes through a diagonal and bakes clean. Mouse only (desktop layout),
+// Quick mode step 1 diagonal lanes (#82): lay 45° runs corner to corner, a step beside a diagonal (#104: painted) and
+// across it (refused: not at right angles), an octagon that closes through a diagonal and bakes clean, and (#104) a
+// loop closing diagonally past its own start square with a 135° turn. Mouse only (desktop layout),
 // at 1200 and 1024 px. SHOTS=<dir> saves screenshots there.
 import { expect, test, type Page } from "@playwright/test";
 
@@ -46,16 +47,17 @@ async function open(page: Page, width: number) {
 test.beforeEach(({}, info) => test.skip(info.project.name !== "desktop-mouse", "mouse only"));
 
 for (const width of [1200, 1024]) {
-  test(`${width} px: diagonal runs, no step beside a diagonal, and an octagon that closes and bakes clean`, async ({ page }) => {
+  test(`${width} px: diagonal runs, a step beside a diagonal, and an octagon that closes and bakes clean`, async ({ page }) => {
     await open(page, width);
     await expect(page.locator(".designer-palette")).toContainText("corner to corner for a diagonal");
     await expect(hint(page)).toContainText("diagonally");
     await expect(hint(page)).toContainText("Turns are 45°, 90° or 135°. Step 2 rounds them and shows where lanes squeeze or overlap.");
 
-    // north-east [1, 0] → [4, 3], round, then west along row 1: [3, 1] is one the diagonal passed between
+    // north-east [1, 0] → [4, 3], round, then west along row 1: [3, 1] is one the diagonal passed between (#104:
+    // painted), and [2, 1] is on the diagonal, a crossing not at right angles
     await drag(page, [[1, 0], [4, 3], [6, 3], [6, 1], [2, 1]]);
-    await expect(hint(page)).toHaveText("Too close to a diagonal: lanes would overlap.");
-    await expect(page.locator("rect.lay-cell")).toHaveCount(10); // stops on [4, 1]
+    await expect(hint(page)).toHaveText("The lane can only cross itself straight across, at right angles.");
+    await expect(page.locator("rect.lay-cell")).toHaveCount(11); // stops on [3, 1]
     await shot(page, "1-refused");
     await page.mouse.up();
 
@@ -87,4 +89,32 @@ test("a mouse released near the edge of the next square still paints it, closing
   await drag(page, [[3.6, 0], [4, 0], [4, 2], [0, 2], [0, 0.4]]);
   await page.mouse.up();
   await expect(page.locator("g.ed-corner")).toHaveCount(4);
+});
+
+test("a loop closing diagonally past its own start square, a 135° turn, closes and bakes clean (#104)", async ({ page }) => {
+  await open(page, 1200);
+  // Yeti's case: east along the top row, down the right side, west, then north-west into the start square, past [1, 5]
+  await drag(page, [[0, 5], [6, 5], [6, 0], [5, 0], [0, 5]]);
+  await page.mouse.up();
+  await expect(page.locator("g.ed-corner")).toHaveCount(4);
+  await expect(page.locator(".designer-side .checks-panel")).toContainText("No problems found.", { timeout: 15_000 });
+  await shot(page, "104-closing-past-start");
+});
+
+test("a lane right beside the point of a V paints and bakes clean; a hook past the lane's square shows a squeeze (#104)", async ({ page }) => {
+  await open(page, 1200);
+  // east along row 0 under a V at [4, 1] pointing down onto it, coming south-west from [8, 5]
+  await drag(page, [[0, 0], [10, 0], [10, 5], [8, 5], [4, 1], [1, 4], [0, 4], [0, 0]]);
+  await page.mouse.up();
+  await expect(page.locator("g.ed-corner")).toHaveCount(7);
+  await expect(page.locator(".designer-side .checks-panel:not(.venue-check)")).toContainText("No problems found.", { timeout: 15_000 });
+  await shot(page, "104-lane-beside-v");
+
+  await open(page, 1200);
+  // a diagonal [2, 0] → [3, 1] past [2, 1], the lane's own square: the lanes share a pipe, one squeezed
+  await drag(page, [[0, 1], [2, 1], [2, 0], [3, 1], [3, 3], [0, 3], [0, 1]]);
+  await page.mouse.up();
+  await expect(page.locator("g.ed-corner")).toHaveCount(6);
+  await expect(page.locator(".designer-side .checks-panel:not(.venue-check)")).toContainText("Lane narrows by 0.08 m at this corner", { timeout: 15_000 });
+  await shot(page, "104-hook-squeeze");
 });
