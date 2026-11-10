@@ -190,8 +190,8 @@ const LAY_KEYS_HELP = "Arrows move the cursor; Enter or Space starts the lane th
 const NO_TRACK: RcTrack["design"] = { laneWidth: 2, points: [{ x: -2, z: -1 }, { x: 2, z: -1 }, { x: 2, z: 1 }, { x: -2, z: 1 }] };
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
-/** Enter on a focused button, link or disclosure is that control's own */
-const isControl = (t: EventTarget | null) => t instanceof Element && !!t.closest("button, a, summary, [role=application]");
+/** Enter on a focused button, link or disclosure is that control's own; the Add point button's adds a point */
+const isControl = (t: EventTarget | null) => t instanceof Element && !!t.closest("button, a, summary") && !t.closest("[data-add-tool]");
 /** the Add point tool's keys (#114), which wait for 2D like the other editing keys */
 const ADD_KEYS = ["a", "A", "n", "N", "p", "P", "Enter"];
 
@@ -792,9 +792,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const { after, at: projected } = insertionFor(pts, p);
     const at = snapInsertion(projected, pts, after, modeFor(e), draftRef.current.area, draftRef.current.design.laneWidth ?? 2);
     const i = after + 1;
-    setPoints((list) => insertPoint(viewRef.current, list, after, at), `drag:insert:${Date.now()}`);
+    const group = `drag:insert:${Date.now()}`;
+    setPoints((list) => insertPoint(viewRef.current, list, after, at), group);
     setSel({ kind: "point", i });
-    startDrag(e, svg, { kind: "point", i, offset: [at[0] - p[0], at[1] - p[1]] }, { threshold: true, was });
+    startDrag(e, svg, { kind: "point", i, offset: [at[0] - p[0], at[1] - p[1]] }, { threshold: true, group, was });
   };
 
   const onFeatureDown = (e: React.PointerEvent<SVGElement>, i: number) => {
@@ -1524,6 +1525,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             className="palette-btn"
             aria-pressed={tool.kind === "add"}
             aria-keyshortcuts="A"
+            data-add-tool
             onClick={toggleAdd}
             title={advanced ? "Add a point: click a straight (A; Esc to stop)" : "Add a corner: click the track or the floor (A; Esc to stop)"}
           >
@@ -1769,7 +1771,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                     className="dock-btn"
                     verb="Tap"
                   />
-                  <button type="button" className="dock-btn" aria-pressed={tool.kind === "add"} aria-keyshortcuts="A" onClick={toggleAdd} title="Add a corner: tap Add point, then tap the track or the floor">
+                  <button type="button" className="dock-btn" aria-pressed={tool.kind === "add"} aria-keyshortcuts="A" data-add-tool onClick={toggleAdd} title="Add a corner: tap Add point, then tap the track or the floor">
                     <Plus size={18} aria-hidden="true" />
                     Add point
                   </button>

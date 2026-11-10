@@ -98,6 +98,18 @@ test.describe("mouse, 1200 px", () => {
       await page.keyboard.press("Control+z");
       await expect(page.locator(CORNER)).toHaveCount(4);
       expect(await corners(page)).toEqual(before);
+
+      // press and pull adds a point and drags it on: still one undo step
+      await tool.click();
+      const from = await midway(page, 2, 3);
+      await page.mouse.move(...from);
+      await page.mouse.down();
+      await page.mouse.move(from[0], from[1] + 50, { steps: 6 });
+      await page.mouse.up();
+      await expect(page.locator(CORNER)).toHaveCount(5);
+      await page.keyboard.press("Control+z");
+      await expect(page.locator(CORNER)).toHaveCount(4);
+      expect(await corners(page)).toEqual(before);
     });
   }
 
@@ -148,6 +160,13 @@ test.describe("mouse, 1200 px", () => {
       await page.keyboard.press("Control+z");
       await expect(page.locator(CORNER)).toHaveCount(4);
       expect(await corners(page)).toEqual(before);
+      // with the Add point button focused (just clicked, or tabbed to), Enter adds a point too, and leaves the tool on
+      const tool = page.locator(".designer-palette").getByRole("button", { name: "Add point" });
+      await tool.focus();
+      await page.keyboard.press("n");
+      await page.keyboard.press("Enter");
+      await expect(page.locator(CORNER)).toHaveCount(5);
+      await expect(tool).toHaveAttribute("aria-pressed", "true");
     });
   }
 });
