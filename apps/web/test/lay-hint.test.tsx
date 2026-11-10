@@ -1,4 +1,4 @@
-// Quick mode step 1's hints (#96): the line on 45° / 90° turns, on desktop (palette and floating hint) and on a tablet.
+// Quick mode step 1's hints (#96): the line on turns (45°, 90° and, since #104, 135°), on desktop (palette and floating hint) and on a tablet.
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +9,7 @@ import { SessionContext } from "../src/lib/session.js";
 // the designer guards leaving with useBlocker, which needs a data router; a static render doesn't
 vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useBlocker: () => ({ state: "unblocked" }) }));
 
-const TURNS = "Turns are 45° or 90°; a 135° turn can't be painted.";
+const TURNS = "Turns are 45°, 90° or 135°. Step 2 shapes them and shows where lanes squeeze or overlap.";
 const session = { me: null, config: null, ready: true, refresh: async () => {}, logout: async () => {}, loginUrl: () => "/auth/login" };
 const render = (initial: Draft) =>
   unescape(renderToStaticMarkup(
