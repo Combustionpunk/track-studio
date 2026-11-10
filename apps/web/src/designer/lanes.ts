@@ -106,21 +106,22 @@ export interface Laying {
 /** fewest squares a loop can close with */
 export const MIN_LOOP = 4;
 
-export type Refusal = "blocked" | "used" | "crossing" | "dead-end" | "corner" | "beside" | "tip" | "outside";
+export type Refusal = "blocked" | "used" | "crossing" | "dead-end" | "corner" | "outside";
 
 export const REFUSAL_TEXT: Record<Refusal, string> = {
   blocked: "That square is blocked by a fixed obstacle.",
   used: "That square is already part of the lane. Drag back to take squares up.",
   crossing: "The lane can only cross itself straight across, at right angles.",
   "dead-end": "A crossing needs the lane to carry straight on.",
-  corner: "A diagonal can't cut past a blocked or used square.",
-  beside: "Too close to a diagonal: lanes would overlap.",
-  tip: "The point of a V needs a clear square beyond it, inside the track area.",
+  corner: "A diagonal can't cut past a square blocked by a fixed obstacle.",
   outside: "Start the lane on a whole square inside the track area.",
 };
 
-/** step 1's hint on turns: a 135° turn is a step into a square the diagonal before it passed between ("beside") */
-export const TURNS_HINT = "Turns are 45° or 90°; a 135° turn can't be painted.";
+/**
+ * step 1's hint on turns. #104: tight corners paint (a 135° turn, a diagonal beside the lane, a lane beside a V's
+ * point); step 2 rounds them and the bake says where lanes squeeze (a warning) or overlap (an error).
+ */
+export const TURNS_HINT = "Turns are 45°, 90° or 135°. Step 2 rounds them and shows where lanes squeeze or overlap.";
 
 /**
  * Squares from `a` to `b` one step at a time (`a` excluded, `b` included): diagonal steps while both the column and
@@ -140,34 +141,16 @@ const diagonal = (d: Cell) => d[0] !== 0 && d[1] !== 0;
 /** the two squares a diagonal step from `a` to `b` passes between */
 const passesBetween = (a: Cell, b: Cell): Cell[] => [[b[0], a[1]], [a[0], b[1]]];
 /**
- * The square beyond the point of a V, a 90° turn between two diagonals at `b`: the outside of the corner reaches into
- * it (by about 0.4 of the width), where every other turn stays inside its own square. Null for any other turn.
+ * A V: a 90° turn between two diagonals at `b`. Its outside, square, would reach about 0.2 of the width into the square
+ * beyond its point; round (as loopPoints lays it) it stays inside its own square, flush with its neighbours' (#104).
  */
-function tipOf(a: Cell, b: Cell, c: Cell): Cell | null {
+const isV = (a: Cell, b: Cell, c: Cell) => {
   const [d, e] = [dir(a, b), dir(b, c)];
-  if (!diagonal(d) || !diagonal(e) || d[0] * e[0] + d[1] * e[1] !== 0) return null;
-  return [b[0] + (d[0] - e[0]) / 2, b[1] + (d[1] - e[1]) / 2];
-}
-
-/**
- * Does the lane's edge already reach into `step` without the lane going through it? Either an earlier diagonal step
- * passed between it and its neighbour (a lane there would come within width / √2 of the diagonal, overlapping it), or
- * it's beyond the point of a V. Painting refuses it, so lanes are never closer than a lane width.
- */
-function reached(cells: Cell[], step: Cell): Refusal | null {
-  for (let i = 1; i < cells.length; i++) {
-    if (diagonal(dir(cells[i - 1], cells[i])) && passesBetween(cells[i - 1], cells[i]).some((p) => same(p, step))) return "beside";
-    const tip = i < cells.length - 1 && tipOf(cells[i - 1], cells[i], cells[i + 1]);
-    if (tip && same(tip, step)) return "tip";
-  }
-  return null;
-}
-
-/** Turning a V at `b` (from `a`, on to `c`) needs the square beyond its point inside the grid, clear and unused. */
-function badTip(g: LaneGrid, cells: Cell[], a: Cell | undefined, b: Cell, c: Cell): boolean {
-  const tip = a && tipOf(a, b, c);
-  return !!tip && (tip[0] < 0 || tip[0] >= g.cols || tip[1] < 0 || tip[1] >= g.rows || isBlocked(g, tip) || cells.some((d) => same(d, tip)));
-}
+  return diagonal(d) && diagonal(e) && d[0] * e[0] + d[1] * e[1] === 0;
+};
+/** does the lane step straight from one of `p`, `q` to the other (a diagonal between them, which another would cross)? */
+const stepsAcross = (cells: Cell[], [p, q]: Cell[]) =>
+  cells.some((c, i) => i > 0 && ((same(c, p) && same(cells[i - 1], q)) || (same(c, q) && same(cells[i - 1], p))));
 /** does the lane go straight through cells[i] (no turn there), from cells[i - 1] to cells[i + 1]? */
 const straightAt = (cells: Cell[], i: number) => same(dir(cells[i - 1], cells[i]), dir(cells[i], cells[i + 1]));
 
@@ -186,17 +169,18 @@ function crossable(g: LaneGrid, cells: Cell[], step: Cell): Refusal | null {
   const on: Cell = [step[0] + b[0], step[1] + b[1]];
   const next = [...cells, step];
   if (same(on, cells[0])) return null; // straight on closes the loop
-  if (!cellAt(g, cellCentre(g, on)) || isBlocked(g, on) || reached(next, on)) return "dead-end";
+  if (!cellAt(g, cellCentre(g, on)) || isBlocked(g, on)) return "dead-end";
   return !cells.some((c) => same(c, on)) || !crossable(g, next, on) ? null : "dead-end";
 }
 
 /**
  * Paint from the end of the lane towards `target`: every step between is a new state (one undo step each). Stepping
  * back onto the previous square takes the last one up; stepping onto the first square with at least MIN_LOOP squares
- * closes the loop. Steps go to any of the eight neighbours, but a diagonal one can't pass between squares that are
- * blocked or already used, no step can go into a square an earlier diagonal passed between, and the point of a V needs
- * a clear square beyond it. The lane may cross itself, straight across at right angles, once per square: off a
+ * closes the loop. Steps go to any of the eight neighbours, but a diagonal one can't pass a blocked square, nor cross a
+ * diagonal of the lane's (an X). The lane may cross itself, straight across at right angles, once per square: off a
  * crossing it goes straight on. Stops at the first square it can't use, and says why.
+ * #104: lanes may come closer than a lane width (a diagonal beside the lane, a 135° turn, a lane beside a V's point):
+ * the bake decides whether they share a pipe (clean), squeeze (a lane-squeeze warning) or overlap (lane-overlap).
  */
 export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Laying[]; refused?: Refusal } {
   const states: Laying[] = [];
@@ -207,7 +191,6 @@ export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Layin
     return { states: [{ cells: [target], closed: false }] };
   }
   let cells = lay.cells;
-  let why: Refusal | null;
   for (const step of stepsBetween(cells[cells.length - 1], target)) {
     const n = cells.length;
     const closes = same(step, cells[0]) && n >= MIN_LOOP;
@@ -215,12 +198,10 @@ export function paintTo(g: LaneGrid, lay: Laying, target: Cell): { states: Layin
       cells = cells.slice(0, -1);
     } else if (n >= 2 && cells.slice(0, -1).some((c) => same(c, cells[n - 1])) && !same(dir(cells[n - 2], cells[n - 1]), dir(cells[n - 1], step))) {
       return { states, refused: "crossing" }; // on a crossing: straight on only
-    } else if (diagonal(dir(cells[n - 1], step)) && passesBetween(cells[n - 1], step).some((c) => isBlocked(g, c) || cells.some((d) => same(d, c)))) {
+    } else if (diagonal(dir(cells[n - 1], step)) && passesBetween(cells[n - 1], step).some((c) => isBlocked(g, c))) {
       return { states, refused: "corner" };
-    } else if ((why = reached(cells, step))) {
-      return { states, refused: why };
-    } else if (badTip(g, cells, cells[n - 2], cells[n - 1], step) || (closes && badTip(g, cells, cells[n - 1], step, cells[1]))) {
-      return { states, refused: "tip" };
+    } else if (diagonal(dir(cells[n - 1], step)) && stepsAcross(cells, passesBetween(cells[n - 1], step))) {
+      return { states, refused: "crossing" };
     } else if (closes) {
       states.push({ cells, closed: true });
       return { states };
@@ -272,9 +253,10 @@ export function isLoop(cells: Cell[]): boolean {
 }
 
 /**
- * The closed loop as `design.points`: a corner at the centre of every square where the direction changes (by 45° or
- * 90°; painting allows nothing sharper), in driving order, each with radius = width / 2: an apex radius of 0 whatever
- * the turn, the inside edges of the two straights meeting at a point. Only x, z and radius are written.
+ * The closed loop as `design.points`: a corner at the centre of every square where the direction changes (by 45°, 90°
+ * or 135°; painting allows nothing sharper), in driving order, each with radius = width / 2: an apex radius of 0
+ * whatever the turn, the inside edges of the two straights meeting at a point. Only x, z and radius are written, and
+ * `outer: "round"` on a V (#104), so its outside stays inside its own square.
  */
 export function loopPoints(g: LaneGrid, cells: Cell[]): DesignPoint[] {
   const n = cells.length;
@@ -283,7 +265,7 @@ export function loopPoints(g: LaneGrid, cells: Cell[]): DesignPoint[] {
     const a = cells[(i - 1 + n) % n], b = cells[i], c = cells[(i + 1) % n];
     if (b[0] - a[0] === c[0] - b[0] && b[1] - a[1] === c[1] - b[1]) continue;
     const [x, z] = cellCentre(g, b);
-    out.push({ x, z, radius: tidy(g.size / 2) });
+    out.push(isV(a, b, c) ? { x, z, radius: tidy(g.size / 2), outer: "round" } : { x, z, radius: tidy(g.size / 2) });
   }
   return out;
 }

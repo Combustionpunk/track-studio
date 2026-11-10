@@ -222,11 +222,16 @@ describe("a diagonal run from the keyboard (#82)", () => {
     expect(isLoop(r.lay.cells)).toBe(true);
   });
 
-  it("refuses a diagonal past a used square, and says why", () => {
-    // up column 1 and west to [0, 2]: south-east from there would pass between [1, 2] and [0, 1], and [1, 2] is used
-    const r = press(g, ["Enter", "ArrowRight", "ArrowUp", "ArrowUp", "ArrowLeft", "Shift+ArrowDown", "Shift+ArrowRight"]);
-    expect(r.lay.cells.at(-1)).toEqual([0, 2]);
-    expect(r.said.at(-1)).toMatch(/can't cut past/);
+  it("lays a diagonal past a used square (#104), refuses one past a blocked square, and says why", () => {
+    // east, north and back west to [0, 1]: north-east from there passes between [1, 1] (used) and [0, 2]
+    const keys = ["Enter", "ArrowRight", "ArrowUp", "ArrowLeft", "Shift+ArrowUp", "Shift+ArrowRight"];
+    expect(press(g, keys).lay.cells.at(-1)).toEqual([1, 2]);
+    // the same with a pillar over [0, 2]: refused
+    const b = laneGrid(hall.area, [{ type: "circle", x: -10, z: -1, radius: 0.3 }], 2);
+    expect([...b.blocked]).toEqual(["0,2"]);
+    const r = press(b, keys);
+    expect(r.lay.cells.at(-1)).toEqual([0, 1]);
+    expect(r.said.at(-1)).toMatch(/can't cut past a square blocked/);
   });
 
   it("any other key drops a half-made diagonal", () => {
