@@ -77,6 +77,7 @@ import { VenueCheckPanel } from "./VenueCheck.js";
 import { defaultRostrumSide } from "../viewer3d/rostrum.js";
 import type { Highlight } from "../viewer3d/scene.js";
 import { hasWebGL } from "../viewer3d/support.js";
+import type { KeptCamera } from "../viewer3d/Viewer3D.js";
 
 // the 3D preview (#85): three.js and the viewer load only when 3D is opened
 const Viewer3D = lazy(() => import("../viewer3d/Viewer3D.js"));
@@ -339,6 +340,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [rostrumPick, setRostrumPick] = useState<{ side?: Side; at: boolean }>({ at: false });
   const rostrum = useMemo(() => ({ side: rostrumPick.side ?? defaultRostrumSide(guide), at: rostrumPick.at }), [rostrumPick, guide]);
   const onRostrum = useCallback((side: Side, at: boolean) => setRostrumPick({ side, at }), []);
+  // the 3D camera, kept while 2D is shown for editing
+  const keep3d = useRef<KeptCamera | null>(null);
 
   // refs for window-level handlers
   const draftRef = useRef(draft);
@@ -1585,6 +1588,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   onUnsupported={unsupported3d}
                   rostrum={rostrum}
                   onRostrum={onRostrum}
+                  keep={keep3d}
                 />
               ) : (
                 <div role="status" aria-busy="true" className="designer-plan">

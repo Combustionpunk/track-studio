@@ -44,6 +44,16 @@ export interface Viewer3DProps {
   highlight?: Highlight;
   /** a click or tap on a jump (its index in built.features); without it, clicks do nothing (#85) */
   onPick?: (feature: number) => void;
+  /**
+   * where the orbit camera was when the view last closed, kept here and taken up again when it opens, so going to 2D
+   * to edit and back doesn't move it (#85)
+   */
+  keep?: { current: KeptCamera | null };
+}
+
+export interface KeptCamera {
+  position: Pose["position"];
+  target: Pose["target"];
 }
 
 type ThreeMesh = Mesh<BufferGeometry, MeshLambertMaterial>;
@@ -65,7 +75,7 @@ interface Stage {
 
 const SIDE_NAME = (s: Side) => s[0].toUpperCase() + s.slice(1);
 
-export default function Viewer3D({ area, built, label, className = "", onUnsupported, rostrum, onRostrum, obstacles, highlight = null, onPick }: Viewer3DProps) {
+export default function Viewer3D({ area, built, label, className = "", onUnsupported, rostrum, onRostrum, obstacles, highlight = null, onPick, keep }: Viewer3DProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const keysId = useId();
@@ -87,6 +97,8 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
   pickRef.current = onPick;
   const unsupportedRef = useRef(onUnsupported);
   unsupportedRef.current = onUnsupported;
+  const keepRef = useRef(keep);
+  keepRef.current = keep;
 
   useEffect(() => {
     const box = boxRef.current!, stageEl = stageRef.current!;
@@ -213,9 +225,10 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       camera.updateProjectionMatrix();
       if (!posed) {
         posed = true;
-        const r = rostrumRef.current, a = areaRef.current;
+        const r = rostrumRef.current, a = areaRef.current, kept = keepRef.current?.current;
+        if (kept) apply(s, kept, a);
         if (r.at) stand(s, a, r.side);
-        else apply(s, homePose(a, FOV, w / h), a);
+        else if (!kept) apply(s, homePose(a, FOV, w / h), a);
         setReady(true);
       }
       render();
@@ -228,6 +241,8 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     canvas.addEventListener("webglcontextlost", lost);
 
     return () => {
+      // the orbit camera (from before standing at the rostrum, if there), for next time
+      if (posed && keepRef.current) keepRef.current.current = s.orbit ?? { position: camera.position.toArray() as Pose["position"], target: controls.target.toArray() as Pose["target"] };
       ro.disconnect();
       cancelAnimationFrame(frame);
       canvas.removeEventListener("webglcontextlost", lost);
@@ -380,6 +395,10 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       data-triangles={scene.triangles}
       data-view={rostrum.at ? "rostrum" : "orbit"}
       data-bridges={scene.bridges.map((b) => b.over).join(" ")}
+      // for the browser tests: what's drawn, where the jumps are, what's highlighted
+      data-parts={scene.meshes.map((m) => m.part).join(" ")}
+      data-jumps={built.features.map((f) => `${f.x.toFixed(2)},${f.z.toFixed(2)}`).join(" ")}
+      data-highlight={lit && highlight ? (highlight.kind === "feature" ? `feature:${highlight.i}` : highlight.kind) : ""}
     >
       {/* the canvas goes in here; the buttons stay outside it, so they aren't part of the picture */}
       <div
