@@ -1240,9 +1240,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const status = base?.track;
   const showSubmit = !!me && mode === "edit" && !!base?.can.submit;
   const blocked = submitBlock({ dirty, pending: bake.pending, checks: built.checks, points: pointsList });
-  /** Quick's right-hand column has no checks (#113): an error blocking Submit is told by the button instead */
+  /** Quick's right-hand column has no checks (#113): why Submit is waiting is told by the button instead */
   const quickSide = !advanced && !tablet && !laying;
-  const quickWhy = quickSide && !!blocked && checkCounts(built.checks).errors > 0;
+  /** where the reason is shown (#submit-why): by the button on Quick, else under the checks while they're showing */
+  const whyShown = !!blocked && (quickSide || (!laying && (!tablet || sheet === "checks")));
   const checksHeading = useRef<HTMLHeadingElement>(null);
   const [toChecks, setToChecks] = useState(false);
   const seeChecks = () => {
@@ -1389,16 +1390,21 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </a>
         )}
         {showSubmit && (
-          <button type="button" className="btn btn-primary" onClick={submit} disabled={!!blocked} aria-describedby={blocked && (quickWhy || !quickSide) ? "submit-why" : undefined} title={blocked ?? "Send to the organisers for approval"}>
+          <button type="button" className="btn btn-primary" onClick={submit} disabled={!!blocked} aria-describedby={whyShown ? "submit-why" : undefined} title={blocked ?? "Send to the organisers for approval"}>
             Submit track
           </button>
         )}
-        {showSubmit && quickWhy && (
+        {showSubmit && quickSide && blocked && (
           <p id="submit-why" className="submit-why-bar">
-            {blocked}{" "}
-            <button type="button" className="linkish" onClick={seeChecks}>
-              See Checks
-            </button>
+            {blocked}
+            {checkCounts(built.checks).errors > 0 && (
+              <>
+                {" "}
+                <button type="button" className="linkish" onClick={seeChecks}>
+                  See Checks
+                </button>
+              </>
+            )}
           </p>
         )}
         {saveOpen && me && !laying && (
@@ -1795,7 +1801,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </dl>
           </aside>
         ) : (
-          <aside className="designer-side" aria-label={advanced ? "Checks" : "How to draw"}>
+          <aside className="designer-side" aria-label={advanced ? "Checks" : "Details"}>
             {/* Quick is for laying the track, Advanced for checking and fine-tuning (#113) */}
             {advanced ? (
               <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} onBridge={bridgeIt} headingRef={checksHeading} />
@@ -2094,7 +2100,8 @@ export function ChecksPanel({
 
 /**
  * A crossing error's hint, and its one-tap fixes: a crossover on an unbridged crossing, or for a tabletop too low to
- * drive under (Quick's, until the checks moved to Advanced in #113). While a bake is pending the fix is disabled ("Checking…"): the check may be stale, so it could do nothing.
+ * drive under (Quick's, until the checks moved to Advanced in #113). While a bake is pending the fix is disabled
+ * ("Checking…"): the check may be stale, so it could do nothing.
  */
 function CrossingHint({ c, features, pending, onMakeCrossover, onBridge }: { c: Check; features: BuiltFeature[]; pending: boolean; onMakeCrossover?: (feature: number) => void; onBridge?: (c: Check) => void }) {
   const fi = c.code === "crossing-too-low" ? bridgeAt(c, features) : null;
@@ -2450,8 +2457,9 @@ function QuickHowTo({ laying = false }: { laying?: boolean }) {
           <li>Drag back over the squares to take them up.</li>
           <li>To cross the lane, go straight across it at right angles.</li>
           <li>Come back to the first square (the ring) to close the loop. Then you shape it.</li>
+          <li>{TURNS_HINT}</li>
           <li>
-            <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo.
+            Keyboard: <kbd>Tab</kbd> to the plan's lane grid; the hint over the plan lists the keys. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo.
           </li>
         </ul>
       ) : (
@@ -2463,9 +2471,9 @@ function QuickHowTo({ laying = false }: { laying?: boolean }) {
             <b>Click the floor</b> to add a corner: after the selected corner, or into the track it's near.
           </li>
           <li>
-            <kbd>Delete</kbd> or <b>right-click</b> a corner to remove it.
+            <kbd>Delete</kbd>, <kbd>Backspace</kbd> or <b>right-click</b> a corner to remove it.
           </li>
-          <li>Pick a jump, click the racing line to place it, drag it along. Drag the start line the same way.</li>
+          <li>Pick a jump, click the racing line to place it, drag it along. Pick Start line to drag the start line the same way.</li>
           <li>
             Drag empty space to pan, wheel to zoom. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo, <kbd>Ctrl</kbd>+<kbd>S</kbd> save.
           </li>

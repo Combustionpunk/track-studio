@@ -19,7 +19,8 @@ vi.mock("../src/lib/hooks.js", async (orig) => {
 vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useBlocker: () => ({ state: "unblocked" }) }));
 // the bake, settled: the fixture's own checks (the worker doesn't run here)
 let baked: RcTrack["built"] = undefined;
-vi.mock("../src/designer/useBake.js", () => ({ useBake: () => ({ built: baked ?? null, pending: false, error: null, ms: 0 }) }));
+let pending = false;
+vi.mock("../src/designer/useBake.js", () => ({ useBake: () => ({ built: baked ?? null, pending, error: null, ms: 0 }) }));
 vi.mock("../src/components/PlanView.js", async (orig) => ({ ...(await orig<typeof import("../src/components/PlanView.js")>()), PlanView: () => null }));
 
 const { Designer, draftFromDoc, newDraft } = await import("../src/designer/Designer.js");
@@ -53,7 +54,7 @@ const setup = (mode: "quick" | "advanced") =>
 const side = (html: string) => html.match(/<aside class="designer-side"[^>]*>(.*?)<\/aside>/s)?.[1] ?? "";
 const bar = (html: string) => html.match(/<div class="designer-bar">(.*?)<div class="designer-(?:messages|grid)">/s)?.[1] ?? "";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => (vi.unstubAllGlobals(), (pending = false)));
 
 describe("Quick: no Checks, How to draw on top", () => {
   it("shaping: How to draw is the first panel in the right-hand column and Checks isn't there", () => {
@@ -106,6 +107,14 @@ describe("Submit is blocked by errors on either tab", () => {
     const why = b.match(/<p id="submit-why" class="submit-why-bar"[^>]*>(.*?)<\/p>/s)?.[1];
     expect(why).toContain("Submit is waiting on 1 error.");
     expect(why).toMatch(/<button type="button" class="linkish"[^>]*>See Checks<\/button>/);
+  });
+  it("Quick: a wait that isn't an error shows by Submit too, with nothing to see in Checks", () => {
+    setup("quick");
+    pending = true;
+    const b = bar(edit(clean()));
+    expect(b).toContain('aria-describedby="submit-why"');
+    const why = b.match(/<p id="submit-why" class="submit-why-bar"[^>]*>(.*?)<\/p>/s)?.[1];
+    expect(why).toBe("Checking the track…");
   });
   it("Quick: nothing by Submit when it isn't blocked", () => {
     setup("quick");
