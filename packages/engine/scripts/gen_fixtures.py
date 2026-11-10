@@ -230,6 +230,25 @@ EXTRA_TRACKS.update({
         "laneWidth": 2.0, "points": short_hairpin(1.45), "start": {"distance": 3.0}}),
 })
 
+# #104: tight corners as Quick mode's step 1 lays them on the 2 m grid of a 22 x 12 m hall (every point radius 1 m, an
+# apex radius of 0; a V's outside round). The closing diagonal past the start square, a 135° turn onto the top row
+# (Yeti's first case); a lane right beside the point of a V (the second); a diagonal past the lane's own square, where
+# the two lanes share a pipe, one squeezed (a lane-squeeze warning); and a diamond of V points on the area's edge
+def laid(points):
+    return [{"x": x, "z": z, "radius": 1, **({"outer": "round"} if v else {})} for x, z, v in points]
+EXTRA_TRACKS.update({
+    "closing-past-start": track("30", "Closing diagonal past the start square", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": laid([(-10, 5, 0), (2, 5, 0), (2, -5, 0), (0, -5, 0)]), "start": {"distance": 29.112}}),
+    "lane-beside-v-point": track("31", "Lane beside a V point", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": laid([(-10, -5, 0), (10, -5, 0), (10, 5, 0), (6, 5, 0), (-2, -3, 1), (-8, 3, 0), (-10, 3, 0)]),
+        "start": {"distance": 10.571}}),
+    "diagonal-past-lane": track("32", "Diagonal past the lane's own square", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": laid([(-10, -3, 0), (-6, -3, 0), (-6, -5, 0), (-4, -3, 0), (-4, 1, 0), (-10, 1, 0)]),
+        "start": {"distance": 14.227}}),
+    "v-points-at-edge": track("33", "V points on the area's edge", {"length": 22, "width": 12}, {
+        "laneWidth": 2.0, "points": laid([(6, 1, 1), (8, 3, 1), (10, 1, 1), (8, -1, 1)]), "start": {"distance": 1.985}}),
+})
+
 EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"].append({"type": "crossover", "distance": EXTRA_TRACKS["crossover-unused-figure8"]["design"]["features"][0]["distance"] + 1.0})
 
 EXTRA_VENUES = {

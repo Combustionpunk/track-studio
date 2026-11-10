@@ -563,6 +563,360 @@
    }
   }
  },
+ "closing-past-start.rctrack.json | club-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     3.23,
+     -0.06
+    ],
+    "spare": [
+     9.5,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     9.5,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     9.5,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     3.23,
+     -0.06
+    ],
+    "spare": [
+     9.5,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "north",
+    "x": 0.0,
+    "z": 7.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "closing-past-start.rctrack.json | small-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -8.877,
+     "z": 5.527,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -11.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "closing-past-start.rctrack.json | sports-hall-b.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     2.63,
+     -0.06
+    ],
+    "spare": [
+     12.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -2.66,
+     -0.06
+    ],
+    "spare": [
+     12.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -2.66,
+     -0.06
+    ],
+    "spare": [
+     12.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     2.63,
+     -0.06
+    ],
+    "spare": [
+     12.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.34,
+     3.23
+    ],
+    "spare": [
+     13.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.36,
+     -3.36
+    ],
+    "spare": [
+     13.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     0.34,
+     -3.36
+    ],
+    "spare": [
+     13.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.36,
+     3.23
+    ],
+    "spare": [
+     13.1,
+     1.5
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -6.176,
+     "z": 0.71,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "closing-past-start.rctrack.json | obstacles-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -9.069,
+     "z": 2.658,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.076,
+     "z": -4.29,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -10.5,
+    "z": 1.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "closing-past-start.rctrack.json | rotated-desk.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     4.03,
+     0.84
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     3.33,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     3.23
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     0.04,
+     -3.36
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -3.36
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     0.84,
+     4.03
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "east",
+    "x": 13.5,
+    "z": -1.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "crossover-figure8.rctrack.json | club-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -1288,6 +1642,623 @@
    }
   }
  },
+ "diagonal-past-lane.rctrack.json | club-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     6.94,
+     1.51
+    ],
+    "spare": [
+     14.1,
+     4.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -7.06,
+     1.51
+    ],
+    "spare": [
+     14.1,
+     4.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -7.06,
+     -1.66
+    ],
+    "spare": [
+     14.1,
+     4.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     6.94,
+     -1.66
+    ],
+    "spare": [
+     14.1,
+     4.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -1.66,
+     6.94
+    ],
+    "spare": [
+     14.9,
+     4.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.51,
+     -7.06
+    ],
+    "spare": [
+     14.9,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -1.66,
+     -7.06
+    ],
+    "spare": [
+     14.9,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     1.51,
+     6.94
+    ],
+    "spare": [
+     14.9,
+     4.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "north",
+    "x": 0.0,
+    "z": 7.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-past-lane.rctrack.json | small-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     6.94,
+     1.51
+    ],
+    "spare": [
+     12.1,
+     3.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -7.06,
+     1.51
+    ],
+    "spare": [
+     12.1,
+     3.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -7.06,
+     -1.66
+    ],
+    "spare": [
+     12.1,
+     3.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     6.94,
+     -1.66
+    ],
+    "spare": [
+     12.1,
+     3.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -1.66,
+     6.94
+    ],
+    "spare": [
+     12.9,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.51,
+     -7.06
+    ],
+    "spare": [
+     12.9,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -1.66,
+     -7.06
+    ],
+    "spare": [
+     12.9,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     1.51,
+     6.94
+    ],
+    "spare": [
+     12.9,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -2.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -11.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-past-lane.rctrack.json | sports-hall-b.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     6.94,
+     1.51
+    ],
+    "spare": [
+     17.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -7.06,
+     1.51
+    ],
+    "spare": [
+     17.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -7.06,
+     -1.66
+    ],
+    "spare": [
+     17.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     6.94,
+     -1.66
+    ],
+    "spare": [
+     17.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -1.66,
+     6.94
+    ],
+    "spare": [
+     17.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.51,
+     -7.06
+    ],
+    "spare": [
+     17.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -1.66,
+     -7.06
+    ],
+    "spare": [
+     17.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     1.51,
+     6.94
+    ],
+    "spare": [
+     17.9,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -6.19,
+     "z": 0.738,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-past-lane.rctrack.json | obstacles-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     6.94,
+     1.51
+    ],
+    "spare": [
+     10.1,
+     2.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -7.06,
+     1.51
+    ],
+    "spare": [
+     10.1,
+     2.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -7.06,
+     -1.66
+    ],
+    "spare": [
+     10.1,
+     2.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     6.94,
+     -1.66
+    ],
+    "spare": [
+     10.1,
+     2.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -1.66,
+     7.34
+    ],
+    "spare": [
+     10.9,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.51,
+     -6.66
+    ],
+    "spare": [
+     10.9,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -1.66,
+     -6.66
+    ],
+    "spare": [
+     10.9,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     1.51,
+     7.34
+    ],
+    "spare": [
+     10.9,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -2.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -10.5,
+    "z": 1.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-past-lane.rctrack.json | rotated-desk.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     5.34,
+     1.51
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -8.66,
+     1.51
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -5.36,
+     -1.66
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     8.64,
+     -1.66
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.36,
+     6.94
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.61,
+     -7.06
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.36,
+     -7.06
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     2.11,
+     7.54
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -3.19,
+     "z": -0.062,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "east",
+    "x": 13.5,
+    "z": -1.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "jump-across-start.rctrack.json | club-hall.rcvenue.json": {
   "fits": [
    {
@@ -1567,6 +2538,264 @@
   ],
   "check": {
    "checks": [],
+   "rostrum": {
+    "side": "east",
+    "x": 13.5,
+    "z": -1.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "lane-beside-v-point.rctrack.json | club-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     0.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     0.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     0.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     0.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "north",
+    "x": 0.0,
+    "z": 7.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "lane-beside-v-point.rctrack.json | small-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -4.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -11.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "lane-beside-v-point.rctrack.json | sports-hall-b.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.96,
+     -0.96
+    ],
+    "spare": [
+     3.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.96,
+     0.94
+    ],
+    "spare": [
+     3.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     0.04
+    ],
+    "spare": [
+     3.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.56,
+     -0.46
+    ],
+    "spare": [
+     3.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 10.51,
+     "z": -5.99,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "lane-beside-v-point.rctrack.json | obstacles-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -4.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 0.01,
+     "z": -4.29,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -10.5,
+    "z": 1.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "lane-beside-v-point.rctrack.json | rotated-desk.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.86,
+     1.04
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.04
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.04
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 8.91,
+     "z": -5.99,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
    "rostrum": {
     "side": "east",
     "x": 13.5,
@@ -6918,6 +8147,615 @@
      "message": "Track overlaps a fixed obstacle"
     }
    ],
+   "rostrum": {
+    "side": "east",
+    "x": 13.5,
+    "z": -1.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | club-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.97,
+     -0.97
+    ],
+    "spare": [
+     17.0,
+     7.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     7.93,
+     -1.07
+    ],
+    "spare": [
+     16.9,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.03,
+     1.03
+    ],
+    "spare": [
+     17.0,
+     7.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -8.07,
+     0.93
+    ],
+    "spare": [
+     16.9,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.93,
+     -8.07
+    ],
+    "spare": [
+     16.9,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -1.07,
+     7.93
+    ],
+    "spare": [
+     16.9,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.03,
+     8.03
+    ],
+    "spare": [
+     17.0,
+     7.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.97,
+     -7.97
+    ],
+    "spare": [
+     17.0,
+     7.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "north",
+    "x": 0.0,
+    "z": 7.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | small-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.97,
+     -0.97
+    ],
+    "spare": [
+     15.0,
+     6.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     7.93,
+     -1.07
+    ],
+    "spare": [
+     14.9,
+     5.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.03,
+     1.03
+    ],
+    "spare": [
+     15.0,
+     6.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -8.07,
+     0.93
+    ],
+    "spare": [
+     14.9,
+     5.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.93,
+     -8.07
+    ],
+    "spare": [
+     14.9,
+     5.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -1.07,
+     7.93
+    ],
+    "spare": [
+     14.9,
+     5.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.03,
+     8.03
+    ],
+    "spare": [
+     15.0,
+     6.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.97,
+     -7.97
+    ],
+    "spare": [
+     15.0,
+     6.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": 10.07,
+     "z": 2.341,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -11.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | sports-hall-b.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.97,
+     -0.97
+    ],
+    "spare": [
+     20.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     7.93,
+     -1.07
+    ],
+    "spare": [
+     19.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.03,
+     1.03
+    ],
+    "spare": [
+     20.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -8.07,
+     0.93
+    ],
+    "spare": [
+     19.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.93,
+     -8.07
+    ],
+    "spare": [
+     19.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -1.07,
+     7.93
+    ],
+    "spare": [
+     19.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.03,
+     8.03
+    ],
+    "spare": [
+     20.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.97,
+     -7.97
+    ],
+    "spare": [
+     20.0,
+     9.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 5.825,
+     "z": 0.725,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | obstacles-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.97,
+     -0.97
+    ],
+    "spare": [
+     13.0,
+     5.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     7.93,
+     -1.07
+    ],
+    "spare": [
+     12.9,
+     4.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.03,
+     1.03
+    ],
+    "spare": [
+     13.0,
+     5.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -8.07,
+     0.93
+    ],
+    "spare": [
+     12.9,
+     4.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.93,
+     -8.07
+    ],
+    "spare": [
+     12.9,
+     4.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -1.07,
+     7.93
+    ],
+    "spare": [
+     12.9,
+     4.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.03,
+     8.03
+    ],
+    "spare": [
+     13.0,
+     5.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.97,
+     -7.97
+    ],
+    "spare": [
+     13.0,
+     5.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": 9.015,
+     "z": 3.309,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -10.5,
+    "z": 1.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | rotated-desk.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.87,
+     -0.97
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     8.03,
+     -1.17
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.13,
+     1.03
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -7.97,
+     0.83
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     1.03,
+     -8.17
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.97,
+     7.83
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.13,
+     8.03
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.87,
+     -7.97
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
    "rostrum": {
     "side": "east",
     "x": 13.5,
