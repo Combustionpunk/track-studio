@@ -51,6 +51,9 @@ for (const width of [1200, 860]) {
     await expect(page.locator(".mode-toggle").getByRole("button", { name: "Quick" })).toHaveAttribute("aria-pressed", "true");
     await expect(side.locator(":scope > *").first()).toHaveText(/^How to draw/);
     await expect(page.locator(".checks-panel:not(.venue-check)")).toHaveCount(0);
+    // it opens, and it's about Quick's gestures
+    await side.locator("summary", { hasText: "How to draw" }).click();
+    await expect(side.getByText("inside handle to cut the corner back")).toBeVisible();
 
     // Submit waits on the overlap, says so by the button, and offers the way to the checks
     const submit = page.getByRole("button", { name: "Submit track" });
