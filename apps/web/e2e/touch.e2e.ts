@@ -197,10 +197,11 @@ test.describe("tablet touch", () => {
     await expect.poll(() => corners(page)).toEqual(before);
   });
 
-  test("step 2: a tap on the floor adds a corner after the selected one; a drag on the floor doesn't", async ({ page }) => {
+  test("step 2: with Add point on, a tap on the floor adds a corner after the selected one; a drag on the floor doesn't", async ({ page }) => {
     await open(page);
     const t = await Touch.on(page);
     await layLoop(page, t);
+    await page.getByRole("toolbar", { name: "Designer tools" }).getByRole("button", { name: "Add point" }).tap();
     await t.tap(await screen(page, ...(await corners(page))[0]));
     await expect(page.locator("g.ed-corner.on")).toHaveCount(1);
     const floor = await screen(page, -4, 0);
@@ -357,7 +358,11 @@ test.describe("mouse", () => {
     await page.mouse.up();
     await expect(page.locator("circle.ed-press")).toHaveCount(0);
     await expect(page.locator(".sel-panel h2")).toHaveText("Corner 1");
-    // click the floor: a corner after it
+    // click the floor: nothing added (#114); with Add point on, a corner after it
+    await page.mouse.click(...(await screen(page, -4, 0)));
+    await expect(page.locator("g.ed-corner")).toHaveCount(4);
+    await page.mouse.click(...(await screen(page, ...(await corners(page))[0])));
+    await page.getByRole("button", { name: "Add point" }).click();
     await page.mouse.click(...(await screen(page, -4, 0)));
     await expect(page.locator("g.ed-corner")).toHaveCount(5);
   });
