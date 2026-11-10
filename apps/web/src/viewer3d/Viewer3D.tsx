@@ -130,9 +130,9 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     controls.zoomToCursor = true;
     controls.listenToKeyEvents(stageEl); // arrows pan; Shift / Ctrl + arrows orbit
 
-    let frame = 0;
+    let frame = 0, disposed = false;
     const render = () => {
-      if (frame) return;
+      if (frame || disposed) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
         renderer.render(world, camera);
@@ -170,6 +170,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       if (i !== null) pickRef.current?.(i);
     };
     const pressDown = (e: PointerEvent) => {
+      if (e.button !== 0) return; // the main button or a finger; the others pan
       pressed.add(e.pointerId);
       press = pressed.size === 1 ? { id: e.pointerId, x: e.clientX, y: e.clientY, alone: true } : press && { ...press, alone: false };
     };
@@ -242,6 +243,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
 
     return () => {
       // the orbit camera (from before standing at the rostrum, if there), for next time
+      disposed = true;
       if (posed && keepRef.current) keepRef.current.current = s.orbit ?? { position: camera.position.toArray() as Pose["position"], target: controls.target.toArray() as Pose["target"] };
       ro.disconnect();
       cancelAnimationFrame(frame);
@@ -268,10 +270,17 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     };
   }, []);
 
-  // the scene's meshes: the ones whose data changed are swapped, the rest stay (the camera never moves for a new scene)
+  // the scene's meshes: the ones whose data changed are swapped, the rest stay (the camera only moves for a new area size)
+  const sized = useRef("");
   useEffect(() => {
     const s = stage.current;
     if (!s) return;
+    const size = `${area.length}x${area.width}`;
+    if (sized.current && sized.current !== size && s.camera.aspect) {
+      if (s.head) stand(s, area, rostrumRef.current.side);
+      else apply(s, homePose(area, FOV, s.camera.aspect), area);
+    }
+    sized.current = size;
     const next = new Map(scene.meshes.map((m) => [m.part, m]));
     for (const [part, had] of s.parts)
       if (!next.has(part) || !sameMesh(had.data, next.get(part)!)) {

@@ -335,7 +335,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   shown3dRef.current = shown3d;
   const [noWebGL, setNoWebGL] = useState<"none" | "lost">();
   const no3d = shown3d ? (noWebGL ?? (hasWebGL() ? undefined : "none")) : undefined;
-  const built3d = useDebounced(bake.built, BAKE_SETTLE_MS);
+  const built3d = useDebounced(shown3d ? bake.built : null, BAKE_SETTLE_MS);
+  // the bake drawn in 3D is of the design as it stands: its jumps are the design's, index for index (a click or the
+  // highlight on a stale one could land on the wrong jump)
+  const synced3d = !!built3d && built3d === bake.built && !bake.pending && built3d.features.length === (draft.design.features?.length ?? 0);
   // the rostrum view: the guide's rostrum side unless one is picked
   const [rostrumPick, setRostrumPick] = useState<{ side?: Side; at: boolean }>({ at: false });
   const rostrum = useMemo(() => ({ side: rostrumPick.side ?? defaultRostrumSide(guide), at: rostrumPick.at }), [rostrumPick, guide]);
@@ -445,8 +448,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         return;
       }
       if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
-      // 3D is view only: undo and redo still work (3D follows), but the plan's editing keys wait for 2D
-      if (shown3dRef.current && ["Delete", "Backspace", "h", "H", "o", "O"].includes(e.key)) return;
+      // 3D is view only: undo and redo still work (3D follows), but the plan's editing keys wait for 2D; a key the 3D
+      // view took (Escape leaving the rostrum) is its own
+      if (shown3dRef.current && (e.defaultPrevented || ["Delete", "Backspace", "h", "H", "o", "O"].includes(e.key))) return;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -978,8 +982,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // what 3D highlights: the selected jump, corner (on its point) or start line
   const selPoint = sel?.kind === "point" ? draft.design.points[sel.i] : undefined;
   const highlight3d = useMemo<Highlight>(
-    () => (sel?.kind === "point" ? (selPoint ? { kind: "point", at: [selPoint.x, selPoint.z] } : null) : sel?.kind === "feature" ? { kind: "feature", i: sel.i } : sel?.kind === "start" ? { kind: "start" } : null),
-    [sel, selPoint],
+    () => (sel?.kind === "point" ? (selPoint ? { kind: "point", at: [selPoint.x, selPoint.z] } : null) : sel?.kind === "feature" ? (synced3d ? { kind: "feature", i: sel.i } : null) : sel?.kind === "start" ? { kind: "start" } : null),
+    [sel, selPoint, synced3d],
   );
   // a jump clicked in 3D: selected, and back to 2D to edit it
   const pick3d = useCallback(
@@ -1582,7 +1586,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   built={built3d}
                   obstacles={guideObstacles}
                   highlight={highlight3d}
-                  onPick={pick3d}
+                  onPick={synced3d ? pick3d : undefined}
                   label={`3D preview of ${draft.info.name || "this track"}, view only`}
                   className="designer-plan"
                   onUnsupported={unsupported3d}
