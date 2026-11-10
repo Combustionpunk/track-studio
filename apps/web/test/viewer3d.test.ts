@@ -1,10 +1,10 @@
 // The 3D viewer's scene builder (#83): pure, no WebGL. Built from `built` and the drawing area only.
-import { drawingArea, PIPE_THICKNESS, PLAN_PALETTE, type Built, type BuiltFeature, type Point2, type RcTrack } from "@track-studio/engine";
+import { bake, drawingArea, PIPE_THICKNESS, PLAN_PALETTE, type Built, type BuiltFeature, type Crossing, type Point2, type RcTrack } from "@track-studio/engine";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { homePose, topPose } from "../src/viewer3d/camera.js";
-import { buildScene, carpetMesh, jumpMesh, PIPE_SIDES, pipeMesh, sceneFromDoc, type MeshData } from "../src/viewer3d/scene.js";
+import { buildScene, carpetMesh, DECK_THICKNESS, jumpMesh, PIPE_SIDES, pipeMesh, sceneFromDoc, type MeshData } from "../src/viewer3d/scene.js";
 
 const read = <T,>(p: string) => JSON.parse(readFileSync(p, "utf8")) as T;
 const ref = (p: string) => read<RcTrack>(join(__dirname, "../../../reference", p));
@@ -261,6 +261,230 @@ describe("the scene", () => {
     expect(s.meshes.length).toBeLessThanOrEqual(8);
     expect(tris).toBeLessThan(100_000);
     expect(ms).toBeLessThan(1000);
+  });
+});
+
+describe("crossings: the over pass on the bridge, the under pass beneath (#71)", () => {
+  const BRIDGED = ["crossover-figure8", "tabletop-figure8", "two-crossings", "shallow-crossing"];
+  const part = (s: ReturnType<typeof buildScene>, p: string) => s.meshes.find((m) => m.part === p)!;
+  const sceneOf = (doc: RcTrack) => buildScene({ area: drawingArea(doc), built: doc.built! });
+
+  /** A feature's frame: where along / across put you, and the other way round. */
+  const frameOf = (f: BuiltFeature) => {
+    const h = (f.heading * Math.PI) / 180, t: Point2 = [Math.cos(h), Math.sin(h)], n: Point2 = [-t[1], t[0]];
+    const x0 = f.x - (t[0] * f.length) / 2, z0 = f.z - (t[1] * f.length) / 2;
+    return {
+      t, n,
+      at: (along: number, across = 0): Point2 => [x0 + t[0] * along + n[0] * across, z0 + t[1] * along + n[1] * across],
+      along: ([x, z]: Point2) => (x - x0) * t[0] + (z - z0) * t[1],
+      across: ([x, z]: Point2) => (x - x0) * n[0] + (z - z0) * n[1],
+    };
+  };
+  const profileAt = (f: BuiltFeature, a: number) => {
+    const p = f.profile;
+    if (a < p[0][0] || a > p[p.length - 1][0]) return 0;
+    for (let k = 0; k + 1 < p.length; k++)
+      if (a <= p[k + 1][0]) return p[k][1] + ((p[k + 1][1] - p[k][1]) * (a - p[k][0])) / (p[k + 1][0] - p[k][0] || 1);
+    return 0;
+  };
+  /** How high the over pass is at p: the highest bridge whose lane p is on (bridges on one pass can overlap). */
+  const bridgeHeight = (b: Built, p: Point2) =>
+    Math.max(0, ...bridgedFeatures(b).map((f) => {
+      const fr = frameOf(f);
+      return Math.abs(fr.across(p)) <= f.width / 2 + PIPE_THICKNESS ? profileAt(f, fr.along(p)) : 0;
+    }));
+  const bridgedFeatures = (b: Built) => [...new Set((b.crossings ?? []).filter((c) => c.bridge && c.over).map((c) => c.bridge!.feature))].map((i) => b.features[i]);
+
+  /** The heights at plan point p of every (not vertical) triangle of m over it. */
+  function heightsAt(m: MeshData, [x, z]: Point2): number[] {
+    const out: number[] = [];
+    for (let t = 0; t < m.indices.length; t += 3) {
+      const [p, q, r] = [m.indices[t], m.indices[t + 1], m.indices[t + 2]].map((k) => vert(m, k));
+      const det = (q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1]);
+      if (Math.abs(det) < 1e-12) continue;
+      const u = ((x - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (z - p[1])) / det, v = ((q[0] - p[0]) * (z - p[1]) - (x - p[0]) * (q[1] - p[1])) / det;
+      if (u >= -1e-9 && v >= -1e-9 && u + v <= 1 + 1e-9) out.push(p[2] + u * (q[2] - p[2]) + v * (r[2] - p[2]));
+    }
+    return out;
+  }
+
+  /** The direction of the racing line at lap distance d. */
+  function passDir(b: Built, d: number): Point2 {
+    const L = b.racingLine;
+    let s = 0;
+    for (let i = 0; i < L.length; i++) {
+      const a = L[i], c = L[(i + 1) % L.length], l = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      if (s + l >= d) return [(c[0] - a[0]) / l, (c[1] - a[1]) / l];
+      s += l;
+    }
+    throw new Error("past the end of the lap");
+  }
+  const underOf = (b: Built, c: Crossing) => {
+    const d = c.distances[c.over === "first" ? 1 : 0];
+    const t = passDir(b, d);
+    return { t, n: [-t[1], t[0]] as Point2, w: b.racingLine[0][2] };
+  };
+
+  for (const name of BRIDGED) {
+    const doc = extra(name), b = doc.built!, s = sceneOf(doc);
+    const carpet = part(s, "carpet"), line = part(s, "line"), pipe = part(s, "pipe");
+
+    it(`${name}: the over pass's carpet and racing line follow the bridge's profile along its length`, () => {
+      for (const f of bridgedFeatures(b)) {
+        const fr = frameOf(f);
+        for (let a = f.length / 80; a < f.length; a += f.length / 40) {
+          for (const across of [-0.8, 0, 0.8]) {
+            const p = fr.at(a, across), want = bridgeHeight(b, p);
+            const hs = heightsAt(carpet, p);
+            expect(hs.length, `carpet at ${a.toFixed(2)} m, ${across} across`).toBeGreaterThan(0);
+            expect(Math.max(...hs), `carpet at ${a.toFixed(2)} m, ${across} across`).toBeCloseTo(want + 0.002, 3);
+            // off the under pass, there's no carpet left on the floor beneath the over pass's
+            const clear = b.crossings!.every((c) => !c.over || Math.abs((p[0] - c.x) * underOf(b, c).n[0] + (p[1] - c.z) * underOf(b, c).n[1]) > underOf(b, c).w / 2 + 0.05);
+            if (clear) expect(Math.min(...hs), `nothing under the carpet at ${a.toFixed(2)} m, ${across} across`).toBeCloseTo(want + 0.002, 3);
+          }
+          expect(Math.max(...heightsAt(line, fr.at(a))), `line at ${a.toFixed(2)} m`).toBeCloseTo(bridgeHeight(b, fr.at(a)) + 0.006, 3);
+        }
+      }
+    });
+
+    it(`${name}: the over pass's pipes ride the bridge, at each step of its profile`, () => {
+      for (const f of bridgedFeatures(b)) {
+        const fr = frameOf(f);
+        for (const [a] of f.profile)
+          for (const side of [-1, 1]) {
+            const p = fr.at(a, side * (f.width / 2 + PIPE_THICKNESS / 2)), want = bridgeHeight(b, p) + PIPE_THICKNESS;
+            const near = verts(pipe).filter(([x, z, y]) => Math.hypot(x - p[0], z - p[1]) < 0.03 && Math.abs(y - want) < 0.005);
+            expect(near.length, `pipe top at ${a} m, side ${side}`).toBeGreaterThan(0);
+          }
+      }
+    });
+
+    it(`${name}: the under pass stays on the floor, pipes and all, with a clear gap under the deck`, () => {
+      for (const c of b.crossings!.filter((c) => c.bridge && c.over)) {
+        const f = b.features[c.bridge!.feature], fr = frameOf(f), top = f.height;
+        const u = underOf(b, c);
+        // the under pass's carpet and racing line run through at floor level
+        for (let k = 0.05 - u.w; k < u.w; k += 0.1) {
+          const p: Point2 = [c.x + u.t[0] * k, c.z + u.t[1] * k];
+          expect(Math.min(...heightsAt(carpet, p)), `under carpet at ${k.toFixed(1)}`).toBeCloseTo(0.002, 3);
+          expect(Math.min(...heightsAt(line, p)), `under line at ${k.toFixed(1)}`).toBeCloseTo(0.006, 3);
+        }
+        // under the deck, over the under pass's lane (and its pipes): nothing between the pipes and the deck's underside
+        const under = (x: number, z: number) => {
+          const a = fr.along([x, z]), across = fr.across([x, z]);
+          const v = (x - c.x) * u.n[0] + (z - c.z) * u.n[1];
+          return a > 0 && a < f.length && Math.abs(across) < f.width / 2 - 1e-3 && Math.abs(v) <= u.w / 2 + PIPE_THICKNESS;
+        };
+        for (const m of s.meshes)
+          for (const [x, z, y] of verts(m))
+            if (under(x, z)) expect(y <= PIPE_THICKNESS + 1e-6 || y >= top - DECK_THICKNESS - 1e-6, `${m.part} at ${x.toFixed(2)}, ${z.toFixed(2)}, ${y.toFixed(3)}`).toBe(true);
+        // and its pipes really pass beneath, on the floor at its lane's edges
+        for (const side of [-1, 1]) {
+          const hs = heightsAt(pipe, [c.x + (u.n[0] * side * u.w) / 2, c.z + (u.n[1] * side * u.w) / 2]);
+          expect(hs.length, `under pipe, side ${side}`).toBeGreaterThan(0);
+          expect(Math.min(...hs)).toBeLessThanOrEqual(PIPE_THICKNESS + 1e-6);
+        }
+      }
+    });
+
+    it(`${name}: the bridge deck is drawn from the footprint, with sides you can see`, () => {
+      const sides = part(s, "jumpSide");
+      for (const c of b.crossings!.filter((c) => c.bridge && c.over)) {
+        const f = b.features[c.bridge!.feature], fr = frameOf(f);
+        // the footprint's corners are the ramps' feet (unless another bridge on the pass carries on from there)
+        for (const [x, z] of c.footprint!) if (bridgeHeight(b, [x, z]) < 1e-6) expect(hasVert(sides, x, z, 0, 1e-3), `foot at ${x}, ${z}`).toBe(true);
+        // over the crossing, the deck's sides run from its underside up to its top, along both long edges
+        const a = fr.along([c.x, c.z]);
+        for (const side of [-1, 1]) {
+          const [x, z] = fr.at(a, (side * f.width) / 2);
+          const ys = verts(sides).filter(([vx, vz]) => Math.abs(fr.across([vx, vz]) - (side * f.width) / 2) < 1e-6 && Math.abs(fr.along([vx, vz]) - a) < f.length / 2).map((v) => v[2]);
+          expect(ys.some((y) => Math.abs(y - (f.height - DECK_THICKNESS)) < 1e-6), `underside at ${x.toFixed(2)}, ${z.toFixed(2)}`).toBe(true);
+          expect(ys.some((y) => Math.abs(y - f.height) < 1e-6), `top edge at ${x.toFixed(2)}, ${z.toFixed(2)}`).toBe(true);
+        }
+      }
+      // the bridge is drawn instead of the feature's ordinary jump, not as well
+      const jumps = b.features.filter((f) => !bridgedFeatures(b).includes(f));
+      const top = s.meshes.find((m) => m.part === "jump");
+      const ordinary = jumps.reduce((n, f) => n + jumpMesh(f).top.indices.length, 0);
+      expect(top?.indices.length ?? 0).toBe(ordinary);
+    });
+  }
+
+  /** Is the point (plan x, z, height y) on some triangle of m? */
+  function onFace(m: MeshData, [x, z, y]: [number, number, number]): boolean {
+    for (let t = 0; t < m.indices.length; t += 3) {
+      const [p, q, r] = [m.indices[t], m.indices[t + 1], m.indices[t + 2]].map((k) => vert(m, k));
+      const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], v = [r[0] - p[0], r[1] - p[1], r[2] - p[2]], w = [x - p[0], z - p[1], y - p[2]];
+      const nrm = cross(u, v), len = Math.hypot(nrm[0], nrm[1], nrm[2]);
+      if (len < 1e-12 || Math.abs(dot(nrm, w)) / len > 1e-6) continue;
+      // barycentric, in the triangle's plane
+      const uu = dot(u, u), uv = dot(u, v), vv = dot(v, v), wu = dot(w, u), wv = dot(w, v), den = uv * uv - uu * vv;
+      const sa = (uv * wv - vv * wu) / den, sb = (uv * wu - uu * wv) / den;
+      if (sa >= -1e-9 && sb >= -1e-9 && sa + sb <= 1 + 1e-9) return true;
+    }
+    return false;
+  }
+
+  const higher = structuredClone(extra("two-crossings"));
+  const f1 = higher.built!.features[1];
+  higher.built!.features[1] = { ...f1, height: 0.5, profile: f1.profile.map(([a, h]) => [a, h * 1.25] as Point2) };
+  for (const [name, doc] of [...BRIDGED.map((n) => [n, extra(n)] as const), ["two-crossings with the second bridge higher", higher] as const]) {
+    it(`${name}: nothing stands in the gap where the under pass runs beneath the deck, sides included`, () => {
+      const b = doc.built!, s = sceneOf(doc);
+      for (const c of b.crossings!.filter((c) => c.bridge && c.over)) {
+        const f = b.features[c.bridge!.feature], fr = frameOf(f), a = fr.along([c.x, c.z]);
+        for (const across of [-1, -0.5, 0, 0.5, 1].map((k) => (k * f.width) / 2))
+          for (const y of [0.1, 0.2, f.height - DECK_THICKNESS - 0.01]) {
+            const [x, z] = fr.at(a, across);
+            for (const m of s.meshes) expect(onFace(m, [x, z, y]), `${m.part} at ${across.toFixed(2)} across, ${y.toFixed(2)} high`).toBe(false);
+          }
+      }
+      // and the sides face out: away from the middle of the bridge
+      const sides = part(s, "jumpSide");
+      for (const f of bridgedFeatures(b)) {
+        const fr = frameOf(f);
+        for (let k = 0; k < sides.normals.length / 3; k++) {
+          const [x, z] = vert(sides, k), nx = sides.normals[3 * k], ny = sides.normals[3 * k + 1], nz = -sides.normals[3 * k + 2];
+          const across = fr.across([x, z]), along = fr.along([x, z]);
+          if (Math.abs(ny) > 1e-6 || Math.abs(Math.abs(across) - f.width / 2) > 1e-6 || along < 0 || along > f.length) continue;
+          if (Math.abs(nx * fr.n[0] + nz * fr.n[1]) > 0.5) expect(Math.sign(nx * fr.n[0] + nz * fr.n[1])).toBe(Math.sign(across));
+        }
+      }
+    });
+  }
+
+  for (const name of ["unbridged-figure8", "crossover-low-figure8"]) {
+    it(`${name}: a crossing nothing bridges has both passes on the floor, and no bridge`, () => {
+      const doc = extra(name), b = doc.built!, s = sceneOf(doc);
+      expect(b.crossings!.every((c) => !c.bridge)).toBe(true);
+      for (const p of ["carpet", "line", "pipe", "startA", "startB"] as const)
+        for (const [, , y] of verts(part(s, p))) expect(y, p).toBeLessThanOrEqual(PIPE_THICKNESS + 1e-6);
+      // any crossover there is an ordinary ramp, as before
+      const top = s.meshes.find((m) => m.part === "jump");
+      expect(Array.from(top?.positions ?? [])).toEqual(b.features.flatMap((f) => Array.from(jumpMesh(f).top.positions)));
+      expect(s.bridges).toEqual([]);
+    });
+  }
+
+  it("swapping the over pass puts the other pass on top", () => {
+    const doc = extra("crossover-figure8");
+    const c0 = doc.built!.crossings![0];
+    const swapped = structuredClone(doc);
+    swapped.design.features![0] = { ...swapped.design.features![0], over: "second", distance: c0.distances[1] };
+    const docs = { first: doc, second: bake(swapped) };
+    for (const [over, d] of Object.entries(docs)) {
+      const b = d.built!, c = b.crossings![0], s = sceneOf(d);
+      expect(c.over).toBe(over);
+      expect(s.bridges).toEqual([{ feature: 0, over }]);
+      const carpet = part(s, "carpet");
+      // 3 m back from the crossing, on each pass: on the ramp of the over pass, on the floor of the other
+      for (const pass of [0, 1]) {
+        const t = passDir(b, c.distances[pass]);
+        const hs = heightsAt(carpet, [c.x - t[0] * 3, c.z - t[1] * 3]);
+        const raised = Math.max(...hs) > 0.1;
+        expect(raised, `pass ${pass} with ${over} over`).toBe((pass === 0) === (over === "first"));
+      }
+    }
   });
 });
 

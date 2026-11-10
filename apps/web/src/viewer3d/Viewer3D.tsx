@@ -296,6 +296,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       style={{ "--plan-ratio": `${bounds.x1 - bounds.x0} / ${bounds.y1 - bounds.y0}` } as React.CSSProperties}
       data-triangles={scene.triangles}
       data-view={rostrum.at ? "rostrum" : "orbit"}
+      data-bridges={scene.bridges.map((b) => b.over).join(" ")}
     >
       {/* the canvas goes in here; the buttons stay outside it, so they aren't part of the picture */}
       <div
