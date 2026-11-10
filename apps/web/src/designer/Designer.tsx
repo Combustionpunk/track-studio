@@ -1628,14 +1628,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             }}
           />
           )}
-          {/* always there, so screen readers hear the message when it appears */}
-          <p className={no3d ? "designer-3d-note" : "sr-only"} role="status">
-            {no3d === "lost"
-              ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; reload the page to try 3D again."
-              : no3d
-                ? "The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan."
-                : ""}
-          </p>
+          {/* there while 3D is picked (an alert, so it's heard even when it comes with the region), so the plan's own
+              status stays the only one */}
+          {shown3d && (
+            <p className={no3d ? "designer-3d-note" : "sr-only"} role="alert">
+              {no3d === "lost"
+                ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; reload the page to try 3D again."
+                : no3d
+                  ? "The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan."
+                  : ""}
+            </p>
+          )}
           {!laying && (
             <div className="plan-viewswitch designer-viewswitch" role="group" aria-label="View">
               {VIEWS.map((k) => (
