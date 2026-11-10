@@ -1,6 +1,6 @@
 // Quick mode step 1 crossing itself (#79): paint a figure of eight straight across the lane, the refusal for a turn on
-// the crossing, the closed loop's unbridged crossing, and Quick's "Make it a crossover" fix (undo takes it away).
-// Mouse only (desktop layout), at 1200 and 1024 px. SHOTS=<dir> saves screenshots there.
+// the crossing, the closed loop's unbridged crossing, and the checks' "Make it a crossover" fix (undo takes it away),
+// on the Advanced tab since #113. Mouse only (desktop layout), at 1200 and 1024 px. SHOTS=<dir> saves screenshots there.
 import { expect, test, type Page } from "@playwright/test";
 
 type XY = [number, number];
@@ -57,9 +57,10 @@ for (const width of [1200, 1024]) {
     await drag(page, [[5, 0], [0, 0], [0, 2]], false);
     await page.mouse.up();
 
-    // closed: six corners (none on the crossing), one unbridged crossing
+    // closed: six corners (none on the crossing), one unbridged crossing, in the checks on the Advanced tab (#113)
     await expect(page.locator("g.ed-corner")).toHaveCount(6);
-    const checks = page.locator(".designer-side .checks-panel");
+    await page.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Advanced" }).click();
+    const checks = page.locator(".designer-side .checks-panel:not(.venue-check)");
     await expect(checks).toContainText("crosses itself");
     await shot(page, "3-closed");
 
