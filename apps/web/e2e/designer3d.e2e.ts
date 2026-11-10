@@ -18,6 +18,7 @@ async function serve(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => m.type() === "error" && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
+  page.on("console", (m) => m.type() === "warning" && /WebGL context/.test(m.text()) && errors.push(m.text())); // "Too many active WebGL contexts"
   const now = "2026-11-10T12:00:00Z";
   const track = {
     id: ID, name: doc.info.name, status: "draft", author: { id: "u1", username: "alice", name: "Alice" }, revision: 1, approvedRevision: null, publicRevision: 1,
@@ -126,6 +127,59 @@ test.describe("mouse", () => {
       expect(errors).toEqual([]);
     });
   }
+
+  test("no WebGL: the 2D plan stays and still edits (Delete removes the selected jump)", async ({ page }) => {
+    await page.addInitScript(() => {
+      const get = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+        return /webgl/.test(type) ? null : (get as (...a: unknown[]) => unknown).call(this, type, ...rest);
+      } as typeof get;
+    });
+    const errors = await serve(page);
+    await open(page, "Quick");
+    await switchTo(page, "3D");
+    await expect(page.getByRole("alert")).toContainText("The 3D view needs WebGL");
+    await expect(page.locator("svg.plan-svg")).toBeVisible();
+    await expect(view3d(page)).toHaveCount(0);
+    await expect(page.locator(".designer-hint")).not.toContainText("view only");
+    const jumps = await page.locator("polygon.ed-feature").count();
+    await page.locator("polygon.ed-feature").first().click();
+    await expect(page.locator("polygon.ed-feature.on")).toHaveCount(1);
+    await page.keyboard.press("Delete");
+    await expect(page.locator("polygon.ed-feature")).toHaveCount(jumps - 1);
+    expect(errors).toEqual([]);
+  });
+
+  test("a lost graphics context: the 2D plan with a note, and pressing 3D brings 3D back", async ({ page }) => {
+    const errors = await serve(page);
+    await open(page, "Quick");
+    await show3d(page);
+    await view3d(page).locator("canvas").evaluate((c: HTMLCanvasElement) => {
+      const gl = c.getContext("webgl2") ?? c.getContext("webgl");
+      gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    });
+    await expect(page.getByRole("alert")).toContainText("lost its graphics");
+    await expect(page.locator("svg.plan-svg")).toBeVisible();
+    await expect(view3d(page)).toHaveCount(0);
+    await show3d(page);
+    await expect(page.locator("svg.plan-svg")).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("2D and back twenty times: each 3D view gives its context back, so none is forced out", async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = await serve(page);
+    await open(page, "Quick");
+    for (let i = 0; i < 20; i++) {
+      await show3d(page);
+      const canvas = (await view3d(page).locator("canvas").elementHandle())!;
+      await switchTo(page, "2D");
+      await expect(page.locator("svg.plan-svg")).toBeVisible();
+      // the context is given back at once, rather than left to the garbage collector (a browser allows about 16)
+      expect(await canvas.evaluate((c: HTMLCanvasElement) => (c.getContext("webgl2") ?? c.getContext("webgl"))?.isContextLost())).toBe(true);
+    }
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe("touch", () => {

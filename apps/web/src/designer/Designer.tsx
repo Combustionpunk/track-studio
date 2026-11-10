@@ -331,11 +331,23 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // not while laying the lanes (no track yet)
   const [view3d, setView3d] = useSessionChoice("designer-view", VIEWS, "2d");
   const shown3d = view3d === "3d" && !laying;
-  const shown3dRef = useRef(shown3d);
-  shown3dRef.current = shown3d;
   const [noWebGL, setNoWebGL] = useState<"none" | "lost">();
   const no3d = shown3d ? (noWebGL ?? (hasWebGL() ? undefined : "none")) : undefined;
-  const built3d = useDebounced(shown3d ? bake.built : null, BAKE_SETTLE_MS);
+  // the 3D view is on the screen (not its 2D fallback, which edits as usual): the plan's editing keys wait for 2D
+  const viewing3d = shown3d && !no3d;
+  const viewing3dRef = useRef(viewing3d);
+  viewing3dRef.current = viewing3d;
+  // the 3D view is made afresh each time 3D is chosen, so a lost graphics context is left behind then
+  const chooseView = useCallback(
+    (k: (typeof VIEWS)[number]) => {
+      setView3d(k);
+      if (k === "3d") setNoWebGL((w) => (w === "lost" ? undefined : w));
+    },
+    [setView3d],
+  );
+  // the bake drawn in 3D: the latest, once it has settled; the one there when 3D opens is drawn straight away
+  const settled3d = useDebounced(shown3d ? bake.built : null, BAKE_SETTLE_MS);
+  const built3d = shown3d ? settled3d ?? bake.built : null;
   // the bake drawn in 3D is of the design as it stands: its jumps are the design's, index for index (a click or the
   // highlight on a stale one could land on the wrong jump)
   const synced3d = !!built3d && built3d === bake.built && !bake.pending && built3d.features.length === (draft.design.features?.length ?? 0);
@@ -450,7 +462,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
       // 3D is view only: undo and redo still work (3D follows), but the plan's editing keys wait for 2D; a key the 3D
       // view took (Escape leaving the rostrum) is its own
-      if (shown3dRef.current && (e.defaultPrevented || ["Delete", "Backspace", "h", "H", "o", "O"].includes(e.key))) return;
+      if (viewing3dRef.current && (e.defaultPrevented || ["Delete", "Backspace", "h", "H", "o", "O"].includes(e.key))) return;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -1547,8 +1559,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </div>
           ) : (
             <div className="designer-hint">
-              {shown3d && !no3d
-                ? `3D is view only: switch to 2D to edit. ${tablet ? "Tap" : "Click"} a jump to select it there.`
+              {viewing3d
+                ? `3D is view only: switch to 2D to edit.${synced3d ? ` ${tablet ? "Tap" : "Click"} a jump to select it there.` : ""}`
                 : laying
                 ? layNote ?? (gridFocus
                   ? draft.laying?.length
@@ -1571,7 +1583,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </div>
           )}
           <div className="designer-canvas">
-          {shown3d && !no3d ? (
+          {viewing3d ? (
             <Suspense
               fallback={
                 <div role="status" aria-busy="true" className="designer-plan">
@@ -1637,7 +1649,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           {shown3d && (
             <p className={no3d ? "designer-3d-note" : "sr-only"} role="alert">
               {no3d === "lost"
-                ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; reload the page to try 3D again."
+                ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; press 3D to try again."
                 : no3d
                   ? "The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan."
                   : ""}
@@ -1646,7 +1658,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           {!laying && (
             <div className="plan-viewswitch designer-viewswitch" role="group" aria-label="View">
               {VIEWS.map((k) => (
-                <button key={k} type="button" aria-pressed={view3d === k} className={view3d === k ? "on" : ""} onClick={() => setView3d(k)} title={k === "3d" ? "See the track in 3D (view only)" : "Back to the plan, to edit"}>
+                <button key={k} type="button" aria-pressed={view3d === k} className={view3d === k ? "on" : ""} onClick={() => chooseView(k)} title={k === "3d" ? "See the track in 3D (view only)" : "Back to the plan, to edit"}>
                   {k.toUpperCase()}
                 </button>
               ))}

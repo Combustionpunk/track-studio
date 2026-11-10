@@ -17,7 +17,8 @@ vi.mock("../src/lib/hooks.js", async (orig) => {
   return { ...real, useApi: (path: string | null) => ({ data: path === "/api/venues/venue-2" ? { doc: hall } : undefined, error: undefined, loading: false, reload: () => {} }) as Loadable<unknown> };
 });
 vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useBlocker: () => ({ state: "unblocked" }) }));
-vi.mock("../src/viewer3d/support.js", () => ({ hasWebGL: () => true }));
+let webgl = true;
+vi.mock("../src/viewer3d/support.js", () => ({ hasWebGL: () => webgl }));
 const plans: unknown[] = [];
 vi.mock("../src/components/PlanView.js", async (orig) => ({
   ...(await orig<typeof import("../src/components/PlanView.js")>()),
@@ -45,7 +46,7 @@ const setup = (mode: "quick" | "advanced", view: "2d" | "3d" = "2d", query?: str
 };
 const toggle = (html: string) => html.match(/<div class="plan-viewswitch[^"]*" role="group" aria-label="View">(.*?)<\/div>/)?.[1];
 
-beforeEach(() => (plans.length = 0));
+beforeEach(() => ((plans.length = 0), (webgl = true)));
 afterEach(() => vi.unstubAllGlobals());
 
 describe("the designer's 2D / 3D switch", () => {
@@ -85,5 +86,17 @@ describe("the designer's 2D / 3D switch", () => {
     expect(plans).toHaveLength(0);
     expect(html).toContain("Loading the 3D view");
     expect(html).toMatch(/<div class="designer-hint"[^>]*>[^<]*3D is view only/);
+  });
+
+  it.each(["quick", "advanced"] as const)("%s, 3D picked without WebGL: the 2D plan stays, edits as usual, with a note", (mode) => {
+    webgl = false;
+    setup(mode, "3d");
+    const html = render(draftFromDoc(adapted()));
+    expect(toggle(html)).toMatch(/aria-pressed="true"[^>]*>3D</);
+    expect(plans.length).toBeGreaterThan(0);
+    expect(html).not.toContain("Loading the 3D view");
+    expect(html).toContain("The 3D view needs WebGL");
+    expect(html).not.toContain("3D is view only"); // the plan is the editable one, so its hint is the plan's
+    expect(html).toMatch(/<div class="designer-hint"[^>]*>[^<]*(Drag a corner|Click a straight)/);
   });
 });

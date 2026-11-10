@@ -438,7 +438,7 @@ export function TrackPage() {
                 {/* always there, so screen readers hear the message when it appears */}
                 <p className={no3d ? "ts-note" : "sr-only"} role="status">
                   {no3d === "lost"
-                    ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; reload the page to try 3D again."
+                    ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; press 3D to try again."
                     : no3d
                       ? "The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan."
                       : ""}
@@ -452,6 +452,7 @@ export function TrackPage() {
                       className={shown3d === k ? "on" : ""}
                       onClick={() => {
                         setView(k);
+                        if (k === "3d") setNoWebGL((w) => (w === "lost" ? undefined : w)); // the viewer is made afresh: try again
                         if (k === "2d" && choice.at) setParams((p) => writeRostrum(p, { at: false, side: choice.side }), { replace: true });
                       }}
                     >
