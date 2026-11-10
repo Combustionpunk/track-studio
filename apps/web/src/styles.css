@@ -304,8 +304,12 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--surface-2); }
 
 /* editor layer on the plan */
-.ed-lane polyline { fill: none; stroke: transparent; pointer-events: stroke; stroke-linecap: round; stroke-linejoin: round; cursor: copy; }
+.ed-lane polyline { fill: none; stroke: transparent; pointer-events: stroke; stroke-linecap: round; stroke-linejoin: round; }
 .ed-placing .ed-lane polyline { cursor: crosshair; }
+/* the Add point tool (#114): the cursor shows it, and the line lights up under the pointer (always, without hover) */
+.ed-adding .ed-lane polyline, .designer-adding .plan-svg { cursor: copy; }
+.ed-adding .ed-lane:hover polyline { stroke: var(--ed-control); }
+@media (hover: none) { .ed-adding .ed-lane polyline { stroke: var(--ed-control); } }
 .ed-control { fill: none; stroke: var(--ed-control); stroke-width: 1; stroke-dasharray: 3 4; pointer-events: none; }
 .ed-guide { stroke: var(--ed-guide); stroke-width: 1.5; stroke-dasharray: 6 4; pointer-events: none; }
 .ed-arc { fill: none; stroke: var(--ed-guide); stroke-width: 3; pointer-events: none; }

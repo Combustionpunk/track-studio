@@ -29,7 +29,7 @@ import {
   type RcVenue,
   type Side,
 } from "@track-studio/engine";
-import { ArrowRightLeft, ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
+import { ArrowRightLeft, ChevronLeft, CircleCheck, CircleX, Info, Monitor, Plus, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { CopyButton, Message, StatusBadge } from "../components/bits.js";
@@ -74,6 +74,7 @@ import { describeLane, layKey, startCursor, where, type LayKeys } from "./laykey
 import { useBake } from "./useBake.js";
 import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
+import { addKey, floorTap, keyInsert, lanePress, shapeHint, stepCorner } from "./addtool.js";
 import { defaultRostrumSide } from "../viewer3d/rostrum.js";
 import type { Highlight } from "../viewer3d/scene.js";
 import { hasWebGL } from "../viewer3d/support.js";
@@ -128,7 +129,8 @@ export interface DesignerBase {
 }
 
 type Selection = { kind: "point"; i: number } | { kind: "feature"; i: number } | { kind: "start" } | null;
-type Tool = { kind: "select" } | { kind: "feature"; type: FeatureType };
+/** select (the default), the Add point tool (#114), or a jump armed from the palette */
+type Tool = { kind: "select" } | { kind: "add" } | { kind: "feature"; type: FeatureType };
 
 export interface DesignerProps {
   mode: "new" | "edit";
@@ -188,6 +190,10 @@ const LAY_KEYS_HELP = "Arrows move the cursor; Enter or Space starts the lane th
 const NO_TRACK: RcTrack["design"] = { laneWidth: 2, points: [{ x: -2, z: -1 }, { x: 2, z: -1 }, { x: 2, z: 1 }, { x: -2, z: 1 }] };
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
+/** Enter on a focused button, link or disclosure is that control's own */
+const isControl = (t: EventTarget | null) => t instanceof Element && !!t.closest("button, a, summary, [role=application]");
+/** the Add point tool's keys (#114), which wait for 2D like the other editing keys */
+const ADD_KEYS = ["a", "A", "n", "N", "p", "P", "Enter"];
 
 /** the plan's checks layer on its own (the designer's problem marks) */
 const ONLY_CHECKS = Object.fromEntries(Object.keys(ALL_PLAN_LAYERS).map((k) => [k, k === "checks"])) as PlanLayers;
@@ -462,7 +468,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
       // 3D is view only: undo and redo still work (3D follows), but the plan's editing keys wait for 2D; a key the 3D
       // view took (Escape leaving the rostrum) is its own
-      if (viewing3dRef.current && (e.defaultPrevented || ["Delete", "Backspace", "h", "H", "o", "O"].includes(e.key))) return;
+      if (viewing3dRef.current && (e.defaultPrevented || ["Delete", "Backspace", "h", "H", "o", "O", ...ADD_KEYS].includes(e.key))) return;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -485,6 +491,35 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       } else if ((e.key === "o" || e.key === "O") && !mod && selRef.current?.kind === "point" && allows(viewRef.current, "outer")) {
         e.preventDefault();
         toggleOuter(selRef.current.i);
+      } else if (addKey(e) && !draftRef.current.laying) {
+        // A: the Add point tool on or off (#114)
+        e.preventDefault();
+        setTool((t) => (t.kind === "add" ? { kind: "select" } : { kind: "add" }));
+      } else if (toolRef.current.kind === "add" && !mod && !e.altKey && ["n", "N", "p", "P"].includes(e.key)) {
+        // N / P: pick the corner to add after, from the keyboard
+        e.preventDefault();
+        const n = draftRef.current.design.points.length;
+        const s = selRef.current;
+        const i = stepCorner(n, s?.kind === "point" ? s.i : null, e.key === "n" || e.key === "N" ? 1 : -1);
+        setSel((selRef.current = { kind: "point", i }));
+        say(`Corner ${i + 1} of ${n}.`);
+      } else if (toolRef.current.kind === "add" && e.key === "Enter" && !mod && !isControl(e.target)) {
+        // Enter: a point halfway along the straight after the selected corner, one undo step
+        e.preventDefault();
+        const s = selRef.current;
+        const cur = draftRef.current;
+        const r = s?.kind === "point" ? keyInsert(viewRef.current, cur.design.points, s.i, cur.design.laneWidth ?? 2) : null;
+        if (!r) {
+          const text = s?.kind === "point" ? "There's no room for a point between those two corners." : "Pick a corner first (N or P): Enter adds a point halfway to the next one.";
+          setMessage({ kind: "info", text });
+          say(text);
+          return;
+        }
+        draftRef.current = { ...cur, design: { ...cur.design, points: r.points } };
+        hist.set(draftRef.current, `insert:${Date.now()}`);
+        setSel((selRef.current = { kind: "point", i: r.index }));
+        setMessage(null);
+        say(`Added corner ${r.index + 1}, halfway to the next one.`);
       } else if (e.key === "Delete" || e.key === "Backspace") {
         if (selRef.current) {
           e.preventDefault();
@@ -628,6 +663,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     window.addEventListener("pointercancel", up);
   };
 
+  /** the Add point button: on, or off again */
+  const toggleAdd = () => setTool((t) => (t.kind === "add" ? { kind: "select" } : { kind: "add" }));
+  /** a press on a corner lets an armed jump go, but leaves the Add point tool on (tap a corner, then add after it) */
+  const disarmJump = () => setTool((t) => (t.kind === "feature" ? { kind: "select" } : t));
+
   const onPointDown = (e: React.PointerEvent<SVGElement>, i: number) => {
     if (e.button !== 0) return;
     const was = before();
@@ -636,7 +676,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const pt = draftRef.current.design.points[i];
     const again = selRef.current?.kind === "point" && selRef.current.i === i;
     setSel({ kind: "point", i });
-    setTool({ kind: "select" });
+    disarmJump();
     const quick = viewRef.current === "quick";
     // Quick: a tap on the selected corner lets it go, so taps on the floor stop adding after it
     const onClick = quick && again ? () => setSel(null) : undefined;
@@ -664,7 +704,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const c = liveRef.current.corners[i];
     if (!a || !c) return;
     setSel({ kind: "point", i });
-    setTool({ kind: "select" });
+    disarmJump();
     // where on the handle it was pressed, so grabbing it doesn't change the radius
     const dd = alongBisector(a, planPoint(svg, e.clientX, e.clientY)) - alongBisector(a, handlePoint(a, c.r));
     startDrag(e, svg, { kind: "apex", i, dd }, { threshold: true, was });
@@ -696,7 +736,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const m = mitrePoint(cur.design.points, i, cur.design.laneWidth ?? 2);
     if (!m) return;
     setSel({ kind: "point", i });
-    setTool({ kind: "select" });
+    disarmJump();
     startDrag(e, svg, { kind: "mitre", i, offset: [m[0] - p[0], m[1] - p[1]] });
   };
 
@@ -724,33 +764,31 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     });
     const mPerPx = 1 / (svg.getScreenCTM()?.a ?? 1);
     const nearPoint = Math.hypot(pts[best].x - p[0], pts[best].z - p[1]) <= GRAB_PX * mPerPx;
-    if (viewRef.current === "quick") {
-      e.stopPropagation();
-      if (nearPoint) {
-        setSel({ kind: "point", i: best });
-        startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true, was });
-        return;
-      }
-      // with a jump or the start line selected, a press on the track lets it go
-      if (selRef.current && selRef.current.kind !== "point") {
-        setSel(null);
-        return;
-      }
-      // a press on the track adds a corner (after the selected one, or into this part of the track) and drags it on,
-      // all one undo step
+    const quick = viewRef.current === "quick";
+    // adding a point takes the Add point tool (#114); without it, a press away from the points passes on, so a drag pans
+    const does = lanePress({ tool: tool.kind, view: viewRef.current, nearPoint, onCorner: hit.curvature !== 0, selKind: selRef.current?.kind ?? null });
+    if (does === "pass") return;
+    e.stopPropagation();
+    if (does === "release") {
+      setSel(null);
+      return;
+    }
+    if (does === "grab") {
+      // on a corner point (or, in Advanced, on a corner or just missing a point): grab the corner point
+      setSel({ kind: "point", i: best });
+      startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true, was });
+      return;
+    }
+    if (quick) {
+      // Quick: a corner after the selected one, or into this part of the track, dragged on if the pointer moves; all
+      // one undo step
       const group = `drag:insert:${Date.now()}`;
       const i = addCornerAt(p, e.altKey, group);
       const at = i === null ? null : draftRef.current.design.points[i];
       if (i !== null && at) startDrag(e, svg, { kind: "point", i, offset: [at.x - p[0], at.z - p[1]] }, { threshold: true, group, was });
       return;
     }
-    if (hit.curvature !== 0 || nearPoint) {
-      // on a corner, or just missed a point: grab the corner point
-      setSel({ kind: "point", i: best });
-      startDrag(e, svg, { kind: "point", i: best, offset: [pts[best].x - p[0], pts[best].z - p[1]] }, { threshold: true, was });
-      return;
-    }
-    // on a straight: add a point there (and drag it if the pointer moves)
+    // Advanced, on a straight: add a point there (and drag it if the pointer moves)
     const { after, at: projected } = insertionFor(pts, p);
     const at = snapInsertion(projected, pts, after, modeFor(e), draftRef.current.area, draftRef.current.design.laneWidth ?? 2);
     const i = after + 1;
@@ -1062,7 +1100,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const placing = tool.kind === "feature";
     const ghost = placing && hover ? featureCorners(ghostFeature(live, tool.type, hover)) : null;
     return (
-      <g className={`ed ${placing ? "ed-placing" : ""}`}>
+      <g className={`ed ${placing ? "ed-placing" : tool.kind === "add" ? "ed-adding" : ""}`}>
         <g
           data-handle="lane"
           className="ed-lane"
@@ -1484,6 +1522,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           <button
             type="button"
             className="palette-btn"
+            aria-pressed={tool.kind === "add"}
+            aria-keyshortcuts="A"
+            onClick={toggleAdd}
+            title={advanced ? "Add a point: click a straight (A; Esc to stop)" : "Add a corner: click the track or the floor (A; Esc to stop)"}
+          >
+            <Plus size={18} aria-hidden="true" />
+            Add point
+          </button>
+          <button
+            type="button"
+            className="palette-btn"
             aria-pressed={sel?.kind === "start"}
             onClick={() => {
               setTool({ kind: "select" });
@@ -1529,7 +1578,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
               ? tool.type === "crossover"
                 ? "Click where the track crosses itself to bridge it: the pass you click goes over. Esc to cancel."
                 : `Click on the racing line to place the ${fmt.FEATURE_LABEL[tool.type].toLowerCase()}. Esc to cancel.`
-              : "Pick a jump, then click on the racing line to place it."}
+              : tool.kind === "add"
+                ? advanced
+                  ? "Click a straight to add a point there. Esc or A to stop. Keys: N / P pick a corner, Enter adds a point halfway to the next."
+                  : "Click the track or the floor to add a corner. Esc or A to stop. Keys: N / P pick a corner, Enter adds one halfway to the next."
+                : "Pick a jump, then click on the racing line to place it. Add point (A) adds a corner point."}
           </p>
         </aside>
         )}
@@ -1573,16 +1626,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   ? tool.type === "crossover"
                     ? `${tablet ? "Tap" : "Click"} where the track crosses itself: the pass you ${tablet ? "tap" : "click"} goes over.`
                     : `${tablet ? "Tap" : "Click"} on the racing line to place it.`
-                  : advanced
-                    ? "Click a straight to add a corner. Drag a corner to move it."
-                    : sel?.kind === "point"
-                      ? `Tap the floor to add a corner after ${sel.i + 1}. Tap ${sel.i + 1} again to stop.`
-                      : tablet
-                        ? "Drag a corner, or its inside handle to cut it back. Hold a corner for its panel."
-                        : "Drag a corner, or its inside handle to cut it back. Tap the track to add one."}
+                  : shapeHint({ advanced, tablet, adding: tool.kind === "add", sel: sel?.kind === "point" ? sel.i : null })}
             </div>
           )}
-          <div className="designer-canvas">
+          <div className={`designer-canvas ${tool.kind === "add" && !laying && view === "quick" ? "designer-adding" : ""}`}>
           {viewing3d ? (
             <Suspense
               fallback={
@@ -1635,8 +1682,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             }}
             onBackgroundClick={(e) => {
               setHighlight(null);
-              // Quick step 2: a tap on the floor adds a corner (after the selected one, or into the track it's near)
-              if (!laying && view === "quick" && tool.kind === "select" && (sel === null || sel.kind === "point")) {
+              // Quick step 2, with the Add point tool on: a tap on the floor adds a corner (after the selected one, or into
+              // the track it's near)
+              if (floorTap({ tool: tool.kind, view, laying, selKind: sel?.kind ?? null }) === "add") {
                 addCornerAt(planPoint(e.currentTarget, e.clientX, e.clientY), e.altKey);
                 return;
               }
@@ -1721,6 +1769,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                     className="dock-btn"
                     verb="Tap"
                   />
+                  <button type="button" className="dock-btn" aria-pressed={tool.kind === "add"} aria-keyshortcuts="A" onClick={toggleAdd} title="Add a corner: tap Add point, then tap the track or the floor">
+                    <Plus size={18} aria-hidden="true" />
+                    Add point
+                  </button>
                   <button
                     type="button"
                     className="dock-btn"
@@ -2402,7 +2454,7 @@ export function SelectionPanel({
   );
 }
 
-function Shortcuts() {
+export function Shortcuts() {
   return (
     <details className="sel-panel shortcuts">
       <summary>How to draw</summary>
@@ -2415,7 +2467,9 @@ function Shortcuts() {
           <kbd>H</kbd> on a corner: make it a hairpin (two points a lane apart).
         </li>
         <li>
-          <b>Click a straight</b> to add a point there (or press and pull).
+          <b>Add point</b> (or <kbd>A</kbd>), then click a straight to add a point there (or press and pull). It stays on
+          until you press it again or <kbd>Esc</kbd>; a plain click never adds a point. Keyboard: with it on, <kbd>N</kbd> /{" "}
+          <kbd>P</kbd> pick a corner and <kbd>Enter</kbd> adds a point halfway to the next one.
         </li>
         <li>
           <kbd>Delete</kbd> or <b>right-click</b> a point to remove it.
