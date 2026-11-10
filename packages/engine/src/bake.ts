@@ -17,6 +17,7 @@ import type {
   Point2,
   Lanes,
   RcTrack,
+  BuiltRostrum,
   Side,
   Size,
 } from "./types.js";
@@ -1016,6 +1017,15 @@ export function rostrumPosition(area: { length: number; width: number }, side: S
     west: [-L / 2 - ROSTRUM_SETBACK, offset],
   };
   return pos[side];
+}
+
+/**
+ * Where the drivers' eyes are on a rostrum on `side` (spec, Sim integration): rostrumPosition, EYE_HEIGHT up, looking at
+ * the middle of the area. One function, so the sim, the fit check and the 3D viewer agree.
+ */
+export function rostrumEye(area: { length: number; width: number }, side: Side = "south", offset = 0): BuiltRostrum {
+  const [x, z] = rostrumPosition(area, side, offset);
+  return { side, x: r3(x), z: r3(z), eyeHeight: EYE_HEIGHT };
 }
 
 /** A feature's [along, height] profile in metres, along = 0 at the entry edge. */
