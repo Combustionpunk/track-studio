@@ -3,6 +3,7 @@
 // loop closing diagonally past its own start square with a 135° turn. Mouse only (desktop layout),
 // at 1200 and 1024 px. SHOTS=<dir> saves screenshots there.
 import { expect, test, type Page } from "@playwright/test";
+import { onAdvanced } from "./touch-helper.js";
 
 type XY = [number, number];
 
@@ -71,8 +72,7 @@ for (const width of [1200, 1024]) {
     await page.mouse.up();
 
     await expect(page.locator("g.ed-corner")).toHaveCount(8);
-    const checks = page.locator(".designer-side .checks-panel");
-    await expect(checks).toContainText("No problems found.", { timeout: 15_000 });
+    await onAdvanced(page, (checks) => expect(checks).toContainText("No problems found.", { timeout: 15_000 }));
     await shot(page, "3-octagon");
   });
 }
@@ -97,7 +97,7 @@ test("a loop closing diagonally past its own start square, a 135° turn, closes 
   await drag(page, [[0, 5], [6, 5], [6, 0], [5, 0], [0, 5]]);
   await page.mouse.up();
   await expect(page.locator("g.ed-corner")).toHaveCount(4);
-  await expect(page.locator(".designer-side .checks-panel")).toContainText("No problems found.", { timeout: 15_000 });
+  await onAdvanced(page, (checks) => expect(checks).toContainText("No problems found.", { timeout: 15_000 }));
   await shot(page, "104-closing-past-start");
 });
 
@@ -107,7 +107,7 @@ test("a lane right beside the point of a V paints and bakes clean; a hook past t
   await drag(page, [[0, 0], [10, 0], [10, 5], [8, 5], [4, 1], [1, 4], [0, 4], [0, 0]]);
   await page.mouse.up();
   await expect(page.locator("g.ed-corner")).toHaveCount(7);
-  await expect(page.locator(".designer-side .checks-panel:not(.venue-check)")).toContainText("No problems found.", { timeout: 15_000 });
+  await onAdvanced(page, (checks) => expect(checks).toContainText("No problems found.", { timeout: 15_000 }));
   await shot(page, "104-lane-beside-v");
 
   await open(page, 1200);
@@ -115,6 +115,6 @@ test("a lane right beside the point of a V paints and bakes clean; a hook past t
   await drag(page, [[0, 1], [2, 1], [2, 0], [3, 1], [3, 3], [0, 3], [0, 1]]);
   await page.mouse.up();
   await expect(page.locator("g.ed-corner")).toHaveCount(6);
-  await expect(page.locator(".designer-side .checks-panel:not(.venue-check)")).toContainText("Lane narrows by 0.08 m at this corner", { timeout: 15_000 });
+  await onAdvanced(page, (checks) => expect(checks).toContainText("Lane narrows by 0.08 m at this corner", { timeout: 15_000 }));
   await shot(page, "104-hook-squeeze");
 });

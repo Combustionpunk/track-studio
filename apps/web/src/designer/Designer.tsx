@@ -30,7 +30,7 @@ import {
   type Side,
 } from "@track-studio/engine";
 import { ArrowRightLeft, ChevronLeft, CircleCheck, CircleX, Info, Monitor, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { CopyButton, Message, StatusBadge } from "../components/bits.js";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
@@ -1240,6 +1240,22 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const status = base?.track;
   const showSubmit = !!me && mode === "edit" && !!base?.can.submit;
   const blocked = submitBlock({ dirty, pending: bake.pending, checks: built.checks, points: pointsList });
+  /** Quick's right-hand column has no checks (#113): why Submit is waiting is told by the button instead */
+  const quickSide = !advanced && !tablet && !laying;
+  /** where the reason is shown (#submit-why): by the button on Quick, else under the checks while they're showing */
+  const whyShown = !!blocked && (quickSide || (!laying && (!tablet || sheet === "checks")));
+  const checksHeading = useRef<HTMLHeadingElement>(null);
+  const [toChecks, setToChecks] = useState(false);
+  const seeChecks = () => {
+    setView("advanced");
+    setToChecks(true);
+  };
+  useEffect(() => {
+    if (!toChecks || !checksHeading.current) return;
+    setToChecks(false);
+    checksHeading.current.scrollIntoView({ block: "nearest" });
+    checksHeading.current.focus();
+  }, [toChecks, view]);
   // the area is locked to the guide's while there is one (a template that's gone leaves only the label)
   const venueName = guide?.info.name;
   const backTo = mode === "edit" && base ? { to: `/t/${base.id}`, label: "Back to track" } : { to: "/new", label: "Start over" };
@@ -1374,9 +1390,22 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </a>
         )}
         {showSubmit && (
-          <button type="button" className="btn btn-primary" onClick={submit} disabled={!!blocked} aria-describedby={blocked ? "submit-why" : undefined} title={blocked ?? "Send to the organisers for approval"}>
+          <button type="button" className="btn btn-primary" onClick={submit} disabled={!!blocked} aria-describedby={whyShown ? "submit-why" : undefined} title={blocked ?? "Send to the organisers for approval"}>
             Submit track
           </button>
+        )}
+        {showSubmit && quickSide && blocked && (
+          <p id="submit-why" className="submit-why-bar">
+            {blocked}
+            {checkCounts(built.checks).errors > 0 && (
+              <>
+                {" "}
+                <button type="button" className="linkish" onClick={seeChecks}>
+                  See Checks
+                </button>
+              </>
+            )}
+          </p>
         )}
         {saveOpen && me && !laying && (
           <form
@@ -1752,10 +1781,14 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
         {tablet ? null : laying ? (
           <aside className="designer-side" aria-label="The lane so far">
-            <section className="checks-panel" aria-labelledby="ck-h">
-              <h2 id="ck-h">Checks</h2>
-              <p className="hint">The track is checked once the loop is closed.</p>
-            </section>
+            {advanced ? (
+              <section className="checks-panel" aria-labelledby="ck-h">
+                <h2 id="ck-h">Checks</h2>
+                <p className="hint">The track is checked once the loop is closed.</p>
+              </section>
+            ) : (
+              <QuickHowTo laying />
+            )}
             <dl className="figures designer-stats">
               <div>
                 <dd>{draft.laying?.length ?? 0}</dd>
@@ -1768,8 +1801,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             </dl>
           </aside>
         ) : (
-          <aside className="designer-side" aria-label="Checks">
-            <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} onBridge={bridgeIt} />
+          <aside className="designer-side" aria-label={advanced ? "Checks" : "Details"}>
+            {/* Quick is for laying the track, Advanced for checking and fine-tuning (#113) */}
+            {advanced ? (
+              <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} onBridge={bridgeIt} headingRef={checksHeading} />
+            ) : (
+              <QuickHowTo />
+            )}
             <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
             <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
             {advanced && <Shortcuts />}
@@ -1991,6 +2029,7 @@ export function ChecksPanel({
   onShow,
   onMakeCrossover,
   onBridge,
+  headingRef,
 }: {
   checks: Check[];
   /** the bake's jumps, for the hints on crossing checks */
@@ -2000,16 +2039,18 @@ export function ChecksPanel({
   blocked: string | null;
   ready: boolean;
   onShow: (x: number, z: number) => void;
-  /** Quick: turn the tabletop too low to drive under into a crossover */
+  /** turn the tabletop too low to drive under into a crossover */
   onMakeCrossover?: (feature: number) => void;
-  /** Quick: put a crossover on an unbridged crossing */
+  /** put a crossover on an unbridged crossing */
   onBridge?: (c: Check) => void;
+  /** for Quick's "See Checks", which moves the focus here */
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const shown = visibleChecks(checks, view);
   const { errors, warnings } = checkCounts(checks);
   return (
     <section className="checks-panel" aria-labelledby="ck-h">
-      <h2 id="ck-h">
+      <h2 id="ck-h" ref={headingRef} tabIndex={-1}>
         Checks {pending && <span className="pending" title="Updating">…</span>}
       </h2>
       {shown.length === 0 ? (
@@ -2035,7 +2076,7 @@ export function ChecksPanel({
                   <span>
                     {c.message}
                     {view === "advanced" && <code className="check-code">{c.code}</code>}
-                    <CrossingHint c={c} features={features} view={view} pending={pending} onMakeCrossover={onMakeCrossover} onBridge={onBridge} />
+                    <CrossingHint c={c} features={features} pending={pending} onMakeCrossover={onMakeCrossover} onBridge={onBridge} />
                   </span>
                   {c.x !== undefined && c.z !== undefined && (
                     <button type="button" className="check-show" onClick={() => onShow(c.x!, c.z!)}>
@@ -2058,10 +2099,11 @@ export function ChecksPanel({
 }
 
 /**
- * A crossing error's hint, and Quick's one-tap fixes: a crossover on an unbridged crossing, or for a tabletop too low to
- * drive under. While a bake is pending the fix is disabled ("Checking…"): the check may be stale, so it could do nothing.
+ * A crossing error's hint, and its one-tap fixes: a crossover on an unbridged crossing, or for a tabletop too low to
+ * drive under (Quick's, until the checks moved to Advanced in #113). While a bake is pending the fix is disabled
+ * ("Checking…"): the check may be stale, so it could do nothing.
  */
-function CrossingHint({ c, features, view, pending, onMakeCrossover, onBridge }: { c: Check; features: BuiltFeature[]; view: DesignerMode; pending: boolean; onMakeCrossover?: (feature: number) => void; onBridge?: (c: Check) => void }) {
+function CrossingHint({ c, features, pending, onMakeCrossover, onBridge }: { c: Check; features: BuiltFeature[]; pending: boolean; onMakeCrossover?: (feature: number) => void; onBridge?: (c: Check) => void }) {
   const fi = c.code === "crossing-too-low" ? bridgeAt(c, features) : null;
   const type = fi === null ? null : features[fi].type;
   const hint = crossingHint(c, type);
@@ -2069,12 +2111,12 @@ function CrossingHint({ c, features, view, pending, onMakeCrossover, onBridge }:
   return (
     <span className="check-hint">
       {hint}
-      {view === "quick" && type === "tabletop" && onMakeCrossover && (
+      {type === "tabletop" && onMakeCrossover && (
         <button type="button" className="btn btn-quiet check-fix" disabled={pending} title={pending ? "Checking…" : undefined} onClick={() => onMakeCrossover(fi!)}>
           Make it a crossover
         </button>
       )}
-      {view === "quick" && c.code === "crossing-unbridged" && onBridge && (
+      {c.code === "crossing-unbridged" && onBridge && (
         <button type="button" className="btn btn-quiet check-fix" disabled={pending} title={pending ? "Checking…" : undefined} onClick={() => onBridge(c)}>
           Make it a crossover
         </button>
@@ -2399,6 +2441,46 @@ export function SelectionPanel({
       </label>
       <p className="hint">Select a corner point, jump or the start line to edit it.</p>
     </section>
+  );
+}
+
+/** Quick's "How to draw" (#113), heading its right-hand column: the gestures of the step it's on. */
+function QuickHowTo({ laying = false }: { laying?: boolean }) {
+  return (
+    <details className="sel-panel shortcuts">
+      <summary>How to draw</summary>
+      {laying ? (
+        <ul>
+          <li>
+            <b>Press</b> on a square and <b>drag</b> through the squares in driving order: straight, or corner to corner for a diagonal.
+          </li>
+          <li>Drag back over the squares to take them up.</li>
+          <li>To cross the lane, go straight across it at right angles.</li>
+          <li>Come back to the first square (the ring) to close the loop. Then you shape it.</li>
+          <li>{TURNS_HINT}</li>
+          <li>
+            Keyboard: <kbd>Tab</kbd> to the plan's lane grid; the hint over the plan lists the keys. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo.
+          </li>
+        </ul>
+      ) : (
+        <ul>
+          <li>
+            <b>Drag</b> a corner to move it, or its inside handle to cut the corner back. With <b>Snap to lanes</b> on, corners snap to a lane line; <kbd>Alt</kbd> places them freely.
+          </li>
+          <li>
+            <b>Click the floor</b> to add a corner: after the selected corner, or into the track it's near.
+          </li>
+          <li>
+            <kbd>Delete</kbd>, <kbd>Backspace</kbd> or <b>right-click</b> a corner to remove it.
+          </li>
+          <li>Pick a jump, click the racing line to place it, drag it along. Pick Start line to drag the start line the same way.</li>
+          <li>
+            Drag empty space to pan, wheel to zoom. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo, <kbd>Ctrl</kbd>+<kbd>S</kbd> save.
+          </li>
+          <li>Errors and the full checks are on the Advanced tab.</li>
+        </ul>
+      )}
+    </details>
   );
 }
 

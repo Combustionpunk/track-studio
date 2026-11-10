@@ -3,7 +3,7 @@
 // control in Quick mode, an override offers Match. With the mouse at 1200 px and by touch on a tablet. SHOTS=<dir>
 // saves screenshots there.
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { cell, screen, Touch, type XY } from "./touch-helper.js";
+import { cell, onAdvanced, screen, Touch, type XY } from "./touch-helper.js";
 
 const BLANK = "/new/design?length=22&width=12&name=L%20loop";
 /** two lanes along the south wall and two up the east wall, clockwise from the north-east: corner 2 is the elbow's
@@ -27,6 +27,8 @@ async function open(page: Page) {
 const dot = (page: Page, n: number) => page.locator("g.ed-corner").filter({ has: page.locator("text", { hasText: new RegExp(`^${n}$`) }) });
 
 const checks = (page: Page) => page.locator(".checks-panel");
+/** wait on the checks, which are on the Advanced tab (#113), from Quick */
+const quickChecks = (page: Page, text: string | RegExp) => onAdvanced(page, (c) => expect(c).toContainText(text, { timeout: 15_000 }));
 
 /** the outside-corner radio that's checked, in `panel` */
 const checkedOuter = (panel: Locator) => panel.getByRole("radiogroup", { name: "Outside corner" }).locator('[role="radio"][aria-checked="true"]');
@@ -44,7 +46,7 @@ test.describe("mouse, 1200 px", () => {
     for (const p of path.slice(1)) await page.mouse.move(...p, { steps: 7 });
     await page.mouse.up();
     await expect(page.locator("g.ed-corner")).toHaveCount(6);
-    await expect(checks(page)).toContainText("No problems found.", { timeout: 15_000 });
+    await quickChecks(page, "No problems found.");
 
     // corner 2: the panel says what else it shapes, and corner 5 highlights
     await dot(page, 2).click();
@@ -56,7 +58,7 @@ test.describe("mouse, 1200 px", () => {
     await expect(dot(page, 3)).not.toHaveClass(/linked/);
     await panel.getByRole("button", { name: /^Sweeper/ }).click();
     await expect(panel.getByRole("button", { name: /^Sweeper/ })).toHaveAttribute("aria-pressed", "true");
-    await expect(checks(page)).toContainText("No problems found.", { timeout: 15_000 });
+    await quickChecks(page, "No problems found.");
     await shot(page, "1-sweeper-corner-2");
 
     // corner 5 followed: a 2.0 m apex, round, and its panel has the outside-corner control
@@ -74,18 +76,18 @@ test.describe("mouse, 1200 px", () => {
     await expect(panel).toContainText("Shaped on its own.");
     const match = panel.getByRole("button", { name: "Match corner 2" });
     await expect(match).toBeVisible();
-    await expect(checks(page)).not.toContainText("Checking", { timeout: 15_000 });
+    await onAdvanced(page, (c) => expect(c).not.toContainText("Checking", { timeout: 15_000 }));
     await shot(page, "3-corner-5-override");
     await match.click();
     await expect(panel).toContainText("Follows corner 2 (outside)");
     await expect(checkedOuter(panel)).toHaveText("Round");
     await expect(panel.getByLabel("Apex radius")).toHaveValue("2");
-    await expect(checks(page)).toContainText("No problems found.", { timeout: 15_000 });
+    await quickChecks(page, "No problems found.");
 
     // Medium on corner 5 by hand (Yeti's step 3) is kept and reported honestly; one undo takes it back
     await panel.getByRole("button", { name: /^Medium/ }).click();
     await expect(panel).toContainText("Shaped on its own.");
-    await expect(checks(page)).toContainText(/Lanes overlap by|Lane narrows by/, { timeout: 15_000 });
+    await quickChecks(page, /Lanes overlap by|Lane narrows by/);
     await page.keyboard.press("Control+z");
     await expect(panel.getByLabel("Apex radius")).toHaveValue("2");
     await expect(panel).toContainText("Follows corner 2 (outside)");
