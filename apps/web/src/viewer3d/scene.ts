@@ -5,10 +5,13 @@
 // A crossing's bridge (#71) carries the over pass: its carpet, pipes and racing line follow the bridge's profile over
 // the bridging feature's length, while the under pass stays on the floor and runs beneath the deck.
 //
+// In the designer (#85) the scene also has the guide's obstacles (the drawn-for venue's, never part of the layout) as
+// plain blocks, and the selected item's highlight is a mesh of its own.
+//
 // Positions are in three.js axes: x = plan x (east), y = up, z = −plan z (three's +z is south). Normals likewise.
-import { crossingCarpet, drawingArea, EYE_HEIGHT, PIPE_THICKNESS, PLAN_PALETTE, rostrumEye, type Area, type Built, type BuiltFeature, type Divider, type Point2, type RcTrack, type Side } from "@track-studio/engine";
+import { crossingCarpet, drawingArea, EYE_HEIGHT, PIPE_THICKNESS, PLAN_PALETTE, rostrumEye, type Area, type Built, type BuiltFeature, type Divider, type Obstacle, type Point2, type RcTrack, type Side } from "@track-studio/engine";
 
-export type Part = "area" | "carpet" | "pipe" | "jump" | "jumpSide" | "startA" | "startB" | "line" | "rostrum" | "rail";
+export type Part = "area" | "carpet" | "pipe" | "jump" | "jumpSide" | "startA" | "startB" | "line" | "rostrum" | "rail" | "guide" | "highlight";
 
 export interface MeshData {
   part: Part;
@@ -50,6 +53,8 @@ const COLOUR: Record<Part, string> = {
   line: PLAN_PALETTE["plan-line"],
   rostrum: PLAN_PALETTE["plan-rostrum"],
   rail: PLAN_PALETTE["plan-pipe"],
+  guide: PLAN_PALETTE["plan-obstacle"],
+  highlight: PLAN_PALETTE["plan-line"],
 };
 
 /** Collects one mesh. Takes plan coordinates (x, z, height) and normals (nx, up, nz). */
@@ -503,8 +508,11 @@ function addStart(a: Mesh, b: Mesh, built: Built, bridges: Bridge[]) {
     }
 }
 
-/** The whole layout: the area as the floor, carpet, pipes, jumps and bridges, start line and racing line. */
-export function buildScene({ area, built }: { area: Area; built: Built }): Scene3D {
+/**
+ * The whole layout: the area as the floor, carpet, pipes, jumps and bridges, start line and racing line; and in the
+ * designer, the guide's obstacles.
+ */
+export function buildScene({ area, built, obstacles = [] }: { area: Area; built: Built; obstacles?: Obstacle[] }): Scene3D {
   const floor = new Mesh();
   const L = area.length / 2, W = area.width / 2;
   floor.face([[-L, -W, 0], [L, -W, 0], [L, W, 0], [-L, W, 0]], [0, 1, 0]);
@@ -525,11 +533,99 @@ export function buildScene({ area, built }: { area: Area; built: Built }): Scene
     addRibbon(line, pts, true, () => LINE_WIDTH / 2, (i) => LINE_Y + y[i]);
   }
 
-  const meshes = [floor.done("area"), carpetMesh(built, bridges), pipeMesh(built.dividers ?? [], bridges), top.done("jump"), sides.done("jumpSide"), startA.done("startA"), startB.done("startB"), line.done("line")].filter(
+  const meshes = [floor.done("area"), carpetMesh(built, bridges), pipeMesh(built.dividers ?? [], bridges), top.done("jump"), sides.done("jumpSide"), startA.done("startA"), startB.done("startB"), line.done("line"), guideMesh(obstacles)].filter(
     (m) => m.indices.length > 0,
   );
   const shown = (built.crossings ?? []).flatMap((c, i) => (bridges.some((b) => b.crossings.includes(i)) ? [{ feature: c.bridge!.feature, over: c.over! }] : []));
   return { area, background: PLAN_PALETTE["plan-floor"], meshes, triangles: meshes.reduce((n, m) => n + m.indices.length / 3, 0), bridges: shown };
+}
+
+// ------------------------------------------------------------------------------------------- the designer (#85)
+
+/** The guide's obstacles stand this high: plain blocks, clearly not part of the layout. */
+export const GUIDE_HEIGHT = 1;
+const CIRCLE_SIDES = 16;
+
+/** The drawn-for venue's obstacles as plain blocks from the floor up to GUIDE_HEIGHT: circles as round posts. */
+export function guideMesh(obstacles: Obstacle[]): MeshData {
+  const m = new Mesh();
+  for (const o of obstacles) {
+    const ring: Point2[] =
+      o.type === "circle"
+        ? Array.from({ length: CIRCLE_SIDES }, (_, k) => [o.x + o.radius * Math.cos((2 * Math.PI * k) / CIRCLE_SIDES), o.z + o.radius * Math.sin((2 * Math.PI * k) / CIRCLE_SIDES)])
+        : rectRing(o.x, o.z, ((o.rotation ?? 0) * Math.PI) / 180, o.length / 2, o.width / 2);
+    addPrism(m, ring, 0, GUIDE_HEIGHT);
+  }
+  return m.done("guide");
+}
+
+/** A rectangle's corners, counter-clockwise: `half` along `angle` (radians from +x) and `across` to its left. */
+function rectRing(x: number, z: number, angle: number, half: number, across: number): Point2[] {
+  const t: Point2 = [Math.cos(angle), Math.sin(angle)], n: Point2 = [-t[1], t[0]];
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, c]) => [x + t[0] * half * a + n[0] * across * c, z + t[1] * half * a + n[1] * across * c]);
+}
+
+/** A convex ring (counter-clockwise) stood up from y0 to y1: its sides and a top. */
+function addPrism(m: Mesh, ring: Point2[], y0: number, y1: number) {
+  for (let k = 0; k < ring.length; k++) {
+    const a = ring[k], b = ring[(k + 1) % ring.length];
+    const [ux, uz] = unit(b[0] - a[0], b[1] - a[1]);
+    m.face([[a[0], a[1], y0], [b[0], b[1], y0], [b[0], b[1], y1], [a[0], a[1], y1]], [uz, 0, -ux]);
+  }
+  const top = ring.map(([x, z]) => m.vert(x, z, y1));
+  for (let k = 1; k + 1 < top.length; k++) m.tri(top[0], top[k], top[k + 1]);
+}
+
+/** What's selected in the designer, to highlight in 3D. A corner is given by its point (from the design). */
+export type Highlight = { kind: "feature"; i: number } | { kind: "point"; at: Point2 } | { kind: "start" } | null;
+
+/** The highlight stands this far out round a jump and this far over its top. */
+const HIGHLIGHT_MARGIN = 0.12;
+/** A corner's highlight: a post this wide and high on the corner's point. */
+const POST: [number, number] = [0.3, 1.2];
+
+/**
+ * The selected item as a box round it, drawn see-through over the layout: a jump's footprint up over its top, a post
+ * on a corner's point, or a low box across the lane at the start line. Null when there's nothing (yet) to show.
+ */
+export function highlightMesh(built: Built, h: Highlight): MeshData | null {
+  if (!h) return null;
+  const m = new Mesh();
+  if (h.kind === "feature") {
+    const f = built.features?.[h.i];
+    if (!f) return null;
+    const top = Math.max(f.height, ...f.profile.map((p) => p[1]));
+    addPrism(m, rectRing(f.x, f.z, (f.heading * Math.PI) / 180, f.length / 2 + HIGHLIGHT_MARGIN, f.width / 2 + HIGHLIGHT_MARGIN), 0, top + HIGHLIGHT_MARGIN);
+  } else if (h.kind === "point") {
+    addPrism(m, rectRing(h.at[0], h.at[1], 0, POST[0] / 2, POST[0] / 2), 0, POST[1]);
+  } else {
+    const s = built.startLine;
+    if (!s) return null;
+    addPrism(m, rectRing(s.x, s.z, (s.heading * Math.PI) / 180, 0.3, s.width / 2 + HIGHLIGHT_MARGIN), 0, 0.25);
+  }
+  return m.done("highlight");
+}
+
+/** The jump whose footprint has plan point p in it (the smallest, if they overlap), or null. */
+export function featureAt(built: Built, p: Point2): number | null {
+  let best: number | null = null, bestArea = Infinity;
+  (built.features ?? []).forEach((f, i) => {
+    const h = (f.heading * Math.PI) / 180, dx = p[0] - f.x, dz = p[1] - f.z;
+    const along = dx * Math.cos(h) + dz * Math.sin(h), across = -dx * Math.sin(h) + dz * Math.cos(h);
+    if (Math.abs(along) > f.length / 2 + 1e-6 || Math.abs(across) > f.width / 2 + 1e-6 || f.length * f.width >= bestArea) return;
+    [best, bestArea] = [i, f.length * f.width];
+  });
+  return best;
+}
+
+/** Whether two meshes are the same, data and colour (a new bake leaves most of them as they were). */
+export function sameMesh(a: MeshData, b: MeshData): boolean {
+  const eq = (x: ArrayLike<number>, y: ArrayLike<number>) => {
+    if (x.length !== y.length) return false;
+    for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
+    return true;
+  };
+  return a.part === b.part && a.colour === b.colour && eq(a.indices, b.indices) && eq(a.positions, b.positions) && eq(a.normals, b.normals);
 }
 
 // ------------------------------------------------------------------ rostrum (#84)
