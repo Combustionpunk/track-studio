@@ -2,6 +2,7 @@
 // #79) and an octagon (diagonal runs, #82) with the keys alone, with a visible cursor and focus ring and a live region
 // that announces each step and each refusal. Keyboard only (desktop layout), at 1200 px. SHOTS=<dir> saves screenshots.
 import { expect, test, type Page } from "@playwright/test";
+import { onAdvanced } from "./touch-helper.js";
 
 const BLANK = "/new/design?length=22&width=12&name=Keys";
 const SHOTS = process.env.SHOTS;
@@ -92,7 +93,7 @@ test("a figure of eight (a crossing) and an octagon (diagonal runs) from the key
   await keys(page, ...NE, "ArrowUp", ...NW, ...NW, ...times("ArrowLeft", 6), ...SW, ...SW, "ArrowDown", ...SE, ...SE);
   await expect(live(page)).toContainText("Loop closed");
   await expect(page.locator("g.ed-corner")).toHaveCount(8);
-  await expect(page.locator(".designer-side .checks-panel")).toContainText("No problems found.", { timeout: 15_000 });
+  await onAdvanced(page, (checks) => expect(checks).toContainText("No problems found.", { timeout: 15_000 }));
   await shot(page, "5-octagon");
 });
 

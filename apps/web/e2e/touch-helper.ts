@@ -1,5 +1,5 @@
 // Shared by the touch e2e specs (#16, #106): fingers on the screen through CDP, and where plan points and squares are.
-import type { CDPSession, Page } from "@playwright/test";
+import type { CDPSession, Locator, Page } from "@playwright/test";
 
 export type XY = [number, number];
 
@@ -75,4 +75,13 @@ export async function cell(page: Page, c: number, r: number): Promise<XY> {
   });
   const x = g.x + (c + 0.5) * 2, svgY = g.y + g.h - (r + 0.5) * 2;
   return screen(page, x, -svgY);
+}
+
+/** The checks are on the Advanced tab (#113): go there, run `fn` on the checks panel, and come back to Quick. */
+export async function onAdvanced<T>(page: Page, fn: (checks: Locator) => Promise<T>): Promise<T> {
+  const mode = page.getByRole("group", { name: "Mode" });
+  await mode.getByRole("button", { name: "Advanced" }).click();
+  const out = await fn(page.locator(".designer-side .checks-panel:not(.venue-check)"));
+  await mode.getByRole("button", { name: "Quick" }).click();
+  return out;
 }

@@ -187,17 +187,16 @@ describe("hints on crossing checks", () => {
 
   const checksPanel = (doc: RcTrack, view: "quick" | "advanced") =>
     renderToStaticMarkup(<ChecksPanel checks={doc.built!.checks} features={doc.built!.features} view={view} pending={false} blocked={null} ready={false} onShow={() => {}} onMakeCrossover={() => {}} onBridge={() => {}} />);
-  it("the checks list shows them; Quick offers a one-tap Make it a crossover for a low tabletop", () => {
-    expect(checksPanel(fixture("unbridged-figure8"), "quick")).toContain("Add a crossover (or a long tabletop) here.");
+  // the checks moved to Advanced (#113), and the one-tap fixes with them: the list offers them in either mode
+  it.each(["quick", "advanced"] as const)("%s: the checks list shows them, with a one-tap Make it a crossover for a low tabletop", (view) => {
+    expect(checksPanel(fixture("unbridged-figure8"), view)).toContain("Add a crossover (or a long tabletop) here.");
     const low = fixture("tabletop-low-figure8");
-    expect(checksPanel(low, "quick")).toContain("Make it a crossover");
-    expect(checksPanel(low, "quick")).toContain("Too low to drive under: use a Crossover, or raise it to 0.40 m in Advanced.");
-    expect(checksPanel(low, "advanced")).not.toContain("Make it a crossover");
-    expect(checksPanel(fixture("crossover-low-figure8"), "quick")).not.toContain("Make it a crossover");
+    expect(checksPanel(low, view)).toContain("Make it a crossover");
+    expect(checksPanel(low, view)).toContain("Too low to drive under: use a Crossover, or raise it to 0.40 m in Advanced.");
+    expect(checksPanel(fixture("crossover-low-figure8"), view)).not.toContain("Make it a crossover");
   });
-  it("Quick offers Make it a crossover on an unbridged crossing too; Advanced doesn't", () => {
-    expect(checksPanel(eight, "quick")).toContain("Make it a crossover");
-    expect(checksPanel(eight, "advanced")).not.toContain("Make it a crossover");
+  it.each(["quick", "advanced"] as const)("%s: Make it a crossover on an unbridged crossing too", (view) => {
+    expect(checksPanel(eight, view)).toContain("Make it a crossover");
   });
 });
 
