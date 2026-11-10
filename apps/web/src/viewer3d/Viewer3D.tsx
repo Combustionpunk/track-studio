@@ -261,7 +261,9 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       s.parts.forEach(({ mesh }) => dispose(mesh));
       s.parts.clear();
       renderer.dispose();
-      renderer.forceContextLoss(); // give the context back now: a browser keeps only so many, and 2D-and-back makes a new one each time
+      // give the context back now (unless it's already gone): a browser keeps only so many, and 2D-and-back makes a new
+      // one each time
+      if (!renderer.getContext().isContextLost()) renderer.forceContextLoss();
       canvas.remove();
       stage.current = null;
       delete box.dataset.ready;
