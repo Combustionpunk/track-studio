@@ -495,7 +495,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         // A: the Add point tool on or off (#114)
         e.preventDefault();
         setTool((t) => (t.kind === "add" ? { kind: "select" } : { kind: "add" }));
-      } else if (toolRef.current.kind === "add" && !mod && !e.altKey && ["n", "N", "p", "P"].includes(e.key)) {
+      } else if (toolRef.current.kind === "add" && !draftRef.current.laying && !mod && !e.altKey && ["n", "N", "p", "P"].includes(e.key)) {
         // N / P: pick the corner to add after, from the keyboard
         e.preventDefault();
         const n = draftRef.current.design.points.length;
@@ -503,7 +503,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         const i = stepCorner(n, s?.kind === "point" ? s.i : null, e.key === "n" || e.key === "N" ? 1 : -1);
         setSel((selRef.current = { kind: "point", i }));
         say(`Corner ${i + 1} of ${n}.`);
-      } else if (toolRef.current.kind === "add" && e.key === "Enter" && !mod && !isControl(e.target)) {
+      } else if (toolRef.current.kind === "add" && !draftRef.current.laying && e.key === "Enter" && !mod && !isControl(e.target)) {
         // Enter: a point halfway along the straight after the selected corner, one undo step
         e.preventDefault();
         const s = selRef.current;
@@ -2499,7 +2499,7 @@ export function SelectionPanel({
 }
 
 /** Quick's "How to draw" (#113), heading its right-hand column: the gestures of the step it's on. */
-function QuickHowTo({ laying = false }: { laying?: boolean }) {
+export function QuickHowTo({ laying = false }: { laying?: boolean }) {
   return (
     <details className="sel-panel shortcuts">
       <summary>How to draw</summary>
@@ -2522,7 +2522,10 @@ function QuickHowTo({ laying = false }: { laying?: boolean }) {
             <b>Drag</b> a corner to move it, or its inside handle to cut the corner back. With <b>Snap to lanes</b> on, corners snap to a lane line; <kbd>Alt</kbd> places them freely.
           </li>
           <li>
-            <b>Click the floor</b> to add a corner: after the selected corner, or into the track it's near.
+            <b>Add point</b> (or <kbd>A</kbd>), then click the floor or the track to add a corner: after the selected corner, or
+            into the track it's near. It stays on until you press it again, <kbd>A</kbd> or <kbd>Esc</kbd>; a plain click never
+            adds a corner. Keyboard: with it on, <kbd>N</kbd> / <kbd>P</kbd> pick a corner and <kbd>Enter</kbd> adds one halfway
+            to the next.
           </li>
           <li>
             <kbd>Delete</kbd>, <kbd>Backspace</kbd> or <b>right-click</b> a corner to remove it.

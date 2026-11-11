@@ -10,7 +10,7 @@ import { historyReducer, type HistoryState } from "../src/designer/history.js";
 
 vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useBlocker: () => ({ state: "unblocked" }) }));
 vi.mock("../src/components/PlanView.js", async (orig) => ({ ...(await orig<typeof import("../src/components/PlanView.js")>()), PlanView: () => null }));
-const { Designer, draftFromDoc, newDraft, Shortcuts, TOUCH_QUERY } = await import("../src/designer/Designer.js");
+const { Designer, draftFromDoc, newDraft, QuickHowTo, Shortcuts, TOUCH_QUERY } = await import("../src/designer/Designer.js");
 const { MODE_KEY } = await import("../src/designer/mode.js");
 const { SessionContext } = await import("../src/lib/session.js");
 type Draft = ReturnType<typeof draftFromDoc>;
@@ -135,6 +135,17 @@ describe("the hints", () => {
     expect(how).toMatch(/<kbd>A<\/kbd>/);
     expect(how).toMatch(/<kbd>Enter<\/kbd>/);
     expect(how).not.toMatch(/<b>Click a straight<\/b> to add a point there/);
+  });
+
+  it("Quick's \"How to draw\" says the same for the floor, and no longer that a bare click adds a corner", () => {
+    const how = renderToStaticMarkup(<QuickHowTo />);
+    expect(how).toMatch(/Add point/);
+    expect(how).toMatch(/<kbd>A<\/kbd>/);
+    expect(how).toMatch(/<kbd>N<\/kbd>/);
+    expect(how).toMatch(/<kbd>Enter<\/kbd>/);
+    expect(how).not.toMatch(/<b>Click the floor<\/b> to add a corner/);
+    // laying the lanes: there's no track yet, so no Add point
+    expect(renderToStaticMarkup(<QuickHowTo laying />)).not.toMatch(/Add point/);
   });
 });
 
