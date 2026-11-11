@@ -1,6 +1,7 @@
 // Browser tests (Playwright): tablet touch in the designer (#16). Run with `pnpm --filter @track-studio/web test:e2e`.
 // They start the web app on its own (Vite, no API server: blank designs need none). PW_CHROMIUM points at a Chromium
-// to use instead of Playwright's download (CT 102 needs one with local system libraries; see the PR notes).
+// to use instead of Playwright's download (CT 102 needs one with local system libraries; see the PR notes). CI runs
+// them on every PR that touches the web app (.github/workflows/e2e.yml, #119).
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 5179);
@@ -11,10 +12,12 @@ export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
   fullyParallel: true,
-  retries: 0,
-  reporter: [["list"]],
+  // in CI (.github/workflows/e2e.yml) a test gets one retry: a few are known to fail once under load, then pass (#93)
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [["list"], ["github"]] : [["list"]],
   outputDir: "../../node_modules/.e2e-results",
-  use: { baseURL: `http://localhost:${PORT}`, trace: "off" },
+  // in CI, keep a trace and a screenshot of each failure for the workflow's artefact
+  use: { baseURL: `http://localhost:${PORT}`, trace: process.env.CI ? "retain-on-failure" : "off", screenshot: process.env.CI ? "only-on-failure" : "off" },
   webServer: { command: `pnpm exec vite --port ${PORT} --strictPort`, url: `http://localhost:${PORT}`, reuseExistingServer: !process.env.CI, timeout: 60_000 },
   projects: [
     { name: "tablet-landscape", use: { ...touch, viewport: { width: 1024, height: 768 } } },

@@ -371,6 +371,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   liveRef.current = live;
   const selRef = useRef(sel);
   selRef.current = sel;
+  // what pressed an Advanced corner point last: a touch long-press also fires contextmenu (ADR 0005), so only a
+  // mouse's right-click deletes (#119). QuickCorner keeps its own, lastPointer.
+  const pointPointer = useRef("mouse");
 
   const update = useCallback((fn: (d: Draft) => Draft, group?: string) => hist.set(fn(draftRef.current), group), [hist]);
   const setPoints = (fn: (p: DesignPoint[]) => DesignPoint[], group?: string) => update((d) => ({ ...d, design: { ...d.design, points: fn(d.design.points) } }), group);
@@ -1166,11 +1169,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             cx={p.x}
             cy={-p.z}
             r={(sel?.kind === "point" && sel.i === i ? HANDLE_PX + 2 : HANDLE_PX) * m}
-            onPointerDown={(e) => onPointDown(e, i)}
+            onPointerDown={(e) => {
+              pointPointer.current = e.pointerType;
+              onPointDown(e, i);
+            }}
             onPointerEnter={() => setHoverPt(i)}
             onPointerLeave={() => setHoverPt(null)}
             onContextMenu={(e) => {
               e.preventDefault();
+              if (pointPointer.current !== "mouse") return;
               setSel({ kind: "point", i });
               selRef.current = { kind: "point", i };
               deleteSelection();
