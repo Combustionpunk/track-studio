@@ -370,6 +370,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const liveRef = useRef<Live>(live);
   liveRef.current = live;
   const selRef = useRef(sel);
+  // what pressed a corner point last: a touch long-press also fires contextmenu (ADR 0005), so only a mouse's
+  // right-click deletes (#119); Quick's corner keeps the same note for itself
+  const pointPointer = useRef("mouse");
   selRef.current = sel;
 
   const update = useCallback((fn: (d: Draft) => Draft, group?: string) => hist.set(fn(draftRef.current), group), [hist]);
@@ -1166,11 +1169,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             cx={p.x}
             cy={-p.z}
             r={(sel?.kind === "point" && sel.i === i ? HANDLE_PX + 2 : HANDLE_PX) * m}
-            onPointerDown={(e) => onPointDown(e, i)}
+            onPointerDown={(e) => {
+              pointPointer.current = e.pointerType;
+              onPointDown(e, i);
+            }}
             onPointerEnter={() => setHoverPt(i)}
             onPointerLeave={() => setHoverPt(null)}
             onContextMenu={(e) => {
               e.preventDefault();
+              if (pointPointer.current !== "mouse") return;
               setSel({ kind: "point", i });
               selRef.current = { kind: "point", i };
               deleteSelection();
