@@ -17,17 +17,15 @@ jobs:
   playwright:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Microsoft's Playwright image: Node and the browsers with their system libraries, so there's no apt step (the
+    # runner's apt mirrors failed to resolve on the first runs). Its version must match @playwright/test in
+    # apps/web/package.json; bump both together.
+    container: mcr.microsoft.com/playwright:v1.64.1-noble
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - run: corepack enable && pnpm install --frozen-lockfile
         env:
           COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
-      - name: Install Chromium
-        working-directory: apps/web
-        run: pnpm exec playwright install --with-deps chromium
       - name: Playwright
         working-directory: apps/web
         run: pnpm test:e2e
