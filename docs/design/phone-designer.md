@@ -5,7 +5,7 @@ what changes on a tablet, what the code needs, and the build tickets for the Boa
 `phone/` (static HTML/CSS on the app's tokens, 375 × 812). This is design only: nothing in the app changes with it.
 
 Today the designer below 640 px shows a view-only plan and says "Design on a laptop or tablet"
-(`Designer375.dc.html`). The desktop layout is three columns (palette, plan, side panel) under a bar of fifteen
+(`Designer375.dc.html`). The desktop layout is three columns (palette, plan, side panel) under a bar of ten
 controls; the tablet layout (#16) is the plan with a dock of 44 px buttons and a floating sheet. Neither fits 375 px:
 the bar alone wraps to four rows, and the side panel would leave no plan.
 
@@ -66,7 +66,7 @@ Where every current control goes:
 | Reverse direction | Overflow menu |
 | Save track / Save revision, the note popover | Overflow menu; the note is a sheet |
 | Submit track, and why it's blocked | Overflow menu; the row's second line says why ("Waiting on 1 error · see Checks") |
-| Jumps palette, Start line, Crossover (Advanced) | The Jump sheet, from the toolbar's Jump button |
+| Jumps palette (with Crossover), Start line | The Jump sheet, from the toolbar's Jump button |
 | Add point | Toolbar |
 | Snap to lanes / the Snap radio (Advanced) | The Jump sheet's last row (Quick: a switch; Advanced: the radio) |
 | Zoom buttons, layers | Pinch; Zoom to fit in the overflow; layers stay on by default (a stage 2 row in the overflow if asked for) |
@@ -86,7 +86,7 @@ Mockups: [`phone/02-selected-point.html`](phone/02-selected-point.html) (a corne
 [`phone/03-checks-sheet.html`](phone/03-checks-sheet.html) (Checks).
 
 Panels become **bottom sheets** that slide up between the plan and the toolbar, so Undo and Delete stay in reach
-while a sheet is open. A sheet has a grab bar, a close button, and two heights: **peek** (its content, about a third
+while a sheet is open (the overflow menu is the one exception: it is modal, over a scrim). A sheet has a grab bar, a close button, and two heights: **peek** (its content, about a third
 of the screen) and **full** (up to 72 px below the header, scrolling inside). Pull the grab bar to change height;
 pull down past peek, tap Close, or tap the plan to dismiss. One sheet at a time. The sheets:
 
@@ -98,7 +98,7 @@ pull down past peek, tap Close, or tap the plan to dismiss. One sheet at a time.
 - **Checks**: the checks pill opens it at full height: counts, the rows in the same words as the Advanced tab's
   Checks, with a 44 px Show on each that pans the plan to the problem and drops the sheet to peek; the "Submit is
   waiting on…" line; the venue check; the figures at the bottom.
-- **Jump**: Tabletop, Double, Kicker, Whoops (and Step-up, Step-down, Bump, Crossover in Advanced) as a grid of
+- **Jump**: Tabletop, Double, Kicker, Whoops, Crossover (and Step-up, Step-down, Bump in Advanced) as a grid of
   44 px chips with the plan symbols, Start line, and the snap setting. Picking one arms the tool and closes the sheet;
   the hint says "Tap on the racing line to place it".
 - **How to draw**: the Quick or Advanced text, with the keyboard lines removed and "tap" for "click".
@@ -109,7 +109,8 @@ pull down past peek, tap Close, or tap the plan to dismiss. One sheet at a time.
 
 Mockup: [`phone/04-overflow-menu.html`](phone/04-overflow-menu.html).
 
-One menu, from ⋯ in the header, as a bottom sheet over a scrim, for the things done once per session: Save revision
+One menu, from ⋯ in the header, as a bottom sheet with a Close button, over a scrim that covers the plan and the
+toolbar (it is the one modal sheet; tap the scrim or Close to dismiss), for the things done once per session: Save revision
 (the primary row), Submit track (disabled with the reason as its second line), Mode (Quick | Advanced), Reverse
 direction, Zoom to fit, Layout details, How to draw, Back to track. Eight rows of 52 px fit without scrolling. Help
 is How to draw; there is no separate help page.
@@ -127,9 +128,10 @@ is How to draw; there is no separate help page.
   goes when the finger lifts. Same for the apex handle (shows the radius), jumps and the start line (show the
   distance along the lap).
 - **Long press for the context menu.** Holding a corner, jump or the start line for 500 ms (`LONG_PRESS_MS`) opens
-  a small sheet of actions for it: Delete, and in Advanced Make hairpin (`H`) and Square / Round outside corner. This
+  a small sheet of actions for it: Delete, Square / Round outside corner, and in Advanced Make hairpin (`H`). This
   keeps ADR 0005: a long press never deletes by itself, because Chrome fires `contextmenu` on a long press; the
-  app's `contextmenu` handler must do nothing on touch. On the tablet a long press on a corner opens its panel
+  app's `contextmenu` handlers must do nothing on touch (Quick's corner already checks the pointer was a mouse;
+  Advanced's corner point deletes on any `contextmenu` today and needs the same guard). On the tablet a long press on a corner opens its panel
   today; it moves to the same context sheet there, and a tap opens the panel.
 - **Nothing relies on hover.** The hint chip carries what the desktop puts in `title` tooltips; the jump and
   check hover cards on the plan already open on tap in `PlanView`.
@@ -147,7 +149,8 @@ changes:
 - The floating `designer-sheet` on 1024 px tablets becomes the same `Sheet` component docked to the right edge
   instead of the bottom, so the two layouts share one piece of code; it looks as it does now.
 
-Advanced mode on tablets keeps the desktop layout as it does today, with 44 px controls.
+Advanced mode on tablets keeps the desktop layout as it does today, with its 36 px controls; making them 44 px is
+a follow-up, not part of this plan.
 
 ## What the code needs
 
@@ -178,15 +181,18 @@ Reading `apps/web/src/designer/Designer.tsx` (2,574 lines), `PlanView.tsx` and `
 - **Long press** (`press` state in `Designer.tsx`): today it selects a corner and opens the tablet sheet. It opens
   the context sheet instead; `contextmenu` from a touch is ignored (`pointerType` is remembered from the press).
 - **The toolbar's Delete** calls `deleteSelection`; the selection sheet's Delete button goes on touch.
-- **Header**: the designer at 375 px hides the app header, as the tablet does (`#root:has(.designer-touch)`), so the
-  designer owns the screen; Back goes to the track page.
+- **Header**: the designer at 375 px hides the app header so the designer owns the screen; Back goes to the track
+  page. This is new: on tablets the designer only fills what the header leaves (`#root:has(.designer-touch)`).
+- **3D on a phone**: the 3D preview (#85) is switched off below `PHONE_QUERY` today ("not on phones" in
+  `Designer.tsx`). Ticket 3 lifts that; the fallback to the 2D plan when WebGL is missing or lost stays as it is.
+  The cost of three.js on a phone is the unknown to measure there.
 - **The messages** (`designer-messages`) become one dismissible banner at 375 px; the restore prompt must still be
   reachable (it is the only way back to unsaved work).
 - **Tests.** Vitest static renders for the phone layout (as `test/checks-tab.test.tsx` does with a mocked bake), and
   Playwright with `viewport: 375 × 812, hasTouch: true` using `e2e/touch-helper.ts` (`Touch`, `screen`, `cell`), for:
   tap selects and opens the sheet, drag moves with the loupe showing, long press opens the context sheet and deletes
-  nothing, pinch zooms, the overflow saves, Checks' Show pans. The known Chromium CDP touch quirks are in
-  `docs/agents` memory notes and the helper.
+  nothing, pinch zooms, the overflow saves, Checks' Show pans. The known Chromium CDP touch quirks are
+  handled in the helper.
 - **No change to the track format**: everything here is layout; `design` and `built` are untouched.
 - **Branding**: tokens only (`tokens.json` via `theme/tokens.css`), Lucide icons (`mouse-pointer-2`, `plus`,
   `layout-grid`, `trash-2`, `undo-2`, `redo-2`, `box`, `ellipsis`, `save`, `send`, `sliders-horizontal`,
@@ -202,7 +208,7 @@ A 44 px steps row under the header. Step 1's plan is zoomed so a 2 m square is 5
 on the tablet, and when it comes within 48 px of an edge the plan scrolls under it at a steady rate (edge
 auto-scroll), stopping when the finger moves back in. A mini-map, bottom right, shows the whole area, the squares
 painted so far and the part on screen; tapping it jumps there. The ring on the first square closes the loop as now.
-Step 1's toolbar: Start again · Undo · Redo · Fit · Shape it (enabled once the loop closes; the same move as the
+Step 1's toolbar: Start again · Undo · Redo · Zoom to fit · Shape it (enabled once the loop closes; the same move as the
 desktop's automatic step change, made explicit so a finger lifting at the ring doesn't surprise). Step 2 is the stage
 1 layout. The New track page gets a 375 px layout for venue, area and lane width in the same ticket.
 
@@ -215,8 +221,9 @@ For the Board to approve, in build order. Stage 1 is tickets 1 to 7; stage 2 is 
 2. **Designer: `Sheet` component** — peek / full / closed bottom sheet with grab bar, swipe and reduced motion;
    the tablet's floating sheet moves onto it.
 3. **Designer on a phone: header, plan and bottom toolbar** — replaces the view-only screen below 640 px (and
-   coarse pointers below 900 px) with the stage 1 layout; Select, Add point, Jump, Delete, Undo, Redo, 3D; checks
-   pill; hint; scale bar; pinch and two-finger pan.
+   coarse pointers below 900 px) with the stage 1 layout; Select, Add point, Jump, Delete, Undo, Redo, 3D (lifting
+   the phone exclusion of the 3D preview); checks pill; hint; scale bar; pinch and two-finger pan; the app header
+   hidden.
 4. **Designer on a phone: selection, Checks, Jump and How to draw sheets** — the four sheets on `Sheet`, with Show
    panning the plan, the stepper for the apex radius, and the Jump sheet arming the tool.
 5. **Designer on a phone: overflow menu, save, submit and layout details** — the ⋯ menu; the save note and layout
@@ -224,7 +231,8 @@ For the Board to approve, in build order. Stage 1 is tickets 1 to 7; stage 2 is 
 6. **Designer: drag loupe** — the magnifier while a finger drags a corner, apex handle, jump or start line, on
    phones and tablets; the position in metres.
 7. **Designer: long-press context sheet** — Delete (and the Advanced actions) from a long press on touch; no
-   delete from the press itself (ADR 0005); the tablet's long press moves to it.
+   delete from the press itself (ADR 0005), with the touch guard added to Advanced's corner point too; the tablet's
+   long press moves to it.
 8. **Quick mode on a phone: lay the lanes** — zoomed grid, edge auto-scroll, mini-map, the steps row and step 1's
    toolbar, Shape it.
 9. **New track page at 375 px** — venue, area and lane width on a phone, including the forum venue picker.
