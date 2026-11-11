@@ -16,7 +16,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["github"]] : [["list"]],
   outputDir: "../../node_modules/.e2e-results",
-  use: { baseURL: `http://localhost:${PORT}`, trace: "off" },
+  // in CI, keep a trace and a screenshot of each failure for the workflow's artefact
+  use: { baseURL: `http://localhost:${PORT}`, trace: process.env.CI ? "retain-on-failure" : "off", screenshot: process.env.CI ? "only-on-failure" : "off" },
   webServer: { command: `pnpm exec vite --port ${PORT} --strictPort`, url: `http://localhost:${PORT}`, reuseExistingServer: !process.env.CI, timeout: 60_000 },
   projects: [
     { name: "tablet-landscape", use: { ...touch, viewport: { width: 1024, height: 768 } } },

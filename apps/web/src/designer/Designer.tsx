@@ -370,10 +370,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const liveRef = useRef<Live>(live);
   liveRef.current = live;
   const selRef = useRef(sel);
-  // what pressed a corner point last: a touch long-press also fires contextmenu (ADR 0005), so only a mouse's
-  // right-click deletes (#119); Quick's corner keeps the same note for itself
-  const pointPointer = useRef("mouse");
   selRef.current = sel;
+  // what pressed an Advanced corner point last: a touch long-press also fires contextmenu (ADR 0005), so only a
+  // mouse's right-click deletes (#119). QuickCorner keeps its own, lastPointer.
+  const pointPointer = useRef("mouse");
 
   const update = useCallback((fn: (d: Draft) => Draft, group?: string) => hist.set(fn(draftRef.current), group), [hist]);
   const setPoints = (fn: (p: DesignPoint[]) => DesignPoint[], group?: string) => update((d) => ({ ...d, design: { ...d.design, points: fn(d.design.points) } }), group);
