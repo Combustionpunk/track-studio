@@ -4,7 +4,7 @@ name: CI report
  
 on:
   workflow_run:
-    workflows: ["PR checks", "Deploy config"]
+    workflows: ["PR checks", "Deploy config", "E2E"]
     types: [completed]
  
 permissions:

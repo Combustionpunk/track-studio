@@ -1,0 +1,43 @@
+# Browser tests (Playwright) for the web app: tablet touch and desktop mouse in the designer, the 3D viewer, build
+# sheets. They start Vite alone (no API server); see apps/web/playwright.config.ts. Added to CI by #119, which needed
+# the touch long-press tests to run on every PR. No secrets; only the repo's own code runs.
+name: E2E
+
+on:
+  pull_request:
+    paths: [apps/web/**, packages/engine/**, package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, .github/workflows/e2e.yml]
+  push:
+    branches: [main]
+    paths: [apps/web/**, packages/engine/**, package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, .github/workflows/e2e.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && pnpm install --frozen-lockfile
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      - name: Install Chromium
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Playwright
+        working-directory: apps/web
+        run: pnpm test:e2e
+        env:
+          CI: "true"
+      - name: Keep the failures' traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: node_modules/.e2e-results/
+          retention-days: 7
+          if-no-files-found: ignore
