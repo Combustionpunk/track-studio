@@ -193,6 +193,9 @@ Reading `apps/web/src/designer/Designer.tsx` (2,574 lines), `PlanView.tsx` and `
   tap selects and opens the sheet, drag moves with the loupe showing, long press opens the context sheet and deletes
   nothing, pinch zooms, the overflow saves, Checks' Show pans. The known Chromium CDP touch quirks are
   handled in the helper.
+  `test/phone-design.test.ts` keeps this plan honest about today's code (`PHONE_QUERY`, `LONG_PRESS_MS` and how
+  they are used); ticket 3 changes how they are used, so that check is retired or loosened when ticket 3 starts, and
+  the mockup checks (tokens, fonts, icons, 44 px) stay.
 - **No change to the track format**: everything here is layout; `design` and `built` are untouched.
 - **Branding**: tokens only (`tokens.json` via `theme/tokens.css`), Lucide icons (`mouse-pointer-2`, `plus`,
   `layout-grid`, `trash-2`, `undo-2`, `redo-2`, `box`, `ellipsis`, `save`, `send`, `sliders-horizontal`,

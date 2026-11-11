@@ -19,8 +19,9 @@ COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile
 
 COPY reference reference
-# the plan palette tests compare with the design tokens
-COPY docs/design/tokens.json docs/design/tokens.json
+# the web tests read the design docs: the plan palette tests compare with tokens.json, and the phone designer design
+# test (apps/web/test/phone-design.test.ts) checks the plan and mockups
+COPY docs/design docs/design
 COPY packages/engine packages/engine
 COPY apps/server apps/server
 COPY apps/web apps/web

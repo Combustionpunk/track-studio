@@ -1,6 +1,6 @@
 // Checks the production deploy files (docker-compose.prod.yml, deploy/) hang together. CI also runs
 // `docker compose config` and `caddy validate` on them (.github/workflows/deploy-config.yml).
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ROOT_DIR } from "../src/config.js";
@@ -106,7 +106,7 @@ describe("CI image check", () => {
   const smoke = read("deploy/smoke-image.sh");
 
   it("runs on PRs and pushes to main that touch the image's inputs", () => {
-    const paths = ["Dockerfile", "package.json", "pnpm-workspace.yaml", "tsconfig.base.json", "docs/design/tokens.json", "apps/**", "packages/**", "pnpm-lock.yaml", "docker-compose.prod.yml", ".github/workflows/deploy-config.yml"];
+    const paths = ["Dockerfile", "package.json", "pnpm-workspace.yaml", "tsconfig.base.json", "docs/design/**", "apps/**", "packages/**", "pnpm-lock.yaml", "docker-compose.prod.yml", ".github/workflows/deploy-config.yml"];
     for (const trigger of ["pull_request", "push"]) {
       const listed = block(workflow, "on", trigger).match(/paths: \[(.*)\]/)?.[1].split(/,\s*/) ?? [];
       expect(listed).toEqual(expect.arrayContaining(paths));
@@ -124,9 +124,11 @@ describe("CI image check", () => {
   });
 
   it("gives the build stage the files the tests it runs read", () => {
-    // packages/engine/test/plan.test.ts and apps/web/test/plan.test.ts compare the plan palette with tokens.json
+    // packages/engine/test/plan.test.ts and apps/web/test/plan.test.ts compare the plan palette with tokens.json, and
+    // apps/web/test/phone-design.test.ts reads docs/design/phone-designer.md and docs/design/phone/: the whole folder goes in
     const buildStage = read("Dockerfile").split(/^FROM .* AS runtime$/m)[0];
-    expect(buildStage).toMatch(/^COPY docs\/design\/tokens\.json docs\/design\/tokens\.json$/m);
+    expect(buildStage).toMatch(/^COPY docs\/design docs\/design$/m);
+    for (const f of ["tokens.json", "phone-designer.md", "phone/phone.css"]) expect(existsSync(join(ROOT_DIR, "docs/design", f)), f).toBe(true);
   });
 
   it("smoke-tests the built image", () => {
