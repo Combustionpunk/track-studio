@@ -21,6 +21,7 @@ The approved look for Track Studio v1 (#2, #3). Every UI ticket builds to these 
 | Designer, Quick mode | `Designer.dc.html` (1200px) | `DesignerTablet.dc.html` (1024 × 768), `Designer375.dc.html` (view only) | #11, #14, #15, #16 |
 | Venue editor | `Venue.dc.html` (1200px) | `Venue375.dc.html` (read only) | #12 |
 | Build sheet | `BuildSheet.dc.html` (A3 landscape, 1587 × 1123 at 96 dpi) | A4: same layout, scaled | #17 |
+| Designer on a phone (plan, not built yet) | — | `../phone/01-plan-toolbar.html` to `05-quick-mode.html` (375 × 812), on `phone.css`; the plan is `../phone-designer.md` | #117 |
 
 `Main.dc.html` is the library; the name comes from the design canvas.
 
