@@ -59,6 +59,8 @@ export const routes: RouteObject[] = [
       { path: "/embed/:id", element: <Embed /> },
       // the build sheet prints without the site's chrome
       { path: "/t/:id/build", element: <BuildSheetPage /> },
+      // development only: a page to try the phone's bottom sheet on (#121); production builds leave it out
+      ...(import.meta.env.DEV ? [{ path: "/dev/sheet", lazy: () => import("./pages/SheetDemo.js").then((m) => ({ Component: m.SheetDemo })) }] : []),
       {
         element: <Layout />,
         children: [

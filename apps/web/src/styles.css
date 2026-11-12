@@ -865,3 +865,24 @@ select.ts-input { padding: 0 var(--space-2); }
 /* Quick: why Submit is waiting, by the button (#113); the checks themselves are on the Advanced tab */
 .submit-why-bar { margin: 0; flex: 1 1 260px; min-width: 0; font-size: 13px; line-height: 18px; color: var(--header-text); }
 .submit-why-bar .linkish { color: inherit; }
+/* Phone: the bottom sheet (#121, components/Sheet.tsx). Fixed to the screen above the toolbar (its `bottom`, max and
+   full heights are set inline from the toolbar's height and the home-indicator inset); peek is its content up to a third
+   of the screen. Not the tablet's .designer-sheet. */
+.bottom-sheet { position: fixed; left: 0; right: 0; z-index: 30; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--bg-raised); border-top: 1px solid var(--line); box-shadow: var(--shadow-float); color: var(--text); font: 400 15px/22px var(--font-body); outline: none; interpolate-size: allow-keywords; transition: height 200ms ease; animation: bottom-sheet-in 200ms ease; }
+.bottom-sheet--dragging { transition: none; }
+.bottom-sheet--tucked { pointer-events: none; }
+.bottom-sheet-grab { position: relative; flex: none; height: var(--touch-target); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.bottom-sheet-handle { display: flex; justify-content: center; width: 100%; height: 100%; padding: var(--space-2) 0 0; border: 0; background: transparent; cursor: grab; touch-action: none; }
+.bottom-sheet-handle:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
+.bottom-sheet-bar { width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); }
+.bottom-sheet-close { position: absolute; top: var(--space-1); right: var(--space-1); width: var(--touch-target); height: var(--touch-target); padding: 0; justify-content: center; }
+.bottom-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-4) var(--space-4); }
+.bottom-sheet-body h2 { margin-bottom: var(--space-3); font: 500 20px/26px var(--font-heading); }
+.bottom-sheet-scrim { position: fixed; inset: 0; z-index: 29; background: var(--bg-sunken); opacity: 0.55; }
+@keyframes bottom-sheet-in { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .bottom-sheet { animation: none; transition: none; } }
+/* the bottom sheet's demo page (/dev/sheet, development only) */
+.sheet-demo { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
+.sheet-demo-plan { flex: 1 1 auto; display: grid; place-items: center; padding: var(--space-4); background: var(--plan-floor); color: var(--text-muted); font-size: 13px; line-height: 18px; text-align: center; touch-action: none; }
+.sheet-demo-toolbar { flex: none; display: flex; justify-content: space-around; align-items: flex-start; padding-top: var(--space-1); background: var(--bg-raised); border-top: 1px solid var(--line); }
+.sheet-demo-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: var(--touch-target); height: 56px; padding: 0 var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: 600 11px/14px var(--font-body); }
