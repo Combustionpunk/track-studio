@@ -3,12 +3,11 @@
 // Quick mode (the default) lays the lanes (step 1, lanes.ts), then shapes the corners by apex radius (step 2, shape.ts);
 // Advanced shows every per-corner control. See mode.ts. On a tablet, Quick mode has its own layout (#16): the plan
 // with a dock of 44 px+ controls, pinch and pan with two fingers, long-press a corner for its panel.
+// The state (draft, history, bake, tool, selection, snap) and the plan's editing overlay live here; the bar, palette,
+// plan chrome and panels are components taking props (DesignerBar, ToolPalette, PlanOverlays, SidePanels), and
+// DesignerLayout places them for a laptop, a tablet or a phone (#120).
 import {
   ALL_PLAN_LAYERS,
-  BRIDGE_CLEARANCE,
-  CROSSOVER_HEIGHT,
-  CROSSOVER_RAMP,
-  FEATURE_DEFAULTS,
   outerStyle,
   drawingArea,
   planLayers,
@@ -17,11 +16,9 @@ import {
   type BuiltFeature,
   type Check,
   type CheckLevel,
-  type Corner,
   type DesignFeature,
   type DesignPoint,
   type FeatureType,
-  type Obstacle,
   type PlanLayers,
   type Point2,
   type DrawnFor,
@@ -29,16 +26,13 @@ import {
   type RcVenue,
   type Side,
 } from "@track-studio/engine";
-import { ArrowRightLeft, ChevronLeft, CircleCheck, CircleX, Info, Monitor, Plus, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
-import { Link, useBlocker, useNavigate } from "react-router-dom";
-import { CopyButton, Message, StatusBadge } from "../components/bits.js";
+import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useBlocker, useNavigate } from "react-router-dom";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import { Skeleton } from "../components/states.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useApi, useDebounced, useMediaQuery, useSessionChoice, useStored } from "../lib/hooks.js";
-import { designerEstimate, useClassSpeeds } from "../lib/laps.js";
 import { LONG_PRESS_MS, slopFor } from "../lib/touch.js";
 import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
@@ -46,13 +40,10 @@ import { useHoldReload } from "../lib/version.js";
 import { insertionFor, liveGeometry, nearestOnLine, placeFeature, roundTo, tooClose, wheelRadius, wrapDistance, type Guide, type Live } from "./geometry.js";
 import { useHistory, type HistoryState } from "./history.js";
 import { reverseDraft } from "./reverse.js";
-import { JumpPalette } from "./JumpPalette.js";
 import {
   addJump,
   allows,
-  checkCounts,
   deleteJump,
-  FEATURE_TYPES,
   insertPoint,
   jumpsInCorner,
   MODE_KEY,
@@ -62,19 +53,21 @@ import {
   readMode,
   snapModeFor,
   submitBlock,
-  visibleChecks,
   wheelEdit,
   type DesignerMode,
 } from "./mode.js";
 import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
-import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, releaseStep, reopenLaying, same, TURNS_HINT, withLaying, type Cell, type LaneGrid, type Laying, type Refusal } from "./lanes.js";
-import { alongBisector, apexFromField, apexOf, apexRadius, APEX_MAX, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, QUICK_SIZES, radiusFromDrag, followTravel, setApex, type Seen, turnLabel, widthAt } from "./shape.js";
-import { findNests, followNest, follows, innerOf, linkedTo, matchNest, outerOf } from "./nest.js";
-import { describeLane, layKey, startCursor, where, type LayKeys } from "./laykeys.js";
+import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, releaseStep, reopenLaying, same, withLaying, type Cell, type LaneGrid, type Laying, type Refusal } from "./lanes.js";
+import { alongBisector, apexOf, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, radiusFromDrag, followTravel, type Seen, widthAt } from "./shape.js";
+import { findNests, followNest, linkedTo } from "./nest.js";
+import { describeLane, layKey, startCursor, type LayKeys } from "./laykeys.js";
 import { useBake } from "./useBake.js";
-import { addCrossover, bridgeAt, bridgeCrossing, crossingHint, makeCrossover, moveCrossover, moveStart, overText, swapOver } from "./crossings.js";
-import { VenueCheckPanel } from "./VenueCheck.js";
-import { addKey, floorTap, keyInsert, lanePress, shapeHint, stepCorner } from "./addtool.js";
+import { DesignerLayout } from "./DesignerLayout.js";
+import { VIEWS } from "./PlanOverlays.js";
+import type { PanelProps } from "./SidePanels.js";
+import type { ToolsProps } from "./ToolPalette.js";
+import { addCrossover, bridgeCrossing, makeCrossover, moveCrossover, moveStart } from "./crossings.js";
+import { addKey, floorTap, keyInsert, lanePress, stepCorner } from "./addtool.js";
 import { defaultRostrumSide } from "../viewer3d/rostrum.js";
 import type { Highlight } from "../viewer3d/scene.js";
 import { hasWebGL } from "../viewer3d/support.js";
@@ -82,17 +75,12 @@ import type { KeptCamera } from "../viewer3d/Viewer3D.js";
 
 // the 3D preview (#85): three.js and the viewer load only when 3D is opened
 const Viewer3D = lazy(() => import("../viewer3d/Viewer3D.js"));
-const VIEWS = ["2d", "3d"] as const;
 /** 3D waits this long after the last bake before it rebuilds, so a drag doesn't rebuild it on every step */
 const BAKE_SETTLE_MS = 200;
 
 // ---------------------------------------------------------------------------------------------- tuning
-/** wheel delta (pixels) per step = one mouse-wheel notch; trackpads add up their small deltas */
-export const WHEEL_PX_PER_STEP = 100;
-export const WHEEL_STEP = 0.05; // m: radius / width resolution; a radius step is ~10% (at least this)
-export const WHEEL_WIDTH_STEP = 0.1; // m of lane width per notch
-export const RADIUS_RANGE: [number, number] = [0, 15];
-export const WIDTH_RANGE: [number, number] = [0.8, 5];
+import { RADIUS_RANGE, WHEEL_PX_PER_STEP, WHEEL_STEP, WHEEL_WIDTH_STEP, WIDTH_RANGE } from "./tuning.js";
+export { RADIUS_RANGE, WHEEL_PX_PER_STEP, WHEEL_STEP, WHEEL_WIDTH_STEP, WIDTH_RANGE };
 const HANDLE_PX = 5; // centre (racing-line) point handle radius on screen
 const MITRE_PX = 6; // outside-corner handle half-size on screen
 const GRAB_PX = 14; // a press on the track this close to a corner point grabs the point (instead of adding one)
@@ -128,9 +116,9 @@ export interface DesignerBase {
   can: Permissions;
 }
 
-type Selection = { kind: "point"; i: number } | { kind: "feature"; i: number } | { kind: "start" } | null;
+export type Selection = { kind: "point"; i: number } | { kind: "feature"; i: number } | { kind: "start" } | null;
 /** select (the default), the Add point tool (#114), or a jump armed from the palette */
-type Tool = { kind: "select" } | { kind: "add" } | { kind: "feature"; type: FeatureType };
+export type Tool = { kind: "select" } | { kind: "add" } | { kind: "feature"; type: FeatureType };
 
 export interface DesignerProps {
   mode: "new" | "edit";
@@ -165,7 +153,7 @@ export function draftFromDoc(doc: RcTrack): Draft {
   };
 }
 
-interface Autosave {
+export interface Autosave {
   draft: Draft;
   baseRevision: number | null;
   savedAt: string;
@@ -182,9 +170,6 @@ function planPoint(svg: SVGSVGElement, clientX: number, clientY: number): Point2
   const p = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
   return [p.x, -p.y];
 }
-
-/** step 1's keys (#47), in the hint and the lane grid's description */
-const LAY_KEYS_HELP = "Arrows move the cursor; Enter or Space starts the lane there. Then the arrows lay it a square at a time, Shift and two arrows in turn (say Up then Right) lay a diagonal, and Backspace takes back the last square.";
 
 /** what the live geometry is worked out from while laying the lanes (nothing of it is drawn: there's no track yet) */
 const NO_TRACK: RcTrack["design"] = { laneWidth: 2, points: [{ x: -2, z: -1 }, { x: 2, z: -1 }, { x: 2, z: 1 }, { x: -2, z: 1 }] };
@@ -1333,593 +1318,183 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setSel(best);
   };
 
-  if (phone) {
-    return (
-      <div className="designer designer-phone">
-        <div className="designer-bar">
-          <Link to={backTo.to} className="btn btn-quiet btn-icon back" aria-label={backTo.label}>
-            <ChevronLeft size={20} aria-hidden="true" />
-          </Link>
-          <p className="designer-name">{draft.info.name || "Untitled track"}</p>
+  // ------------------------------------------------------------------------------------ the layouts (#120)
+  // one state, three layouts: the bar, palette, plan and panels take props, and DesignerLayout places them
+  const rename = (name: string) => update((d) => ({ ...d, info: { ...d.info, name } }), "name");
+  /** "1 · Lay the lanes" from step 2: armed by the first tap, back on the second */
+  const stepBack = () => {
+    if (!backArmed) return setBackArmed(true);
+    setBackArmed(false);
+    setSel(null);
+    update((d) => reopenLaying(d));
+    sayLane("Back to step 1.", reopenLaying(draftRef.current).laying ?? []);
+  };
+  /** step 1: take up the whole lane (Undo brings it back) */
+  const startAgain = () => {
+    update((d) => withLaying(d, { cells: [], closed: false }));
+    sayLane("The lane is taken up.", []);
+  };
+  /** a jump picked from the palette or the dock: armed, or let go if it was armed already */
+  const pickJump = (t: FeatureType) => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t });
+  /** the Start line button: select it (and show where it is) */
+  const pickStart = () => {
+    setTool({ kind: "select" });
+    setSel({ kind: "start" });
+    setHighlight([built.startLine.x, built.startLine.z]);
+  };
+  const restoreAutosave = () => {
+    if (restore) hist.set(restore.draft);
+    setRestore(null);
+  };
+  const discardAutosave = () => {
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      /* ignore */
+    }
+    setRestore(null);
+  };
+  /** the tablet's sheet closed from its button: a jump or the start line is let go with it; a corner stays selected */
+  const closeSheet = () => {
+    if (sheet === "selection" && sel?.kind !== "point") setSel(null);
+    setSheet(null);
+  };
+  /** the plan, or the 3D view, in every layout but the phone's */
+  const plan = viewing3d ? (
+    <Suspense
+      fallback={
+        <div role="status" aria-busy="true" className="designer-plan">
+          <span className="sr-only">Loading the 3D view…</span>
+          <Skeleton className="designer-plan" />
         </div>
-        <div className="phone-body">
-          <div className="empty">
-            <Monitor size={36} className="empty-icon" aria-hidden="true" />
-            <h1>Design on a laptop or tablet</h1>
-            <p>The designer needs a bigger screen. You can look at the plan here, and pick up where you left off on a laptop or tablet.</p>
-            {mode === "edit" && !dirty ? (
-              <CopyButton text={window.location.href} label="Copy link to this design" className="btn btn-touch" />
-            ) : (
-              <p>Changes you haven't saved stay in this browser until you save them.</p>
-            )}
-          </div>
-          <PlanView area={area} obstacles={guideObstacles} built={laying ? undefined : built} interactive={false} label={`Plan of ${draft.info.name || "this track"}, view only`} className="phone-plan" />
-          <dl className="figures">
-            <div>
-              <dd>{laying ? "—" : fmt.metres(live.total)}</dd>
-              <dt>Lap</dt>
-            </div>
-            <div>
-              <dd>{built.stats.corners || "—"}</dd>
-              <dt>Corners</dt>
-            </div>
-            <div>
-              <dd>{status ? fmt.STATUS_LABEL[status.status] : "Not saved"}</dd>
-              <dt>Status</dt>
-            </div>
-          </dl>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`designer designer-${view} ${tablet ? "designer-touch" : ""}`}>
-      <div className="designer-bar">
-        <Link to={backTo.to} className="btn btn-quiet btn-icon back" aria-label={backTo.label} title={backTo.label}>
-          <ChevronLeft size={20} aria-hidden="true" />
-        </Link>
-        <input className="name-input" aria-label="Track name" value={draft.info.name} maxLength={80} onChange={(e) => update((d) => ({ ...d, info: { ...d.info, name: e.target.value } }), "name")} />
-        <span className="designer-venue" hidden={tablet}>
-          {venueName ? `${venueName} · ` : ""}
-          {fmt.size(area, true)}
-        </span>
-        {status && <StatusBadge status={status.status} />}
-        {(view === "quick" || laying) && (
-          <Steps
-            step={step}
-            canGoBack={!!draft.laid}
-            armed={backArmed}
-            onBack={() => {
-              if (!backArmed) return setBackArmed(true);
-              setBackArmed(false);
-              setSel(null);
-              update((d) => reopenLaying(d));
-              sayLane("Back to step 1.", reopenLaying(draftRef.current).laying ?? []);
-            }}
-          />
-        )}
-        <div className="mode-toggle" role="group" aria-label="Mode">
-          {(["quick", "advanced"] as const).map((m) => (
-            <button key={m} type="button" aria-pressed={view === m} onClick={() => setView(m)} title={m === "quick" ? "The essentials: move, add and delete corners, jumps, start line" : "Everything: corner radius, lane widths, outside corners, fine and free snapping, all checks"}>
-              {m === "quick" ? "Quick" : "Advanced"}
-            </button>
-          ))}
-        </div>
-        {!tablet && (
-          <>
-            <button type="button" className="btn btn-icon" onClick={undo} disabled={!hist.canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
-              <Undo2 size={20} aria-hidden="true" />
-            </button>
-            <button type="button" className="btn btn-icon" onClick={redo} disabled={!hist.canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
-              <Redo2 size={20} aria-hidden="true" />
-            </button>
-          </>
-        )}
-        {!tablet && (
-          <button type="button" className="btn" onClick={reverse} disabled={!canReverse} title={reverseTitle}>
-            <ArrowRightLeft size={18} aria-hidden="true" />
-            Reverse direction
-          </button>
-        )}
-        <span className="save-state" aria-live="polite">
-          {/* the tablet's bar is one row at 1024 px, as in the mockup: the short form */}
-          {dirty ? (tablet ? "Unsaved" : "Unsaved changes · kept on this device") : base ? `Saved · revision ${base.revision}` : "Not saved yet"}
-        </span>
-        {me ? (
-          <button type="button" className={`btn ${showSubmit ? "" : "btn-primary"}`} onClick={() => setSaveOpen((o) => !o)} disabled={saving || laying || (!dirty && mode === "edit")} aria-expanded={saveOpen} title={laying ? "Close the loop first" : undefined}>
-            {saving ? "Saving…" : mode === "new" ? "Save track" : "Save revision"}
-          </button>
-        ) : (
-          <a className="btn btn-primary" href={loginUrl()}>
-            Log in to save
-          </a>
-        )}
-        {showSubmit && (
-          <button type="button" className="btn btn-primary" onClick={submit} disabled={!!blocked} aria-describedby={whyShown ? "submit-why" : undefined} title={blocked ?? "Send to the organisers for approval"}>
-            Submit track
-          </button>
-        )}
-        {showSubmit && quickSide && blocked && (
-          <p id="submit-why" className="submit-why-bar">
-            {blocked}
-            {checkCounts(built.checks).errors > 0 && (
-              <>
-                {" "}
-                <button type="button" className="linkish" onClick={seeChecks}>
-                  See Checks
-                </button>
-              </>
-            )}
-          </p>
-        )}
-        {saveOpen && me && !laying && (
-          <form
-            className="save-pop"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save();
-            }}
-          >
-            <label>
-              <span>What changed? (optional)</span>
-              <input autoFocus value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder={mode === "new" ? "First version" : "e.g. tighter hairpin, moved the double"} />
-            </label>
-            {status?.approvedRevision && (
-              <p className="hint">
-                Revision {status.approvedRevision} stays approved — in the library and at meetings — until this new revision is approved.
-              </p>
-            )}
-            <div className="row">
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? "Saving…" : mode === "new" ? "Save track" : `Save as revision ${(base?.revision ?? 0) + 1}`}
-              </button>
-              <button type="button" className="btn btn-quiet" onClick={() => setSaveOpen(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-
-      {(restore || !me || message || status?.approvedRevision) && (
-        <div className="designer-messages">
-          {restore && (
-            <Message>
-              You have unsaved changes from {fmt.dateTime(restore.savedAt)}
-              {base && restore.baseRevision !== base.revision ? ` (made on revision ${restore.baseRevision}; the track is at revision ${base.revision} now)` : ""}.{" "}
-              <button
-                type="button"
-                className="linkish"
-                onClick={() => {
-                  hist.set(restore.draft);
-                  setRestore(null);
-                }}
-              >
-                Restore them
-              </button>{" "}
-              ·{" "}
-              <button
-                type="button"
-                className="linkish"
-                onClick={() => {
-                  try {
-                    localStorage.removeItem(storageKey);
-                  } catch {
-                    /* ignore */
-                  }
-                  setRestore(null);
-                }}
-              >
-                Discard
-              </button>
-            </Message>
-          )}
-          {!me && <Message>You're not logged in: you can try the designer, and your work is kept on this device, but log in to save it.</Message>}
-          {message && <Message kind={message.kind}>{message.text}</Message>}
-          {status?.approvedRevision && (
-            <Message>
-              Revision {status.approvedRevision} is approved: it stays in the library and at meetings until a newer revision is approved. Saving here creates a new draft.
-            </Message>
-          )}
+      }
+    >
+      {built3d ? (
+        <Viewer3D
+          area={area}
+          built={built3d}
+          obstacles={guideObstacles}
+          highlight={highlight3d}
+          onPick={synced3d ? pick3d : undefined}
+          label={`3D preview of ${draft.info.name || "this track"}, view only`}
+          className="designer-plan"
+          onUnsupported={unsupported3d}
+          rostrum={rostrum}
+          onRostrum={onRostrum}
+          keep={keep3d}
+        />
+      ) : (
+        <div role="status" aria-busy="true" className="designer-plan">
+          <span className="sr-only">Loading the 3D view…</span>
+          <Skeleton className="designer-plan" />
         </div>
       )}
-
-      <div className="designer-grid">
-        {tablet ? null : laying ? (
-          <aside className="designer-palette" aria-label="Lay the lanes">
-            <span className="label">1 · Lay the lanes</span>
-            <p className="lay-help">Press on a square and drag through the squares in driving order, straight or corner to corner for a diagonal. Drag back to take squares up.</p>
-            <p className="lay-help">To cross the lane (a figure of eight), go straight across it at right angles. Add a crossover there once the loop is closed.</p>
-            <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
-            <p className="lay-help">Keyboard: Tab to the plan's lane grid; the hint over the plan lists the keys.</p>
-            <p className="lay-help">{TURNS_HINT}</p>
-            <button
-              type="button"
-              className="palette-btn"
-              disabled={!draft.laying?.length}
-              onClick={() => {
-                update((d) => withLaying(d, { cells: [], closed: false }));
-                sayLane("The lane is taken up.", []);
-              }}
-              title="Take up the whole lane (Undo brings it back)"
-            >
-              Start again
-            </button>
-          </aside>
-        ) : (
-        <aside className="designer-palette" aria-label="Add to the track">
-          <span className="label">Jumps</span>
-          <JumpPalette
-            jumps={paletteJumps(view)}
-            armed={tool.kind === "feature" ? tool.type : null}
-            onPick={(t) => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t })}
-          />
-          <span className="label label-gap">Track</span>
-          <button
-            type="button"
-            className="palette-btn"
-            aria-pressed={tool.kind === "add"}
-            aria-keyshortcuts="A"
-            data-add-tool
-            onClick={toggleAdd}
-            title={advanced ? "Add a point: click a straight (A; Esc to stop)" : "Add a corner: click the track or the floor (A; Esc to stop)"}
-          >
-            <Plus size={18} aria-hidden="true" />
-            Add point
-          </button>
-          <button
-            type="button"
-            className="palette-btn"
-            aria-pressed={sel?.kind === "start"}
-            onClick={() => {
-              setTool({ kind: "select" });
-              setSel({ kind: "start" });
-              setHighlight([built.startLine.x, built.startLine.z]);
-            }}
-            title="Select the start line, then drag it along the track"
-          >
-            Start line
-          </button>
-          {!advanced && (
-            <button
-              type="button"
-              className="palette-btn"
-              aria-pressed={laneSnap}
-              onClick={() => setLaneSnap((v) => !v)}
-              title="Corners snap to a lane line within 0.2 m. Turn it off (or hold Alt) to place them freely."
-            >
-              Snap to lanes
-            </button>
-          )}
-          {advanced && (
-            <div className="seg seg-snap" role="radiogroup" aria-label="Snap">
-              <span className="label">Snap</span>
-              {(["lanes", "fine", "free"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={snap.mode === m}
-                  className={snap.mode === m ? "on" : ""}
-                  onClick={() => setSnap({ mode: m })}
-                  title={m === "lanes" ? "Lanes: points on the lane grid, lanes against the walls and beside each other" : m === "fine" ? "Fine: 25 cm grid and 45° (hold Shift)" : "Free: no snapping (hold Alt)"}
-                >
-                  {SNAP_LABEL[m]}
-                </button>
-              ))}
-              <span className="snap-info">Shift: fine · Alt: free</span>
-            </div>
-          )}
-          <p className="palette-help">
-            {tool.kind === "feature"
-              ? tool.type === "crossover"
-                ? "Click where the track crosses itself to bridge it: the pass you click goes over. Esc to cancel."
-                : `Click on the racing line to place the ${fmt.FEATURE_LABEL[tool.type].toLowerCase()}. Esc to cancel.`
-              : tool.kind === "add"
-                ? advanced
-                  ? "Click a straight to add a point there. Esc or A to stop. Keys: N / P pick a corner, Enter adds a point halfway to the next."
-                  : "Click the track or the floor to add a corner. Esc or A to stop. Keys: N / P pick a corner, Enter adds one halfway to the next."
-                : "Pick a jump, then click on the racing line to place it. Add point (A) adds a corner point."}
-          </p>
-        </aside>
-        )}
-
-        <section className="designer-plan-wrap" aria-label="Plan" ref={planWrapRef}>
-          <p className="sr-only" role="status" aria-live="polite">
-            {said}
-          </p>
-          {laying && grid && (
-            <div
-              className="sr-only lay-keys"
-              tabIndex={0}
-              role="application"
-              aria-label="Lane grid"
-              aria-describedby="lay-keys-help"
-              onKeyDown={onGridKey}
-              onFocus={() => setGridFocus(true)}
-              onBlur={() => setGridFocus(false)}
-            >
-              <span id="lay-keys-help">{LAY_KEYS_HELP}</span>
-            </div>
-          )}
-          {snapInfo ? (
-            <div className="designer-hint" aria-live="polite">
-              <b>{SNAP_LABEL[snapInfo.mode]}</b>
-              {snapInfo.tags.length > 0 && <> · {snapInfo.tags.join(" · ")}</>}
-            </div>
-          ) : (
-            <div className="designer-hint">
-              {viewing3d
-                ? `3D is view only: switch to 2D to edit.${synced3d ? ` ${tablet ? "Tap" : "Click"} a jump to select it there.` : ""}`
-                : laying
-                ? layNote ?? (gridFocus
-                  ? draft.laying?.length
-                    ? LAY_KEYS_HELP
-                    : `Cursor on ${where(layKeys?.cursor ?? startCursor(grid!))}. ${LAY_KEYS_HELP}`
-                  : draft.laying?.length
-                  ? `Drag on through the squares, corner to corner for a diagonal, or straight across the lane at right angles. Come back to the ring to close the loop. ${TURNS_HINT}`
-                  : `Press on a square and drag to lay the lane, straight or diagonally. ${TURNS_HINT}`)
-                : tool.kind === "feature"
-                  ? tool.type === "crossover"
-                    ? `${tablet ? "Tap" : "Click"} where the track crosses itself: the pass you ${tablet ? "tap" : "click"} goes over.`
-                    : `${tablet ? "Tap" : "Click"} on the racing line to place it.`
-                  : shapeHint({ advanced, tablet, adding: tool.kind === "add", sel: sel?.kind === "point" ? sel.i : null })}
-            </div>
-          )}
-          <div className={`designer-canvas ${tool.kind === "add" && !laying && view === "quick" ? "designer-adding" : ""}`}>
-          {viewing3d ? (
-            <Suspense
-              fallback={
-                <div role="status" aria-busy="true" className="designer-plan">
-                  <span className="sr-only">Loading the 3D view…</span>
-                  <Skeleton className="designer-plan" />
-                </div>
-              }
-            >
-              {built3d ? (
-                <Viewer3D
-                  area={area}
-                  built={built3d}
-                  obstacles={guideObstacles}
-                  highlight={highlight3d}
-                  onPick={synced3d ? pick3d : undefined}
-                  label={`3D preview of ${draft.info.name || "this track"}, view only`}
-                  className="designer-plan"
-                  onUnsupported={unsupported3d}
-                  rostrum={rostrum}
-                  onRostrum={onRostrum}
-                  keep={keep3d}
-                />
-              ) : (
-                <div role="status" aria-busy="true" className="designer-plan">
-                  <span className="sr-only">Loading the 3D view…</span>
-                  <Skeleton className="designer-plan" />
-                </div>
-              )}
-            </Suspense>
-          ) : (
-          <PlanView
-            area={area}
-            obstacles={guideObstacles}
-            built={laying ? undefined : built}
-            checksInOverlay
-            designFeatures={draft.design.features}
-            layers={layers}
-            onLayersChange={setLayers}
-            highlight={highlight}
-            label={`Designer plan of ${draft.info.name}`}
-            className="designer-plan"
-            overlay={laying ? layOverlay : overlay}
-            onHandleWheel={onHandleWheel}
-            controls={!tablet}
-            fitRequest={fitRequest}
-            onSecondFinger={() => {
-              edit.current?.cancel();
-              setPress(null);
-            }}
-            onBackgroundClick={(e) => {
-              setHighlight(null);
-              // Quick step 2, with the Add point tool on: a tap on the floor adds a corner (after the selected one, or into
-              // the track it's near)
-              if (floorTap({ tool: tool.kind, view, laying, selKind: sel?.kind ?? null }) === "add") {
-                addCornerAt(planPoint(e.currentTarget, e.clientX, e.clientY), e.altKey);
-                return;
-              }
-              setSel(null);
-            }}
-          />
-          )}
-          {/* there while 3D is picked (an alert, so it's heard even when it comes with the region), so the plan's own
-              status stays the only one */}
-          {shown3d && (
-            <p className={no3d ? "designer-3d-note" : "sr-only"} role="alert">
-              {no3d === "lost"
-                ? "The 3D view stopped: the browser lost its graphics. Here's the 2D plan; press 3D to try again."
-                : no3d
-                  ? "The 3D view needs WebGL, which this browser doesn't have or has turned off. Here's the 2D plan."
-                  : ""}
-            </p>
-          )}
-          {!laying && (
-            <div className="plan-viewswitch designer-viewswitch" role="group" aria-label="View">
-              {VIEWS.map((k) => (
-                <button key={k} type="button" aria-pressed={view3d === k} className={view3d === k ? "on" : ""} onClick={() => chooseView(k)} title={k === "3d" ? "See the track in 3D (view only)" : "Back to the plan, to edit"}>
-                  {k.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          )}
-          </div>
-          {tablet && !laying && (
-            <ChecksPill checks={built.checks} pending={bake.pending} open={sheet === "checks"} onToggle={() => setSheet((s) => (s === "checks" ? null : "checks"))} />
-          )}
-          {tablet && !laying && sheet && (sheet === "checks" || sel) && (
-            <div className="designer-sheet" role="dialog" aria-label={sheet === "checks" ? "Checks" : "Selected"}>
-              <button
-                type="button"
-                className="btn btn-quiet btn-icon sheet-close"
-                aria-label="Close"
-                onClick={() => {
-                  if (sheet === "selection" && sel?.kind !== "point") setSel(null);
-                  setSheet(null);
-                }}
-              >
-                <X size={20} aria-hidden="true" />
-              </button>
-              {sheet === "checks" ? (
-                <>
-                  <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} onBridge={bridgeIt} />
-                  <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
-                </>
-              ) : (
-                <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} touch />
-              )}
-            </div>
-          )}
-          {tablet && (
-            <div className="designer-dock" role="toolbar" aria-label="Designer tools">
-              <button type="button" className="dock-btn dock-icon" onClick={undo} disabled={!hist.canUndo} aria-label="Undo">
-                <Undo2 size={20} aria-hidden="true" />
-              </button>
-              <button type="button" className="dock-btn dock-icon" onClick={redo} disabled={!hist.canRedo} aria-label="Redo">
-                <Redo2 size={20} aria-hidden="true" />
-              </button>
-              <span className="dock-sep" aria-hidden="true" />
-              {laying ? (
-                <button
-                  type="button"
-                  className="dock-btn"
-                  disabled={!draft.laying?.length}
-                  onClick={() => {
-                    update((d) => withLaying(d, { cells: [], closed: false }));
-                    sayLane("The lane is taken up.", []);
-                  }}
-                >
-                  Start again
-                </button>
-              ) : (
-                <>
-                  <JumpPalette
-                    jumps={paletteJumps(view)}
-                    armed={tool.kind === "feature" ? tool.type : null}
-                    onPick={(t) => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t })}
-                    className="dock-btn"
-                    verb="Tap"
-                  />
-                  <button type="button" className="dock-btn" aria-pressed={tool.kind === "add"} aria-keyshortcuts="A" data-add-tool onClick={toggleAdd} title="Add a corner: tap Add point, then tap the track or the floor">
-                    <Plus size={18} aria-hidden="true" />
-                    Add point
-                  </button>
-                  <button
-                    type="button"
-                    className="dock-btn"
-                    aria-pressed={sel?.kind === "start"}
-                    onClick={() => {
-                      setTool({ kind: "select" });
-                      setSel({ kind: "start" });
-                      setHighlight([built.startLine.x, built.startLine.z]);
-                    }}
-                  >
-                    Start line
-                  </button>
-                  <button type="button" className="dock-btn" aria-pressed={laneSnap} onClick={() => setLaneSnap((v) => !v)} title="Corners snap to a lane line within 0.2 m. Turn it off to place them freely.">
-                    Snap
-                  </button>
-                </>
-              )}
-              {/* in the dock, not the bar, so the tablet's bar stays one row at 1024 px */}
-              <button type="button" className="dock-btn" onClick={reverse} disabled={!canReverse} aria-label="Reverse direction" title={reverseTitle}>
-                <ArrowRightLeft size={18} aria-hidden="true" />
-                Reverse
-              </button>
-              <button type="button" className="dock-btn dock-icon dock-fit" onClick={() => setFitRequest((n) => n + 1)} aria-label="Zoom to fit">
-                <Scan size={20} aria-hidden="true" />
-              </button>
-            </div>
-          )}
-        </section>
-
-        {tablet ? null : laying ? (
-          <aside className="designer-side" aria-label="The lane so far">
-            {advanced ? (
-              <section className="checks-panel" aria-labelledby="ck-h">
-                <h2 id="ck-h">Checks</h2>
-                <p className="hint">The track is checked once the loop is closed.</p>
-              </section>
-            ) : (
-              <QuickHowTo laying />
-            )}
-            <dl className="figures designer-stats">
-              <div>
-                <dd>{draft.laying?.length ?? 0}</dd>
-                <dt>Squares</dt>
-              </div>
-              <div>
-                <dd>{fmt.metres(grid?.size ?? 2, 1)}</dd>
-                <dt>Lane width</dt>
-              </div>
-            </dl>
-          </aside>
-        ) : (
-          <aside className="designer-side" aria-label={advanced ? "Checks" : "Details"}>
-            {/* Quick is for laying the track, Advanced for checking and fine-tuning (#113) */}
-            {advanced ? (
-              <ChecksPanel checks={built.checks} features={bakedFeatures} view={view} pending={bake.pending} blocked={showSubmit ? blocked : null} ready={showSubmit && !blocked} onShow={showCheck} onMakeCrossover={makeItACrossover} onBridge={bridgeIt} headingRef={checksHeading} />
-            ) : (
-              <QuickHowTo />
-            )}
-            <VenueCheckPanel design={draft.design} drawnFor={draft.info.drawnFor} onShow={showCheck} />
-            <SelectionPanel sel={sel} view={view} draft={drawn} live={live} update={update} onDelete={deleteSelection} fromVenue={venueName} inCorner={inCorner} />
-            {advanced && <Shortcuts />}
-            <Stats built={built} live={live} view={view} />
-          </aside>
-        )}
-      </div>
-    </div>
+    </Suspense>
+  ) : (
+    <PlanView
+      area={area}
+      obstacles={guideObstacles}
+      built={laying ? undefined : built}
+      checksInOverlay
+      designFeatures={draft.design.features}
+      layers={layers}
+      onLayersChange={setLayers}
+      highlight={highlight}
+      label={`Designer plan of ${draft.info.name}`}
+      className="designer-plan"
+      overlay={laying ? layOverlay : overlay}
+      onHandleWheel={onHandleWheel}
+      controls={!tablet}
+      fitRequest={fitRequest}
+      onSecondFinger={() => {
+        edit.current?.cancel();
+        setPress(null);
+      }}
+      onBackgroundClick={(e) => {
+        setHighlight(null);
+        // Quick step 2, with the Add point tool on: a tap on the floor adds a corner (after the selected one, or into
+        // the track it's near)
+        if (floorTap({ tool: tool.kind, view, laying, selKind: sel?.kind ?? null }) === "add") {
+          addCornerAt(planPoint(e.currentTarget, e.clientX, e.clientY), e.altKey);
+          return;
+        }
+        setSel(null);
+      }}
+    />
   );
-}
-
-/**
- * Quick mode's steps: 1 lays the lanes, 2 shapes the loop. From step 2, "1 · Lay the lanes" goes back on a second tap,
- * throwing the shaping away (Undo brings it back); only for a loop laid here, since a track opened from the library has
- * no squares to go back to.
- */
-function Steps({ step, canGoBack, armed, onBack }: { step: 1 | 2; canGoBack: boolean; armed: boolean; onBack: () => void }) {
+  const panels: PanelProps = { view, checks: built.checks, bakedFeatures, pending: bake.pending, showSubmit, blocked, onShow: showCheck, onMakeCrossover: makeItACrossover, onBridge: bridgeIt, draft, drawn, sel, live, update, onDelete: deleteSelection, venueName, inCorner, checksHeading };
+  const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
+  const history = { undo, redo, canUndo: hist.canUndo, canRedo: hist.canRedo };
   return (
-    <ol className="steps" aria-label="Steps">
-      {(["Lay the lanes", "Shape it"] as const).map((label, i) => (
-        <li key={label} aria-current={step === i + 1 ? "step" : undefined}>
-          {step === 2 && i === 0 && canGoBack ? (
-            <button type="button" className={`step-back ${armed ? "armed" : ""}`} onClick={onBack} title="Go back to laying the lanes: the shaping is thrown away (Undo brings it back)">
-              {armed ? "Tap again to go back" : `1 · ${label}`}
-            </button>
-          ) : (
-            <>
-              {i + 1} · {label}
-            </>
-          )}
-        </li>
-      ))}
-    </ol>
+    <DesignerLayout
+      phone={phone}
+      tablet={tablet}
+      view={view}
+      laying={laying}
+      phoneView={{ backTo, name: draft.info.name, canCopy: mode === "edit" && !dirty, laying, area, obstacles: guideObstacles, built, lapLength: live.total, status }}
+      bar={{
+        backTo,
+        name: draft.info.name,
+        onName: rename,
+        tablet,
+        venueName,
+        area,
+        status,
+        steps: { show: view === "quick" || laying, step, canGoBack: !!draft.laid, armed: backArmed, onBack: stepBack },
+        view,
+        onView: setView,
+        ...history,
+        reverse,
+        canReverse,
+        reverseTitle,
+        mode,
+        dirty,
+        revision: base?.revision,
+        loggedIn: !!me,
+        loginUrl,
+        laying,
+        saving,
+        saveOpen,
+        setSaveOpen,
+        note,
+        setNote,
+        onSave: () => void save(),
+        showSubmit,
+        onSubmit: submit,
+        blocked,
+        quickSide,
+        whyShown,
+        checks: built.checks,
+        onSeeChecks: seeChecks,
+      }}
+      messages={restore || !me || message || status?.approvedRevision ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: !!me, message, approvedRevision: status?.approvedRevision } : null}
+      palette={{ ...tools, snap: snap.mode, onSnap: (m) => setSnap({ mode: m }) }}
+      planArea={{
+        planWrapRef,
+        said,
+        laying,
+        grid,
+        onGridKey,
+        onGridFocus: setGridFocus,
+        hint: { snapInfo, viewing3d, synced3d, tablet, laying, layNote, gridFocus, cells: draft.laying, layKeys, grid, tool, advanced, sel },
+        adding: tool.kind === "add" && !laying && view === "quick",
+        plan,
+        shown3d,
+        no3d,
+        view3d,
+        onView3d: chooseView,
+      }}
+      panels={panels}
+      grid={grid}
+      built={built}
+      pill={{ open: sheet === "checks", onToggle: () => setSheet((s) => (s === "checks" ? null : "checks")) }}
+      sheet={sheet}
+      sel={sel}
+      onCloseSheet={closeSheet}
+      dock={{ ...tools, ...history, reverse, canReverse, reverseTitle, onFit: () => setFitRequest((n) => n + 1) }}
+    />
   );
 }
-
-/** Tablet: the checks in a word, top right of the plan; tap for the list. */
-function ChecksPill({ checks, pending, open, onToggle }: { checks: Check[]; pending: boolean; open: boolean; onToggle: () => void }) {
-  const { errors, warnings } = checkCounts(checks);
-  const lvl = errors ? "error" : warnings ? "warning" : "ok";
-  const Icon = errors ? CircleX : warnings ? TriangleAlert : CircleCheck;
-  const text = pending && !errors && !warnings ? "Checking…" : errors ? plural(errors, "error") : warnings ? plural(warnings, "warning") : "No problems";
-  return (
-    <button type="button" className={`checks-pill checks-pill-${lvl}`} aria-expanded={open} onClick={onToggle}>
-      <Icon size={18} aria-hidden="true" />
-      {text}
-    </button>
-  );
-}
-
-const SNAP_LABEL: Record<SnapMode, string> = { lanes: "Lanes", fine: "Fine", free: "Free" };
 
 const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${want.toFixed(2)}→${got.toFixed(2)} m` : `${want.toFixed(2)} m`);
 
@@ -1927,53 +1502,6 @@ const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${wa
  * Quick step 2: a corner point, numbered in driving order; on touch screens it's drawn bigger and takes a press 44 px
  * across. A finger held on it fills a ring round it (the long-press), which stays full while it's selected.
  */
-/** The outside of the corner: square (a mitre), round (the pipe follows the arc) or auto (square up to 120°). Both modes. */
-function OuterSeg({ p, c, onPick }: { p: DesignPoint; c: Corner | undefined; onPick: (o: DesignPoint["outer"]) => void }) {
-  const now = p.outer ?? "auto";
-  return (
-    <div className="seg seg-outer" role="radiogroup" aria-label="Outside corner">
-      <span className="seg-label">Outside corner</span>
-      {(["auto", "square", "round"] as const).map((o) => (
-        <button
-          key={o}
-          type="button"
-          role="radio"
-          aria-checked={now === o}
-          className={now === o ? "on" : ""}
-          onClick={() => onPick(o === "auto" ? undefined : o)}
-          title={o === "auto" ? "Square up to a 120° turn, round beyond" : o === "square" ? "Two straight pipes meeting in a corner (O)" : "The pipe follows the curve (O)"}
-        >
-          {o === "auto" ? `Auto${c && now === "auto" ? ` (${outerStyle(p, c)})` : ""}` : o === "square" ? "Square" : "Round"}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/**
- * Nested corners (#106): what shaping this corner also shapes (the corner inside it, round the same pipe), and what it
- * follows (the corner outside it) or, shaped on its own, the offer to match it again.
- */
-function NestNotes({ inner, outer, following, onMatch }: { inner: number | null; outer: number | null; following: boolean; onMatch: () => void }) {
-  if (inner === null && outer === null) return null;
-  return (
-    <div className="nest-notes">
-      {inner !== null && <p className="hint">Also shapes corner {inner + 1} (inside).</p>}
-      {outer !== null &&
-        (following ? (
-          <p className="hint">Follows corner {outer + 1} (outside).</p>
-        ) : (
-          <p className="hint">
-            Shaped on its own.{" "}
-            <button type="button" className="link-btn" onClick={onMatch} title={`Shape it to run round the same pipe as corner ${outer + 1}`}>
-              Match corner {outer + 1}
-            </button>
-          </p>
-        ))}
-    </div>
-  );
-}
-
 function QuickCorner({ p, i, m, touch, on, linked = false, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; /** round the same pipe as the selected corner (#106) */ linked?: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
   const base = touch ? CORNER_TOUCH_PX : CORNER_PX;
   const r = (on ? base + 2 : base) * m;
@@ -2040,542 +1568,5 @@ function StartHandle({ built, m, touch, on, onPointerDown }: { built: Built; m: 
   );
 }
 
-function Stats({ built, live, view }: { built: Built; live: Live; view: DesignerMode }) {
-  // "≈ 14.6 s lap (2WD Buggy, est.)": lap length over the first class's speed (#76)
-  const speeds = useClassSpeeds();
-  const est = speeds && designerEstimate(live.total, speeds);
-  return (
-    <div className="designer-stats">
-      <dl className="figures">
-        <div>
-          <dd>{fmt.metres(live.total)}</dd>
-          <dt>Lap</dt>
-        </div>
-        <div>
-          <dd>{built.stats.corners || "—"}</dd>
-          <dt>Corners</dt>
-        </div>
-        <div>
-          <dd>{built.features.length}</dd>
-          <dt>Jumps</dt>
-        </div>
-        {view === "advanced" && (
-          <>
-            <div>
-              <dd>{fmt.size(built.size, true)}</dd>
-              <dt>Size</dt>
-            </div>
-            <div>
-              <dd>{built.stats.dividerLength ? `${Math.round(built.stats.dividerLength)} m` : "—"}</dd>
-              <dt>Pipe</dt>
-            </div>
-          </>
-        )}
-      </dl>
-      {est && <p className="designer-est">{est}</p>}
-    </div>
-  );
-}
-
-const CHECK_ICON = { error: CircleX, warning: TriangleAlert, info: Info } as const;
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
-
-export function ChecksPanel({
-  checks,
-  features = [],
-  view,
-  pending,
-  blocked,
-  ready,
-  onShow,
-  onMakeCrossover,
-  onBridge,
-  headingRef,
-}: {
-  checks: Check[];
-  /** the bake's jumps, for the hints on crossing checks */
-  features?: BuiltFeature[];
-  view: DesignerMode;
-  pending: boolean;
-  blocked: string | null;
-  ready: boolean;
-  onShow: (x: number, z: number) => void;
-  /** turn the tabletop too low to drive under into a crossover */
-  onMakeCrossover?: (feature: number) => void;
-  /** put a crossover on an unbridged crossing */
-  onBridge?: (c: Check) => void;
-  /** for Quick's "See Checks", which moves the focus here */
-  headingRef?: Ref<HTMLHeadingElement>;
-}) {
-  const shown = visibleChecks(checks, view);
-  const { errors, warnings } = checkCounts(checks);
-  return (
-    <section className="checks-panel" aria-labelledby="ck-h">
-      <h2 id="ck-h" ref={headingRef} tabIndex={-1}>
-        Checks {pending && <span className="pending" title="Updating">…</span>}
-      </h2>
-      {shown.length === 0 ? (
-        <ul className="checks">
-          <li className="check check-ok">
-            <CircleCheck size={16} aria-hidden="true" />
-            <span>{pending ? "Checking…" : ready ? "No problems. Ready to submit." : "No problems found."}</span>
-          </li>
-        </ul>
-      ) : (
-        <>
-          <p className="check-counts" aria-live="polite">
-            {errors > 0 && <span className="lvl-error">{plural(errors, "error")}</span>}
-            {warnings > 0 && <span className="lvl-warning">{plural(warnings, "warning")}</span>}
-            {errors + warnings === 0 && <span>Notes only</span>}
-          </p>
-          <ul className="checks">
-            {shown.map((c, i) => {
-              const Icon = CHECK_ICON[c.level];
-              return (
-                <li key={i} className={`check check-${c.level}`}>
-                  <Icon size={16} aria-label={c.level === "error" ? "Error" : c.level === "warning" ? "Warning" : "Note"} />
-                  <span>
-                    {c.message}
-                    {view === "advanced" && <code className="check-code">{c.code}</code>}
-                    <CrossingHint c={c} features={features} pending={pending} onMakeCrossover={onMakeCrossover} onBridge={onBridge} />
-                  </span>
-                  {c.x !== undefined && c.z !== undefined && (
-                    <button type="button" className="check-show" onClick={() => onShow(c.x!, c.z!)}>
-                      Show
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-      {blocked && (
-        <p id="submit-why" className="submit-why">
-          {blocked}
-        </p>
-      )}
-    </section>
-  );
-}
-
-/**
- * A crossing error's hint, and its one-tap fixes: a crossover on an unbridged crossing, or for a tabletop too low to
- * drive under (Quick's, until the checks moved to Advanced in #113). While a bake is pending the fix is disabled
- * ("Checking…"): the check may be stale, so it could do nothing.
- */
-function CrossingHint({ c, features, pending, onMakeCrossover, onBridge }: { c: Check; features: BuiltFeature[]; pending: boolean; onMakeCrossover?: (feature: number) => void; onBridge?: (c: Check) => void }) {
-  const fi = c.code === "crossing-too-low" ? bridgeAt(c, features) : null;
-  const type = fi === null ? null : features[fi].type;
-  const hint = crossingHint(c, type);
-  if (!hint) return null;
-  return (
-    <span className="check-hint">
-      {hint}
-      {type === "tabletop" && onMakeCrossover && (
-        <button type="button" className="btn btn-quiet check-fix" disabled={pending} title={pending ? "Checking…" : undefined} onClick={() => onMakeCrossover(fi!)}>
-          Make it a crossover
-        </button>
-      )}
-      {c.code === "crossing-unbridged" && onBridge && (
-        <button type="button" className="btn btn-quiet check-fix" disabled={pending} title={pending ? "Checking…" : undefined} onClick={() => onBridge(c)}>
-          Make it a crossover
-        </button>
-      )}
-    </span>
-  );
-}
-
-function num(v: string): number | undefined {
-  if (v.trim() === "") return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function NumberField({ label, value, step, min, max, placeholder, onChange, suffix = "m" }: { label: string; value: number | undefined; step: number; min?: number; max?: number; placeholder?: string; onChange: (v: number | undefined) => void; suffix?: string }) {
-  // keep what's being typed (e.g. "1.") until it's a number
-  const [text, setText] = useState(value === undefined ? "" : String(value));
-  useEffect(() => {
-    if (num(text) !== value) setText(value === undefined ? "" : String(Math.round(value * 1000) / 1000));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-  return (
-    <label className="nfield">
-      <span>{label}</span>
-      <span className="nfield-input">
-        <input
-          type="number"
-          inputMode="decimal"
-          step={step}
-          min={min}
-          max={max}
-          placeholder={placeholder}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            const n = num(e.target.value);
-            if (n !== undefined || e.target.value === "") onChange(n);
-          }}
-        />
-        <em>{suffix}</em>
-      </span>
-    </label>
-  );
-}
-
-/** Advanced: change a jump's type. Sizes go back to the new type's own; a new crossover goes over the pass it's on. */
-function TypeField({ f, i, live, update }: { f: DesignFeature; i: number; live: Live; update: (fn: (d: Draft) => Draft, group?: string) => void }) {
-  const setType = (type: FeatureType) =>
-    update((d) => {
-      const list = d.design.features ?? [];
-      const features =
-        type === "crossover" ? makeCrossover(list, i, live.crossings, live.total) : list.map((g, k) => (k === i ? { type, distance: g.distance } : g));
-      return { ...d, design: { ...d.design, features } };
-    }, `ftype:${i}`);
-  return (
-    <label className="nfield">
-      <span>Type</span>
-      <select value={f.type} onChange={(e) => setType(e.target.value as FeatureType)}>
-        {FEATURE_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {fmt.FEATURE_LABEL[t]}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-export function SelectionPanel({
-  sel,
-  view,
-  draft,
-  live,
-  update,
-  onDelete,
-  fromVenue,
-  inCorner,
-  touch = false,
-}: {
-  sel: Selection;
-  view: DesignerMode;
-  draft: Draft;
-  live: Live;
-  update: (fn: (d: Draft) => Draft, group?: string) => void;
-  onDelete: () => void;
-  fromVenue?: string;
-  /** jumps on or landing into a corner */
-  inCorner: Map<number, CheckLevel>;
-  /** the tablet's sheet: say what fingers do */
-  touch?: boolean;
-}) {
-  const setPoint = (i: number, patch: Partial<DesignPoint>, key: string) =>
-    update((d) => ({ ...d, design: { ...d.design, points: d.design.points.map((p, k) => (k === i ? { ...p, ...patch } : p)) } }), `${key}:${i}`);
-  const setFeature = (i: number, patch: Partial<DesignFeature>, key: string) =>
-    update((d) => ({ ...d, design: { ...d.design, features: (d.design.features ?? []).map((f, k) => (k === i ? { ...f, ...patch } : f)) } }), `f${key}:${i}`);
-
-  if (sel?.kind === "point") {
-    const p = draft.design.points[sel.i];
-    const c = live.corners[sel.i];
-    if (!p) return null;
-    const lw = draft.design.laneWidth ?? 2;
-    // nested corners (#106): the one inside this follows it; this follows the one outside it unless shaped on its own
-    const nests = findNests(draft.design.points, lw);
-    const inner = innerOf(nests, sel.i), outer = outerOf(nests, sel.i);
-    const nest = nests.find((n) => n.inner === sel.i);
-    const following = nest ? follows(draft.design.points, nest, lw) : false;
-    const match = () => update((d) => ({ ...d, design: { ...d.design, points: matchNest(d.design.points, sel.i, lw) } }), `match:${sel.i}:${Date.now()}`);
-    const notes = <NestNotes inner={inner} outer={outer} following={following} onMatch={match} />;
-    const outerSeg = <OuterSeg p={p} c={c} onPick={(o) => setPoint(sel.i, { outer: o }, "outer")} />;
-    if (view === "quick") {
-      const turns = !!apexOf(draft.design.points, sel.i, lw);
-      const apex = apexRadius(p, lw);
-      const reduced = !!c && isReduced(p, c);
-      const setTo = (a: number, key: string) => update((d) => ({ ...d, design: { ...d.design, points: followNest(setApex(d.design.points, sel.i, a, lw), sel.i, lw) } }), `${key}:${sel.i}`);
-      return (
-        <section className="sel-panel" aria-labelledby="sel-h">
-          <h2 id="sel-h">Corner {sel.i + 1}</h2>
-          <p className="sel-turn">{turnLabel(draft.design.points, sel.i)}</p>
-          {turns ? (
-            <>
-              <div className="fields">
-                <NumberField label="Apex radius" value={Math.round(apex * 10) / 10} step={0.1} min={0} max={APEX_MAX} onChange={(v) => v !== undefined && setTo(apexFromField(v), "apex")} />
-              </div>
-              <div className="sizes" role="group" aria-label="Quick sizes">
-                {QUICK_SIZES.map((q) => (
-                  <button key={q.label} type="button" className="palette-btn" aria-pressed={Math.abs(apex - q.apex) < 0.005} onClick={() => setTo(q.apex, `size${q.label}`)} title={`Apex radius ${q.apex.toFixed(1)} m`}>
-                    {q.label} <span className="size-m">{q.apex.toFixed(1)} m</span>
-                  </button>
-                ))}
-              </div>
-              {outerSeg}
-              {notes}
-              <div role="status">
-                {reduced && c && (
-                  <p className="hint">
-                    Cut back as far as the straights allow: the apex radius is {fmt.metres(Math.max(0, c.r - widthAt(p, lw) / 2), 1)} (max).
-                  </p>
-                )}
-              </div>
-              <p className="hint">{touch ? "Drag the corner to move it, or its inside handle to cut it back." : "Drag the corner to move it, or its inside handle to cut it back. Right-click it or press Delete to remove it."}</p>
-            </>
-          ) : (
-            <p className="hint">
-              {turnLabel(draft.design.points, sel.i) === "straight back"
-                ? "This corner turns straight back on itself, so there's nothing to cut back: drag it to open the turn, or delete it."
-                : "This corner is on a straight line: drag it to make a turn, or delete it."}
-            </p>
-          )}
-          <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= MIN_CORNERS}>
-            Delete corner
-          </button>
-        </section>
-      );
-    }
-    return (
-      <section className="sel-panel" aria-labelledby="sel-h">
-        <h2 id="sel-h">Corner point {sel.i + 1}</h2>
-        <div className="fields">
-          <NumberField label="East (x)" value={p.x} step={0.25} onChange={(v) => v !== undefined && setPoint(sel.i, { x: v }, "x")} />
-          <NumberField label="North (z)" value={p.z} step={0.25} onChange={(v) => v !== undefined && setPoint(sel.i, { z: v }, "z")} />
-          <NumberField
-            label="Radius"
-            value={p.radius ?? 1}
-            step={0.05}
-            min={0}
-            max={RADIUS_RANGE[1]}
-            onChange={(v) =>
-              v !== undefined &&
-              update((d) => ({ ...d, design: { ...d.design, points: followNest(d.design.points.map((q, k) => (k === sel.i ? { ...q, radius: Math.max(0, v) } : q)), sel.i, lw) } }), `radius:${sel.i}`)
-            }
-          />
-          <NumberField
-            label="Lane width"
-            value={p.width}
-            placeholder={String(draft.design.laneWidth ?? 2)}
-            step={0.05}
-            min={WIDTH_RANGE[0]}
-            max={WIDTH_RANGE[1]}
-            onChange={(v) => setPoint(sel.i, { width: v }, "width")}
-          />
-        </div>
-        {outerSeg}
-        {notes}
-        {c && c.th > 1e-3 && Math.abs(c.r - (p.radius ?? 1)) > 0.01 && <p className="hint">The radius is reduced to {c.r.toFixed(2)} m to fit the straights either side.</p>}
-        {c && c.th <= 1e-3 && <p className="hint">This point is on a straight line — drag it to make a corner.</p>}
-        <p className="hint">Wheel over the point: radius · Ctrl + wheel: lane width · O: square / round outside.</p>
-        <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= 3}>
-          Delete point
-        </button>
-      </section>
-    );
-  }
-  if (sel?.kind === "feature") {
-    const f = draft.design.features?.[sel.i];
-    if (!f) return null;
-    const [L0, H0] = FEATURE_DEFAULTS[f.type];
-    // below the Delete button, so it never moves the button; the status region is always there so it's announced
-    const warn = (
-      <div role="status">
-        {inCorner.get(sel.i) === "warning" && (
-          <p className="sel-warning">
-            <TriangleAlert size={16} aria-hidden="true" />
-            <span>This {fmt.FEATURE_LABEL[f.type].toLowerCase()} is on or lands into a corner. Slide it onto a straight.</span>
-          </p>
-        )}
-        {inCorner.get(sel.i) === "info" && (
-          <p className="sel-note">
-            <Info size={16} aria-hidden="true" />
-            <span>This {fmt.FEATURE_LABEL[f.type].toLowerCase()} is on or lands into a corner: a technical section.</span>
-          </p>
-        )}
-      </div>
-    );
-    const swap = () => update((d) => ({ ...d, design: { ...d.design, features: swapOver(d.design.features ?? [], sel.i, live.crossings, live.total) } }), `fswap:${sel.i}:${Date.now()}`);
-    if (f.type === "crossover")
-      return (
-        <section className="sel-panel" aria-labelledby="sel-h">
-          <h2 id="sel-h">Crossover</h2>
-          <p className="sel-turn">{overText(f, sel.i, live.crossings, live.total)}</p>
-          {view === "advanced" && (
-            <div className="fields">
-              <TypeField f={f} i={sel.i} live={live} update={update} />
-              <NumberField label="Along the line" value={f.distance} step={0.05} onChange={(v) => v !== undefined && setFeature(sel.i, { distance: wrapDistance(v, live.total) }, "distance")} />
-              <NumberField label="Ramp length" value={f.rampLength} placeholder={String(CROSSOVER_RAMP)} step={0.05} min={0.2} onChange={(v) => setFeature(sel.i, { rampLength: v }, "ramp")} />
-              <NumberField label="Top length" value={f.topLength} placeholder="auto" step={0.05} min={0.2} onChange={(v) => setFeature(sel.i, { topLength: v }, "top")} />
-              <NumberField label="Height" value={f.height} placeholder={String(CROSSOVER_HEIGHT)} step={0.01} min={BRIDGE_CLEARANCE} onChange={(v) => setFeature(sel.i, { height: v }, "height")} />
-            </div>
-          )}
-          <button type="button" className="btn" onClick={swap} title="The other pass goes over the bridge">
-            <ArrowRightLeft size={16} aria-hidden="true" /> Swap over/under
-          </button>
-          <p className="hint">
-            {view === "advanced"
-              ? `Drag it along the track; it sits on the crossing it's near. Empty top length = the under lane plus 1 m each side; cars need ${BRIDGE_CLEARANCE.toFixed(2)} m to pass under.`
-              : "Drag it along the track; it sits on the crossing it's near."}
-          </p>
-          <button type="button" className="btn btn-danger" onClick={onDelete}>
-            Delete crossover
-          </button>
-          {warn}
-        </section>
-      );
-    if (view === "quick")
-      return (
-        <section className="sel-panel" aria-labelledby="sel-h">
-          <h2 id="sel-h">{fmt.FEATURE_LABEL[f.type]}</h2>
-          <p className="hint">Drag it along the track to move it.</p>
-          <button type="button" className="btn btn-danger" onClick={onDelete}>
-            Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
-          </button>
-          {warn}
-        </section>
-      );
-    return (
-      <section className="sel-panel" aria-labelledby="sel-h">
-        <h2 id="sel-h">{fmt.FEATURE_LABEL[f.type]}</h2>
-        <div className="fields">
-          <TypeField f={f} i={sel.i} live={live} update={update} />
-          <NumberField label="Along the line" value={f.distance} step={0.05} onChange={(v) => v !== undefined && setFeature(sel.i, { distance: wrapDistance(v, live.total) }, "distance")} />
-          <NumberField label="Length" value={f.length} placeholder={String(L0)} step={0.05} min={0.2} onChange={(v) => setFeature(sel.i, { length: v }, "length")} />
-          <NumberField label="Height" value={f.height} placeholder={String(H0)} step={0.01} min={0} onChange={(v) => setFeature(sel.i, { height: v }, "height")} />
-        </div>
-        <p className="hint">Drag it along the track. Empty length / height = the usual size.</p>
-        <button type="button" className="btn btn-danger" onClick={onDelete}>
-          Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
-        </button>
-        {warn}
-      </section>
-    );
-  }
-  if (sel?.kind === "start") {
-    if (view === "quick")
-      return (
-        <section className="sel-panel" aria-labelledby="sel-h">
-          <h2 id="sel-h">Start line</h2>
-          <p className="hint">Drag the line along the track. Cars start towards the arrow.</p>
-        </section>
-      );
-    return (
-      <section className="sel-panel" aria-labelledby="sel-h">
-        <h2 id="sel-h">Start / finish</h2>
-        <div className="fields">
-          <NumberField
-            label="Along the line"
-            value={draft.design.start?.distance ?? 0}
-            step={0.05}
-            onChange={(v) => v !== undefined && update((d) => ({ ...d, design: moveStart(d.design, live, wrapDistance(v, live.total)) }), "start")}
-          />
-        </div>
-        <p className="hint">Drag the line along the track. Cars start towards the arrow.</p>
-      </section>
-    );
-  }
-  // nothing selected: the track's own settings (Advanced only)
-  if (view === "quick") return null;
-  return (
-    <section className="sel-panel" aria-labelledby="sel-h">
-      <h2 id="sel-h">Track settings</h2>
-      <div className="fields">
-        <NumberField
-          label="Lane width"
-          value={draft.design.laneWidth ?? 2}
-          step={0.05}
-          min={WIDTH_RANGE[0]}
-          max={WIDTH_RANGE[1]}
-          onChange={(v) => v !== undefined && update((d) => ({ ...d, design: { ...d.design, laneWidth: v } }), "laneWidth")}
-        />
-      </div>
-      {fromVenue ? (
-        <p className="hint">
-          Drawn for <strong>{fromVenue}</strong>: its area ({fmt.size(draft.area, true)}) and obstacles are a guide while you draw. They aren't saved with the track.
-        </p>
-      ) : (
-        <div className="fields">
-          <NumberField label="Area east–west" value={draft.area.length} step={0.5} min={5} max={100} onChange={(v) => v !== undefined && v >= 5 && v <= 100 && update((d) => ({ ...d, area: { ...d.area, length: v } }), "areaL")} />
-          <NumberField label="Area north–south" value={draft.area.width} step={0.5} min={5} max={100} onChange={(v) => v !== undefined && v >= 5 && v <= 100 && update((d) => ({ ...d, area: { ...d.area, width: v } }), "areaW")} />
-        </div>
-      )}
-      <label className="nfield wide">
-        <span>Description</span>
-        <textarea rows={3} value={draft.info.description ?? ""} maxLength={2000} onChange={(e) => update((d) => ({ ...d, info: { ...d.info, description: e.target.value } }), "description")} />
-      </label>
-      <p className="hint">Select a corner point, jump or the start line to edit it.</p>
-    </section>
-  );
-}
-
-/** Quick's "How to draw" (#113), heading its right-hand column: the gestures of the step it's on. */
-export function QuickHowTo({ laying = false }: { laying?: boolean }) {
-  return (
-    <details className="sel-panel shortcuts">
-      <summary>How to draw</summary>
-      {laying ? (
-        <ul>
-          <li>
-            <b>Press</b> on a square and <b>drag</b> through the squares in driving order: straight, or corner to corner for a diagonal.
-          </li>
-          <li>Drag back over the squares to take them up.</li>
-          <li>To cross the lane, go straight across it at right angles.</li>
-          <li>Come back to the first square (the ring) to close the loop. Then you shape it.</li>
-          <li>{TURNS_HINT}</li>
-          <li>
-            Keyboard: <kbd>Tab</kbd> to the plan's lane grid; the hint over the plan lists the keys. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo.
-          </li>
-        </ul>
-      ) : (
-        <ul>
-          <li>
-            <b>Drag</b> a corner to move it, or its inside handle to cut the corner back. With <b>Snap to lanes</b> on, corners snap to a lane line; <kbd>Alt</kbd> places them freely.
-          </li>
-          <li>
-            <b>Add point</b> (or <kbd>A</kbd>), then click the floor or the track to add a corner: after the selected corner, or
-            into the track it's near. It stays on until you press it again, <kbd>A</kbd> or <kbd>Esc</kbd>; a plain click never
-            adds a corner. Keyboard: with it on, <kbd>N</kbd> / <kbd>P</kbd> pick a corner and <kbd>Enter</kbd> adds one halfway
-            to the next.
-          </li>
-          <li>
-            <kbd>Delete</kbd>, <kbd>Backspace</kbd> or <b>right-click</b> a corner to remove it.
-          </li>
-          <li>Pick a jump, click the racing line to place it, drag it along. Pick Start line to drag the start line the same way.</li>
-          <li>
-            Drag empty space to pan, wheel to zoom. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo, <kbd>Ctrl</kbd>+<kbd>S</kbd> save.
-          </li>
-          <li>Errors and the full checks are on the Advanced tab.</li>
-        </ul>
-      )}
-    </details>
-  );
-}
-
-export function Shortcuts() {
-  return (
-    <details className="sel-panel shortcuts">
-      <summary>How to draw</summary>
-      <ul>
-        <li>
-          <b>Drag</b> a corner point (the small dot is the racing line; the diamond is the outside corner of the pipes). Snap:
-          lanes against the walls and beside other lanes; <kbd>Shift</kbd> = 25 cm grid, <kbd>Alt</kbd> = free.
-        </li>
-        <li>
-          <kbd>H</kbd> on a corner: make it a hairpin (two points a lane apart).
-        </li>
-        <li>
-          <b>Add point</b> (or <kbd>A</kbd>), then click a straight to add a point there (or press and pull). It stays on
-          until you press it again or <kbd>Esc</kbd>; a plain click never adds a point. Keyboard: with it on, <kbd>N</kbd> /{" "}
-          <kbd>P</kbd> pick a corner and <kbd>Enter</kbd> adds a point halfway to the next one.
-        </li>
-        <li>
-          <kbd>Delete</kbd> or <b>right-click</b> a point to remove it.
-        </li>
-        <li>
-          <b>Wheel</b> over a point: corner radius · <kbd>Ctrl</kbd> + wheel: lane width · <kbd>O</kbd>: square / round outside corner.
-        </li>
-        <li>Pick a jump, click the track to place it, drag it along. Drag the start line the same way.</li>
-        <li>
-          Drag empty space to pan, wheel elsewhere to zoom. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo, <kbd>Ctrl</kbd>+<kbd>S</kbd> save.
-        </li>
-      </ul>
-    </details>
-  );
-}
+// the panels, for the tests and pages that import them from here
+export { ChecksPanel, QuickHowTo, SelectionPanel, Shortcuts } from "./SidePanels.js";
