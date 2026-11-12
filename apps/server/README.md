@@ -47,19 +47,22 @@ On the forum, Admin → Settings:
 **Silent sign-in (#132).** Being signed into the forum means being signed in here, with no click. When a browser
 opens a page (a top-level navigation: `Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`) with no
 `ts_sso_checked` cookie, the server answers with a 302 to the forum's DiscourseConnect with `prompt=none` and sets
-`ts_sso_checked` for 30 minutes. Signed into the forum: the forum sends the signed payload back and the visitor lands on
-the page they asked for, signed in. Not signed in: the forum answers `failed=true` and they carry on as a visitor, with
-no error. A server-side redirect rather than a hidden iframe: one round trip before the page, and the forum doesn't
-allow framing its login pages nor send its cookies to a third-party frame. Never redirected: dev-login users, bots and
-link-preview fetchers (by user agent), `HEAD`, API calls, `/embed/*`, iframes, prefetches, scripts without the
-`Sec-Fetch-*` headers, and dev-login-only servers.
+`ts_sso_checked` for 30 minutes. Signed into the forum: the forum sends the signed payload back and the visitor lands
+on the page they asked for, signed in. Not signed in: the forum answers `failed=true` and they carry on as a visitor,
+with no error. A server-side redirect rather than a hidden iframe: one round trip before the page, and the forum
+doesn't allow framing its login pages nor send its cookies to a third-party frame. Never redirected: dev-login users,
+bots and link-preview fetchers (by user agent), `HEAD`, API calls, `/embed/*`, iframes, prefetches, pages that 404,
+scripts without the `Sec-Fetch-*` headers, and dev-login-only servers. If the forum is down or refuses the request,
+that first page load shows the forum's error instead of our page; the check cookie is already set, so a reload shows
+our page. So the forum's DiscourseConnect provider must support `prompt=none` and list our host in `discourse connect
+provider secrets`.
 
 **One sign-out.** `POST /auth/logout` ends the session, sets `ts_sso_checked`, and returns `redirect`: a signed
-DiscourseConnect `logout=true` URL. The web app's Sign out sends the browser there; the forum signs it out and returns
-it to our home page, so the forum and the other sites that use it are signed out too.
-Signed-in members are checked the same way once `ts_sso_checked` lapses (a successful login sets it), so signing out of the forum signs them out here at their
-first page load once it lapses: up to 30 minutes later. That delay is accepted: our session gives no access to the forum, and
-it saves a forum round trip on every page.
+DiscourseConnect `logout=true` URL. The web app's Log out sends the browser there; the forum signs it out and
+returns it to our home page, so the forum and the other sites that use it are signed out too. Signed-in members are
+checked the same way once `ts_sso_checked` lapses (a successful login sets it), so signing out of the forum signs
+them out here at their first page load once it lapses: up to 30 minutes later. That delay is accepted: our session
+gives no access to the forum, and it saves a forum round trip on every page.
 
 Login only goes through the browser (redirects), so the browser must resolve `FORUM_URL` and `BASE_URL`. The server
 itself reads two public URLs from the forum: `FORUM_URL/site.json`, for the colour scheme (below), and

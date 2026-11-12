@@ -157,14 +157,18 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
   const checkedCookie = (reply: FastifyReply) =>
     reply.setCookie(SSO_CHECKED_COOKIE, "1", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: SSO_CHECK_MINUTES * 60 });
 
-  /** A signed DiscourseConnect request to the forum; the nonce is kept with the page to return to. */
+  const signedForumUrl = (payload: Record<string, string>) => {
+    const sso = encodePayload(payload);
+    return `${config.forumUrl}/session/sso_provider?sso=${encodeURIComponent(sso)}&sig=${signPayload(sso, config.discourseConnectSecret)}`;
+  };
+
+  /** A signed DiscourseConnect login request; the nonce is kept with the page to return to. */
   function forumRequest(returnPath: string, extra: Record<string, string> = {}): string {
     const nonce = randomBytes(16).toString("hex");
     const now = Date.now();
     db.prepare("DELETE FROM auth_nonces WHERE expires_at < ?").run(now);
     db.prepare("INSERT INTO auth_nonces (nonce, return_path, expires_at) VALUES (?, ?, ?)").run(nonce, safeReturnPath(returnPath), now + NONCE_TTL_MS);
-    const sso = encodePayload({ nonce, return_sso_url: `${config.baseUrl}/auth/callback`, ...extra });
-    return `${config.forumUrl}/session/sso_provider?sso=${encodeURIComponent(sso)}&sig=${signPayload(sso, config.discourseConnectSecret)}`;
+    return signedForumUrl({ nonce, return_sso_url: `${config.baseUrl}/auth/callback`, ...extra });
   }
 
   // Signed into the forum means signed in here (#132): the first page a visitor opens is a round trip to the forum
@@ -202,7 +206,7 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
   app.get("/auth/login", async (req, reply) => {
     if (!config.discourseConnectSecret) throw new HttpError(503, "forum-login-disabled", "Forum login is not configured (DISCOURSE_CONNECT_SECRET)");
     const { return: ret } = req.query as { return?: string };
-    return reply.redirect(forumRequest(safeReturnPath(ret)));
+    return reply.redirect(forumRequest(ret ?? "/"));
   });
 
   app.get("/auth/callback", async (req, reply) => {
@@ -248,8 +252,7 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
     reply.clearCookie(SESSION_COOKIE, { path: "/" });
     if (!config.discourseConnectSecret) return { ok: true, redirect: null };
     checkedCookie(reply); // coming back from the forum: don't ask it again straight away
-    const sso = encodePayload({ nonce: randomBytes(16).toString("hex"), return_sso_url: `${config.baseUrl}/`, logout: "true" });
-    return { ok: true, redirect: `${config.forumUrl}/session/sso_provider?sso=${encodeURIComponent(sso)}&sig=${signPayload(sso, config.discourseConnectSecret)}` };
+    return { ok: true, redirect: signedForumUrl({ nonce: randomBytes(16).toString("hex"), return_sso_url: `${config.baseUrl}/`, logout: "true" }) };
   });
 
   app.get("/api/me", async (req, reply) => {

@@ -59,10 +59,10 @@ describe("silent sign-in on the first visit", () => {
 
   it("a deep link (path and query) is preserved", async () => {
     const { app } = await makeApp({ seeded: true });
-    const first = await openPage(app, "/t/some-track/build?paper=a4&x=1");
+    const first = await openPage(app, "/t/46897d82-0114-460f-9a75-984ee97bca0e/build?paper=a4&x=1");
     const { p } = forumRequest(first.headers.location as string);
     const back = await app.inject({ method: "GET", url: callbackUrl(forumResponse(p.get("nonce")!, ALICE)) });
-    expect(back.headers.location).toBe("/t/some-track/build?paper=a4&x=1");
+    expect(back.headers.location).toBe("/t/46897d82-0114-460f-9a75-984ee97bca0e/build?paper=a4&x=1");
   });
 
   it("not signed into the forum: stays a visitor with no error, and the page loads with no loop", async () => {
@@ -136,6 +136,19 @@ describe("silent sign-in on the first visit", () => {
     // the forum's embedded viewer (an iframe)
     expect((await openPage(app, "/embed/no-such-track", { "sec-fetch-dest": "iframe" })).statusCode).toBe(404);
     expect((await openPage(app, "/embed/no-such-track")).statusCode).toBe(404);
+    // a page in someone's iframe, and prefetches
+    expect((await openPage(app, "/v", { "sec-fetch-dest": "iframe" })).statusCode).toBe(200);
+    expect((await openPage(app, "/v", { "sec-purpose": "prefetch" })).statusCode).toBe(200);
+    expect((await openPage(app, "/v", { purpose: "prefetch" })).statusCode).toBe(200);
+    // a page that isn't there isn't worth a round trip
+    expect((await openPage(app, "/t/no-such-track")).statusCode).toBe(404);
+    expect((await openPage(app, "/no/such/page")).statusCode).toBe(404);
+  });
+
+  it("dev-login users aren't checked against the forum", async () => {
+    const { app } = await makeApp({ seeded: true, config: { devLogin: true } });
+    const dev = await app.inject({ method: "GET", url: "/auth/dev-login?user=dana" });
+    expect((await openPage(app, "/v", { cookie: cookieHeader(dev) })).statusCode).toBe(200);
   });
 
   it("is off when forum login isn't configured (dev login only)", async () => {
