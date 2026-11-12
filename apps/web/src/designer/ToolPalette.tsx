@@ -1,5 +1,5 @@
 // The laptop's left-hand column (#120): step 1's help, or the jumps and the track tools (Add point, Start line, the
-// snapping). The tablet's dock shows the same tools, so they share ToolsProps. Pulled out of Designer.tsx unchanged.
+// snapping). The tablet's dock shows the same tools, so they share ToolsProps.
 import type { FeatureType } from "@track-studio/engine";
 import { Plus } from "lucide-react";
 import * as fmt from "../lib/format.js";

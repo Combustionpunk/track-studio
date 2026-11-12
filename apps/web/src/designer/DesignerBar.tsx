@@ -1,7 +1,7 @@
 // The designer's bar (#120): back, the name, the venue and area, the status, Quick's steps, the mode, undo / redo,
 // Reverse direction, the save state, Save and Submit (with why it waits), and the save pop-over; and the messages under
 // it. On a tablet the bar is one row at 1024 px: no venue, no undo / redo / reverse (the dock has them), the short save
-// state. Pulled out of Designer.tsx unchanged.
+// state.
 import type { Area, Check } from "@track-studio/engine";
 import { ArrowRightLeft, ChevronLeft, Redo2, Undo2 } from "lucide-react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";

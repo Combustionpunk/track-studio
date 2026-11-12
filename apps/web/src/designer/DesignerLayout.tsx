@@ -9,7 +9,6 @@ import { PlanView } from "../components/PlanView.js";
 import type { TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { DesignerBar, DesignerMessages, type DesignerBarProps, type DesignerMessagesProps } from "./DesignerBar.js";
-import type { Selection } from "./Designer.js";
 import type { LaneGrid } from "./lanes.js";
 import type { DesignerMode } from "./mode.js";
 import { ChecksPill, PlanArea, TabletDock, TabletSheet, type PlanAreaProps, type TabletDockProps } from "./PlanOverlays.js";
@@ -50,13 +49,12 @@ export interface DesignerLayoutProps {
   pill: { open: boolean; onToggle: () => void };
   /** the tablet's sheet over the plan */
   sheet: "selection" | "checks" | null;
-  sel: Selection;
   onCloseSheet: () => void;
   dock: TabletDockProps;
 }
 
 /** Picks the layout: phone, tablet or laptop. */
-export function DesignerLayout({ phone, tablet, view, laying, phoneView, bar, messages, palette, planArea, panels, grid, built, pill, sheet, sel, onCloseSheet, dock }: DesignerLayoutProps) {
+export function DesignerLayout({ phone, tablet, view, laying, phoneView, bar, messages, palette, planArea, panels, grid, built, pill, sheet, onCloseSheet, dock }: DesignerLayoutProps) {
   if (phone) return <PhoneLayout {...phoneView} />;
   return (
     <div className={`designer designer-${view} ${tablet ? "designer-touch" : ""}`}>
@@ -66,7 +64,7 @@ export function DesignerLayout({ phone, tablet, view, laying, phoneView, bar, me
         {tablet ? (
           <PlanArea {...planArea}>
             {!laying && <ChecksPill checks={panels.checks} pending={panels.pending} open={pill.open} onToggle={pill.onToggle} />}
-            {!laying && sheet && (sheet === "checks" || sel) && <TabletSheet sheet={sheet} onClose={onCloseSheet} panels={panels} />}
+            {!laying && sheet && (sheet === "checks" || panels.sel) && <TabletSheet sheet={sheet} onClose={onCloseSheet} panels={panels} />}
             <TabletDock {...dock} />
           </PlanArea>
         ) : (

@@ -1,6 +1,6 @@
 // What the designer lays over and around the plan (#120): the live region and the lane grid's keyboard target, the
 // hint, the canvas with the 3D note and the 2D / 3D switch; and the tablet's checks pill, sheet and dock. They take
-// props; the state is the Designer's. Pulled out of Designer.tsx unchanged.
+// props; the state is the Designer's.
 import type { Check } from "@track-studio/engine";
 import { ArrowRightLeft, CircleCheck, CircleX, Plus, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode, Ref } from "react";

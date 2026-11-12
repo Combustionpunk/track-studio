@@ -1,6 +1,6 @@
 // The designer's panels (#120): the laptop's right-hand column (Checks or How to draw, the venue check, the selection,
 // the stats), and the panels themselves, which the tablet's sheet shows too. They take props; the state is the
-// Designer's. Pulled out of Designer.tsx unchanged.
+// Designer's.
 import {
   BRIDGE_CLEARANCE,
   CROSSOVER_HEIGHT,

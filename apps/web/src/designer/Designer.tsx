@@ -63,6 +63,7 @@ import { findNests, followNest, linkedTo } from "./nest.js";
 import { describeLane, layKey, startCursor, type LayKeys } from "./laykeys.js";
 import { useBake } from "./useBake.js";
 import { DesignerLayout } from "./DesignerLayout.js";
+import { RADIUS_RANGE, WHEEL_PX_PER_STEP, WHEEL_STEP, WHEEL_WIDTH_STEP, WIDTH_RANGE } from "./tuning.js";
 import { VIEWS } from "./PlanOverlays.js";
 import type { PanelProps } from "./SidePanels.js";
 import type { ToolsProps } from "./ToolPalette.js";
@@ -79,8 +80,7 @@ const Viewer3D = lazy(() => import("../viewer3d/Viewer3D.js"));
 const BAKE_SETTLE_MS = 200;
 
 // ---------------------------------------------------------------------------------------------- tuning
-import { RADIUS_RANGE, WHEEL_PX_PER_STEP, WHEEL_STEP, WHEEL_WIDTH_STEP, WIDTH_RANGE } from "./tuning.js";
-export { RADIUS_RANGE, WHEEL_PX_PER_STEP, WHEEL_STEP, WHEEL_WIDTH_STEP, WIDTH_RANGE };
+// the wheel's steps and the radius / width ranges are in tuning.ts (the panels' number fields share them)
 const HANDLE_PX = 5; // centre (racing-line) point handle radius on screen
 const MITRE_PX = 6; // outside-corner handle half-size on screen
 const GRAB_PX = 14; // a press on the track this close to a corner point grabs the point (instead of adding one)
@@ -1489,7 +1489,6 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       built={built}
       pill={{ open: sheet === "checks", onToggle: () => setSheet((s) => (s === "checks" ? null : "checks")) }}
       sheet={sheet}
-      sel={sel}
       onCloseSheet={closeSheet}
       dock={{ ...tools, ...history, reverse, canReverse, reverseTitle, onFit: () => setFitRequest((n) => n + 1) }}
     />
@@ -1568,5 +1567,5 @@ function StartHandle({ built, m, touch, on, onPointerDown }: { built: Built; m: 
   );
 }
 
-// the panels, for the tests and pages that import them from here
+// the panels, re-exported for the tests that import them from here
 export { ChecksPanel, QuickHowTo, SelectionPanel, Shortcuts } from "./SidePanels.js";
