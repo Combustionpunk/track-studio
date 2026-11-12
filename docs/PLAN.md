@@ -18,6 +18,8 @@ forum), Caddy for HTTPS, `tracks.rcmisfits.org`, nightly SQLite backup to Digita
 ## Login
 Forum is the identity provider (DiscourseConnect provider). `/auth/login` -> forum -> `/auth/callback` (verify HMAC,
 read user id, username, avatar, groups) -> signed session cookie. Roles from forum groups: `track-admins` = organiser.
+Signed into the forum = signed in here: the first page a visitor opens is a silent `prompt=none` round trip (#132);
+Sign out also signs out of the forum (DiscourseConnect `logout=true`). Details in `apps/server/README.md`.
 
 ## Data
 - `users` (forum_id, username, avatar_url, groups, last_seen)

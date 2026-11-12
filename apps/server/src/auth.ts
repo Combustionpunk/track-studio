@@ -169,9 +169,11 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
 
   // Signed into the forum means signed in here (#132): the first page a visitor opens is a round trip to the forum
   // with prompt=none. Signed in there: back signed in; not: back as a visitor (failed=true). Either way the cookie
-  // stops another check for SSO_CHECK_MINUTES. Pages call this before rendering; it returns where to redirect, or null.
+  // stops another check for SSO_CHECK_MINUTES. Signed-in members are checked again once it lapses, so signing out of
+  // the forum signs them out here at the next check. Pages call this before rendering; it returns where to redirect, or null.
   app.decorate("silentLogin", (req: FastifyRequest, reply: FastifyReply): string | null => {
-    if (!config.discourseConnectSecret || req.user || req.cookies[SSO_CHECKED_COOKIE] || !isPageNavigation(req)) return null;
+    if (!config.discourseConnectSecret || req.cookies[SSO_CHECKED_COOKIE] || !isPageNavigation(req)) return null;
+    if (req.user && req.user.id < 0) return null; // dev login: the forum doesn't know them
     if (safeReturnPath(req.url) !== req.url) return null; // too long or odd to come back to: don't lose it
     if (req.url.startsWith("/embed/")) return null;
     checkedCookie(reply);
@@ -217,8 +219,10 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
     if (!row) throw badRequest("bad-login", "Login request unknown or already used — please log in again");
     if (row.expires_at < Date.now()) throw badRequest("bad-login", "Login request expired — please log in again");
     // a silent check and the visitor isn't signed into the forum: carry on as a visitor, no error
+    // (or a member signed out of the forum since: end the session here too)
     if (p.get("failed") === "true") {
       checkedCookie(reply);
+      if (req.cookies[SESSION_COOKIE]) reply.clearCookie(SESSION_COOKIE, { path: "/" });
       return reply.redirect(row.return_path);
     }
     const id = Number(p.get("external_id"));
@@ -234,6 +238,7 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
       moderator: p.get("moderator") === "true",
     });
     startSession(reply, id);
+    checkedCookie(reply);
     return reply.redirect(row.return_path);
   });
 

@@ -44,6 +44,23 @@ On the forum, Admin → Settings:
 - create the group `track-admins` (or whatever `ORGANISER_GROUP` says) and add the organisers; forum admins are
   organisers anyway.
 
+**Silent sign-in (#132).** Being signed into the forum means being signed in here, with no click. When a browser
+opens a page (a top-level navigation: `Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`) with no
+`ts_sso_checked` cookie, the server answers with a 302 to the forum's DiscourseConnect with `prompt=none` and sets
+`ts_sso_checked` for 30 minutes. Signed into the forum: the forum sends the signed payload back and the visitor lands on
+the page they asked for, signed in. Not signed in: the forum answers `failed=true` and they carry on as a visitor, with
+no error. A server-side redirect rather than a hidden iframe: one round trip before the page, and the forum doesn't
+allow framing its login pages nor send its cookies to a third-party frame. Never redirected: dev-login users, bots and
+link-preview fetchers (by user agent), `HEAD`, API calls, `/embed/*`, iframes, prefetches, scripts without the
+`Sec-Fetch-*` headers, and dev-login-only servers.
+
+**One sign-out.** `POST /auth/logout` ends the session, sets `ts_sso_checked`, and returns `redirect`: a signed
+DiscourseConnect `logout=true` URL. The web app's Sign out sends the browser there; the forum signs it out and returns
+it to our home page, so the forum and the other sites that use it are signed out too.
+Signed-in members are checked the same way once `ts_sso_checked` lapses (a successful login sets it), so signing out of the forum signs them out here at their
+first page load once it lapses: up to 30 minutes later. That delay is accepted: our session gives no access to the forum, and
+it saves a forum round trip on every page.
+
 Login only goes through the browser (redirects), so the browser must resolve `FORUM_URL` and `BASE_URL`. The server
 itself reads two public URLs from the forum: `FORUM_URL/site.json`, for the colour scheme (below), and
 `FORUM_URL/des/venues`, the venue list the venue editor picks from (so the server must resolve `FORUM_URL` too).
@@ -94,7 +111,7 @@ writes (an `Origin` header other than `BASE_URL`) are refused.
 
 | | |
 |---|---|
-| `GET /auth/login?return=/path` → forum → `GET /auth/callback` | login; `POST /auth/logout`; `GET /api/me` (user or `null`) |
+| `GET /auth/login?return=/path` → forum → `GET /auth/callback` | login (and the silent `prompt=none` check on the first page visit); `POST /auth/logout` (returns the forum's logout URL as `redirect`); `GET /api/me` (user or `null`) |
 | `GET /api/tracks?status=&venue=&minLap=&maxLap=&minCorners=&maxCorners=&q=&author=` | list (archived hidden unless `status=archived`) |
 | `GET /api/tracks?fits=<venueId>` | approved tracks (their pinned revision) that fit, each with `fit.results` |
 | `GET /api/tracks?lapClass=<class>[&minTypical=&maxTypical=&sort=typical]` | each track gets `typicalLap: {seconds, est}` (or `null`) for the class: the forum's median lap, else the estimate lap length ÷ class speed (`est: true`, also while the forum is down). `minTypical`/`maxTypical` (s) filter, `sort=typical` puts the fastest first and unknowns last; both need `lapClass` (400 otherwise) |

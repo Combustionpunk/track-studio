@@ -1,7 +1,7 @@
 // Silent sign-in with the forum (DiscourseConnect prompt=none) and one sign-out for all sites (#132).
 import { describe, expect, it } from "vitest";
 import { decodePayload, encodePayload, signPayload, SSO_CHECKED_COOKIE } from "../src/auth.js";
-import { ALICE, BASE_URL, callbackUrl, FORUM_URL, forumResponse, login, makeApp, SECRET } from "./helpers.js";
+import { ALICE, BASE_URL, callbackUrl, FORUM_URL, forumResponse, login, makeApp, SECRET, startLogin } from "./helpers.js";
 
 /** What a browser sends when the user opens a page (top-level navigation). */
 const browser = {
@@ -95,10 +95,33 @@ describe("silent sign-in on the first visit", () => {
     }
   });
 
-  it("signed-in users are never redirected", async () => {
+  it("signed-in users aren't checked while the cookie lasts; a login sets it", async () => {
     const { app } = await makeApp({ seeded: true });
-    const res = await openPage(app, "/v", { cookie: await login(app, ALICE) });
-    expect(res.statusCode).toBe(200);
+    const { nonce } = await startLogin(app, "/v");
+    const back = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, ALICE)) });
+    expect(back.cookies.find((c) => c.name === SSO_CHECKED_COOKIE)?.maxAge).toBe(30 * 60);
+    expect((await openPage(app, "/v", { cookie: cookieHeader(back) })).statusCode).toBe(200);
+  });
+
+  it("signed out of the forum: the next silent check signs out here too", async () => {
+    const { app } = await makeApp({ seeded: true });
+    const session = await login(app, ALICE);
+    const first = await openPage(app, "/v", { cookie: session }); // the check cookie has lapsed
+    expect(first.statusCode).toBe(302);
+    const { p } = forumRequest(first.headers.location as string);
+    const back = await app.inject({ method: "GET", url: callbackUrl(forumFailed(p.get("nonce")!)), headers: { cookie: session } });
+    expect(back.headers.location).toBe("/v");
+    expect(back.cookies.find((c) => c.name === "ts_session")!.value).toBe("");
+  });
+
+  it("still signed into the forum: the check keeps the session (and refreshes groups)", async () => {
+    const { app } = await makeApp({ seeded: true });
+    const session = await login(app, ALICE);
+    const first = await openPage(app, "/v", { cookie: session });
+    const { p } = forumRequest(first.headers.location as string);
+    const back = await app.inject({ method: "GET", url: callbackUrl(forumResponse(p.get("nonce")!, { ...ALICE, groups: ["track-admins"] })) });
+    const me = await app.inject({ method: "GET", url: "/api/me", headers: { cookie: cookieHeader(back) } });
+    expect(me.json()).toMatchObject({ username: "alice", organiser: true });
   });
 
   it("no redirect for bots, HEAD requests, API calls, embeds, or anything that isn't a page navigation", async () => {
