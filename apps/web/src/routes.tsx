@@ -1,6 +1,6 @@
 // The app's routes. A pathless root runs the version gate before each change of page (#88), and every route has the
 // app's own error page above it: pages inside the site chrome keep the header when they fail.
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Outlet, useLocation, useParams, type RouteObject } from "react-router-dom";
 import { EditTrackPage, NewDesignPage, NewTrackPage } from "./designer/pages.js";
 import { Header } from "./components/Header.js";
@@ -15,6 +15,9 @@ import { TrackPage } from "./pages/TrackPage.js";
 import { VenuePage, Venues } from "./pages/Venues.js";
 import { gateRevalidates, useCheckOnFocus, versionGate } from "./lib/version.js";
 import { EditVenuePage, NewVenuePage } from "./venues/pages.js";
+
+/** development only (#121): a production build drops the import, so it ships no demo chunk */
+const SheetDemo = import.meta.env.DEV ? lazy(() => import("./pages/SheetDemo.js").then((m) => ({ default: m.SheetDemo }))) : null;
 
 function Layout() {
   const { pathname } = useLocation();
@@ -59,6 +62,8 @@ export const routes: RouteObject[] = [
       { path: "/embed/:id", element: <Embed /> },
       // the build sheet prints without the site's chrome
       { path: "/t/:id/build", element: <BuildSheetPage /> },
+      // development only: a page to try the phone's bottom sheet on (#121); production builds leave it out
+      ...(SheetDemo ? [{ path: "/dev/sheet", element: <Suspense><SheetDemo /></Suspense> }] : []),
       {
         element: <Layout />,
         children: [
