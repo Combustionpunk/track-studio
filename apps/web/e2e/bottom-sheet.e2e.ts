@@ -69,6 +69,21 @@ test("a short pull down from full comes back to peek", async ({ page }) => {
   await expect(sheet).toHaveClass(/bottom-sheet--peek/);
 });
 
+test("a short sheet: peek is its own height; a slow pull up reaches full, a small pull down keeps it open", async ({ page }) => {
+  await open(page, "Menu");
+  const menu = page.getByRole("dialog", { name: "More" });
+  const peek = await still(menu);
+  expect(peek).toBeLessThan(200);
+  const touch = await Touch.on(page);
+  let [x, y] = await grab(menu);
+  await touch.drag([[x, y], [x, y + 30]]);
+  await expect(menu).toHaveClass(/bottom-sheet--peek/);
+  expect(await still(menu)).toBe(peek);
+  [x, y] = await grab(menu);
+  await touch.drag([[x, y], [x, y - 150], [x, y - 400]], 12);
+  await expect(menu).toHaveClass(/bottom-sheet--full/);
+});
+
 test("the Close button closes it", async ({ page }) => {
   await open(page, "Peek");
   await still(panel(page));
@@ -90,6 +105,9 @@ test("tuck and restore: a finger on the plan tucks the sheet to its grab bar; li
     await touch.move([[187, 300]]);
     await expect(sheet).toHaveClass(/bottom-sheet--tucked/);
     expect(await still(sheet)).toBe(24);
+    // the Close button goes with the content; focus inside a full sheet stays there
+    await expect(sheet.getByRole("button", { name: "Close" })).toBeHidden();
+    if (which === "Full") expect(await sheet.evaluate((e) => e.contains(document.activeElement))).toBe(true);
     await touch.up();
     await expect(sheet).not.toHaveClass(/bottom-sheet--tucked/);
     await expect(sheet).toHaveClass(new RegExp(`bottom-sheet--${which.toLowerCase()}`));

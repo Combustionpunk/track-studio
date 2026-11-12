@@ -871,6 +871,7 @@ select.ts-input { padding: 0 var(--space-2); }
 .bottom-sheet { position: fixed; left: 0; right: 0; z-index: 30; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--bg-raised); border-top: 1px solid var(--line); box-shadow: var(--shadow-float); color: var(--text); font: 400 15px/22px var(--font-body); outline: none; interpolate-size: allow-keywords; transition: height 200ms ease; animation: bottom-sheet-in 200ms ease; }
 .bottom-sheet--dragging { transition: none; }
 .bottom-sheet--tucked { pointer-events: none; }
+.bottom-sheet--tucked .bottom-sheet-close { visibility: hidden; }
 .bottom-sheet-grab { position: relative; flex: none; height: var(--touch-target); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .bottom-sheet-handle { display: flex; justify-content: center; width: 100%; height: 100%; padding: var(--space-2) 0 0; border: 0; background: transparent; cursor: grab; touch-action: none; }
 .bottom-sheet-handle:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }

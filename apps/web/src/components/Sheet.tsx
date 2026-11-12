@@ -78,7 +78,8 @@ export function Sheet({
   /** the sheet's height in px while the grab bar is being pulled */
   const [drag, setDrag] = useState<number | null>(null);
   const open = height !== "closed";
-  const trap = open && !tucked && (modal || height === "full");
+  // tucking doesn't let focus go: the sheet is back under the same finger a moment later
+  const trap = open && (modal || height === "full");
 
   // full or modal: focus moves into the sheet, and goes back where it was when the sheet closes or lets go
   useEffect(() => {
@@ -90,6 +91,13 @@ export function Sheet({
     };
   }, [trap]);
 
+  // closed in the middle of a pull (Escape, another sheet): the next open starts from its own height
+  useEffect(() => {
+    if (open) return;
+    pull.current = null;
+    setDrag(null);
+  }, [open]);
+
   if (!open) return null;
 
   const inset = "env(safe-area-inset-bottom, 0px)";
@@ -100,11 +108,17 @@ export function Sheet({
     height: tucked ? TUCKED : (drag ?? (height === "full" ? fullCss : undefined)),
   };
 
-  /** the peek and full heights in px, as they are on screen right now (the bottom includes the home-indicator inset) */
+  /**
+   * The peek and full heights in px, as they are on screen right now: full from the bottom (which includes the
+   * home-indicator inset), peek the content's own height up to a third of the screen, so a short sheet isn't closed by
+   * a pull that ends above its own peek height.
+   */
   const heights = () => {
-    const vh = window.innerHeight;
-    const full = vh - SHEET_TOP - (parseFloat(getComputedStyle(ref.current!).bottom) || below);
-    return { peek: Math.min(vh / 3, full), full };
+    const vh = window.innerHeight, el = ref.current!;
+    const full = vh - SHEET_TOP - (parseFloat(getComputedStyle(el).bottom) || below);
+    const body = el.querySelector(".bottom-sheet-body")!;
+    const content = el.offsetHeight - body.clientHeight + body.scrollHeight;
+    return { peek: Math.min(vh / 3, content, full), full };
   };
 
   const down = (e: PointerEvent) => {
@@ -127,7 +141,7 @@ export function Sheet({
     if (!p || p.id !== e.pointerId) return;
     pull.current = null;
     setDrag(null);
-    if (e.type === "pointercancel") return;
+    if (e.type !== "pointerup") return;
     if (!p.moved) return onHeight(height === "full" ? "peek" : "full");
     const { peek, full } = heights();
     // the speed of the last move, unless the finger rested before it lifted
@@ -162,7 +176,7 @@ export function Sheet({
     <>
       {modal && <div className="bottom-sheet-scrim" aria-hidden="true" onClick={() => onHeight("closed")} />}
       <section ref={ref} className={cls} style={style} role="dialog" aria-label={label} aria-modal={modal || undefined} tabIndex={-1} onKeyDown={keys}>
-        <div className="bottom-sheet-grab" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+        <div className="bottom-sheet-grab" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={up}>
           <button type="button" className="bottom-sheet-handle" aria-label={height === "full" ? "Peek height" : "Full height"} tabIndex={tucked ? -1 : undefined} onClick={(e) => e.detail === 0 && onHeight(height === "full" ? "peek" : "full")}>
             <span className="bottom-sheet-bar" aria-hidden="true" />
           </button>
