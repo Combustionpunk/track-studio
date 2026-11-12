@@ -52,8 +52,21 @@ export function keyInsert(view: DesignerMode, points: DesignPoint[], i: number, 
   return { points: insertPoint(view, points, i, at), index: i + 1 };
 }
 
-/** The hint over the plan in step 2, when no jump is armed. `sel`: the selected corner, if any. */
-export function shapeHint(o: { advanced: boolean; tablet: boolean; adding: boolean; sel: number | null }): string {
+/**
+ * The hint over the plan in step 2, when no jump is armed. `sel`: the selected corner, if any. `tablet`: a finger (tap,
+ * not click). `phone`: the phone layout (#122), where Select stops adding and pinch (or the wheel) zooms.
+ */
+export function shapeHint(o: { advanced: boolean; tablet: boolean; phone?: boolean; adding: boolean; sel: number | null }): string {
+  if (o.phone) {
+    const [Verb, verb] = o.tablet ? ["Tap", "tap"] : ["Click", "click"];
+    if (o.adding) {
+      if (o.advanced) return `${Verb} a straight to add a point there. ${Verb} Select to stop.`;
+      return o.sel === null ? `${Verb} the track or the floor to add a corner. ${Verb} Select to stop.` : `${Verb} the floor to add a corner after ${o.sel + 1}. ${Verb} Select to stop.`;
+    }
+    const zoom = o.tablet ? "Pinch to zoom in." : "Scroll to zoom in.";
+    if (o.advanced) return `${zoom} Drag a corner point to move it; to add one, ${verb} Add point, then a straight.`;
+    return `${zoom} ${Verb} a corner to select it, drag it to move it, or drag its inside handle to cut it back.`;
+  }
   if (o.adding) {
     if (o.tablet) return o.sel === null ? "Tap the track or the floor to add a corner. Tap Add point again to stop." : `Tap the floor to add a corner after ${o.sel + 1}. Tap Add point again to stop.`;
     if (o.advanced) return "Click a straight to add a point there. Esc or A to stop.";

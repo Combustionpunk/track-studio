@@ -129,6 +129,11 @@ test.describe("phone, the switch on", () => {
       const b = (await toolBtn(page, name).boundingBox())!;
       expect(b.width, name).toBeGreaterThanOrEqual(44);
       expect(b.height, name).toBeGreaterThanOrEqual(44);
+      // its label shows, whole, inside it
+      const l = (await toolBtn(page, name).locator(".phone-tool-label").boundingBox())!;
+      expect(l.width, name).toBeGreaterThan(10);
+      expect(l.x, name).toBeGreaterThanOrEqual(b.x);
+      expect(l.x + l.width, name).toBeLessThanOrEqual(b.x + b.width);
     }
     for (const el of await page.locator(".phone-header").locator("a, button").all()) {
       const b = (await el.boundingBox())!;
@@ -217,7 +222,7 @@ test.describe("phone, the switch on", () => {
     expect(errors).toEqual([]);
   });
 
-  test("Add point, then a tap on the floor adds one corner; Select turns it off", async ({ page }) => {
+  test("Add point, then a tap on the floor adds one corner after the selected one; Select turns it off", async ({ page }) => {
     const errors = await serve(page);
     await open(page);
     const t = await Touch.on(page);
@@ -227,13 +232,19 @@ test.describe("phone, the switch on", () => {
     await t.tap(floor);
     await page.waitForTimeout(150);
     await expect(page.locator("g.ed-corner")).toHaveCount(n);
+    // a corner selected: the next one goes after it, wherever on the floor it's tapped
+    const { i, at } = await middleCorner(page);
+    await t.tap(at);
+    await expect(page.locator("g.ed-corner.on")).toHaveCount(1);
     await toolBtn(page, "Add point").tap();
     await expect(toolBtn(page, "Add point")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".designer-hint")).toContainText(`after ${i + 1}`);
     await expect(toolBtn(page, "Select")).toHaveAttribute("aria-pressed", "false");
-    await expect(page.locator(".designer-hint")).toContainText("Tap");
+    await expect(page.locator(".designer-hint")).toContainText("Tap the floor");
     await t.tap(floor);
     await expect(page.locator("g.ed-corner")).toHaveCount(n + 1);
     await expect(page.locator("g.ed-corner.on")).toHaveCount(1); // the new one, selected
+    await expect(page.locator(".designer-hint")).toContainText(`after ${i + 2}`);
     await toolBtn(page, "Select").tap();
     await expect(toolBtn(page, "Add point")).toHaveAttribute("aria-pressed", "false");
     await expect(toolBtn(page, "Select")).toHaveAttribute("aria-pressed", "true");
@@ -279,8 +290,9 @@ test.describe("phone, the switch on", () => {
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(320);
     }
-    // the labels fit their buttons
-    for (const l of await toolbar(page).locator(".phone-tool-label").all()) expect(await l.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
+    // the labels go (as the plan says for 320 px phones), and stay the buttons' names
+    for (const l of await toolbar(page).locator(".phone-tool-label").all()) expect((await l.boundingBox())!.width).toBeLessThanOrEqual(1);
+    for (const name of ["Select", "Add point", "Jump", "Delete", "Undo", "Redo"]) await expect(toolBtn(page, name)).toHaveCount(1);
     const more = (await page.getByRole("button", { name: "More" }).boundingBox())!;
     expect(more.x + more.width).toBeLessThanOrEqual(320);
   });

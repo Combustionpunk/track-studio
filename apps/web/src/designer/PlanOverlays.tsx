@@ -28,6 +28,8 @@ export interface PlanHintProps {
   viewing3d: boolean;
   synced3d: boolean;
   tablet: boolean;
+  /** the phone layout (#122): its own words for step 2, "tap" from a finger */
+  phone?: boolean;
   laying: boolean;
   /** step 1's note (a refusal, what the keys did) */
   layNote: string | null;
@@ -42,7 +44,7 @@ export interface PlanHintProps {
 }
 
 /** The hint over the plan: what to do next, or the snapping while a drag is on. */
-export function PlanHint({ snapInfo, viewing3d, synced3d, tablet, laying, layNote, gridFocus, cells, layKeys, grid, tool, advanced, sel }: PlanHintProps) {
+export function PlanHint({ snapInfo, viewing3d, synced3d, tablet, phone = false, laying, layNote, gridFocus, cells, layKeys, grid, tool, advanced, sel }: PlanHintProps) {
   return snapInfo ? (
     <div className="designer-hint" aria-live="polite">
       <b>{SNAP_LABEL[snapInfo.mode]}</b>
@@ -64,7 +66,7 @@ export function PlanHint({ snapInfo, viewing3d, synced3d, tablet, laying, layNot
           ? tool.type === "crossover"
             ? `${tablet ? "Tap" : "Click"} where the track crosses itself: the pass you ${tablet ? "tap" : "click"} goes over.`
             : `${tablet ? "Tap" : "Click"} on the racing line to place it.`
-          : shapeHint({ advanced, tablet, adding: tool.kind === "add", sel: sel?.kind === "point" ? sel.i : null })}
+          : shapeHint({ advanced, tablet, phone, adding: tool.kind === "add", sel: sel?.kind === "point" ? sel.i : null })}
     </div>
   );
 }
@@ -86,12 +88,14 @@ export interface PlanAreaProps {
   no3d: "none" | "lost" | undefined;
   view3d: View3d;
   onView3d: (k: View3d) => void;
+  /** the 2D / 3D switch over the plan (not on the phone yet: 3D comes to it with ticket 8) */
+  viewSwitch?: boolean;
   /** after the canvas: the tablet's pill, sheet and dock */
   children?: ReactNode;
 }
 
 /** The plan's section: the live region, the lane grid's keyboard target, the hint, the canvas with the 3D note and the 2D / 3D switch. */
-export function PlanArea({ planWrapRef, said, laying, grid, onGridKey, onGridFocus, hint, adding, plan, shown3d, no3d, view3d, onView3d, children }: PlanAreaProps) {
+export function PlanArea({ planWrapRef, said, laying, grid, onGridKey, onGridFocus, hint, adding, plan, shown3d, no3d, view3d, onView3d, viewSwitch = true, children }: PlanAreaProps) {
   return (
     <section className="designer-plan-wrap" aria-label="Plan" ref={planWrapRef}>
       <p className="sr-only" role="status" aria-live="polite">
@@ -125,7 +129,7 @@ export function PlanArea({ planWrapRef, said, laying, grid, onGridKey, onGridFoc
                 : ""}
           </p>
         )}
-        {!laying && (
+        {!laying && viewSwitch && (
           <div className="plan-viewswitch designer-viewswitch" role="group" aria-label="View">
             {VIEWS.map((k) => (
               <button key={k} type="button" aria-pressed={view3d === k} className={view3d === k ? "on" : ""} onClick={() => onView3d(k)} title={k === "3d" ? "See the track in 3D (view only)" : "Back to the plan, to edit"}>

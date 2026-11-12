@@ -1,6 +1,7 @@
 // The designer's layouts (#120): one state (the Designer's), three layouts. A phone (under 640 px) gets the view-only
-// screen; a tablet (a coarse pointer, in Quick mode) the plan with a dock and a sheet over it; otherwise the laptop's
-// bar, palette, plan and side column. The layouts only place the pieces; nothing here changes the state.
+// screen, or with the switch on the phone layout (#122, PhoneLayout.tsx); a tablet (a coarse pointer, in Quick mode)
+// the plan with a dock and a sheet over it; otherwise the laptop's bar, palette, plan and side column. The layouts only
+// place the pieces; nothing here changes the state.
 import type { Area, Built, Obstacle } from "@track-studio/engine";
 import { ChevronLeft, Monitor } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -12,6 +13,7 @@ import { DesignerBar, DesignerMessages, type DesignerBarProps, type DesignerMess
 import type { LaneGrid } from "./lanes.js";
 import type { DesignerMode } from "./mode.js";
 import { ChecksPill, PlanArea, TabletDock, TabletSheet, type PlanAreaProps, type TabletDockProps } from "./PlanOverlays.js";
+import { PhoneEditLayout, type BottomToolbarProps, type PhoneHeaderProps } from "./PhoneLayout.js";
 import { SidePanel, type PanelProps } from "./SidePanels.js";
 import { ToolPalette, type ToolPaletteProps } from "./ToolPalette.js";
 
@@ -31,6 +33,8 @@ export interface PhoneViewProps {
 export interface DesignerLayoutProps {
   /** under 640 px: the view-only screen */
   phone: boolean;
+  /** under 640 px with the switch on (#122): the header, the plan and the toolbar; `upright` while it's on its side */
+  phoneEdit: { header: PhoneHeaderProps; toolbar: BottomToolbarProps; upright: boolean } | null;
   /** a coarse pointer in Quick mode: the plan with a dock */
   tablet: boolean;
   view: DesignerMode;
@@ -54,7 +58,8 @@ export interface DesignerLayoutProps {
 }
 
 /** Picks the layout: phone, tablet or laptop. */
-export function DesignerLayout({ phone, tablet, view, laying, phoneView, bar, messages, palette, planArea, panels, grid, built, pill, sheet, onCloseSheet, dock }: DesignerLayoutProps) {
+export function DesignerLayout({ phone, phoneEdit, tablet, view, laying, phoneView, bar, messages, palette, planArea, panels, grid, built, pill, sheet, onCloseSheet, dock }: DesignerLayoutProps) {
+  if (phoneEdit) return <PhoneEditLayout view={view} messages={messages} planArea={planArea} {...phoneEdit} />;
   if (phone) return <PhoneLayout {...phoneView} />;
   return (
     <div className={`designer designer-${view} ${tablet ? "designer-touch" : ""}`}>
