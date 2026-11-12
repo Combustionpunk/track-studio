@@ -231,6 +231,8 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
   }
 
   const serve = async (req: FastifyRequest, reply: FastifyReply) => {
+    const silent = app.silentLogin(req, reply);
+    if (silent) return reply.header("cache-control", "no-store").redirect(silent);
     const [path, qs] = req.url.split("?");
     const query = Object.fromEntries(new URLSearchParams(qs ?? "")) as Record<string, string | undefined>;
     const page = pageFor(db, config, app.theme, path, query);

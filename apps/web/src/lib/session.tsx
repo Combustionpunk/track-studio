@@ -10,6 +10,14 @@ interface Session {
   loginUrl: (returnPath?: string) => string;
 }
 
+/** Ends the session here, then sends the browser to the forum's logout so every site is signed out (#132). True when it navigates away. */
+export async function signOut(postFn: (path: string) => Promise<{ redirect?: string | null }>, go: (url: string) => void): Promise<boolean> {
+  const { redirect } = await postFn("/auth/logout");
+  if (!redirect) return false;
+  go(redirect);
+  return true;
+}
+
 const Ctx = createContext<Session | null>(null);
 /** For tests: provide a session without the API. */
 export const SessionContext = Ctx;
@@ -31,8 +39,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const logout = useCallback(async () => {
-    await post("/auth/logout");
-    setMe(null);
+    const away = await signOut((path) => post<{ redirect?: string | null }>(path), (url) => window.location.assign(url));
+    if (!away) setMe(null);
   }, []);
 
   const loginUrl = (returnPath = window.location.pathname + window.location.search) => `/auth/login?return=${encodeURIComponent(returnPath)}`;
