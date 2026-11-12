@@ -881,8 +881,3 @@ select.ts-input { padding: 0 var(--space-2); }
 .bottom-sheet-scrim { position: fixed; inset: 0; z-index: 29; background: var(--bg-sunken); opacity: 0.55; }
 @keyframes bottom-sheet-in { from { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { .bottom-sheet { animation: none; transition: none; } }
-/* the bottom sheet's demo page (/dev/sheet, development only) */
-.sheet-demo { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
-.sheet-demo-plan { flex: 1 1 auto; display: grid; place-items: center; padding: var(--space-4); background: var(--plan-floor); color: var(--text-muted); font-size: 13px; line-height: 18px; text-align: center; touch-action: none; }
-.sheet-demo-toolbar { flex: none; display: flex; justify-content: space-around; align-items: flex-start; padding-top: var(--space-1); background: var(--bg-raised); border-top: 1px solid var(--line); }
-.sheet-demo-tool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: var(--touch-target); height: 56px; padding: 0 var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: 600 11px/14px var(--font-body); }

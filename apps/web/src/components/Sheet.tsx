@@ -20,6 +20,8 @@ export const SHEET_TOP = 72;
 const FLICK_MS = 150;
 /** a pull that ends below this share of the peek height closes the sheet */
 const CLOSE_AT = 0.6;
+/** a finger that rests this long before it lifts has stopped: no flick */
+const REST_MS = 100;
 /** a grab bar touch that moves less than this is a tap (it toggles peek and full) */
 const SLOP = 8;
 /** the height of a tucked sheet: its grab bar */
@@ -128,8 +130,9 @@ export function Sheet({
     if (e.type === "pointercancel") return;
     if (!p.moved) return onHeight(height === "full" ? "peek" : "full");
     const { peek, full } = heights();
+    // the speed of the last move, unless the finger rested before it lifted
     const dt = p.last.t - p.prev.t;
-    const v = dt > 0 ? -(p.last.y - p.prev.y) / dt : 0;
+    const v = dt > 0 && e.timeStamp - p.last.t < REST_MS ? -(p.last.y - p.prev.y) / dt : 0;
     const h = Math.max(0, Math.min(full, p.h0 - (e.clientY - p.y0)));
     const to = settleSheet(h, v, peek, full);
     if (to !== height) onHeight(to);

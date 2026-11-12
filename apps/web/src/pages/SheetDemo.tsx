@@ -5,6 +5,7 @@
 import { Ellipsis, PanelBottom } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Sheet, type SheetHeight } from "../components/Sheet.js";
+import "./SheetDemo.css";
 
 /** the toolbar's height, which the sheet sits above */
 const TOOLBAR = 64;
