@@ -23,5 +23,7 @@ export default defineConfig({
     { name: "tablet-landscape", use: { ...touch, viewport: { width: 1024, height: 768 } } },
     { name: "tablet-portrait", use: { ...touch, viewport: { width: 768, height: 1024 } } },
     { name: "desktop-mouse", use: { ...devices["Desktop Chrome"], viewport: { width: 1200, height: 860 }, launchOptions: { executablePath, args: ["--no-sandbox"] } } },
+    // a phone (#120): 375 × 812 with touch, for the specs that know about it (the other specs are tablet and laptop tests)
+    { name: "phone", use: { ...touch, viewport: { width: 375, height: 812 }, isMobile: true }, testMatch: "**/layout.e2e.ts" },
   ],
 });
