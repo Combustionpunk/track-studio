@@ -93,11 +93,11 @@ const APEX_TOUCH_PX = 8; // touch screens: the apex handle, drawn bigger
 const CONFIRM_MS = 4000;
 /** narrower than this, the designer shows a view-only plan, or with the switch on the phone layout (#122) */
 export const PHONE_QUERY = "(max-width: 640px)";
-/** a phone on its side (its short side under 640 px, and a finger): with the switch on, "Turn your phone upright" */
-export const LANDSCAPE_PHONE_QUERY = "(orientation: landscape) and (max-height: 640px) and (pointer: coarse)";
-/** the switch for the phone layout (#122), in the query string, until a phone can save (ticket 5) */
-export const PHONE_EDIT = "phone=edit";
-const [PHONE_KEY, PHONE_ON] = PHONE_EDIT.split("=");
+/** a phone on its side (its short side under 640 px, its long side a phone's, and a finger): with the switch on, "Turn
+ * your phone upright"; a small tablet (1024 × 600) is wider than this */
+export const LANDSCAPE_PHONE_QUERY = "(orientation: landscape) and (max-height: 640px) and (max-width: 1000px) and (pointer: coarse)";
+/** the switch for the phone layout (#122), `?phone=edit`, until a phone can save (ticket 5) */
+export const PHONE_PARAM = "phone";
 /** touch screens (tablets): bigger handles, and a toggle for free placement since there's no Alt */
 export const TOUCH_QUERY = "(pointer: coarse)";
 
@@ -260,7 +260,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const phone = useMediaQuery(PHONE_QUERY);
   const landscapePhone = useMediaQuery(LANDSCAPE_PHONE_QUERY);
   const [params] = useSearchParams();
-  const phoneSwitch = params.get(PHONE_KEY) === PHONE_ON;
+  const phoneSwitch = params.get(PHONE_PARAM) === "edit";
   /** any phone layout: no save pop-over (saving comes to the phone with ticket 5) */
   const phoneRef = useRef(phone);
   /** the view-only phone screen: the plan's keys do nothing */
@@ -301,6 +301,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
    * stage 2, so until then a new track gets the view-only screen */
   const phoneEdit = phoneSwitch && (phone || landscapePhone) && !laying;
   phoneRef.current = phone || phoneEdit;
+  const phoneEditRef = useRef(phoneEdit);
+  phoneEditRef.current = phoneEdit;
   viewOnlyRef.current = phone && !phoneEdit;
   // the venue it's drawn for, loaded live as a guide (area and obstacles shown, never saved); none if it's gone
   const guide = useApi<{ doc: RcVenue }>(draft.info.drawnFor ? `/api/venues/${encodeURIComponent(draft.info.drawnFor.venueTemplate)}` : null).data?.doc ?? null;
@@ -683,8 +685,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const quick = viewRef.current === "quick";
     // Quick: a tap on the selected corner lets it go, so taps on the floor stop adding after it
     const onClick = quick && again ? () => setSel(null) : undefined;
-    // Quick, by touch: hold the corner to select it and open its panel; the ring fills while the finger is down
-    const touchPress = quick && e.pointerType !== "mouse";
+    // Quick, by touch: hold the corner to select it and open its panel; the ring fills while the finger is down (not on
+    // the phone yet: its long-press sheet is ticket 7)
+    const touchPress = quick && e.pointerType !== "mouse" && !phoneEditRef.current;
     if (touchPress) setPress({ i, done: false });
     // a tap on another corner picks where the next corner goes; its panel waits for a long-press
     if (!again) setSheet((s) => (s === "selection" ? null : s));
@@ -942,7 +945,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // on a corner picks where the next corner goes); letting go of the selection closes it
   useEffect(() => {
     if (!sel) setSheet((s) => (s === "selection" ? null : s));
-    else if (sel.kind !== "point") setSheet("selection");
+    else if (sel.kind !== "point" && !phoneEditRef.current) setSheet("selection"); // the phone's sheets are ticket 4
     setPress((p) => (p && (sel?.kind !== "point" || sel.i !== p.i) ? null : p));
   }, [sel]);
   // undo past the close comes back here: nothing of step 2 stays selected or armed

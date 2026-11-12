@@ -147,7 +147,9 @@ test.describe("phone, the switch on", () => {
     await expect(toolBtn(page, "Jump")).toBeDisabled();
     await expect(toolBtn(page, "Delete")).toBeDisabled();
     // the plan takes every gesture; the page doesn't scroll
-    expect(await page.locator(".plan").first().evaluate((e) => getComputedStyle(e).touchAction)).toBe("none");
+    // (touch-action is not inherited, but a touch is handled by the intersection up the tree: none on the layout is none
+    // on the header and the toolbar too)
+    for (const s of [".plan", ".designer-phone-edit"]) expect(await page.locator(s).first().evaluate((e) => getComputedStyle(e).touchAction), s).toBe("none");
     expect(await page.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.scrollHeight])).toEqual([vp.width, vp.height]);
     await shot(page, "375-plan");
     expect(errors).toEqual([]);

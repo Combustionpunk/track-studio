@@ -1,5 +1,5 @@
 // The designer's layouts (#120): one state (the Designer's), three layouts. A phone (under 640 px) gets the view-only
-// screen, or with the switch on the phone layout (#122, PhoneLayout.tsx); a tablet (a coarse pointer, in Quick mode)
+// screen, or with the switch on the phone layout (#122, PhoneEditLayout.tsx); a tablet (a coarse pointer, in Quick mode)
 // the plan with a dock and a sheet over it; otherwise the laptop's bar, palette, plan and side column. The layouts only
 // place the pieces; nothing here changes the state.
 import type { Area, Built, Obstacle } from "@track-studio/engine";
@@ -13,7 +13,7 @@ import { DesignerBar, DesignerMessages, type DesignerBarProps, type DesignerMess
 import type { LaneGrid } from "./lanes.js";
 import type { DesignerMode } from "./mode.js";
 import { ChecksPill, PlanArea, TabletDock, TabletSheet, type PlanAreaProps, type TabletDockProps } from "./PlanOverlays.js";
-import { PhoneEditLayout, type BottomToolbarProps, type PhoneHeaderProps } from "./PhoneLayout.js";
+import { PhoneEditLayout, type BottomToolbarProps, type PhoneHeaderProps } from "./PhoneEditLayout.js";
 import { SidePanel, type PanelProps } from "./SidePanels.js";
 import { ToolPalette, type ToolPaletteProps } from "./ToolPalette.js";
 

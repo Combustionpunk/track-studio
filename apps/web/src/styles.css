@@ -277,6 +277,8 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 html:has(.designer-phone-edit), body:has(.designer-phone-edit) { overscroll-behavior: none; }
 #root:has(.designer-phone-edit) { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
 #root:has(.designer-phone-edit) .ts-header { display: none; }
+/* every gesture on the phone layout is the app's: no browser pinch-zoom from the header or the toolbar either */
+.designer-phone-edit, .phone-upright { touch-action: none; }
 #main:has(.designer-phone-edit) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .designer.designer-phone-edit { flex: 1 1 auto; height: auto; min-height: 0; }
 .phone-header { flex: none; height: 52px; display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); background: var(--header); color: var(--header-text); border-bottom: 1px solid var(--line); }
@@ -290,7 +292,7 @@ html:has(.designer-phone-edit), body:has(.designer-phone-edit) { overscroll-beha
 .designer-phone-edit .designer-plan { flex: 1 1 auto; height: auto; min-height: 0; -webkit-touch-callout: none; -webkit-user-select: none; }
 .designer-phone-edit .designer-hint { left: var(--space-3); top: var(--space-3); max-width: calc(100% - 2 * var(--space-3)); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--header); box-shadow: var(--shadow-float); font-size: 13px; line-height: 18px; }
 .phone-toolbar { flex: none; display: flex; align-items: stretch; gap: 2px; height: calc(64px + env(safe-area-inset-bottom, 0px)); padding: var(--space-1) var(--space-1) calc(6px + env(safe-area-inset-bottom, 0px)); background: var(--bg-raised); border-top: 1px solid var(--line); }
-.phone-tool { flex: 1 1 auto; min-width: var(--touch-target); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 2px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text); cursor: pointer; touch-action: manipulation; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.phone-tool { flex: 1 1 auto; min-width: var(--touch-target); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 2px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text); cursor: pointer; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 .phone-tool[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
 .phone-tool:disabled { opacity: 0.45; cursor: not-allowed; }
 .phone-tool:focus-visible, .phone-icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
@@ -304,7 +306,7 @@ html:has(.designer-phone-edit), body:has(.designer-phone-edit) { overscroll-beha
 .phone-upright { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: var(--space-6); background: var(--plan-dim); }
 .phone-upright-card { display: grid; justify-items: center; gap: var(--space-3); max-width: 360px; padding: var(--space-6); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-float); text-align: center; }
 .phone-upright-card p { margin: 0; color: var(--text-muted); }
-.phone-upright-card .phone-upright-title { font: 500 22px/28px var(--font-display); color: var(--text); }
+.phone-upright-card .phone-upright-title { font: 500 22px/28px var(--font-display); letter-spacing: 0.01em; color: var(--text); }
 
 @media (max-width: 900px) {
   .designer { height: auto; }

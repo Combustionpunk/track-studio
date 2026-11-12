@@ -26,8 +26,8 @@ vi.mock("../src/components/PlanView.js", async (orig) => ({
   PlanView: (p: Record<string, unknown>) => (plans.push(p), <svg className={`plan-svg ${p.className ?? ""}`} aria-label={p.label as string} />),
 }));
 
-const { Designer, draftFromDoc, newDraft, PHONE_QUERY, TOUCH_QUERY, LANDSCAPE_PHONE_QUERY, PHONE_EDIT } = await import("../src/designer/Designer.js");
-const { BottomToolbar, PhoneHeader } = await import("../src/designer/PhoneLayout.js");
+const { Designer, draftFromDoc, newDraft, PHONE_QUERY, TOUCH_QUERY, LANDSCAPE_PHONE_QUERY, PHONE_PARAM } = await import("../src/designer/Designer.js");
+const { BottomToolbar, PhoneHeader } = await import("../src/designer/PhoneEditLayout.js");
 const { MODE_KEY } = await import("../src/designer/mode.js");
 const { SessionContext } = await import("../src/lib/session.js");
 import type { DesignerBase } from "../src/designer/Designer.js";
@@ -35,7 +35,7 @@ import type { DesignerBase } from "../src/designer/Designer.js";
 const me = { id: 1, username: "yeti", name: null, avatarUrl: null, organiser: false, admin: false, moderator: false };
 const session = { me, config: null, ready: true, refresh: async () => {}, logout: async () => {}, loginUrl: () => "/auth/login" };
 const track = { status: "draft", approvedRevision: null } as unknown as DesignerBase["track"];
-const SWITCH = `?${PHONE_EDIT}`;
+const SWITCH = `?${PHONE_PARAM}=edit`;
 /** a saved track of the author's, open to edit at `search` */
 const edit = (search = SWITCH, doc = saved()) => (
   (baked = doc.built),
