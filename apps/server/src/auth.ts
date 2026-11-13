@@ -48,7 +48,7 @@ declare module "fastify" {
     user: User | null;
   }
   interface FastifyInstance {
-    /** where to send a page request for a silent forum sign-in (#132), or null to serve the page; waits for the forum probe (2 s at most) */
+    /** where to send a page request for a silent forum sign-in (#132), or null to serve the page; waits for the forum probe (1.5 s at most) */
     silentLogin: (req: FastifyRequest, reply: FastifyReply) => Promise<string | null>;
   }
 }

@@ -39,7 +39,7 @@ export interface BuildOptions {
   themeFetch?: typeof fetch;
   /** how the forum is fetched: its venue list, and the events for a layout ("Used at", #66), its lap stats (#76); tests stub it */
   forumFetch?: typeof fetch;
-  /** the forum reachability probe (tests pass one with their own clock); default: `forumFetch`, 2 s timeout, 60 s cache */
+  /** the forum reachability probe (tests pass one with their own clock); default: `forumFetch`, 1.5 s timeout, 60 s cache */
   forumReachable?: ForumReachable;
 }
 

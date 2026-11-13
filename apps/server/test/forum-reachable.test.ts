@@ -1,6 +1,8 @@
 // The forum reachability probe that guards silent sign-in and sign-out (#132): short, cached either way, never throws.
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { describe, expect, it, vi } from "vitest";
-import { ForumReachable } from "../src/forum-reachable.js";
+import { ForumReachable, FORUM_STATUS_PATH, PROBE_TIMEOUT_MS, PROBE_TTL_MS } from "../src/forum-reachable.js";
 
 const FORUM = "http://forum.test";
 
@@ -78,5 +80,65 @@ describe("ForumReachable", () => {
     now += 10;
     await probe.check();
     expect(log.info).toHaveBeenCalledTimes(2);
+  });
+
+  // The Board asked for the same probe as the timing site (club-timing #111): these pin the three things that must match.
+  it("uses club-timing's probe: /srv/status, 1.5 s timeout, 60 s cache", () => {
+    expect(FORUM_STATUS_PATH).toBe("/srv/status");
+    expect(PROBE_TIMEOUT_MS).toBe(1_500);
+    expect(PROBE_TTL_MS).toBe(60_000);
+  });
+
+  it("only a 2xx from the status page counts as up: a redirect isn't followed", async () => {
+    // a real forum over HTTP, so this is fetch's own redirect handling and not a stub's
+    let statusAnswer: "redirect" | "ok" | "no-content" = "redirect";
+    const hits: string[] = [];
+    const forum = createServer((req, res) => {
+      hits.push(req.url ?? "");
+      if (req.url === "/srv/status" && statusAnswer === "redirect") res.writeHead(302, { location: "/login" }).end();
+      else if (req.url === "/srv/status" && statusAnswer === "no-content") res.writeHead(204).end();
+      else res.writeHead(200, { "content-type": "text/plain" }).end("ok"); // /login answers 200: following would say "up"
+    });
+    await new Promise<void>((resolve) => forum.listen(0, "127.0.0.1", resolve));
+    try {
+      let now = 0;
+      const probe = new ForumReachable({ forumUrl: `http://127.0.0.1:${(forum.address() as AddressInfo).port}`, ttlMs: 10, now: () => now });
+      expect(await probe.check()).toBe(false);
+      expect(hits).toEqual(["/srv/status"]); // the redirect's target was never asked
+      statusAnswer = "ok";
+      now += 10;
+      expect(await probe.check()).toBe(true);
+      statusAnswer = "no-content";
+      now += 10;
+      expect(await probe.check()).toBe(true);
+    } finally {
+      await new Promise((resolve) => forum.close(resolve));
+    }
+  });
+
+  it("a logger that throws doesn't break the probe: no rejection, and the next check still works", async () => {
+    let now = 0;
+    let up = true;
+    const fetchFn = vi.fn(async () => (up ? new Response("ok") : Promise.reject(new Error("down"))));
+    const log = {
+      info: vi.fn(() => {
+        throw new Error("logger broke");
+      }),
+      warn: vi.fn(() => {
+        throw new Error("logger broke");
+      }),
+    };
+    const probe = new ForumReachable({ forumUrl: FORUM, fetch: fetchFn as unknown as typeof fetch, ttlMs: 10, now: () => now, log });
+    expect(await probe.check()).toBe(true);
+    expect(await probe.check()).toBe(true); // cached, not stuck on a rejected promise
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    up = false;
+    now += 10;
+    expect(await probe.check()).toBe(false);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    up = true;
+    now += 10;
+    expect(await probe.check()).toBe(true);
+    expect(fetchFn).toHaveBeenCalledTimes(3);
   });
 });

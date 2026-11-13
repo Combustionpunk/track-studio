@@ -57,8 +57,8 @@ scripts without the `Sec-Fetch-*` headers, dev-login-only servers, and everythin
 forum's DiscourseConnect provider must support `prompt=none` and list our host in `discourse connect provider secrets`.
 
 *While the forum is down*, nobody is sent there: before the redirect (and before a sign-out goes to the forum) the
-server asks the forum's status page, `FORUM_URL/srv/status`, with a 2 s timeout, and believes the answer, up or down,
-for 60 s. Unreachable: the page is served as it is, with no check cookie, so the next visit after the minute tries
+server asks the forum's status page, `FORUM_URL/srv/status`, with a 1.5 s timeout, and believes the answer, up or down,
+for 60 s. Only a 2xx from that page counts as up: a redirect isn't followed. Unreachable: the page is served as it is, with no check cookie, so the next visit after the minute tries
 again; a signed-in member keeps their session. The same probe and timings as the timing site (club-timing #111). The
 probe can't tell a forum that is up but refuses the request (host missing from its provider secrets, a Discourse
 without `prompt=none`): that still shows the forum's error page, and `SILENT_SIGNIN=off` is the switch for it.
