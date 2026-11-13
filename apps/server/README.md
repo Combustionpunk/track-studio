@@ -64,11 +64,14 @@ probe can't tell a forum that is up but refuses the request (host missing from i
 without `prompt=none`): that still shows the forum's error page, and `SILENT_SIGNIN=off` is the switch for it.
 
 *The forum's answer only counts in the browser that asked.* Each login or check puts its nonce in the `ts_sso`
-cookie (`Path=/auth`, 10 minutes, the newest four, so tabs opened at once don't undo each other). A callback URL
-carried to another browser is refused there: it signs nobody in, and a captured `failed=true` doesn't sign a member out.
+cookie (`Path=/auth`, 10 minutes, the newest four, so tabs opened one after another don't undo each other; tabs
+opened in the same instant may leave one a visitor until its next load). A callback URL carried to another browser
+is refused there: it signs nobody in, and a captured `failed=true` doesn't sign a member out.
 
-*A silent check that goes wrong* (bad signature, stale nonce, another browser) is logged and lands back on the page as
-a visitor; an ordinary Log in keeps its error. *A browser that keeps no cookies* comes back from its one check with
+*A silent check that goes wrong* (bad signature, stale or repeated nonce, another browser) is logged and lands back
+on the page as a visitor; an ordinary Log in keeps its error. Used nonces are marked, not deleted, and expired ones
+kept for an hour, so a late or repeated answer is still known as a silent one; `/auth/callback` with a nonce nobody
+issued (or older than that) is a 400. *A browser that keeps no cookies* comes back from its one check with
 `?nosignin=1` on the address (the web app takes it off), and isn't sent round again for that page.
 
 **One sign-out.** `POST /auth/logout` ends the session, sets `ts_sso_checked`, and returns `redirect`: a signed

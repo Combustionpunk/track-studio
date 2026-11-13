@@ -23,11 +23,11 @@ export const NO_SIGNIN_PARAM = "nosignin";
 
 /** The query string without the server's `?nosignin=1` marker, so it isn't bookmarked or shared; unchanged otherwise. */
 export function withoutNoSignin(search: string): string {
-  const q = new URLSearchParams(search);
-  if (!q.has(NO_SIGNIN_PARAM)) return search;
-  q.delete(NO_SIGNIN_PARAM);
-  const rest = q.toString();
-  return rest ? `?${rest}` : "";
+  if (!search.startsWith("?")) return search;
+  const parts = search.slice(1).split("&");
+  const rest = parts.filter((part) => part.split("=")[0] !== NO_SIGNIN_PARAM);
+  if (rest.length === parts.length) return search;
+  return rest.length ? `?${rest.join("&")}` : "";
 }
 
 const Ctx = createContext<Session | null>(null);

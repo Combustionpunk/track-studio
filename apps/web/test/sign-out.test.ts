@@ -24,6 +24,7 @@ describe("withoutNoSignin", () => {
     expect(withoutNoSignin("?nosignin=1")).toBe("");
     expect(withoutNoSignin("?sort=name&nosignin=1")).toBe("?sort=name");
     expect(withoutNoSignin("?nosignin=1&paper=a4&x=1")).toBe("?paper=a4&x=1");
+    expect(withoutNoSignin("?q=a%20b&nosignin=1&z=")).toBe("?q=a%20b&z="); // the rest isn't re-encoded
   });
 
   it("leaves other addresses alone, byte for byte", () => {

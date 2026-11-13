@@ -9,6 +9,8 @@ import type { ForumReachable } from "./forum-reachable.js";
 export const SESSION_COOKIE = "ts_session";
 export const SESSION_DAYS = 30;
 export const NONCE_TTL_MS = 10 * 60 * 1000;
+/** How long an expired or used nonce row is kept, so a late or repeated answer to a silent check is still known as one. */
+export const NONCE_KEEP_MS = 60 * 60 * 1000;
 /** Set when the forum was asked silently (prompt=none) whether the visitor is signed in there; no new check while it lasts. */
 export const SSO_CHECKED_COOKIE = "ts_sso_checked";
 export const SSO_CHECK_MINUTES = 30;
@@ -191,7 +193,7 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB, forum
   function startForumLogin(req: FastifyRequest, reply: FastifyReply, returnPath: string, silent: boolean): string {
     const nonce = randomBytes(16).toString("hex");
     const now = Date.now();
-    db.prepare("DELETE FROM auth_nonces WHERE expires_at < ?").run(now);
+    db.prepare("DELETE FROM auth_nonces WHERE expires_at < ?").run(now - NONCE_KEEP_MS);
     db.prepare("INSERT INTO auth_nonces (nonce, return_path, expires_at, silent) VALUES (?, ?, ?, ?)").run(nonce, safeReturnPath(returnPath), now + NONCE_TTL_MS, silent ? 1 : 0);
     nonceCookie(reply, [...noncesOf(req.cookies[NONCE_COOKIE]).filter((n) => n !== nonce), nonce].slice(-MAX_NONCES_PER_BROWSER));
     return signedForumUrl({ nonce, return_sso_url: `${config.baseUrl}/auth/callback`, ...(silent ? { prompt: "none" } : {}) });
@@ -246,9 +248,11 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB, forum
     // The nonce is read before the signature is checked, only to know whether this was a silent check: a silent check
     // that goes wrong lands back on the page quietly, a visitor, never on an error page. The page is the one stored
     // with the nonce, never anything from the payload. An interactive login keeps its error.
-    const peekedNonce = decodePayload(sso).get("nonce") ?? "";
-    const peeked = db.prepare("SELECT return_path, silent FROM auth_nonces WHERE nonce = ?").get(peekedNonce) as { return_path: string; silent: number } | undefined;
-    const silentReturn = peeked?.silent ? peeked.return_path : null;
+    const nonce = decodePayload(sso).get("nonce") ?? "";
+    const row = db.prepare("SELECT return_path, expires_at, silent, used_at FROM auth_nonces WHERE nonce = ?").get(nonce) as
+      | { return_path: string; expires_at: number; silent: number; used_at: number | null }
+      | undefined;
+    const silentReturn = row?.silent ? row.return_path : null;
     const held = noncesOf(req.cookies[NONCE_COOKIE]);
     // a browser that keeps no cookies came back without the check cookie: mark the page so it isn't sent round again
     const quiet = (path: string) => (req.cookies[SSO_CHECKED_COOKIE] ? path : withNoSigninMarker(path));
@@ -256,18 +260,16 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB, forum
     const refuse = (err: HttpError): FastifyReply => {
       if (silentReturn === null) throw err;
       req.log.warn({ reason: err.message }, "silent sign-in refused; carrying on as a visitor");
-      nonceCookie(reply, held.filter((n) => n !== peekedNonce));
+      nonceCookie(reply, held.filter((n) => n !== nonce));
       return back(quiet(silentReturn));
     };
     if (typeof sig !== "string" || !sig) return refuse(badRequest("bad-login", "Missing sso or sig"));
     if (!verifySignature(sso, sig, config.discourseConnectSecret)) return refuse(forbidden("Login response signature is invalid"));
     const p = decodePayload(sso);
-    const nonce = p.get("nonce") ?? "";
-    // consume the nonce whatever happens next: each login response is usable once
-    const row = db
-      .prepare("DELETE FROM auth_nonces WHERE nonce = ? RETURNING return_path, expires_at, silent")
-      .get(nonce) as { return_path: string; expires_at: number; silent: number } | undefined;
-    if (!row) return refuse(badRequest("bad-login", "Login request unknown or already used — please log in again"));
+    if (!row) return refuse(badRequest("bad-login", "Login request unknown — please log in again"));
+    // use the nonce up whatever happens next: each login response counts once (the row stays, marked, so a repeat is known)
+    const taken = db.prepare("UPDATE auth_nonces SET used_at = ? WHERE nonce = ? AND used_at IS NULL").run(Date.now(), nonce).changes === 1;
+    if (!taken) return refuse(badRequest("bad-login", "Login request already used — please log in again"));
     nonceCookie(reply, held.filter((n) => n !== nonce)); // this login is over for this browser, whatever happens next
     if (row.expires_at < Date.now()) return refuse(badRequest("bad-login", "Login request expired — please log in again"));
     // the answer must come back to the browser that asked: a callback URL carried to another browser is worthless

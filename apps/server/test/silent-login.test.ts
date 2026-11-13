@@ -324,6 +324,37 @@ describe("a silent check that goes wrong", () => {
     expect(none.headers.location).toBe("/new");
   });
 
+  it("a late answer (the nonce expired and other logins happened since) or a repeated one is still quiet", async () => {
+    const { app } = await silentApp();
+    const late = await startSilent(app, "/lap-speeds");
+    app.db.prepare("UPDATE auth_nonces SET expires_at = ? WHERE nonce = ?").run(Date.now() - 1, late.nonce);
+    await startLogin(app); // somebody else's login sweeps old nonces
+    await startSilent(app, "/");
+    expect(app.db.prepare("SELECT count(*) FROM auth_nonces WHERE nonce = ?").pluck().get(late.nonce)).toBe(1); // kept a while
+    const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(late.nonce, ALICE)), headers: { cookie: late.cookie } });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/lap-speeds");
+    expect(res.cookies.find((c) => c.name === "ts_session")).toBeUndefined();
+    // the browser retries the same callback (a reload mid-chain): used up, so quiet and still a visitor
+    const { nonce, cookie } = await startSilent(app, "/v");
+    const url = callbackUrl(forumFailed(nonce));
+    expect((await app.inject({ method: "GET", url, headers: { cookie } })).headers.location).toBe("/v");
+    const again = await app.inject({ method: "GET", url, headers: { cookie } });
+    expect(again.statusCode).toBe(302);
+    expect(again.headers.location).toBe("/v");
+    // a replayed successful answer signs nobody in a second time
+    const ok = await startSilent(app, "/new");
+    const signed = callbackUrl(forumResponse(ok.nonce, ALICE));
+    expect((await app.inject({ method: "GET", url: signed, headers: { cookie: ok.cookie } })).cookies.find((c) => c.name === "ts_session")).toBeTruthy();
+    const replay = await app.inject({ method: "GET", url: signed, headers: { cookie: ok.cookie } });
+    expect(replay.statusCode).toBe(302);
+    expect(replay.cookies.find((c) => c.name === "ts_session")).toBeUndefined();
+    // nonces older than an hour past their expiry are gone
+    app.db.prepare("UPDATE auth_nonces SET expires_at = ? WHERE nonce = ?").run(Date.now() - 61 * 60_000, late.nonce);
+    await startLogin(app);
+    expect(app.db.prepare("SELECT count(*) FROM auth_nonces WHERE nonce = ?").pluck().get(late.nonce)).toBe(0);
+  });
+
   it("an unknown nonce or no payload at all is still an error (nobody's page to go back to)", async () => {
     const { app } = await silentApp();
     expect((await app.inject({ method: "GET", url: callbackUrl(forumFailed("f".repeat(32))) })).statusCode).toBe(400);
