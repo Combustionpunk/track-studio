@@ -235,7 +235,7 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     const query = Object.fromEntries(new URLSearchParams(qs ?? "")) as Record<string, string | undefined>;
     const page = pageFor(db, config, app.theme, path, query);
     // signed into the forum = signed in here (#132); not worth a round trip for a page that isn't there
-    const silent = page.status === 200 ? app.silentLogin(req, reply) : null;
+    const silent = page.status === 200 ? await app.silentLogin(req, reply) : null;
     if (silent) return reply.header("cache-control", "no-store").redirect(silent);
     pageHeaders(reply, config, { embed: !!page.embed, strict: web.mode === "static" });
     reply.header("cache-control", "no-cache");

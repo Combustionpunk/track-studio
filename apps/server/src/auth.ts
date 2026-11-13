@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Config } from "./config.js";
 import type { DB } from "./db.js";
 import { badRequest, forbidden, HttpError, notFound, unauthorized } from "./errors.js";
+import type { ForumReachable } from "./forum-reachable.js";
 
 export const SESSION_COOKIE = "ts_session";
 export const SESSION_DAYS = 30;
@@ -11,6 +12,12 @@ export const NONCE_TTL_MS = 10 * 60 * 1000;
 /** Set when the forum was asked silently (prompt=none) whether the visitor is signed in there; no new check while it lasts. */
 export const SSO_CHECKED_COOKIE = "ts_sso_checked";
 export const SSO_CHECK_MINUTES = 30;
+/** The nonces of this browser's logins in flight, so a forum answer only counts in the browser that asked (#132). */
+export const NONCE_COOKIE = "ts_sso";
+/** Tabs opened at once, each checked silently: this many logins in flight per browser. */
+export const MAX_NONCES_PER_BROWSER = 4;
+/** On the page address when a browser came back from a silent check without its cookie (it keeps none): not sent round again. */
+export const NO_SIGNIN_PARAM = "nosignin";
 
 /** Crawlers and link-preview fetchers: never sent to the forum. */
 const BOT_UA = /bot|crawl|spider|slurp|onebox|facebookexternalhit|embedly|preview|lighthouse|headless/i;
@@ -39,8 +46,8 @@ declare module "fastify" {
     user: User | null;
   }
   interface FastifyInstance {
-    /** where to send a page request for a silent forum sign-in (#132), or null to serve the page */
-    silentLogin: (req: FastifyRequest, reply: FastifyReply) => string | null;
+    /** where to send a page request for a silent forum sign-in (#132), or null to serve the page; waits for the forum probe (2 s at most) */
+    silentLogin: (req: FastifyRequest, reply: FastifyReply) => Promise<string | null>;
   }
 }
 
@@ -57,11 +64,20 @@ export const encodePayload = (params: Record<string, string>): string => Buffer.
 
 export const decodePayload = (sso: string): URLSearchParams => new URLSearchParams(Buffer.from(sso, "base64").toString("utf8"));
 
-/** Only same-site absolute paths; anything else (//evil, http://…, junk) becomes "/". */
+/**
+ * Only same-site absolute paths; anything else (//evil, http://…, junk) becomes "/". No control characters and no
+ * backslash anywhere: browsers drop tabs and newlines from a URL and read `\` as `/`, so `/<tab>/evil` would be another host.
+ */
 export function safeReturnPath(p: unknown): string {
-  if (typeof p !== "string" || !p.startsWith("/") || p.startsWith("//") || p.startsWith("/\\") || p.length > 500) return "/";
-  return /[\u0000-\u001f]/.test(p) ? "/" : p;
+  if (typeof p !== "string" || !p.startsWith("/") || p.startsWith("//") || p.length > 500) return "/";
+  return /[\u0000-\u001f\u007f\\]/.test(p) ? "/" : p;
 }
+
+/** The nonces a browser's cookie holds (newest last); anything that isn't a nonce is ignored. */
+export const noncesOf = (value: string | undefined): string[] => (value ?? "").split(".").filter((n) => /^[0-9a-f]{32}$/.test(n));
+
+const hasNoSigninMarker = (url: string): boolean => new URLSearchParams(url.split("?")[1] ?? "").has(NO_SIGNIN_PARAM);
+const withNoSigninMarker = (path: string): string => `${path}${path.includes("?") ? "&" : "?"}${NO_SIGNIN_PARAM}=1`;
 
 // ------------------------------------------------------------------ users
 interface UserRow {
@@ -139,7 +155,7 @@ export function requireOrganiser(req: FastifyRequest): User {
 }
 
 // ------------------------------------------------------------------ plugin
-export function registerAuth(app: FastifyInstance, config: Config, db: DB): void {
+export function registerAuth(app: FastifyInstance, config: Config, db: DB, forum: ForumReachable): void {
   const secure = config.baseUrl.startsWith("https:");
 
   function startSession(reply: FastifyReply, userId: number) {
@@ -157,31 +173,45 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
   const checkedCookie = (reply: FastifyReply) =>
     reply.setCookie(SSO_CHECKED_COOKIE, "1", { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: SSO_CHECK_MINUTES * 60 });
 
+  /** The browser's logins in flight: the cookie the callback must come back with. Cleared when none are left. */
+  const nonceCookie = (reply: FastifyReply, held: string[]) =>
+    held.length
+      ? reply.setCookie(NONCE_COOKIE, held.join("."), { httpOnly: true, sameSite: "lax", secure, path: "/auth", maxAge: NONCE_TTL_MS / 1000 })
+      : reply.clearCookie(NONCE_COOKIE, { path: "/auth" });
+
   const signedForumUrl = (payload: Record<string, string>) => {
     const sso = encodePayload(payload);
     return `${config.forumUrl}/session/sso_provider?sso=${encodeURIComponent(sso)}&sig=${signPayload(sso, config.discourseConnectSecret)}`;
   };
 
-  /** A signed DiscourseConnect login request; the nonce is kept with the page to return to. */
-  function forumRequest(returnPath: string, extra: Record<string, string> = {}): string {
+  /**
+   * A signed DiscourseConnect login request. The nonce is kept with the page to return to (and whether this is a
+   * silent check), and goes into this browser's nonce cookie, so the forum's answer only counts here.
+   */
+  function startForumLogin(req: FastifyRequest, reply: FastifyReply, returnPath: string, silent: boolean): string {
     const nonce = randomBytes(16).toString("hex");
     const now = Date.now();
     db.prepare("DELETE FROM auth_nonces WHERE expires_at < ?").run(now);
-    db.prepare("INSERT INTO auth_nonces (nonce, return_path, expires_at) VALUES (?, ?, ?)").run(nonce, safeReturnPath(returnPath), now + NONCE_TTL_MS);
-    return signedForumUrl({ nonce, return_sso_url: `${config.baseUrl}/auth/callback`, ...extra });
+    db.prepare("INSERT INTO auth_nonces (nonce, return_path, expires_at, silent) VALUES (?, ?, ?, ?)").run(nonce, safeReturnPath(returnPath), now + NONCE_TTL_MS, silent ? 1 : 0);
+    nonceCookie(reply, [...noncesOf(req.cookies[NONCE_COOKIE]).filter((n) => n !== nonce), nonce].slice(-MAX_NONCES_PER_BROWSER));
+    return signedForumUrl({ nonce, return_sso_url: `${config.baseUrl}/auth/callback`, ...(silent ? { prompt: "none" } : {}) });
   }
 
   // Signed into the forum means signed in here (#132): the first page a visitor opens is a round trip to the forum
   // with prompt=none. Signed in there: back signed in; not: back as a visitor (failed=true). Either way the cookie
   // stops another check for SSO_CHECK_MINUTES. Signed-in members are checked again once it lapses, so signing out of
   // the forum signs them out here at the next check. Pages call this before rendering; it returns where to redirect, or null.
-  app.decorate("silentLogin", (req: FastifyRequest, reply: FastifyReply): string | null => {
-    if (!config.discourseConnectSecret || req.cookies[SSO_CHECKED_COOKIE] || !isPageNavigation(req)) return null;
+  // Not while the forum is down (the probe is cached a minute): then the page is served as it is, with no cookie, so the
+  // next visit tries again. A visitor never lands on the forum's error page.
+  app.decorate("silentLogin", async (req: FastifyRequest, reply: FastifyReply): Promise<string | null> => {
+    if (!config.discourseConnectSecret || !config.silentSignin || req.cookies[SSO_CHECKED_COOKIE] || !isPageNavigation(req)) return null;
     if (req.user && req.user.id < 0) return null; // dev login: the forum doesn't know them
     if (safeReturnPath(req.url) !== req.url) return null; // too long or odd to come back to: don't lose it
     if (req.url.startsWith("/embed/")) return null;
+    if (hasNoSigninMarker(req.url)) return null; // just back from a check with no cookie kept: once is enough
+    if (!(await forum.check())) return null;
     checkedCookie(reply);
-    return forumRequest(req.url, { prompt: "none" });
+    return startForumLogin(req, reply, req.url, true);
   });
 
   app.decorateRequest("user", null);
@@ -206,32 +236,54 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
   app.get("/auth/login", async (req, reply) => {
     if (!config.discourseConnectSecret) throw new HttpError(503, "forum-login-disabled", "Forum login is not configured (DISCOURSE_CONNECT_SECRET)");
     const { return: ret } = req.query as { return?: string };
-    return reply.redirect(forumRequest(ret ?? "/"));
+    return reply.header("cache-control", "no-store").redirect(startForumLogin(req, reply, ret ?? "/", false));
   });
 
   app.get("/auth/callback", async (req, reply) => {
     if (!config.discourseConnectSecret) throw new HttpError(503, "forum-login-disabled", "Forum login is not configured (DISCOURSE_CONNECT_SECRET)");
     const { sso, sig } = req.query as { sso?: string; sig?: string };
-    if (typeof sso !== "string" || typeof sig !== "string" || !sso || !sig) throw badRequest("bad-login", "Missing sso or sig");
-    if (!verifySignature(sso, sig, config.discourseConnectSecret)) throw forbidden("Login response signature is invalid");
+    if (typeof sso !== "string" || !sso) throw badRequest("bad-login", "Missing sso or sig");
+    // The nonce is read before the signature is checked, only to know whether this was a silent check: a silent check
+    // that goes wrong lands back on the page quietly, a visitor, never on an error page. The page is the one stored
+    // with the nonce, never anything from the payload. An interactive login keeps its error.
+    const peekedNonce = decodePayload(sso).get("nonce") ?? "";
+    const peeked = db.prepare("SELECT return_path, silent FROM auth_nonces WHERE nonce = ?").get(peekedNonce) as { return_path: string; silent: number } | undefined;
+    const silentReturn = peeked?.silent ? peeked.return_path : null;
+    const held = noncesOf(req.cookies[NONCE_COOKIE]);
+    // a browser that keeps no cookies came back without the check cookie: mark the page so it isn't sent round again
+    const quiet = (path: string) => (req.cookies[SSO_CHECKED_COOKIE] ? path : withNoSigninMarker(path));
+    const back = (path: string) => reply.header("cache-control", "no-store").redirect(path);
+    const refuse = (err: HttpError): FastifyReply => {
+      if (silentReturn === null) throw err;
+      req.log.warn({ reason: err.message }, "silent sign-in refused; carrying on as a visitor");
+      nonceCookie(reply, held.filter((n) => n !== peekedNonce));
+      return back(quiet(silentReturn));
+    };
+    if (typeof sig !== "string" || !sig) return refuse(badRequest("bad-login", "Missing sso or sig"));
+    if (!verifySignature(sso, sig, config.discourseConnectSecret)) return refuse(forbidden("Login response signature is invalid"));
     const p = decodePayload(sso);
     const nonce = p.get("nonce") ?? "";
     // consume the nonce whatever happens next: each login response is usable once
     const row = db
-      .prepare("DELETE FROM auth_nonces WHERE nonce = ? RETURNING return_path, expires_at")
-      .get(nonce) as { return_path: string; expires_at: number } | undefined;
-    if (!row) throw badRequest("bad-login", "Login request unknown or already used — please log in again");
-    if (row.expires_at < Date.now()) throw badRequest("bad-login", "Login request expired — please log in again");
+      .prepare("DELETE FROM auth_nonces WHERE nonce = ? RETURNING return_path, expires_at, silent")
+      .get(nonce) as { return_path: string; expires_at: number; silent: number } | undefined;
+    if (!row) return refuse(badRequest("bad-login", "Login request unknown or already used — please log in again"));
+    nonceCookie(reply, held.filter((n) => n !== nonce)); // this login is over for this browser, whatever happens next
+    if (row.expires_at < Date.now()) return refuse(badRequest("bad-login", "Login request expired — please log in again"));
+    // the answer must come back to the browser that asked: a callback URL carried to another browser is worthless
+    if (!held.includes(nonce)) return refuse(forbidden("This login was started in another browser — please log in again"));
+    const returnTo = row.silent ? quiet(row.return_path) : row.return_path;
     // a silent check and the visitor isn't signed into the forum: carry on as a visitor, no error
     // (or a member signed out of the forum since: end the session here too)
     if (p.get("failed") === "true") {
+      if (!row.silent) return refuse(badRequest("bad-login", "The forum didn't log you in — please log in again"));
       checkedCookie(reply);
       if (req.cookies[SESSION_COOKIE]) reply.clearCookie(SESSION_COOKIE, { path: "/" });
-      return reply.redirect(row.return_path);
+      return back(returnTo);
     }
     const id = Number(p.get("external_id"));
     const username = p.get("username");
-    if (!Number.isInteger(id) || id <= 0 || !username) throw badRequest("bad-login", "Login response has no user");
+    if (!Number.isInteger(id) || id <= 0 || !username) return refuse(badRequest("bad-login", "Login response has no user"));
     upsertUser(db, {
       id,
       username,
@@ -243,15 +295,20 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB): void
     });
     startSession(reply, id);
     checkedCookie(reply);
-    return reply.redirect(row.return_path);
+    return back(returnTo);
   });
 
   // One sign-out (#132): end the session here, then the browser goes to the forum's DiscourseConnect logout, which
   // signs it out of the forum (and so of the other sites at their next check) and comes back to our home page.
-  app.post("/auth/logout", async (_req, reply) => {
+  // While the forum is down (same cached probe), the sign-out stays here: `redirect` is null and the page stays put.
+  app.post("/auth/logout", async (req, reply) => {
     reply.clearCookie(SESSION_COOKIE, { path: "/" });
     if (!config.discourseConnectSecret) return { ok: true, redirect: null };
-    checkedCookie(reply); // coming back from the forum: don't ask it again straight away
+    checkedCookie(reply); // coming back from the forum (or not going): don't ask it again straight away
+    if (!(await forum.check())) {
+      req.log.warn("forum unreachable: signed out here only");
+      return { ok: true, redirect: null };
+    }
     return { ok: true, redirect: signedForumUrl({ nonce: randomBytes(16).toString("hex"), return_sso_url: `${config.baseUrl}/`, logout: "true" }) };
   });
 

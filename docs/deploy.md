@@ -71,6 +71,9 @@ SPACES_KEY=<access key id>
 SPACES_SECRET=<access key secret>
 ```
 
+`SILENT_SIGNIN=off` (optional) turns off the silent forum sign-in if it misbehaves on deploy day; see
+`apps/server/README.md`.
+
 Docker Compose expands `$` in `.env` values, so avoid `$` in secrets (the `openssl rand -hex` ones never have one).
 `PORT`, `DATA_DIR`, `NODE_ENV` and `DEV_LOGIN` are fixed by the compose file; leave them as they are. Don't paste the
 `.env` anywhere: it's the only place the secrets live.

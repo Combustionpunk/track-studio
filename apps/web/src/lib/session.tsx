@@ -18,6 +18,18 @@ export async function signOut(postFn: (path: string) => Promise<{ redirect?: str
   return true;
 }
 
+/** The server's note on the page address that this browser keeps no cookies, so it isn't sent round the forum again (#132). */
+export const NO_SIGNIN_PARAM = "nosignin";
+
+/** The query string without the server's `?nosignin=1` marker, so it isn't bookmarked or shared; unchanged otherwise. */
+export function withoutNoSignin(search: string): string {
+  const q = new URLSearchParams(search);
+  if (!q.has(NO_SIGNIN_PARAM)) return search;
+  q.delete(NO_SIGNIN_PARAM);
+  const rest = q.toString();
+  return rest ? `?${rest}` : "";
+}
+
 const Ctx = createContext<Session | null>(null);
 /** For tests: provide a session without the API. */
 export const SessionContext = Ctx;
