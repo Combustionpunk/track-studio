@@ -32,6 +32,7 @@ Production (tracks.rcmisfits.org: `docker-compose.prod.yml` with Caddy, nightly 
 | `FORUM_URL` | the Discourse forum (dev `http://discourse-dev.local:3000`, prod `https://forum.rcmisfits.org`) |
 | `DISCOURSE_CONNECT_SECRET` | same value as the forum's provider secret for this host (optional only with `DEV_LOGIN=1`) |
 | `SESSION_SECRET` | ≥ 32 chars, signs the session cookie (`openssl rand -hex 32`); changing it logs everyone out |
+| `SILENT_SIGNIN` | optional; `off` turns off the silent forum sign-in (#132, below). On by default |
 | `DATA_DIR` | SQLite file + `previews/` cache; relative paths are from the repo root |
 | `PORT` (3000), `HOST` (0.0.0.0), `ORGANISER_GROUP` (track-admins), `LOG_LEVEL` (info) | optional |
 | `SPACES_ENDPOINT`, `SPACES_BUCKET`, `SPACES_KEY`, `SPACES_SECRET` (`SPACES_REGION`, `BACKUP_PREFIX`, `BACKUP_KEEP`) | backups only (docs/deploy.md) |
@@ -44,9 +45,48 @@ On the forum, Admin → Settings:
 - create the group `track-admins` (or whatever `ORGANISER_GROUP` says) and add the organisers; forum admins are
   organisers anyway.
 
+**Silent sign-in (#132).** Being signed into the forum means being signed in here, with no click. When a browser
+opens a page (a top-level navigation: `Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`) with no
+`ts_sso_checked` cookie, the server answers with a 302 to the forum's DiscourseConnect with `prompt=none` and sets
+`ts_sso_checked` for 30 minutes. Signed into the forum: the forum sends the signed payload back and the visitor lands
+on the page they asked for, signed in. Not signed in: the forum answers `failed=true` and they carry on as a visitor,
+with no error. A server-side redirect rather than a hidden iframe: one round trip before the page, and the forum
+doesn't allow framing its login pages nor send its cookies to a third-party frame. Never redirected: dev-login users,
+bots and link-preview fetchers (by user agent), `HEAD`, API calls, `/embed/*`, iframes, prefetches, pages that 404,
+scripts without the `Sec-Fetch-*` headers, dev-login-only servers, and everything when `SILENT_SIGNIN=off`. The
+forum's DiscourseConnect provider must support `prompt=none` and list our host in `discourse connect provider secrets`.
+
+*While the forum is down*, nobody is sent there: before the redirect (and before a sign-out goes to the forum) the
+server asks the forum's status page, `FORUM_URL/srv/status`, with a 1.5 s timeout, and believes the answer, up or down,
+for 60 s. Only a 2xx from that page counts as up: a redirect isn't followed. Unreachable: the page is served as it is, with no check cookie, so the next visit after the minute tries
+again; a signed-in member keeps their session. The same probe and timings as the timing site (club-timing #111). The
+probe can't tell a forum that is up but refuses the request (host missing from its provider secrets, a Discourse
+without `prompt=none`): that still shows the forum's error page, and `SILENT_SIGNIN=off` is the switch for it.
+
+*The forum's answer only counts in the browser that asked.* Each login or check puts its nonce in the `ts_sso`
+cookie (`Path=/auth`, 10 minutes, the newest four, so tabs opened one after another don't undo each other; tabs
+opened in the same instant may leave one a visitor until its next load). A callback URL carried to another browser
+is refused there: it signs nobody in, and a captured `failed=true` doesn't sign a member out.
+
+*A silent check that goes wrong* (bad signature, stale or repeated nonce, another browser) is logged and lands back
+on the page as a visitor; an ordinary Log in keeps its error. Used nonces are marked, not deleted, and expired ones
+kept for an hour, so a late or repeated answer is still known as a silent one; `/auth/callback` with a nonce nobody
+issued (or older than that) is a 400. *A browser that keeps no cookies* comes back from its one check with
+`?nosignin=1` on the address (the web app takes it off), and isn't sent round again for that page.
+
+**One sign-out.** `POST /auth/logout` ends the session, sets `ts_sso_checked`, and returns `redirect`: a signed
+DiscourseConnect `logout=true` URL. The web app's Log out sends the browser there; the forum signs it out and
+returns it to our home page, so the forum and the other sites that use it are signed out too. While the forum is
+down (same probe), `redirect` is `null` and the sign-out stays here: the forum keeps its session, so once the forum is
+back a silent check (after `ts_sso_checked` lapses) can sign the member in here again. Signed-in members are
+checked the same way once `ts_sso_checked` lapses (a successful login sets it), so signing out of the forum signs
+them out here at their first page load once it lapses: up to 30 minutes later. That delay is accepted: our session
+gives no access to the forum, and it saves a forum round trip on every page.
+
 Login only goes through the browser (redirects), so the browser must resolve `FORUM_URL` and `BASE_URL`. The server
-itself reads two public URLs from the forum: `FORUM_URL/site.json`, for the colour scheme (below), and
-`FORUM_URL/des/venues`, the venue list the venue editor picks from (so the server must resolve `FORUM_URL` too).
+itself reads public URLs from the forum: `FORUM_URL/site.json`, for the colour scheme (below), `FORUM_URL/des/venues`,
+the venue list the venue editor picks from, and `FORUM_URL/srv/status` before a silent sign-in (so the server must
+resolve `FORUM_URL` too; where it can't, silent sign-in is simply off).
 
 ## Theme (colours from the forum)
 At start and then hourly the server reads the forum's public `site.json` and maps its default colour scheme to the
@@ -94,7 +134,7 @@ writes (an `Origin` header other than `BASE_URL`) are refused.
 
 | | |
 |---|---|
-| `GET /auth/login?return=/path` → forum → `GET /auth/callback` | login; `POST /auth/logout`; `GET /api/me` (user or `null`) |
+| `GET /auth/login?return=/path` → forum → `GET /auth/callback` | login (and the silent `prompt=none` check on the first page visit); `POST /auth/logout` (returns the forum's logout URL as `redirect`); `GET /api/me` (user or `null`) |
 | `GET /api/tracks?status=&venue=&minLap=&maxLap=&minCorners=&maxCorners=&q=&author=` | list (archived hidden unless `status=archived`) |
 | `GET /api/tracks?fits=<venueId>` | approved tracks (their pinned revision) that fit, each with `fit.results` |
 | `GET /api/tracks?lapClass=<class>[&minTypical=&maxTypical=&sort=typical]` | each track gets `typicalLap: {seconds, est}` (or `null`) for the class: the forum's median lap, else the estimate lap length ÷ class speed (`est: true`, also while the forum is down). `minTypical`/`maxTypical` (s) filter, `sort=typical` puts the fastest first and unknowns last; both need `lapClass` (400 otherwise) |

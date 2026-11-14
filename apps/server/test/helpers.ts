@@ -6,6 +6,7 @@ import { afterEach } from "vitest";
 import { buildApp } from "../src/app.js";
 import { decodePayload, encodePayload, signPayload } from "../src/auth.js";
 import { ROOT_DIR, type Config } from "../src/config.js";
+import type { ForumReachable } from "../src/forum-reachable.js";
 import { seed } from "../src/seed.js";
 import type { WebOptions } from "../src/web.js";
 
@@ -25,6 +26,7 @@ export function testConfig(over: Partial<Config> = {}): Config {
     organiserGroup: "track-admins",
     devLogin: false,
     production: false,
+    silentSignin: true,
     ...over,
   };
 }
@@ -40,10 +42,17 @@ afterEach(async () => {
 /** Tests never reach a real forum: the theme and events fetches fail (Grey Amber, no "Used at") unless a test passes its own. */
 const offline: typeof fetch = async () => Promise.reject(new Error("no network in tests"));
 
+/** A forum that is up (its status page answers) and nothing else: for the silent sign-in tests (#132). */
+export const forumUp: typeof fetch = async (input) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  if (url === `${FORUM_URL}/srv/status`) return new Response("ok", { status: 200 });
+  return Promise.reject(new Error(`no network in tests (${url})`));
+};
+
 /** A fresh app on an empty temp DATA_DIR (closed and deleted after each test). The forum is offline too unless a test passes `forumFetch`. */
-export async function makeApp(opts: { seeded?: boolean; config?: Partial<Config>; web?: WebOptions; themeFetch?: typeof fetch; forumFetch?: typeof fetch } = {}) {
+export async function makeApp(opts: { seeded?: boolean; config?: Partial<Config>; web?: WebOptions; themeFetch?: typeof fetch; forumFetch?: typeof fetch; forumReachable?: ForumReachable } = {}) {
   const config = testConfig(opts.config);
-  const app = await buildApp(config, { web: opts.web, themeFetch: opts.themeFetch ?? offline, forumFetch: opts.forumFetch ?? offline });
+  const app = await buildApp(config, { web: opts.web, themeFetch: opts.themeFetch ?? offline, forumFetch: opts.forumFetch ?? offline, forumReachable: opts.forumReachable });
   open.push({ app, dir: config.dataDir });
   if (opts.seeded) seed(app.db, config, join(ROOT_DIR, "reference"), () => {});
   return { app, config };
@@ -58,13 +67,14 @@ export interface ForumUser {
   moderator?: boolean;
 }
 
-/** Start a login and return the nonce + return URL the server sent to the forum. */
+/** Start a login and return the nonce + return URL the server sent to the forum, and the browser's `cookie` header (the nonce cookie that binds the callback to it). */
 export async function startLogin(app: FastifyInstance, returnPath = "/") {
   const res = await app.inject({ method: "GET", url: `/auth/login?return=${encodeURIComponent(returnPath)}` });
   const loc = new URL(res.headers.location as string);
   const sso = loc.searchParams.get("sso")!;
   const p = decodePayload(sso);
-  return { res, loc, sso, sig: loc.searchParams.get("sig")!, nonce: p.get("nonce")!, returnSsoUrl: p.get("return_sso_url")! };
+  const cookie = res.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+  return { res, loc, sso, sig: loc.searchParams.get("sig")!, nonce: p.get("nonce")!, returnSsoUrl: p.get("return_sso_url")!, cookie };
 }
 
 /** What the forum sends back: a signed payload for this nonce and user. */
@@ -88,8 +98,8 @@ export const callbackUrl = (r: { sso: string; sig: string }) => `/auth/callback?
 
 /** Full DiscourseConnect round trip; returns the Cookie header value for the session. */
 export async function login(app: FastifyInstance, u: ForumUser): Promise<string> {
-  const { nonce } = await startLogin(app);
-  const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, u)) });
+  const { nonce, cookie } = await startLogin(app);
+  const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, u)), headers: { cookie } });
   if (res.statusCode !== 302) throw new Error(`login failed: ${res.statusCode} ${res.body}`);
   const c = res.cookies.find((c) => c.name === "ts_session")!;
   return `ts_session=${c.value}`;
