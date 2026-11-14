@@ -19,6 +19,8 @@ export interface Config {
   organiserGroup: string;
   devLogin: boolean;
   production: boolean;
+  /** silent forum sign-in on a page visit (#132); SILENT_SIGNIN=off is the kill switch */
+  silentSignin: boolean;
 }
 
 export class ConfigError extends Error {}
@@ -39,6 +41,7 @@ function url(name: string, v: string, problems: string[]): string {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const problems: string[] = [];
   const devLogin = env.DEV_LOGIN === "1";
+  const silentSignin = !/^(off|0|false|no)$/i.test(env.SILENT_SIGNIN?.trim() ?? "");
   const production = env.NODE_ENV === "production";
   const required = (name: string): string => {
     const v = env[name]?.trim();
@@ -72,5 +75,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     organiserGroup: env.ORGANISER_GROUP?.trim() || "track-admins",
     devLogin,
     production,
+    silentSignin,
   };
 }

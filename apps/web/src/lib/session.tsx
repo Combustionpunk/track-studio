@@ -10,6 +10,26 @@ interface Session {
   loginUrl: (returnPath?: string) => string;
 }
 
+/** Ends the session here, then sends the browser to the forum's logout so every site is signed out (#132). True when it navigates away. */
+export async function signOut(postFn: (path: string) => Promise<{ redirect?: string | null }>, go: (url: string) => void): Promise<boolean> {
+  const { redirect } = await postFn("/auth/logout");
+  if (!redirect) return false;
+  go(redirect);
+  return true;
+}
+
+/** The server's note on the page address that this browser keeps no cookies, so it isn't sent round the forum again (#132). */
+export const NO_SIGNIN_PARAM = "nosignin";
+
+/** The query string without the server's `?nosignin=1` marker, so it isn't bookmarked or shared; unchanged otherwise. */
+export function withoutNoSignin(search: string): string {
+  if (!search.startsWith("?")) return search;
+  const parts = search.slice(1).split("&");
+  const rest = parts.filter((part) => part.split("=")[0] !== NO_SIGNIN_PARAM);
+  if (rest.length === parts.length) return search;
+  return rest.length ? `?${rest.join("&")}` : "";
+}
+
 const Ctx = createContext<Session | null>(null);
 /** For tests: provide a session without the API. */
 export const SessionContext = Ctx;
@@ -31,8 +51,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const logout = useCallback(async () => {
-    await post("/auth/logout");
-    setMe(null);
+    const away = await signOut((path) => post<{ redirect?: string | null }>(path), (url) => window.location.assign(url));
+    if (!away) setMe(null);
   }, []);
 
   const loginUrl = (returnPath = window.location.pathname + window.location.search) => `/auth/login?return=${encodeURIComponent(returnPath)}`;

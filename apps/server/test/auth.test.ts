@@ -50,8 +50,8 @@ describe("DiscourseConnect login", () => {
 
   it("round trip: verifies, creates the user, sets the session cookie, returns to the page", async () => {
     const { app } = await makeApp();
-    const { nonce } = await startLogin(app, "/t/abc?x=1");
-    const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, { ...ORGANISER, name: "Olive O" })) });
+    const { nonce, cookie } = await startLogin(app, "/t/abc?x=1");
+    const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, { ...ORGANISER, name: "Olive O" })), headers: { cookie } });
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe("/t/abc?x=1");
     const c = res.cookies.find((c) => c.name === "ts_session")!;
@@ -80,15 +80,15 @@ describe("DiscourseConnect login", () => {
 
   it("rejects a bad signature", async () => {
     const { app } = await makeApp();
-    const { nonce } = await startLogin(app);
+    const { nonce, cookie } = await startLogin(app);
     const forged = forumResponse(nonce, { ...ALICE, admin: true }, "not-the-secret");
-    const res = await app.inject({ method: "GET", url: callbackUrl(forged) });
+    const res = await app.inject({ method: "GET", url: callbackUrl(forged), headers: { cookie } });
     expect(res.statusCode).toBe(403);
     expect(res.json()).toEqual({ error: "forbidden", message: expect.stringMatching(/signature/) });
     expect(res.cookies).toHaveLength(0);
     // a valid signature over a different payload is no better
     const good = forumResponse(nonce, ALICE);
-    const swapped = await app.inject({ method: "GET", url: callbackUrl({ sso: forumResponse(nonce, ADMIN).sso, sig: good.sig }) });
+    const swapped = await app.inject({ method: "GET", url: callbackUrl({ sso: forumResponse(nonce, ADMIN).sso, sig: good.sig }), headers: { cookie } });
     expect(swapped.statusCode).toBe(403);
     expect((await app.inject({ method: "GET", url: "/auth/callback?sso=abc&sig=zz" })).statusCode).toBe(403);
     expect((await app.inject({ method: "GET", url: "/auth/callback" })).statusCode).toBe(400);
@@ -96,10 +96,10 @@ describe("DiscourseConnect login", () => {
 
   it("rejects a reused nonce", async () => {
     const { app } = await makeApp();
-    const { nonce } = await startLogin(app);
+    const { nonce, cookie } = await startLogin(app);
     const url = callbackUrl(forumResponse(nonce, ALICE));
-    expect((await app.inject({ method: "GET", url })).statusCode).toBe(302);
-    const again = await app.inject({ method: "GET", url });
+    expect((await app.inject({ method: "GET", url, headers: { cookie } })).statusCode).toBe(302);
+    const again = await app.inject({ method: "GET", url, headers: { cookie } });
     expect(again.statusCode).toBe(400);
     expect(again.json().error).toBe("bad-login");
     expect(again.cookies).toHaveLength(0);
@@ -113,20 +113,20 @@ describe("DiscourseConnect login", () => {
 
   it("rejects an expired nonce", async () => {
     const { app } = await makeApp();
-    const { nonce } = await startLogin(app);
+    const { nonce, cookie } = await startLogin(app);
     app.db.prepare("UPDATE auth_nonces SET expires_at = ? WHERE nonce = ?").run(Date.now() - 1, nonce);
-    const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, ALICE)) });
+    const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, ALICE)), headers: { cookie } });
     expect(res.statusCode).toBe(400);
     expect(res.json().message).toMatch(/expired/);
-    expect(res.cookies).toHaveLength(0);
+    expect(res.cookies.find((c) => c.name === "ts_session")).toBeUndefined();
   });
 
   it("only returns to local paths", async () => {
     const { app } = await makeApp();
-    for (const evil of ["//evil.example/x", "https://evil.example/", "/\\evil.example", "javascript:alert(1)"]) {
-      const { nonce } = await startLogin(app, evil);
-      const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, ALICE)) });
-      expect(res.headers.location).toBe("/");
+    for (const evil of ["//evil.example/x", "https://evil.example/", "/\\evil.example", "javascript:alert(1)", "/\t/evil.example", "/x\\evil.example", "/x\u007f"]) {
+      const { nonce, cookie } = await startLogin(app, evil);
+      const res = await app.inject({ method: "GET", url: callbackUrl(forumResponse(nonce, ALICE)), headers: { cookie } });
+      expect(res.headers.location, evil).toBe("/");
     }
   });
 
@@ -183,16 +183,17 @@ describe("logging", () => {
     const config = testConfig();
     const app = await buildApp(config, { logger: { level: "info", stream: { write: (s: string) => lines.push(s) } } });
     try {
-      const { nonce } = await startLogin(app);
+      const { nonce, cookie: nonceCookie } = await startLogin(app);
       const r = forumResponse(nonce, ALICE);
-      const res = await app.inject({ method: "GET", url: callbackUrl(r) });
-      const cookie = res.cookies[0].value;
+      const res = await app.inject({ method: "GET", url: callbackUrl(r), headers: { cookie: nonceCookie } });
+      const cookie = res.cookies.find((c) => c.name === "ts_session")!.value;
       await app.inject({ method: "GET", url: "/api/me", headers: { cookie: `ts_session=${cookie}` } });
       const log = lines.join("\n");
       expect(log).toContain('"url":"/auth/callback"');
       expect(log).not.toContain(r.sig);
       expect(log).not.toContain(encodeURIComponent(r.sso).slice(0, 20));
       expect(log).not.toContain(cookie);
+      expect(log).not.toContain(nonce);
       expect(log).not.toContain(SECRET);
     } finally {
       await app.close();

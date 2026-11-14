@@ -7,6 +7,7 @@ import type { Config } from "./config.js";
 import { openDb, type DB } from "./db.js";
 import { HttpError } from "./errors.js";
 import { ForumEvents } from "./forum-events.js";
+import { ForumReachable } from "./forum-reachable.js";
 import { ForumStats } from "./forum-stats.js";
 import { ForumVenues } from "./forum-venues.js";
 import { previewFontFiles, SERVER_FONTS_DIR } from "./fonts.js";
@@ -24,6 +25,8 @@ declare module "fastify" {
     forumEvents: ForumEvents;
     forumStats: ForumStats;
     forumVenues: ForumVenues;
+    /** is the forum up? asked before a silent sign-in or a sign-out sends a browser there (#132) */
+    forumReachable: ForumReachable;
   }
 }
 
@@ -36,6 +39,8 @@ export interface BuildOptions {
   themeFetch?: typeof fetch;
   /** how the forum is fetched: its venue list, and the events for a layout ("Used at", #66), its lap stats (#76); tests stub it */
   forumFetch?: typeof fetch;
+  /** the forum reachability probe (tests pass one with their own clock); default: `forumFetch`, 1.5 s timeout, 60 s cache */
+  forumReachable?: ForumReachable;
 }
 
 /** Log the path only: query strings can carry login payloads (/auth/callback?sso=…). */
@@ -57,6 +62,8 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   const forumStats = new ForumStats({ forumUrl: config.forumUrl, fetch: opts.forumFetch, log: app.log });
   app.decorate("forumStats", forumStats);
   app.decorate("forumVenues", new ForumVenues({ forumUrl: config.forumUrl, fetch: opts.forumFetch, log: app.log }));
+  const forumReachable = opts.forumReachable ?? new ForumReachable({ forumUrl: config.forumUrl, fetch: opts.forumFetch, log: app.log });
+  app.decorate("forumReachable", forumReachable);
   // Inter and Oswald for the PNG previews (DejaVu Sans if they're missing)
   if (previewFontFiles().length === 1) app.log.warn({ dir: SERVER_FONTS_DIR }, "preview fonts missing; using DejaVu Sans");
   backfillRevisions(db); // summary columns for revisions saved before migration 003
@@ -92,7 +99,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   app.addHook("onSend", async (req, reply) => {
     if (/^\/(api\/|healthz(\?|$))/.test(req.url)) reply.header("x-app-version", version());
   });
-  registerAuth(app, config, db);
+  registerAuth(app, config, db, forumReachable);
   registerRoutes(app, db, forumEvents, forumStats, app.forumVenues);
   registerPreviews(app, config, db, theme);
   await registerWeb(app, config, db, opts.web ?? { mode: "off", root: "", dist: "" });
