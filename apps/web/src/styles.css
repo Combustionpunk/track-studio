@@ -271,6 +271,43 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .phone-plan { aspect-ratio: 240 / 152; border-radius: 10px; border: 1px solid var(--border); }
 .phone-body .figures { display: flex; gap: 20px; }
 
+/* designer on a phone (#122; mockup docs/design/phone/01-plan-toolbar.html): with the switch on, the designer owns the
+   screen (no site header): a 52 px header, the plan, a 64 px toolbar over the home-indicator strip. The page never
+   scrolls or bounces, so the plan's pinch and pan don't fight the browser's own zoom and pull-to-refresh. */
+html:has(.designer-phone-edit), body:has(.designer-phone-edit) { overscroll-behavior: none; }
+#root:has(.designer-phone-edit) { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+#root:has(.designer-phone-edit) .ts-header { display: none; }
+/* every gesture on the phone layout is the app's: no browser pinch-zoom from the header or the toolbar either */
+.designer-phone-edit, .phone-upright { touch-action: none; }
+#main:has(.designer-phone-edit) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.designer.designer-phone-edit { flex: 1 1 auto; height: auto; min-height: 0; }
+.phone-header { flex: none; height: 52px; display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); background: var(--header); color: var(--header-text); border-bottom: 1px solid var(--line); }
+.phone-icon-btn { flex: none; width: var(--touch-target); height: var(--touch-target); display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; cursor: pointer; }
+.phone-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.phone-name { flex: 1 1 auto; min-width: 0; margin: 0; font: 500 20px/24px var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.phone-save { flex: none; font-size: 13px; line-height: 18px; color: var(--text-muted); }
+.designer-phone-edit .designer-messages { padding: 0 var(--space-2); }
+.designer-phone-edit .designer-plan-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.designer-phone-edit .designer-canvas { flex: 1 1 auto; height: auto; min-height: 0; display: flex; flex-direction: column; }
+.designer-phone-edit .designer-plan { flex: 1 1 auto; height: auto; min-height: 0; -webkit-touch-callout: none; -webkit-user-select: none; }
+.designer-phone-edit .designer-hint { left: var(--space-3); top: var(--space-3); max-width: calc(100% - 2 * var(--space-3)); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--header); box-shadow: var(--shadow-float); font-size: 13px; line-height: 18px; }
+.phone-toolbar { flex: none; display: flex; align-items: stretch; gap: 2px; height: calc(64px + env(safe-area-inset-bottom, 0px)); padding: var(--space-1) var(--space-1) calc(6px + env(safe-area-inset-bottom, 0px)); background: var(--bg-raised); border-top: 1px solid var(--line); }
+.phone-tool { flex: 1 1 auto; min-width: var(--touch-target); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 2px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text); cursor: pointer; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.phone-tool[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.phone-tool:disabled { opacity: 0.45; cursor: not-allowed; }
+.phone-tool:focus-visible, .phone-icon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* the type scale's label (11/16, 600, 0.08em, uppercase) */
+.phone-tool-label { font: 600 11px/16px var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+/* the narrowest phones (320 px) let the labels go, as the plan says; the buttons keep them as their names */
+@media (max-width: 359px) {
+  .phone-tool-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* a phone on its side: the message over the plan, which stays where it was */
+.phone-upright { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: var(--space-6); background: var(--plan-dim); }
+.phone-upright-card { display: grid; justify-items: center; gap: var(--space-3); max-width: 360px; padding: var(--space-6); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-float); text-align: center; }
+.phone-upright-card p { margin: 0; color: var(--text-muted); }
+.phone-upright-card .phone-upright-title { font: 500 22px/28px var(--font-display); letter-spacing: 0.01em; color: var(--text); }
+
 @media (max-width: 900px) {
   .designer { height: auto; }
   .designer-grid { grid-template-columns: 150px minmax(0, 1fr); }
