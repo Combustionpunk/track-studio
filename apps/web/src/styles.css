@@ -919,3 +919,46 @@ select.ts-input { padding: 0 var(--space-2); }
 .bottom-sheet-scrim { position: fixed; inset: 0; z-index: 29; background: var(--bg-sunken); opacity: 0.55; }
 @keyframes bottom-sheet-in { from { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { .bottom-sheet { animation: none; transition: none; } }
+
+/* The phone designer's sheets (#123; mockups docs/design/phone/02-selected-point.html, 03-checks-sheet.html): on the
+   bottom Sheet above the toolbar. The checks pill sits top right of the plan, as on the tablet; the hint leaves it room.
+   Text on the type scale: heading 22/28, control 14/20, body-sm 13/18, figure-sm 18/22, label 11/16. */
+.designer-phone-edit .checks-pill { top: var(--space-3); right: var(--space-3); font: 600 14px/20px var(--font-sans); }
+.designer-phone-edit .checks-pill[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus); }
+.designer-phone-edit .designer-hint { max-width: calc(100% - var(--space-3) - 172px); }
+.phone-sheet .bottom-sheet-body { display: flex; flex-direction: column; gap: var(--space-3); }
+.phone-sheet .bottom-sheet-body h2 { margin: 0; font: 500 22px/28px var(--font-display); letter-spacing: 0.01em; }
+.phone-sheet .sel-panel, .phone-sheet .checks-panel { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; }
+.phone-sheet .hint, .phone-sheet .sel-turn { margin: 0; font-size: 13px; line-height: 18px; }
+.phone-sheet .fields { margin: 0; }
+.phone-sheet .nfield input { min-height: var(--touch-target); font-size: 15px; }
+.phone-sheet .seg { margin: 0; }
+.phone-sheet .seg button { min-height: var(--touch-target); padding: 0 14px; font: 600 14px/20px var(--font-sans); }
+.phone-sheet .seg-label { font: 600 14px/20px var(--font-sans); color: var(--text); }
+.phone-sheet .btn { min-height: var(--touch-target); }
+.phone-sizes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin: 0; }
+.phone-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: var(--touch-target); padding: var(--space-1); border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: transparent; color: var(--text); font: 600 14px/20px var(--font-sans); cursor: pointer; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.phone-sizes .phone-chip { min-height: 52px; }
+.phone-chip .size-m { font: 400 13px/18px var(--font-sans); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.phone-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.phone-chip[aria-pressed="true"] .size-m { color: var(--accent); }
+.phone-chip:focus-visible, .phone-switch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.phone-chip-wide { flex-direction: row; width: 100%; }
+.field-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--touch-target); }
+.stepper { display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--text); }
+.stepper-value { min-width: 64px; text-align: center; font: 500 18px/22px var(--font-display); font-variant-numeric: tabular-nums; }
+.phone-jumps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.phone-jumps .phone-chip { min-height: 56px; }
+.phone-jump-sheet { display: flex; flex-direction: column; gap: var(--space-3); }
+.phone-switch { width: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 600 14px/20px var(--font-sans); text-align: left; cursor: pointer; }
+.phone-switch-track { flex: none; position: relative; width: 44px; height: 24px; border-radius: 12px; background: var(--line-strong); transition: background 150ms ease; }
+.phone-switch-thumb { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--bg-raised); box-shadow: var(--shadow-pop); transition: transform 150ms ease; }
+.phone-switch[aria-checked="true"] .phone-switch-track { background: var(--accent); }
+.phone-switch[aria-checked="true"] .phone-switch-thumb { transform: translateX(20px); }
+.phone-checks { display: flex; flex-direction: column; gap: var(--space-4); }
+.phone-sheet .checks li.check { align-items: center; min-height: var(--touch-target); }
+.phone-sheet .check-show { min-width: var(--touch-target); min-height: var(--touch-target); padding: 0 var(--space-2); font: 600 13px/18px var(--font-sans); }
+.phone-sheet .submit-why { margin: 0; }
+.phone-sheet .designer-stats { margin: 0; }
+.phone-howto ul { margin: var(--space-3) 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: var(--space-2); font: 400 15px/22px var(--font-sans); }
+@media (prefers-reduced-motion: reduce) { .phone-switch-track, .phone-switch-thumb { transition: none; } }

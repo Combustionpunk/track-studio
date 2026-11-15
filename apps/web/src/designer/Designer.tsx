@@ -29,6 +29,7 @@ import {
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
+import type { SheetHeight } from "../components/Sheet.js";
 import { Skeleton } from "../components/states.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
@@ -66,7 +67,8 @@ import { DesignerLayout } from "./DesignerLayout.js";
 import { RADIUS_RANGE, WHEEL_PX_PER_STEP, WHEEL_STEP, WHEEL_WIDTH_STEP, WIDTH_RANGE } from "./tuning.js";
 import { VIEWS } from "./PlanOverlays.js";
 import type { PanelProps } from "./SidePanels.js";
-import type { ToolsProps } from "./ToolPalette.js";
+import type { PhoneSheetOpen } from "./PhoneSheets.js";
+import type { ToolPaletteProps, ToolsProps } from "./ToolPalette.js";
 import { addCrossover, bridgeCrossing, makeCrossover, moveCrossover, moveStart } from "./crossings.js";
 import { addKey, floorTap, keyInsert, lanePress, stepCorner } from "./addtool.js";
 import { defaultRostrumSide } from "../viewer3d/rostrum.js";
@@ -291,6 +293,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   }, [backArmed]);
   const [shared, setShared] = useState<Guide | null>(null);
   const [dragging, setDragging] = useState<number | null>(null);
+  /** the phone (#123): the one sheet open above the toolbar, and its height */
+  const [phoneSheet, setPhoneSheet] = useState<PhoneSheetOpen | null>(null);
+  /** a finger (or the mouse) is dragging a handle past the slop: the phone's sheet tucks away until it lifts */
+  const [handleDrag, setHandleDrag] = useState(false);
+  /** Checks' Show changes the selection: the Checks sheet stays (at peek) rather than giving way to the selection's */
+  const showingRef = useRef(false);
   const [hoverPt, setHoverPt] = useState<number | null>(null);
   /** Shift = fine, Alt = free, otherwise the toolbar's mode; lanes only in Quick */
   const modeFor = (ev: { shiftKey: boolean; altKey: boolean }): SnapMode => snapModeFor(viewRef.current, ev, snapRef.current);
@@ -562,12 +570,18 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     let started = !opts.threshold;
     // touch: holding still for LONG_PRESS_MS is a long-press, not a tap
     let longPressed = false;
+    /** past the slop: the phone's sheet is tucked away */
+    let tucked = false;
     const timer = opts.onLongPress && e.pointerType !== "mouse" && !started ? setTimeout(() => {
       longPressed = true;
       opts.onLongPress!();
     }, LONG_PRESS_MS) : undefined;
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== id) return;
+      if (!tucked && !longPressed && Math.hypot(ev.clientX - x0, ev.clientY - y0) >= slopFor(e.pointerType)) {
+        tucked = true;
+        setHandleDrag(true);
+      }
       if (!started) {
         if (longPressed || Math.hypot(ev.clientX - x0, ev.clientY - y0) < slopFor(e.pointerType)) return;
         started = true;
@@ -646,6 +660,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setShared(null);
       setSnapInfo(null);
       setDragging(null);
+      if (tucked) setHandleDrag(false);
       setPress((p) => (p?.done ? p : null)); // a long-press's ring stays while its corner is selected
       edit.current = null;
     };
@@ -947,6 +962,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!sel) setSheet((s) => (s === "selection" ? null : s));
     else if (sel.kind !== "point" && !phoneEditRef.current) setSheet("selection"); // the phone's sheets are ticket 4
     setPress((p) => (p && (sel?.kind !== "point" || sel.i !== p.i) ? null : p));
+  }, [sel]);
+  // the phone (#123): selecting something opens its sheet at peek (or keeps the selection sheet at its height); letting go
+  // of the selection closes it. Checks' Show selects what the check is about but keeps the Checks sheet.
+  useEffect(() => {
+    if (!phoneEditRef.current) return;
+    if (showingRef.current) {
+      showingRef.current = false;
+      return;
+    }
+    if (!sel) setPhoneSheet((s) => (s?.kind === "selection" ? null : s));
+    else setPhoneSheet((s) => (s?.kind === "selection" ? s : { kind: "selection", height: "peek" }));
   }, [sel]);
   // undo past the close comes back here: nothing of step 2 stays selected or armed
   useEffect(() => {
@@ -1333,6 +1359,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       const d = Math.hypot(f.x - x, f.z - z);
       if (d < bestD) [best, bestD] = [{ kind: "feature", i }, d];
     });
+    // the phone: a change of selection keeps the Checks sheet, dropped to peek so the plan shows
+    if (phoneEdit) {
+      if (best || sel) showingRef.current = true;
+      setPhoneSheet((s) => (s?.kind === "checks" ? { ...s, height: "peek" } : s));
+    }
     setSel(best);
   };
 
@@ -1376,6 +1407,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const closeSheet = () => {
     if (sheet === "selection" && sel?.kind !== "point") setSel(null);
     setSheet(null);
+  };
+  /** the phone (#123): a sheet from its button (the pill, Jump, How to draw), or put away again */
+  const togglePhoneSheet = (kind: PhoneSheetOpen["kind"], height: PhoneSheetOpen["height"]) => setPhoneSheet((s) => (s?.kind === kind ? null : { kind, height }));
+  /** the phone's sheet pulled to a height, or closed (Close, Escape, pulled down): a closed selection sheet lets a jump or
+   * the start line go, as the tablet's does; a corner stays selected, so Add point still adds after it */
+  const phoneSheetHeight = (h: SheetHeight) => {
+    if (h !== "closed") return setPhoneSheet((s) => s && { ...s, height: h });
+    if (phoneSheet?.kind === "selection" && sel?.kind !== "point") setSel(null);
+    setPhoneSheet(null);
   };
   /** the plan, or the 3D view, in every layout but the phone's */
   const plan = viewing3d ? (
@@ -1437,6 +1477,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           addCornerAt(planPoint(e.currentTarget, e.clientX, e.clientY), e.altKey);
           return;
         }
+        // the phone: a tap on the floor puts the open sheet away
+        if (phoneEdit) setPhoneSheet(null);
         setSel(null);
       }}
     />
@@ -1444,15 +1486,41 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const panels: PanelProps = { view, checks: built.checks, bakedFeatures, pending: bake.pending, showSubmit, blocked, onShow: showCheck, onMakeCrossover: makeItACrossover, onBridge: bridgeIt, draft, drawn, sel, live, update, onDelete: deleteSelection, venueName, inCorner, checksHeading };
   const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
   const history = { undo, redo, canUndo: hist.canUndo, canRedo: hist.canRedo };
+  const palette: ToolPaletteProps = { ...tools, snap: snap.mode, onSnap: (m) => setSnap({ mode: m }) };
   return (
     <DesignerLayout
       phone={phone}
       phoneEdit={
         phoneEdit
           ? {
-              header: { backTo, name: draft.info.name, dirty, revision: base?.revision },
-              toolbar: { tool: tool.kind, onSelect: () => setTool({ kind: "select" }), onAdd: toggleAdd, canDelete: sel?.kind === "point" || sel?.kind === "feature", onDelete: deleteSelection, ...history },
+              header: { backTo, name: draft.info.name, dirty, revision: base?.revision, onHelp: () => togglePhoneSheet("howto", "full"), helpOpen: phoneSheet?.kind === "howto" },
+              toolbar: {
+                tool: tool.kind,
+                onSelect: () => setTool({ kind: "select" }),
+                onAdd: toggleAdd,
+                canDelete: sel?.kind === "point" || sel?.kind === "feature",
+                onDelete: deleteSelection,
+                ...history,
+                jumpOpen: phoneSheet?.kind === "jump",
+                onJump: () => togglePhoneSheet("jump", "peek"),
+              },
               upright: landscapePhone,
+              pill: { checks: built.checks, pending: bake.pending, open: phoneSheet?.kind === "checks", onToggle: () => togglePhoneSheet("checks", "full") },
+              sheets: {
+                sheet: phoneSheet,
+                onHeight: phoneSheetHeight,
+                tucked: handleDrag,
+                panels,
+                built,
+                jumps: {
+                  ...palette,
+                  // picking a jump arms it and puts the sheet away; Start line selects it, and its sheet takes over
+                  onJump: (t) => {
+                    pickJump(t);
+                    setPhoneSheet(null);
+                  },
+                },
+              },
             }
           : null
       }
@@ -1502,7 +1570,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           ? restore || message ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: true, message, approvedRevision: null } : null
           : restore || !me || message || status?.approvedRevision ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: !!me, message, approvedRevision: status?.approvedRevision } : null
       }
-      palette={{ ...tools, snap: snap.mode, onSnap: (m) => setSnap({ mode: m }) }}
+      palette={palette}
       planArea={{
         planWrapRef,
         said,
