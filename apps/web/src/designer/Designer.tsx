@@ -27,7 +27,7 @@ import {
   type Side,
 } from "@track-studio/engine";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useBlocker, useNavigate } from "react-router-dom";
+import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import { Skeleton } from "../components/states.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
@@ -91,8 +91,13 @@ const CORNER_TOUCH_PX = 13; // touch screens: the numbered corner handle, drawn 
 const APEX_TOUCH_PX = 8; // touch screens: the apex handle, drawn bigger
 /** how long "1 · Lay the lanes" waits for the second tap that confirms it */
 const CONFIRM_MS = 4000;
-/** narrower than this, the designer shows a view-only plan */
+/** narrower than this, the designer shows a view-only plan, or with the switch on the phone layout (#122) */
 export const PHONE_QUERY = "(max-width: 640px)";
+/** a phone on its side (its short side under 640 px, its long side a phone's, and a finger): with the switch on, "Turn
+ * your phone upright"; a small tablet (1024 × 600) is wider than this */
+export const LANDSCAPE_PHONE_QUERY = "(orientation: landscape) and (max-height: 640px) and (max-width: 1000px) and (pointer: coarse)";
+/** the switch for the phone layout (#122), `?phone=edit`, until a phone can save (ticket 5) */
+export const PHONE_PARAM = "phone";
 /** touch screens (tablets): bigger handles, and a toggle for free placement since there's no Alt */
 export const TOUCH_QUERY = "(pointer: coarse)";
 
@@ -253,8 +258,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (now.travels !== seen.travels) setSel((s) => followTravel(s, seen, now));
   }, [hist.travels, draft.design.points]);
   const phone = useMediaQuery(PHONE_QUERY);
+  const landscapePhone = useMediaQuery(LANDSCAPE_PHONE_QUERY);
+  const [params] = useSearchParams();
+  const phoneSwitch = params.get(PHONE_PARAM) === "edit";
+  /** any phone layout: no save pop-over (saving comes to the phone with ticket 5) */
   const phoneRef = useRef(phone);
-  phoneRef.current = phone;
+  /** the view-only phone screen: the plan's keys do nothing */
+  const viewOnlyRef = useRef(phone);
   const touch = useMediaQuery(TOUCH_QUERY);
   /** Quick step 2: snapping to lane lines (off places corners freely, like holding Alt) */
   const [laneSnap, setLaneSnap] = useState(true);
@@ -287,6 +297,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   const step = designStep(draft);
   const laying = step === 1;
+  /** the phone layout (#122): under 640 px, or a phone on its side, with the switch on; laying the lanes on a phone is
+   * stage 2, so until then a new track gets the view-only screen */
+  const phoneEdit = phoneSwitch && (phone || landscapePhone) && !laying;
+  phoneRef.current = phone || phoneEdit;
+  const phoneEditRef = useRef(phoneEdit);
+  phoneEditRef.current = phoneEdit;
+  viewOnlyRef.current = phone && !phoneEdit;
   // the venue it's drawn for, loaded live as a guide (area and obstacles shown, never saved); none if it's gone
   const guide = useApi<{ doc: RcVenue }>(draft.info.drawnFor ? `/api/venues/${encodeURIComponent(draft.info.drawnFor.venueTemplate)}` : null).data?.doc ?? null;
   const guideObstacles = useMemo(() => guide?.obstacles ?? [], [guide]);
@@ -321,7 +338,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // the 3D preview (#85): view only, of the latest bake (as the checks panel), once it has settled; not on phones, and
   // not while laying the lanes (no track yet)
   const [view3d, setView3d] = useSessionChoice("designer-view", VIEWS, "2d");
-  const shown3d = view3d === "3d" && !laying;
+  const shown3d = view3d === "3d" && !laying && !phoneEdit;
   const [noWebGL, setNoWebGL] = useState<"none" | "lost">();
   const no3d = shown3d ? (noWebGL ?? (hasWebGL() ? undefined : "none")) : undefined;
   // the 3D view is on the screen (not its 2D fallback, which edits as usual): the plan's editing keys wait for 2D
@@ -453,7 +470,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         if (!phoneRef.current && !draftRef.current.laying) setSaveOpen(true);
         return;
       }
-      if (isTyping(e.target) || phoneRef.current) return; // inputs keep their own undo, delete, etc.; phones only view
+      if (isTyping(e.target) || viewOnlyRef.current) return; // inputs keep their own undo, delete, etc.; view-only phones
       // 3D is view only: undo and redo still work (3D follows), but the plan's editing keys wait for 2D; a key the 3D
       // view took (Escape leaving the rostrum) is its own
       if (viewing3dRef.current && (e.defaultPrevented || ["Delete", "Backspace", "h", "H", "o", "O", ...ADD_KEYS].includes(e.key))) return;
@@ -668,8 +685,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const quick = viewRef.current === "quick";
     // Quick: a tap on the selected corner lets it go, so taps on the floor stop adding after it
     const onClick = quick && again ? () => setSel(null) : undefined;
-    // Quick, by touch: hold the corner to select it and open its panel; the ring fills while the finger is down
-    const touchPress = quick && e.pointerType !== "mouse";
+    // Quick, by touch: hold the corner to select it and open its panel; the ring fills while the finger is down (not on
+    // the phone yet: its long-press sheet is ticket 7)
+    const touchPress = quick && e.pointerType !== "mouse" && !phoneEditRef.current;
     if (touchPress) setPress({ i, done: false });
     // a tap on another corner picks where the next corner goes; its panel waits for a long-press
     if (!again) setSheet((s) => (s === "selection" ? null : s));
@@ -927,7 +945,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // on a corner picks where the next corner goes); letting go of the selection closes it
   useEffect(() => {
     if (!sel) setSheet((s) => (s === "selection" ? null : s));
-    else if (sel.kind !== "point") setSheet("selection");
+    else if (sel.kind !== "point" && !phoneEditRef.current) setSheet("selection"); // the phone's sheets are ticket 4
     setPress((p) => (p && (sel?.kind !== "point" || sel.i !== p.i) ? null : p));
   }, [sel]);
   // undo past the close comes back here: nothing of step 2 stays selected or armed
@@ -1404,7 +1422,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       className="designer-plan"
       overlay={laying ? layOverlay : overlay}
       onHandleWheel={onHandleWheel}
-      controls={!tablet}
+      controls={!tablet && !phoneEdit}
+      fitWidth={phoneEdit}
       fitRequest={fitRequest}
       onSecondFinger={() => {
         edit.current?.cancel();
@@ -1428,6 +1447,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   return (
     <DesignerLayout
       phone={phone}
+      phoneEdit={
+        phoneEdit
+          ? {
+              header: { backTo, name: draft.info.name, dirty, revision: base?.revision },
+              toolbar: { tool: tool.kind, onSelect: () => setTool({ kind: "select" }), onAdd: toggleAdd, canDelete: sel?.kind === "point" || sel?.kind === "feature", onDelete: deleteSelection, ...history },
+              upright: landscapePhone,
+            }
+          : null
+      }
       tablet={tablet}
       view={view}
       laying={laying}
@@ -1467,7 +1495,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         checks: built.checks,
         onSeeChecks: seeChecks,
       }}
-      messages={restore || !me || message || status?.approvedRevision ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: !!me, message, approvedRevision: status?.approvedRevision } : null}
+      // the phone keeps the plan's room: only the restore prompt and the designer's own messages (the not-logged-in and
+      // approved notes come back with the phone's banner)
+      messages={
+        phoneEdit
+          ? restore || message ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: true, message, approvedRevision: null } : null
+          : restore || !me || message || status?.approvedRevision ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: !!me, message, approvedRevision: status?.approvedRevision } : null
+      }
       palette={{ ...tools, snap: snap.mode, onSnap: (m) => setSnap({ mode: m }) }}
       planArea={{
         planWrapRef,
@@ -1476,7 +1510,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         grid,
         onGridKey,
         onGridFocus: setGridFocus,
-        hint: { snapInfo, viewing3d, synced3d, tablet, laying, layNote, gridFocus, cells: draft.laying, layKeys, grid, tool, advanced, sel },
+        hint: { snapInfo, viewing3d, synced3d, tablet: phoneEdit ? touch : tablet, phone: phoneEdit, laying, layNote, gridFocus, cells: draft.laying, layKeys, grid, tool, advanced, sel },
         adding: tool.kind === "add" && !laying && view === "quick",
         plan,
         shown3d,

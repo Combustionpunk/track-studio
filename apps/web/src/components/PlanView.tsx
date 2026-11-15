@@ -61,16 +61,18 @@ export interface PlanViewProps {
   fitRequest?: number;
   /** the zoom / fit / layers buttons on the plan (off where the page has its own) */
   controls?: boolean;
+  /** fit the width of the area, not the whole of it (the phone, #122: a tall area runs off the top and bottom) */
+  fitWidth?: boolean;
 }
 
 const MAX_SCALE = 400; // px per metre
 
 export function PlanView(props: PlanViewProps) {
-  const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children, overlay, onHandleWheel, onBackgroundClick, onSecondFinger, fitRequest, controls = true } = props;
+  const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children, overlay, onHandleWheel, onBackgroundClick, onSecondFinger, fitRequest, controls = true, fitWidth = false } = props;
   const [boxRef, box] = useElementSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   const bounds = useMemo(() => areaBounds(area), [area]);
-  const fitted = useMemo(() => (box.width && box.height ? fitView(bounds, box.width, box.height) : null), [bounds, box.width, box.height]);
+  const fitted = useMemo(() => (box.width && box.height ? fitView(bounds, box.width, fitWidth ? Infinity : box.height) : null), [bounds, box.width, box.height, fitWidth]);
   const [view, setView] = useState<View | null>(null);
   const moved = useRef(false);
   const [tip, setTip] = useState<{ x: number; y: number; key: string } | null>(null);
