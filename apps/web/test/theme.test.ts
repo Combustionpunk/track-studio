@@ -139,6 +139,42 @@ describe("the 3D scene in a theme", () => {
   });
 });
 
+describe("light and dark themes in the app's CSS", () => {
+  const tokens = readFileSync(join(WEB, "src/theme/tokens.css"), "utf8");
+  const planCss = readFileSync(join(WEB, "src/theme/plan-palette.css"), "utf8");
+  /** a variable's light-dark(light, dark) halves */
+  const halves = (css: string, name: string) => {
+    const m = new RegExp(`--${name}: light-dark\\((.*)\\);`).exec(css);
+    if (!m) throw new Error(`--${name} is not light-dark(…)`);
+    // split at the comma outside any brackets
+    let depth = 0;
+    const at = [...m[1]].findIndex((ch) => ((depth += ch === "(" ? 1 : ch === ")" ? -1 : 0), ch === "," && depth === 0));
+    return { light: m[1].slice(0, at).trim(), dark: m[1].slice(at + 1).trim() };
+  };
+  /** color-mix(in srgb, var(--rm-a) N%, var(--rm-b)) in a theme */
+  const mixIn = (expr: string, c: Record<string, string>) => {
+    const m = /^color-mix\(in srgb, var\(--rm-([\w-]+)\) (\d+)%, var\(--rm-([\w-]+)\)\)$/.exec(expr);
+    if (!m) throw new Error(`can't read ${expr}`);
+    const key = (k: string) => k.replace(/-(\w)/g, (_, ch: string) => ch.toUpperCase());
+    return mix(c[key(m[1])], c[key(m[3])], Number(m[2]) / 100);
+  };
+
+  it.each(themeIds)("accent text on the accent-soft fill reaches 4.5:1 in %s", (id) => {
+    const { light, dark } = halves(tokens, "accent-soft");
+    const c = themes[id].colours as unknown as Record<string, string>;
+    expect(contrast(c.accent, mixIn(themes[id].mode === "light" ? light : dark, c))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(themeIds.filter((id) => themes[id].mode === "light"))("the designer's guides and mitre handles show on the carpet and the area in %s (3:1)", (id) => {
+    const c = themes[id].colours as unknown as Record<string, string>;
+    const p = planPalette(themes[id].colours);
+    for (const name of ["ed-guide", "ed-mitre"]) {
+      const v = /^var\(--rm-([\w-]+)\)$/.exec(halves(planCss, name).light)![1];
+      for (const under of [p["plan-carpet"], p["plan-area"]]) expect(contrast(c[v], under), `${name} ${v}`).toBeGreaterThanOrEqual(3);
+    }
+  });
+});
+
 describe("plan-palette.css", () => {
   const css = readFileSync(join(WEB, "src/theme/plan-palette.css"), "utf8");
 

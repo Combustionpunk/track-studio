@@ -31,7 +31,8 @@
   --print-jump: #bdbdbd;
   --print-watermark: #1a1a1a1f;
 
-  /* ink on the plan (labels, the highlight ring, the editor's handles): the theme's text, with a halo of its page */
+  /* ink on the plan (labels, the highlight ring, the editor's handles): the theme's text, with a halo of its page;
+     ink-dark is the opposite of ink (the page colour), so it is light on a light theme */
   --plan-ink: var(--rm-text);
   --plan-ink-dark: var(--rm-bg);
   --plan-halo: color-mix(in srgb, var(--rm-bg) 80%, transparent);
@@ -47,10 +48,11 @@
 
   /* designer overlays */
   --ed-control: color-mix(in srgb, var(--rm-text) 35%, transparent);
-  --ed-guide: #7fd3ff;
+  /* light-dark(): on a light theme's plan the dark-plan colours vanish, so the theme's own highlight and warning */
+  --ed-guide: light-dark(var(--rm-fast), #7fd3ff);
   --ed-point-edge: #c2187a;
-  --ed-point-hover: #ffd6ec;
+  --ed-point-hover: light-dark(color-mix(in srgb, var(--rm-accent) 25%, var(--rm-surface)), #ffd6ec);
   --ed-hover: color-mix(in srgb, var(--rm-text) 60%, transparent);
   --ed-edges: color-mix(in srgb, var(--rm-text) 75%, transparent);
-  --ed-mitre: #ffd166;
+  --ed-mitre: light-dark(var(--rm-warning), #ffd166);
 }

@@ -18,7 +18,8 @@
   --muted: var(--rm-muted);
   --accent: var(--rm-accent);
   --accent-ink: var(--rm-on-accent);
-  --accent-soft: color-mix(in srgb, var(--rm-accent) 18%, var(--rm-bg));
+  /* accent text sits on it: a lighter tint on light themes, so it keeps 4.5:1 (test/theme.test.ts) */
+  --accent-soft: light-dark(color-mix(in srgb, var(--rm-accent) 6%, var(--rm-surface)), color-mix(in srgb, var(--rm-accent) 18%, var(--rm-bg)));
   --link: var(--rm-accent);
   --focus: var(--rm-accent);
   /* the brand's top bar sits on the raised surface */
