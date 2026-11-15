@@ -37,7 +37,9 @@ export const PRINT_PALETTE = {
   "print-watermark": "#1a1a1a1f",
 } as const;
 
-type Palette = Record<keyof typeof PLAN_PALETTE, string>;
+/** The plan's colour roles. The web app passes one made from the member's theme (#135); the default is PLAN_PALETTE. */
+export type PlanPalette = Record<keyof typeof PLAN_PALETTE, string>;
+type Palette = PlanPalette;
 
 /** The plan's colour roles in print: black ink on white, so the sheet reads in black and white. */
 const PRINT_ROLES: Palette = {
@@ -79,8 +81,9 @@ export interface PlanDrawOptions {
   tips?: boolean;
   /** prefix for pattern ids, unique per page (default "plan") */
   id?: string;
-  /** "print": the build sheet's light print palette, with outlines and hatching that survive black-and-white printing */
-  palette?: "plan" | "print";
+  /** "print": the build sheet's light print palette, with outlines and hatching that survive black-and-white printing;
+   * or the colours to draw in (the web app's theme palette, hex only; drawn like "plan") */
+  palette?: "plan" | "print" | PlanPalette;
   /** false: leave out the patterns and the track area, so the chosen layers can sit over another drawing (the
    * designer draws the checks layer alone over its handles this way). Only for layers that use no patterns: checks,
    * racing line, start, dividers, grid and obstacles; lanes, rostrum and print jumps need the patterns. */
@@ -357,7 +360,7 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
   const layers = { ...ALL_PLAN_LAYERS, ...opts.layers };
   const id = opts.id ?? "plan";
   const print = opts.palette === "print";
-  const P = print ? PRINT_ROLES : PLAN_PALETTE;
+  const P = print ? PRINT_ROLES : typeof opts.palette === "object" ? opts.palette : PLAN_PALETTE;
   const tips = !!opts.tips;
   const tip = (k: string) => (tips ? ` data-tip="${k}"` : "");
   const L = area.length, W = area.width;
