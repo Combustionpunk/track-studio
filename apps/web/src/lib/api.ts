@@ -188,6 +188,8 @@ export interface Me {
   organiser: boolean;
   admin: boolean;
   moderator: boolean;
+  /** the member's theme from the forum (a brand theme id), once the forum sends it (discourse-event-system #388) */
+  theme?: string | null;
 }
 
 export interface ServerConfig {

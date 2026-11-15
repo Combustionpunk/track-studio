@@ -27,6 +27,7 @@ import {
   type Side,
 } from "@track-studio/engine";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePlanPalette } from "../lib/theme.js";
 import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import { Skeleton } from "../components/states.js";
@@ -1062,7 +1063,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // PlanView (info is never drawn, so Quick and Advanced show the same marks; Advanced adds their hover details); the
   // bake's checks lag the live line by a moment while dragging
   const problemScene = useMemo(() => ({ area, built }), [area, built]);
-  const problems = (m: number) => (layers.checks ? planLayers(problemScene, { px: m, layers: ONLY_CHECKS, background: false, tips: advanced }) : "");
+  const palette = usePlanPalette();
+  const problems = (m: number) => (layers.checks ? planLayers(problemScene, { px: m, layers: ONLY_CHECKS, background: false, tips: advanced, palette }) : "");
   // matched against the bake's own jumps, so a note or warning stays on its jump while the bake catches up with a drag
   const inCorner = useMemo(() => {
     const b = bake.built;

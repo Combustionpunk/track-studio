@@ -1,24 +1,25 @@
 /*
- * The plan's fixed palette (docs/design/tokens.json, plan-*): not synced with the forum, so plans read the same
- * everywhere. The plan itself is drawn by the engine's renderer with the same values (PLAN_PALETTE in
- * packages/engine/src/plan.ts; a test keeps the two equal). These variables are for what the web app draws around and
- * over it: the plan well, the controls and tooltips on it, and the designer's overlays.
+ * The plan's colours follow the theme (#135). The plan itself is drawn by the engine's renderer in a palette made
+ * from the theme's colours (planPalette in src/lib/theme.tsx), which also writes these --plan-* variables on <html>
+ * when the theme changes. The defaults here are the same blends in CSS, for the first paint: keep them in step.
+ * These variables are for what the web app draws around and over the plan: the plan well, the controls and tooltips
+ * on it, and the designer's overlays.
  */
 :root {
-  --plan-floor: #2b2e32;
-  --plan-area: #33373c;
-  --plan-carpet: #46564c;
-  --plan-pipe: #ecece6;
-  --plan-pipe-shared: #a9b8c2;
-  --plan-line: #fdd459;
-  --plan-jump: #e0b16a;
-  --plan-jump-edge: #6b4a1f;
-  --plan-rostrum: #8a8f96;
-  --plan-obstacle: #b07a7a;
-  --plan-grid: #ffffff1a;
-  --plan-grid-major: #ffffff33;
-  --plan-error: #ff7f5c;
-  --plan-warning: #fdd459;
+  --plan-floor: var(--rm-bg);
+  --plan-area: var(--rm-surface);
+  --plan-carpet: color-mix(in srgb, var(--rm-pb) 18%, var(--rm-surface));
+  --plan-pipe: var(--rm-text);
+  --plan-pipe-shared: var(--rm-muted);
+  --plan-line: var(--rm-accent);
+  --plan-jump: color-mix(in srgb, var(--rm-warning) 70%, var(--rm-surface2));
+  --plan-jump-edge: color-mix(in srgb, var(--rm-bg) 85%, var(--plan-jump)); /* the app picks bg or text, whichever stands out */
+  --plan-rostrum: color-mix(in srgb, var(--rm-muted) 45%, var(--rm-surface));
+  --plan-obstacle: color-mix(in srgb, var(--rm-danger) 50%, var(--rm-surface));
+  --plan-grid: color-mix(in srgb, var(--rm-text) 10%, transparent);
+  --plan-grid-major: color-mix(in srgb, var(--rm-text) 20%, transparent);
+  --plan-error: var(--rm-danger);
+  --plan-warning: var(--rm-warning);
 
   /* the build sheet's print palette (tokens.json print-*; PRINT_PALETTE in the engine, a test keeps them equal) */
   --print-paper: #ffffff;

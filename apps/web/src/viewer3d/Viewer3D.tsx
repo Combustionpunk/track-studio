@@ -6,7 +6,8 @@
 // In the designer (#85) the layout changes under it: the renderer and the camera stay, and a new scene swaps only the
 // meshes whose data changed. It also draws the guide's obstacles, highlights the selected item, and a click (or tap)
 // on a jump picks it.
-import { PLAN_PALETTE, type Area, type Built, type Obstacle, type Side } from "@track-studio/engine";
+import { type Area, type Built, type Obstacle, type Side } from "@track-studio/engine";
+import { usePlanPalette } from "../lib/theme.js";
 import { House, Orbit, Route, SquareDashed, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { BufferAttribute, BufferGeometry, Color, DirectionalLight, DoubleSide, EdgesGeometry, HemisphereLight, LineBasicMaterial, LineSegments, Mesh, MeshLambertMaterial, PerspectiveCamera, Raycaster, Scene, Vector2, Vector3, WebGLRenderer } from "three";
@@ -64,6 +65,7 @@ interface Stage {
   camera: PerspectiveCamera;
   controls: OrbitControls;
   sun: DirectionalLight;
+  sky: HemisphereLight;
   /** the scene's meshes by part, with the data they were made from */
   parts: Map<Part, { data: MeshData; mesh: ThreeMesh }>;
   render: () => void;
@@ -82,7 +84,8 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
   const stage = useRef<Stage | null>(null);
   const [showLine, setShowLine] = useState(false);
   const [ready, setReady] = useState(false);
-  const scene = useMemo(() => buildScene({ area, built, obstacles }), [area, built, obstacles]);
+  const palette = usePlanPalette(); // the theme's colours (#135)
+  const scene = useMemo(() => buildScene({ area, built, obstacles, palette }), [area, built, obstacles, palette]);
   const bounds = useMemo(() => areaBounds(area), [area]);
   const lineRef = useRef(showLine);
   lineRef.current = showLine;
@@ -116,10 +119,9 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
     stageEl.append(canvas);
 
     const world = new Scene();
-    const background = PLAN_PALETTE["plan-floor"];
-    world.background = new Color(background);
-    // white light (three's default colour): from the sky, and back up off the floor in its colour
-    world.add(new HemisphereLight(undefined, background, 2.2));
+    // white light (three's default colour): from the sky, and back up off the floor in its colour (set with the scene)
+    const sky = new HemisphereLight(undefined, undefined, 2.2);
+    world.add(sky);
     const sun = new DirectionalLight(undefined, 1.6);
     world.add(sun);
 
@@ -143,7 +145,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       });
     };
     controls.addEventListener("change", render);
-    const s: Stage = { renderer, world, camera, controls, sun, parts: new Map(), render, head: null };
+    const s: Stage = { renderer, world, camera, controls, sun, sky, parts: new Map(), render, head: null };
     stage.current = s;
 
     // at the rostrum, OrbitControls is off and these turn the head: drag (one finger) looks around, the wheel or a
@@ -284,6 +286,9 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       else apply(s, homePose(area, FOV, s.camera.aspect), area);
     }
     sized.current = size;
+    // the floor round the area, in the theme's colour
+    s.world.background = new Color(scene.background);
+    s.sky.groundColor.set(scene.background);
     const next = new Map(scene.meshes.map((m) => [m.part, m]));
     for (const [part, had] of s.parts)
       if (!next.has(part) || !sameMesh(had.data, next.get(part)!)) {
@@ -303,7 +308,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
   }, [scene, area]);
 
   // the selected item, highlighted: see-through, with its edges drawn
-  const lit = useMemo(() => highlightMesh(built, highlight), [built, highlight]);
+  const lit = useMemo(() => highlightMesh(built, highlight, palette), [built, highlight, palette]);
   useEffect(() => {
     const s = stage.current;
     if (!s || !lit) return;
@@ -325,7 +330,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
   useEffect(() => {
     const s = stage.current;
     if (!s) return;
-    const meshes = rostrumMeshes(area, rostrum.side).map(toMesh);
+    const meshes = rostrumMeshes(area, rostrum.side, palette).map(toMesh);
     meshes.forEach((m) => s.world.add(m));
     s.render();
     return () => {
@@ -335,7 +340,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
         m.material.dispose();
       });
     };
-  }, [area, rostrum.side]);
+  }, [area, rostrum.side, palette]);
 
   // standing at the rostrum, or back to the orbit camera
   useEffect(() => {

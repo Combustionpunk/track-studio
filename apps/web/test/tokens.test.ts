@@ -1,5 +1,5 @@
-// The web app takes every colour and font from tokens: the synced forum colours and fonts in src/theme/tokens.css,
-// the fixed plan drawing palette in src/theme/plan-palette.css and src/lib/plan.ts. Nothing else may name a colour.
+// The web app takes every colour and font from tokens: the brand package's (#135), mapped in src/theme/tokens.css,
+// and the plan's in src/theme/plan-palette.css and src/lib/plan.ts. Nothing else may name a colour.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,18 +55,30 @@ describe("colours come from tokens only", () => {
 describe("fonts", () => {
   const tokens = readFileSync(join(WEB, "src/theme/tokens.css"), "utf8");
 
-  it("Inter and Oswald load from the app itself, with system fallbacks", () => {
-    const urls = [...tokens.matchAll(/url\(["']?([^"')]+)/g)].map((m) => m[1]);
-    expect(urls.length).toBeGreaterThanOrEqual(2);
+  it("Inter and Oswald come from the brand package, self-hosted, with system fallbacks (#135)", () => {
+    expect(tokens).toMatch(/@import "@rcmisfits\/brand\/fonts\.css";/);
+    expect(tokens).toMatch(/@import "@rcmisfits\/brand\/tokens\.css";/);
+    expect(tokens).toMatch(/--font-body:\s*var\(--rm-font-body\);/);
+    expect(tokens).toMatch(/--font-heading:\s*var\(--rm-font-display\);/);
+    const fonts = readFileSync(join(WEB, "node_modules/@rcmisfits/brand/fonts/fonts.css"), "utf8");
+    const urls = [...fonts.matchAll(/url\(["']?([^"')]+)/g)].map((m) => m[1]);
+    expect(urls.length).toBeGreaterThanOrEqual(4);
     for (const u of urls) {
       expect(u).not.toMatch(/^(https?:)?\/\//);
       expect(u).toMatch(/\.woff2$/);
-      expect(existsSync(join(WEB, "src/theme", u)), u).toBe(true);
+      expect(existsSync(join(WEB, "node_modules/@rcmisfits/brand/fonts", u)), u).toBe(true);
     }
-    expect(tokens).toMatch(/font-family:\s*"Inter"/);
-    expect(tokens).toMatch(/font-family:\s*"Oswald"/);
-    expect(tokens).toMatch(/--font-body:\s*"Inter",[^;]*sans-serif;/);
-    expect(tokens).toMatch(/--font-heading:\s*"Oswald",[^;]*sans-serif;/);
+    expect(fonts).toMatch(/font-family:\s*"?Inter/);
+    expect(fonts).toMatch(/font-family:\s*"?Oswald/);
+    const brand = readFileSync(join(WEB, "node_modules/@rcmisfits/brand/dist/tokens.css"), "utf8");
+    expect(brand).toMatch(/--rm-font-body:\s*Inter,[^;]*sans-serif;/);
+    expect(brand).toMatch(/--rm-font-display:\s*Oswald,[^;]*sans-serif;/);
+  });
+
+  it("every colour and font the app maps comes from the brand's variables, not values of its own", () => {
+    const vars = tokens.slice(tokens.indexOf(":root"));
+    for (const name of ["--bg", "--surface", "--text", "--muted", "--accent", "--danger", "--warning", "--border", "--header-bg"]) expect(vars).toMatch(new RegExp(`${name}:\\s*var\\(--rm-`));
+    expect(tokens).not.toMatch(/synced:start/);
   });
 
   it("no stylesheet or page pulls from a third-party font host", () => {
