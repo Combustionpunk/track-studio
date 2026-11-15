@@ -622,7 +622,7 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-header { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-6); padding: var(--space-3) var(--space-6); background: var(--header); color: var(--header-text); border-bottom: 1px solid var(--line); }
 .ts-brand { display: flex; align-items: center; gap: var(--space-2); text-decoration: none; color: var(--header-text); border-radius: var(--radius-sm); }
 .ts-brand:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
-.brand-logo, .brand-logo svg { display: block; height: 28px; width: auto; }
+.brand-logo { display: block; height: 28px; width: auto; }
 .ts-brand__app { font: 500 20px/1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); }
 .ts-header__menu { display: none; margin-left: auto; color: var(--header-text); }
 .ts-header__fold { display: flex; align-items: center; gap: var(--space-3) var(--space-6); flex: 1 1 auto; flex-wrap: wrap; }
@@ -796,7 +796,7 @@ select.ts-input { padding: 0 var(--space-2); }
   .ts-page { padding: var(--space-6) var(--space-4) var(--space-12); gap: var(--space-4); }
   .ts-title { font-size: 28px; line-height: 34px; }
   .ts-header { padding: var(--space-2) var(--space-4); gap: var(--space-2); }
-  .brand-logo, .brand-logo svg { height: 24px; }
+  .brand-logo { height: 24px; }
   .ts-brand__app { font-size: 17px; }
   .ts-header__menu { display: inline-flex; }
   .ts-header__fold { display: none; flex: 1 1 100%; flex-direction: column; align-items: stretch; padding-bottom: var(--space-2); }

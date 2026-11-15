@@ -105,8 +105,9 @@ describe("logo", () => {
     );
   });
 
-  it("the header and the favicon both use it", () => {
-    expect(readFileSync(join(WEB, "src/components/Header.tsx"), "utf8")).toContain("brand/logo.svg");
+  it("the favicon uses it; the header uses the brand's logo", () => {
+    // the header shows the brand package's logo as it is (#135); the favicon keeps the square placeholder mark for now
+    expect(readFileSync(join(WEB, "src/components/Header.tsx"), "utf8")).toContain('import logo from "@rcmisfits/brand/logo.svg";');
     // colours from the theme tokens, with fallbacks for the standalone favicon
     for (const m of logo.matchAll(/(?:fill|stroke)(?:="|:\s*)([^";]+)/g)) if (m[1] !== "none") expect(m[1]).toMatch(/^var\(--[\w-]+, #[0-9a-f]{3,6}\)$/);
     expect(readFileSync(join(WEB, "vite.config.ts"), "utf8")).toContain("src/brand/logo.svg");

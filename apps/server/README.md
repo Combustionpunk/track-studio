@@ -89,6 +89,10 @@ the venue list the venue editor picks from, and `FORUM_URL/srv/status` before a 
 resolve `FORUM_URL` too; where it can't, silent sign-in is simply off).
 
 ## Theme (colours from the forum)
+Pages no longer use this (#135): the web app takes its colours from the RC Misfits brand package and the member's
+theme, and every page's head only names Pit Lane / Pit Lane light for the browser's own chrome (`color-scheme`,
+`theme-color`). The sync below still colours the link-preview cards and serves `GET /api/theme.json`.
+
 At start and then hourly the server reads the forum's public `site.json` and maps its default colour scheme to the
 web app's design tokens (`src/theme.ts`): `primary` → `text`, `secondary` → `bg`, `tertiary` → `accent`,
 `header_background`/`header_primary` → `headerBg`/`headerText`, plus `highlight`, `success`, `danger`, `hover`,
@@ -97,12 +101,10 @@ web app's design tokens (`src/theme.ts`): `primary` → `text`, `secondary` → 
 If the forum has a separate dark scheme, dark is the default and its light scheme applies when the device prefers
 light; with one scheme (today: Grey Amber, dark) that one is always used.
 
-Every page gets the current theme as CSS variables in `<style id="theme">`, so there's no flash of the wrong colours.
 The last good scheme is kept in `DATA_DIR/theme-cache.json`; if the forum can't be reached (or answers with something
 unusable) the cached scheme stays, or the built-in **Grey Amber** if there's never been one. A failing forum is logged
-once, and again only after it has recovered. Organisers can refresh at once from the header (↻, "Refresh theme now").
-The plan drawing keeps its own fixed palette. The web app's defaults (`apps/web/src/theme/tokens.css`) are the derived
-Grey Amber; a test keeps them in step with `theme.ts`.
+once, and again only after it has recovered. Organisers can refresh at once with `POST /api/theme/refresh` (the
+header's button went with #135).
 
 Forum embeds (`/embed/:id`, "Copy forum embed" on a track page): add `<BASE_URL>/embed/` to the forum's
 `allowed iframes` setting. Track Studio only lets the forum's origin (`FORUM_URL`) frame those pages; every other page

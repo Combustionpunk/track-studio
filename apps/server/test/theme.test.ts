@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ROOT_DIR } from "../src/config.js";
+import { themes } from "@rcmisfits/brand";
 import { contrast, deriveTokens, FONTS, GREY_AMBER, ThemeSync, themeCss, type Roles } from "../src/theme.js";
 import { ADMIN, ALICE, FORUM_URL, login, makeApp, ORGANISER } from "./helpers.js";
 
@@ -242,14 +242,7 @@ describe("derived tokens", () => {
     for (const fg of [c.text, c.muted, c.link, c.dangerText, c.successText, c.warning, c.info]) expect(contrast(fg, c.surface)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(c.accentInk, c.accent)).toBeGreaterThanOrEqual(4.5);
   });
-
-  it("the web app's built-in tokens (tokens.css) are exactly the derived Grey Amber", () => {
-    const css = readFileSync(join(ROOT_DIR, "apps", "web", "src", "theme", "tokens.css"), "utf8");
-    const block = /\/\* synced:start \*\/([\s\S]*?)\/\* synced:end \*\//.exec(css)?.[1] ?? "";
-    const vars = Object.fromEntries([...block.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-    const expected = Object.fromEntries(Object.entries(deriveTokens(GREY_AMBER)).map(([k, v]) => [k.replace(/[A-Z0-9]/g, (ch) => `-${ch.toLowerCase()}`), v]));
-    expect(vars).toEqual(expected);
-  });
+  // the web app's tokens.css no longer copies the forum's colours: it maps the brand package's (#135)
 });
 
 describe("theme API and pages", () => {
@@ -298,13 +291,17 @@ describe("theme API and pages", () => {
     expect((await me(ORGANISER)).organiser).toBe(true);
   });
 
-  it("every page carries the current theme as CSS variables, so the first paint is already in the forum's colours", async () => {
+  it("pages take their colours from the brand package, not the forum's scheme (#135)", async () => {
     const { app } = await makeApp({ themeFetch: stub() });
     const page = async () => (await app.inject({ method: "GET", url: "/", headers: { accept: "text/html" } })).body;
-    expect(await page()).toContain('<style id="theme">html:root{color-scheme:dark;--bg:#3d4147;');
-    expect(await page()).toContain('<meta name="theme-color" content="#36393e">');
-    await app.theme.refresh();
-    expect(await page()).toContain('<style id="theme">html:root{color-scheme:light;--bg:#fafafa;');
+    const before = await page();
+    expect(before).not.toContain('<style id="theme">');
+    // the browser's own chrome: Pit Lane's top bar, or Pit Lane light's when the device asks for light
+    expect(before).toContain('<meta name="color-scheme" content="dark light">');
+    expect(before).toContain(`<meta name="theme-color" content="${themes["pit-lane"].colours.surface}">`);
+    expect(before).toContain(`<meta name="theme-color" media="(prefers-color-scheme: light)" content="${themes["pit-lane-light"].colours.surface}">`);
+    await app.theme.refresh(); // the forum's scheme changes nothing on the page
+    expect(await page()).toBe(before);
   });
 });
 

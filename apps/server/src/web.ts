@@ -10,7 +10,8 @@ import type { Config } from "./config.js";
 import type { DB } from "./db.js";
 import { HttpError } from "./errors.js";
 import { CARD_HEIGHT, CARD_WIDTH } from "./card.js";
-import { themeHead, type ThemeSync } from "./theme.js";
+import { themes } from "@rcmisfits/brand";
+import type { ThemeSync } from "./theme.js";
 import { describeTrack, PREVIEW_WIDTH, previewHeight, trackCard } from "./previews.js";
 import { getTrackDoc, getTrackRow, getVenueDoc, getVenueRow, previewUrl, publicRevision, type TrackRow } from "./store.js";
 
@@ -230,6 +231,13 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     template = async () => FALLBACK_TEMPLATE;
   }
 
+  // the colours come from the brand package's CSS in the app (#135), for the member's theme; this only tells the
+  // browser's own chrome (scrollbars, the phone's top bar) the default, Pit Lane or Pit Lane light
+  const BRAND_HEAD = [
+    '<meta name="color-scheme" content="dark light">',
+    `<meta name="theme-color" content="${themes["pit-lane"].colours.surface}">`,
+    `<meta name="theme-color" media="(prefers-color-scheme: light)" content="${themes["pit-lane-light"].colours.surface}">`,
+  ].join("\n");
   const serve = async (req: FastifyRequest, reply: FastifyReply) => {
     const [path, qs] = req.url.split("?");
     const query = Object.fromEntries(new URLSearchParams(qs ?? "")) as Record<string, string | undefined>;
@@ -239,7 +247,7 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     if (silent) return reply.header("cache-control", "no-store").redirect(silent);
     pageHeaders(reply, config, { embed: !!page.embed, strict: web.mode === "static" });
     reply.header("cache-control", "no-cache");
-    const themed = { ...page, head: `${themeHead(app.theme.current())}\n${page.head}` };
+    const themed = { ...page, head: `${BRAND_HEAD}\n${page.head}` };
     return reply.code(page.status).type("text/html; charset=utf-8").send(fillTemplate(await template(req.url), themed));
   };
   for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/new", "/v/:id", "/v/:id/edit", "/lap-speeds"]) app.get(route, serve);

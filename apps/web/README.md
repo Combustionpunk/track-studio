@@ -5,16 +5,21 @@ checks, revisions, download, copy link / forum embed, Edit / Make my own copy, S
 venues (read-only), the compact `/embed/:id` viewer for forum posts, and the **designer** (`/new`, `/t/:id/edit`).
 
 ## Theme, fonts, logo
-- **Colours come from tokens only.** `src/theme/tokens.css` holds the forum-synced tokens (`--bg`, `--text`,
-  `--accent`, `--header-bg`, …; defaults = the forum's Grey Amber, overridden by the server's `<style id="theme">`),
-  the few fixed ones the forum has no colour for (`--warning`, `--info`) and the font tokens. The plan drawing's fixed
-  palette is `src/theme/plan-palette.css` + `src/lib/plan.ts`. `test/tokens.test.ts` fails on a literal colour
-  anywhere else, and on a `var(--x)` that isn't defined.
-- **Fonts:** Inter (`--font-body`) and Oswald (`--font-heading`: headings and figures such as lap length and corner
-  count), variable woff2 in `src/theme/fonts/` (SIL OFL), bundled by Vite, with system fallbacks.
-- **Logo:** `src/brand/logo.svg` is the one file (placeholder: loop mark + RC MISFITS wordmark as paths). The header
-  shows it whole; `brand.ts` makes `/favicon.svg` from its `<view id="mark">`. Replace the file (keep that view) and
-  rebuild.
+- **The brand package.** Colours, fonts and the header logo come from `@rcmisfits/brand` (pinned to a tag in
+  `package.json`; its README is "Consuming it"). `src/theme/tokens.css` imports its `fonts.css` and `tokens.css` and
+  maps the app's own names (`--bg`, `--text`, `--accent`, `--header-bg`, …) to its `--rm-*` variables, in one place.
+  `test/tokens.test.ts` fails on a literal colour anywhere else, and on a `var(--x)` that isn't defined.
+- **The member's theme** (`src/lib/theme.tsx`): `data-theme` on `<html>` is the signed-in member's theme (`me.theme`,
+  once the forum sends it), else the club's (none yet), else none: the brand's CSS then gives Pit Lane, or Pit Lane
+  light when the device asks for light. Unknown ids are ignored.
+- **The plan and the 3D view** are drawn with colours, not CSS, so `planPalette()` makes their palette from the theme's
+  colours (the engine's `planLayers` takes it as `palette`); `ThemeProvider` also writes it to the `--plan-*`
+  variables for the overlays. `test/theme.test.ts` checks it reads (3:1 for pipes, racing line and problems) in every
+  theme. The build sheet keeps the fixed print palette; server pictures (PNG previews, cards) keep `PLAN_PALETTE`.
+- **Fonts:** Inter (`--font-body`) and Oswald (`--font-heading`), the brand package's self-hosted woff2, bundled by
+  Vite.
+- **Logo:** the header shows the brand package's logo as it is. `src/brand/logo.svg` (placeholder) is still the
+  favicon (`brand.ts` crops it to its `<view id="mark">`) and the link-preview card's logo.
 
 ## Designer (`src/designer/`)
 - `geometry.ts` — live racing line and placements on the main thread, pointer projection, snapping, starter loop.
