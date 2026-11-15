@@ -31,26 +31,26 @@
   --print-jump: #bdbdbd;
   --print-watermark: #1a1a1a1f;
 
-  /* ink on the plan (labels, the highlight ring, the editor's handles) */
-  --plan-ink: #ffffff;
-  --plan-ink-dark: #111111;
-  --plan-halo: rgb(0 0 0 / 0.8);
+  /* ink on the plan (labels, the highlight ring, the editor's handles): the theme's text, with a halo of its page */
+  --plan-ink: var(--rm-text);
+  --plan-ink-dark: var(--rm-bg);
+  --plan-halo: color-mix(in srgb, var(--rm-bg) 80%, transparent);
 
-  /* controls over the plan */
-  --plan-ui-bg: rgb(20 26 22 / 0.82);
-  --plan-ui-bg-strong: rgb(20 26 22 / 0.94);
-  --plan-ui-hover: rgb(60 70 64 / 0.95);
-  --plan-ui-border: rgb(255 255 255 / 0.18);
-  --plan-tip-bg: rgb(15 19 17 / 0.95);
+  /* controls over the plan: the theme's raised surface, see-through */
+  --plan-ui-bg: color-mix(in srgb, var(--rm-surface) 85%, transparent);
+  --plan-ui-bg-strong: color-mix(in srgb, var(--rm-surface) 95%, transparent);
+  --plan-ui-hover: color-mix(in srgb, var(--rm-surface2) 95%, transparent);
+  --plan-ui-border: color-mix(in srgb, var(--rm-text) 18%, transparent);
+  --plan-tip-bg: color-mix(in srgb, var(--rm-surface) 95%, transparent);
   --plan-ui-shadow: 0 4px 14px rgb(0 0 0 / 0.4);
-  --plan-dim: rgb(0 0 0 / 0.45);
+  --plan-dim: color-mix(in srgb, var(--rm-bg) 55%, transparent);
 
   /* designer overlays */
-  --ed-control: rgb(255 255 255 / 0.35);
+  --ed-control: color-mix(in srgb, var(--rm-text) 35%, transparent);
   --ed-guide: #7fd3ff;
   --ed-point-edge: #c2187a;
   --ed-point-hover: #ffd6ec;
-  --ed-hover: rgb(255 255 255 / 0.6);
-  --ed-edges: rgb(255 255 255 / 0.75);
+  --ed-hover: color-mix(in srgb, var(--rm-text) 60%, transparent);
+  --ed-edges: color-mix(in srgb, var(--rm-text) 75%, transparent);
   --ed-mitre: #ffd166;
 }

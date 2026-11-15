@@ -11,6 +11,8 @@ const hall = JSON.parse(readFileSync(`${REF}venues/sports-hall-b.rcvenue.json`, 
 const ID = "t-brand";
 
 async function serve(page: Page) {
+  // the device's light or dark (no member theme: Pit Lane, or Pit Lane light)
+  await page.emulateMedia({ colorScheme: process.env.LIGHT ? "light" : "dark" });
   const now = "2026-11-12T12:00:00Z";
   const track = {
     id: ID, name: doc.info.name, status: "approved", author: { id: "u1", username: "alice", name: "Alice" }, revision: 1, approvedRevision: 1, publicRevision: 1,
@@ -29,7 +31,7 @@ async function serve(page: Page) {
   });
 }
 
-const name = (page: Page, n: string) => `${SHOTS}/${THEME ?? "default"}-${n}-${page.viewportSize()!.width}.png`;
+const name = (page: Page, n: string) => `${SHOTS}/${THEME || (process.env.LIGHT ? "pit-lane-light" : "pit-lane")}-${n}-${page.viewportSize()!.width}.png`;
 async function settle(page: Page) {
   await expect(page.locator(".pending")).toHaveCount(0);
   await expect(page.getByText("alice").first()).toBeAttached();
