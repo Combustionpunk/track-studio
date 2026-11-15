@@ -147,7 +147,8 @@ export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps }: P
   const p = panels;
   const label = kind === "selection" ? sheetLabel(p.sel, p.view, p.draft) : kind === "checks" ? "Checks" : kind === "jump" ? "Jumps" : "How to draw";
   return (
-    <Sheet label={label} height={height} onHeight={onHeight} tucked={tucked} below={TOOLBAR} className={`phone-sheet phone-sheet-${kind}`}>
+    // one Sheet per kind (keyed), so a new kind starts at its own top and slides in
+    <Sheet key={kind} label={label} height={height} onHeight={onHeight} tucked={tucked} below={TOOLBAR} className={`phone-sheet phone-sheet-${kind}`}>
       {kind === "selection" ? (
         <SelectionPanel sel={p.sel} view={p.view} draft={p.drawn} live={p.live} update={p.update} onDelete={p.onDelete} fromVenue={p.venueName} inCorner={p.inCorner} touch phone />
       ) : kind === "checks" ? (

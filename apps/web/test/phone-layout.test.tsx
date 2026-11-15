@@ -191,7 +191,7 @@ describe("the pieces", () => {
     expect(html).toContain('<p class="phone-name">Untitled track</p>');
   });
 
-  const props = { tool: "select" as const, onSelect: () => {}, onAdd: () => {}, canDelete: false, onDelete: () => {}, undo: () => {}, redo: () => {}, canUndo: false, canRedo: false, jumpOpen: false, onJump: () => {} };
+  const props = { tool: "select" as const, onSelect: () => {}, onAdd: () => {}, canDelete: false, onDelete: () => {}, undo: () => {}, redo: () => {}, canUndo: false, canRedo: false, onJump: () => {} };
   it("Delete is enabled while something can be deleted; Add point is a mode", () => {
     const html = renderToStaticMarkup(<BottomToolbar {...props} tool="add" canDelete canUndo canRedo />);
     expect(tool(html, "Delete")).not.toContain("disabled");

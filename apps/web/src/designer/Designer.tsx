@@ -295,6 +295,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [dragging, setDragging] = useState<number | null>(null);
   /** the phone (#123): the one sheet open above the toolbar, and its height */
   const [phoneSheet, setPhoneSheet] = useState<PhoneSheetOpen | null>(null);
+  const phoneSheetRef = useRef(phoneSheet);
+  phoneSheetRef.current = phoneSheet;
   /** a finger (or the mouse) is dragging a handle past the slop: the phone's sheet tucks away until it lifts */
   const [handleDrag, setHandleDrag] = useState(false);
   /** Checks' Show changes the selection: the Checks sheet stays (at peek) rather than giving way to the selection's */
@@ -698,8 +700,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setSel({ kind: "point", i });
     disarmJump();
     const quick = viewRef.current === "quick";
-    // Quick: a tap on the selected corner lets it go, so taps on the floor stop adding after it
-    const onClick = quick && again ? () => setSel(null) : undefined;
+    // Quick: a tap on the selected corner lets it go, so taps on the floor stop adding after it; on the phone, unless its
+    // sheet wasn't showing (closed, or Checks after Show): then the tap brings the sheet back (the selection effect)
+    const sheetShown = !phoneEditRef.current || phoneSheetRef.current?.kind === "selection";
+    const onClick = quick && again && sheetShown ? () => setSel(null) : undefined;
     // Quick, by touch: hold the corner to select it and open its panel; the ring fills while the finger is down (not on
     // the phone yet: its long-press sheet is ticket 7)
     const touchPress = quick && e.pointerType !== "mouse" && !phoneEditRef.current;
@@ -974,6 +978,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!sel) setPhoneSheet((s) => (s?.kind === "selection" ? null : s));
     else setPhoneSheet((s) => (s?.kind === "selection" ? s : { kind: "selection", height: "peek" }));
   }, [sel]);
+  // out of the phone layout (laying again, or a wider window): no sheet waits to come back stale
+  useEffect(() => {
+    if (!phoneEdit) setPhoneSheet(null);
+  }, [phoneEdit]);
   // undo past the close comes back here: nothing of step 2 stays selected or armed
   useEffect(() => {
     if (!laying) return;
@@ -1501,7 +1509,6 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                 canDelete: sel?.kind === "point" || sel?.kind === "feature",
                 onDelete: deleteSelection,
                 ...history,
-                jumpOpen: phoneSheet?.kind === "jump",
                 onJump: () => togglePhoneSheet("jump", "peek"),
               },
               upright: landscapePhone,

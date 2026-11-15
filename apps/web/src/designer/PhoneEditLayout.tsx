@@ -56,9 +56,7 @@ export interface BottomToolbarProps {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  /** the Jump sheet is open */
-  jumpOpen: boolean;
-  /** Jump: its sheet, open or closed again */
+  /** Jump: its sheet, open or closed again (Jump is a mode, `aria-pressed` while a jump is armed; the sheet is a dialog of its own) */
   onJump: () => void;
 }
 
@@ -72,12 +70,12 @@ function Tool({ icon, label, ...rest }: { icon: ReactNode; label: string } & But
 }
 
 /** The phone's toolbar: Select · Add point · Jump · Delete · Undo · Redo. Jump opens the Jump sheet; it's pressed while a jump is armed. */
-export function BottomToolbar({ tool, onSelect, onAdd, canDelete, onDelete, undo, redo, canUndo, canRedo, jumpOpen, onJump }: BottomToolbarProps) {
+export function BottomToolbar({ tool, onSelect, onAdd, canDelete, onDelete, undo, redo, canUndo, canRedo, onJump }: BottomToolbarProps) {
   return (
     <nav className="phone-toolbar" role="toolbar" aria-label="Designer tools">
       <Tool icon={<MousePointer2 size={20} aria-hidden="true" />} label="Select" aria-pressed={tool === "select"} onClick={onSelect} />
       <Tool icon={<Plus size={20} aria-hidden="true" />} label="Add point" aria-pressed={tool === "add"} data-add-tool onClick={onAdd} />
-      <Tool icon={<LayoutGrid size={20} aria-hidden="true" />} label="Jump" aria-pressed={tool === "feature"} aria-expanded={jumpOpen} onClick={onJump} />
+      <Tool icon={<LayoutGrid size={20} aria-hidden="true" />} label="Jump" aria-pressed={tool === "feature"} onClick={onJump} />
       <Tool icon={<Trash2 size={20} aria-hidden="true" />} label="Delete" disabled={!canDelete} onClick={onDelete} />
       <Tool icon={<Undo2 size={20} aria-hidden="true" />} label="Undo" disabled={!canUndo} onClick={undo} />
       <Tool icon={<Redo2 size={20} aria-hidden="true" />} label="Redo" disabled={!canRedo} onClick={redo} />

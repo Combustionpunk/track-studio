@@ -253,7 +253,6 @@ describe("the phone layout with the sheets", () => {
     const jump = /<button[^>]*><svg[^>]*lucide-layout-grid[^>]*>.*?<\/svg><span class="phone-tool-label">Jump<\/span><\/button>/.exec(html)?.[0] ?? "";
     expect(jump).not.toBe("");
     expect(jump).not.toContain("disabled");
-    expect(jump).toContain('aria-expanded="false"');
     expect(html).toMatch(/<header class="phone-header">.*<button[^>]*aria-label="How to draw"/);
     expect(html).not.toContain('class="bottom-sheet');
   });
@@ -264,12 +263,12 @@ describe("the phone layout with the sheets", () => {
   });
 
   const noop = () => {};
-  it("the toolbar's Jump: pressed while a jump is armed, expanded while its sheet is open", () => {
-    const props = { tool: "feature" as const, onSelect: noop, onAdd: noop, canDelete: false, onDelete: noop, undo: noop, redo: noop, canUndo: false, canRedo: false, jumpOpen: true, onJump: noop };
+  it("the toolbar's Jump: pressed while a jump is armed (a mode, as Add point)", () => {
+    const props = { tool: "feature" as const, onSelect: noop, onAdd: noop, canDelete: false, onDelete: noop, undo: noop, redo: noop, canUndo: false, canRedo: false, onJump: noop };
     const html = renderToStaticMarkup(<BottomToolbar {...props} />);
     const jump = /<button[^>]*>(?:(?!<\/button>).)*Jump<\/span><\/button>/.exec(html)?.[0] ?? "";
     expect(jump).toContain('aria-pressed="true"');
-    expect(jump).toContain('aria-expanded="true"');
+    expect(jump).not.toContain("aria-expanded");
   });
 
   it("the header's How to draw button (until the ⋯ menu comes, ticket 5)", () => {

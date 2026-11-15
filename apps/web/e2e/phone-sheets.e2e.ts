@@ -111,9 +111,20 @@ test.describe("phone sheets", () => {
     await expect(s).toHaveClass(/bottom-sheet--peek/);
     await expect.poll(async () => Math.round((await s.boundingBox())!.height)).toBe(Math.round(peek));
     expect((await corners(page))[i]).not.toEqual(before[i]);
-    // a tap is not a drag: it doesn't tuck
+    // closed, the corner stays selected; a tap on it brings its sheet back (rather than letting it go), and a tap is not a
+    // drag: the sheet never tucks
+    await s.getByRole("button", { name: "Close" }).tap();
+    await expect(sheet(page)).toHaveCount(0);
+    await expect(page.locator("g.ed-corner.on")).toHaveCount(1);
+    await page.evaluate(() => {
+      const w = window as unknown as { tucked: boolean };
+      w.tucked = false;
+      new MutationObserver(() => document.querySelector(".bottom-sheet--tucked") && (w.tucked = true)).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    });
     await t.tap((await screen(page, ...(await corners(page))[i])) as XY);
-    await expect(page.locator(".bottom-sheet--tucked")).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: `Corner ${i + 1}` })).toHaveClass(/bottom-sheet--peek/);
+    await expect(page.locator("g.ed-corner.on")).toHaveCount(1);
+    expect(await page.evaluate(() => (window as unknown as { tucked: boolean }).tucked)).toBe(false);
     expect(errors).toEqual([]);
   });
 
@@ -160,7 +171,6 @@ test.describe("phone sheets", () => {
     await toolBtn(page, "Jump").tap();
     const s = page.getByRole("dialog", { name: "Jumps" });
     await expect(s).toBeVisible();
-    await expect(toolBtn(page, "Jump")).toHaveAttribute("aria-expanded", "true");
     const chips = s.getByRole("group", { name: "Jumps" }).getByRole("button");
     await expect(chips).toHaveText(["Tabletop", "Double", "Kicker", "Whoops", "Crossover"]);
     for (const c of await chips.all()) expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
