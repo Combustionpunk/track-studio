@@ -943,12 +943,12 @@ select.ts-input { padding: 0 var(--space-2); }
 .phone-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .phone-chip[aria-pressed="true"] .size-m { color: var(--accent); }
 .phone-chip:focus-visible, .phone-switch:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.phone-chip-wide { flex-direction: row; width: 100%; }
+.phone-jumps-group { display: contents; }
 .field-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--touch-target); }
 .stepper { display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--text); }
 .stepper-value { min-width: 64px; text-align: center; font: 500 18px/22px var(--font-display); font-variant-numeric: tabular-nums; }
 .phone-jumps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
-.phone-jumps .phone-chip { min-height: 56px; }
+.phone-jumps .phone-chip { min-height: 52px; }
 .phone-jump-sheet { display: flex; flex-direction: column; gap: var(--space-3); }
 .phone-switch { width: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 600 14px/20px var(--font-sans); text-align: left; cursor: pointer; }
 .phone-switch-track { flex: none; position: relative; width: 44px; height: 24px; border-radius: 12px; background: var(--line-strong); transition: background 150ms ease; }

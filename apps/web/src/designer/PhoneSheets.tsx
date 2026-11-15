@@ -46,15 +46,17 @@ export function PhoneChecks({ built, ...p }: PanelProps & { built: Built }) {
 export function PhoneJumps({ view, tool, onJump, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
   const advanced = view === "advanced";
   return (
-    <section className="phone-jump-sheet" aria-labelledby="jump-h">
-      <h2 id="jump-h">Jumps</h2>
-      <div className="phone-jumps" role="group" aria-label="Jumps">
-        <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} className="phone-chip" verb="Tap" />
+    // no heading or help line, so it fits at peek height: the sheet is named "Jumps", and the hint over the plan says
+    // what to do once one is picked
+    <div className="phone-jump-sheet">
+      <div className="phone-jumps">
+        <div className="phone-jumps-group" role="group" aria-label="Jumps">
+          <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} className="phone-chip" verb="Tap" />
+        </div>
+        <button type="button" className="phone-chip phone-chip-start" aria-pressed={startOn} onClick={onStartLine}>
+          Start line
+        </button>
       </div>
-      <p className="hint">Pick one, then tap on the racing line to place it (a crossover: where the track crosses itself).</p>
-      <button type="button" className="phone-chip phone-chip-wide" aria-pressed={startOn} onClick={onStartLine}>
-        Start line
-      </button>
       {advanced ? (
         <div className="field-row">
           <div className="seg seg-snap" role="radiogroup" aria-label="Snap">
@@ -74,7 +76,7 @@ export function PhoneJumps({ view, tool, onJump, startOn, onStartLine, laneSnap,
           </span>
         </button>
       )}
-    </section>
+    </div>
   );
 }
 

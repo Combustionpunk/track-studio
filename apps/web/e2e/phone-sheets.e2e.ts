@@ -166,6 +166,9 @@ test.describe("phone sheets", () => {
     for (const c of await chips.all()) expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expect(s.getByRole("button", { name: "Start line" })).toBeVisible();
     await expect(s.getByRole("switch", { name: "Snap to lanes" })).toHaveAttribute("aria-checked", "true");
+    // all of it at peek height, nothing to scroll for
+    await expect(s).toHaveClass(/bottom-sheet--peek/);
+    await expect(s.getByRole("switch", { name: "Snap to lanes" })).toBeInViewport({ ratio: 1 });
     await aboveToolbar(page, s);
     await shot(page, "375-jump");
     await s.getByRole("button", { name: "Kicker" }).tap();

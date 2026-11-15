@@ -186,12 +186,12 @@ describe("the Checks sheet", () => {
 describe("the Jump sheet", () => {
   it("Quick: five jumps as chips with their plan symbols, Start line, and the Snap to lanes switch", () => {
     const html = render(<PhoneJumps {...jumps("quick")} />);
-    const chips = /<div class="phone-jumps" role="group" aria-label="Jumps">(.*?)<\/div>/.exec(html)?.[1] ?? "";
+    const chips = /<div class="phone-jumps-group" role="group" aria-label="Jumps">(.*?)<\/div>/.exec(html)?.[1] ?? "";
     const names = [...chips.matchAll(/<\/svg>([^<]+)<\/button>/g)].map((m) => m[1]);
     expect(names).toEqual(["Tabletop", "Double", "Kicker", "Whoops", "Crossover"]);
     expect(chips.match(/class="jump-symbol"/g)).toHaveLength(5);
     for (const b of buttons(chips)) expect(b).toContain('class="phone-chip"');
-    expect(html).toMatch(/<button type="button" class="phone-chip phone-chip-wide" aria-pressed="false">Start line<\/button>/);
+    expect(html).toMatch(/<button type="button" class="phone-chip phone-chip-start" aria-pressed="false">Start line<\/button>/);
     // the snap setting, last
     expect(html).toMatch(/<button type="button" role="switch" aria-checked="true"[^>]*>Snap to lanes/);
     expect(html).not.toContain('role="radiogroup"');
