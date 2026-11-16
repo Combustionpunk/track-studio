@@ -10,8 +10,10 @@ on:
     branches: [main]
     paths: [Dockerfile, .dockerignore, package.json, pnpm-workspace.yaml, tsconfig.base.json, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, docs/design/**, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
 
-# One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group without cancelling,
-# so they queue and every commit on main gets a result (#142).
+# One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group and never cancel the
+# run in progress, so results on main arrive in commit order. GitHub keeps only one waiting run per group: if several
+# merges land while a run is going, the newest waits and the ones in between are cancelled, so the latest commit on
+# main always gets a result (#142).
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

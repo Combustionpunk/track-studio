@@ -3,7 +3,8 @@
 # A red run on main opens a `board` issue (track-studio-ci-report.yml, .github/scripts/main-ci-status.cjs).
 # No secrets; only the repo's own code runs.
 #
-# Docs-only changes skip it: docs/** and any *.md, except docs/design/**, which the web tests read.
+# Docs-only changes skip it: docs/** and any *.md, except the docs the tests read: docs/design/** (web tests) and
+# docs/deploy.md (apps/server/test/deploy.test.ts).
 name: CI
 
 on:
@@ -13,6 +14,7 @@ on:
       - "!**/*.md"
       - "!docs/**"
       - "docs/design/**"
+      - "docs/deploy.md"
   push:
     branches: [main]
     paths:
@@ -20,9 +22,12 @@ on:
       - "!**/*.md"
       - "!docs/**"
       - "docs/design/**"
+      - "docs/deploy.md"
 
-# One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group without cancelling,
-# so they queue and every commit on main gets a result.
+# One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group and never cancel the
+# run in progress, so results on main arrive in commit order. GitHub keeps only one waiting run per group: if several
+# merges land while a run is going, the newest waits and the ones in between are cancelled, so the latest commit on
+# main always gets a result.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

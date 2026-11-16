@@ -61,7 +61,7 @@ describe("CI workflow (typecheck and Vitest)", () => {
     expect((steps.match(/if: \$\{\{ !cancelled\(\) \}\}/g) ?? []).length).toBeGreaterThanOrEqual(3);
   });
 
-  it("skips docs-only changes but not the design docs the web tests read", () => {
+  it("skips docs-only changes but not the docs the tests read (design docs, the deploy runbook)", () => {
     for (const event of ["push", "pull_request"]) {
       const paths = items(block(ci, "on", event, "paths"));
       expect(paths.length, event).toBeGreaterThan(0);
@@ -70,6 +70,7 @@ describe("CI workflow (typecheck and Vitest)", () => {
       expect(triggers(paths, ["docs/screenshots/142-x/a.png"]), event).toBe(false);
       expect(triggers(paths, ["docs/design/tokens.json"]), event).toBe(true);
       expect(triggers(paths, ["docs/design/phone/plan.md"]), event).toBe(true);
+      expect(triggers(paths, ["docs/deploy.md"]), event).toBe(true);
       expect(triggers(paths, ["packages/engine/src/bake.ts"]), event).toBe(true);
       expect(triggers(paths, ["apps/web/src/Designer.tsx"]), event).toBe(true);
       expect(triggers(paths, ["reference/examples/a.rctrack.json"]), event).toBe(true);
