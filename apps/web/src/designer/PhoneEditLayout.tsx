@@ -1,12 +1,14 @@
 // The designer on a phone (#122; mockup docs/design/phone/01-plan-toolbar.html): a 52 px header, the plan, and a
-// 64 px toolbar within thumb reach; on its side, a message to turn the phone upright over the plan. Behind the
-// `?phone=edit` switch until saving comes to the phone (ticket 5); without it a phone gets the view-only screen. Over the
-// plan, the checks pill; above the toolbar, one sheet at a time (#123, PhoneSheets.tsx).
-import { ChevronLeft, CircleQuestionMark, Ellipsis, LayoutGrid, MousePointer2, Plus, Redo2, RotateCcw, Trash2, Undo2 } from "lucide-react";
+// 64 px toolbar within thumb reach; on its side, a message to turn the phone upright over the plan. The default under
+// 640 px since #124. Under the header, the messages as one banner; over the plan, the checks pill; above the toolbar,
+// one sheet at a time (#123, PhoneSheets.tsx), and the ⋯ menu over everything (#124, PhoneMenu.tsx).
+import { ChevronLeft, Ellipsis, LayoutGrid, LogIn, MousePointer2, Plus, Redo2, RotateCcw, Save, Trash2, Undo2, X } from "lucide-react";
 import type { Check } from "@track-studio/engine";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { DesignerMessages, type DesignerMessagesProps } from "./DesignerBar.js";
+import { Message } from "../components/bits.js";
+import * as fmt from "../lib/format.js";
+import type { DesignerMessagesProps } from "./DesignerBar.js";
 import { ChecksPill, PlanArea, type PlanAreaProps } from "./PlanOverlays.js";
 import { PhoneSheets, type PhoneSheetsProps } from "./PhoneSheets.js";
 import type { DesignerMode } from "./mode.js";
@@ -17,13 +19,24 @@ export interface PhoneHeaderProps {
   dirty: boolean;
   /** the saved track's revision; none for a new track */
   revision: number | undefined;
-  /** How to draw, from the header until the ⋯ menu comes (ticket 5) */
-  onHelp: () => void;
-  helpOpen: boolean;
+  loggedIn: boolean;
+  loginUrl: string;
+  saving: boolean;
+  /** the Save sheet is open */
+  saveOpen: boolean;
+  /** opens the Save sheet (or puts it away) */
+  onSave: () => void;
+  /** the ⋯ menu is open */
+  menuOpen: boolean;
+  onMenu: () => void;
 }
 
-/** The phone's header: Back, the name (read only; it truncates), the save state in a word, and ⋯ (its menu comes with ticket 5). */
-export function PhoneHeader({ backTo, name, dirty, revision, onHelp, helpOpen }: PhoneHeaderProps) {
+/**
+ * The phone's header: Back, the name (read only; it truncates), the save state and ⋯. With something to save the save
+ * state is a 44 px Save button that opens the Save sheet (one tap, #124), or a link to log in; otherwise the word "Saved".
+ */
+export function PhoneHeader({ backTo, name, dirty, revision, loggedIn, loginUrl, saving, saveOpen, onSave, menuOpen, onMenu }: PhoneHeaderProps) {
+  const toSave = dirty || revision === undefined;
   return (
     <header className="phone-header">
       <Link to={backTo.to} className="phone-icon-btn" aria-label={backTo.label}>
@@ -31,16 +44,84 @@ export function PhoneHeader({ backTo, name, dirty, revision, onHelp, helpOpen }:
       </Link>
       <p className="phone-name">{name || "Untitled track"}</p>
       <span className="phone-save" aria-live="polite">
-        {dirty ? "Unsaved" : revision !== undefined ? "Saved" : "Not saved yet"}
+        {!toSave ? (
+          "Saved"
+        ) : !loggedIn ? (
+          <a className="phone-save-btn" href={loginUrl}>
+            <LogIn size={18} aria-hidden="true" />
+            Log in
+          </a>
+        ) : (
+          <button type="button" className="phone-save-btn" disabled={saving} aria-haspopup="dialog" aria-expanded={saveOpen} onClick={onSave}>
+            <Save size={18} aria-hidden="true" />
+            {saving ? "Saving…" : "Save"}
+          </button>
+        )}
       </span>
-      {/* for now: How to draw moves into the ⋯ menu with ticket 5 */}
-      <button type="button" className="phone-icon-btn" aria-label="How to draw" aria-expanded={helpOpen} onClick={onHelp}>
-        <CircleQuestionMark size={20} aria-hidden="true" />
-      </button>
-      <button type="button" className="phone-icon-btn" aria-label="More" aria-haspopup="menu" disabled>
+      <button type="button" className="phone-icon-btn" aria-label="More" aria-haspopup="menu" aria-expanded={menuOpen} onClick={onMenu}>
         <Ellipsis size={20} aria-hidden="true" />
       </button>
     </header>
+  );
+}
+
+export interface PhoneBannerProps extends DesignerMessagesProps {
+  loginUrl: string;
+  /** the notes put away this visit: "login", "approved" */
+  dismissed: string[];
+  /** put a note away: "message" (what just happened), "login" or "approved" */
+  onDismiss: (key: "message" | "login" | "approved") => void;
+}
+
+/**
+ * The messages under the phone's header as one banner. The restore prompt stays while there is unsaved work on offer
+ * (no Dismiss: it is the only way back to that work, and Discard is its answer); under it, the one note that matters
+ * most of what just happened (a save, an error), not logged in and an approved revision, which can be dismissed.
+ */
+export function PhoneBanner({ restore, revision, onRestore, onDiscard, loggedIn, loginUrl, message, approvedRevision, dismissed, onDismiss }: PhoneBannerProps) {
+  const dismiss = (key: "message" | "login" | "approved") => (
+    <button type="button" className="phone-banner-x" aria-label="Dismiss" onClick={() => onDismiss(key)}>
+      <X size={18} aria-hidden="true" />
+    </button>
+  );
+  const note = message ? (
+    <Message kind={message.kind}>
+      <span>{message.text}</span>
+      {dismiss("message")}
+    </Message>
+  ) : !loggedIn && !dismissed.includes("login") ? (
+    <Message>
+      <span>
+        You're not logged in: your work is kept on this device. <a href={loginUrl}>Log in</a> to save it.
+      </span>
+      {dismiss("login")}
+    </Message>
+  ) : approvedRevision && !dismissed.includes("approved") ? (
+    <Message>
+      <span>Revision {approvedRevision} is approved: it stays in the library and at meetings until a newer revision is approved. Saving here creates a new draft.</span>
+      {dismiss("approved")}
+    </Message>
+  ) : null;
+  if (!restore && !note) return null;
+  return (
+    <div className="designer-messages phone-banner">
+      {restore && (
+        <Message>
+          <span>
+            You have unsaved changes from {fmt.dateTime(restore.savedAt)}
+            {revision !== undefined && restore.baseRevision !== revision ? ` (made on revision ${restore.baseRevision}; the track is at revision ${revision} now)` : ""}.{" "}
+            <button type="button" className="linkish" onClick={onRestore}>
+              Restore them
+            </button>{" "}
+            ·{" "}
+            <button type="button" className="linkish" onClick={onDiscard}>
+              Discard
+            </button>
+          </span>
+        </Message>
+      )}
+      {note}
+    </div>
   );
 }
 
@@ -86,8 +167,8 @@ export function BottomToolbar({ tool, onSelect, onAdd, canDelete, onDelete, undo
 export interface PhoneEditLayoutProps {
   view: DesignerMode;
   header: PhoneHeaderProps;
-  /** the messages under the header, when there are any */
-  messages: DesignerMessagesProps | null;
+  /** the messages under the header, as one banner */
+  banner: PhoneBannerProps;
   planArea: PlanAreaProps;
   toolbar: BottomToolbarProps;
   /** a phone on its side: the message over the layout, which stays (nothing unmounts) */
@@ -98,11 +179,11 @@ export interface PhoneEditLayoutProps {
 }
 
 /** A phone: the header, the plan between, the toolbar; on its side, "Turn your phone upright to edit" over it all. */
-export function PhoneEditLayout({ view, header, messages, planArea, toolbar, upright, pill, sheets }: PhoneEditLayoutProps) {
+export function PhoneEditLayout({ view, header, banner, planArea, toolbar, upright, pill, sheets }: PhoneEditLayoutProps) {
   return (
     <div className={`designer designer-phone-edit designer-${view}`}>
       <PhoneHeader {...header} />
-      {messages && <DesignerMessages {...messages} />}
+      <PhoneBanner {...banner} />
       <PlanArea {...planArea} viewSwitch={false}>
         <ChecksPill {...pill} />
       </PlanArea>

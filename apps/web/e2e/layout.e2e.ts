@@ -1,4 +1,4 @@
-// The designer's layout shell (#120): under 640 px a phone gets the view-only screen; the laptop and the tablet keep
+// The designer's layout shell (#120): under 640 px a phone gets the phone layout (#124); the laptop and the tablet keep
 // their layouts, with no errors on the console. SHOTS=<dir> saves a screenshot of each (the PR's before and after
 // pictures). The API is answered from the reference files, so only Vite is needed.
 import { readFileSync } from "node:fs";
@@ -92,16 +92,14 @@ test.describe("tablet", () => {
 
 test.describe("phone", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "phone", "a phone, 375 × 812"));
-  test("the view-only screen: the plan to look at, nothing to edit with", async ({ page }) => {
+  test("the phone layout (#124): header, plan and toolbar; none of the laptop's or tablet's pieces", async ({ page }) => {
     expect(page.viewportSize()).toEqual({ width: 375, height: 812 });
     const errors = await serve(page);
     await open(page);
-    await expect(page.locator(".designer-phone")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Design on a laptop or tablet" })).toBeVisible();
-    await expect(page.locator(".phone-plan svg.plan-svg")).toBeVisible();
-    await expect(page.locator(".figures").getByText("Lap")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Copy link to this design" })).toBeVisible();
-    await none(page, [".designer-grid", ".designer-palette", ".designer-side", ".designer-dock", ".mode-toggle", "[role=toolbar]", ".designer-hint"]);
+    await expect(page.locator(".designer-phone-edit")).toBeVisible();
+    await expect(page.getByText("Design on a laptop or tablet")).toHaveCount(0);
+    await expect(page.getByRole("toolbar", { name: "Designer tools" })).toBeVisible();
+    await none(page, [".designer-grid", ".designer-palette", ".designer-side", ".designer-dock", ".mode-toggle"]);
     await shot(page, "375-phone");
     expect(errors).toEqual([]);
   });

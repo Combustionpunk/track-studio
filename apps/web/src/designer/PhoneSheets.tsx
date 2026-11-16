@@ -7,12 +7,14 @@ import { Sheet, type SheetHeight } from "../components/Sheet.js";
 import { FEATURE_LABEL } from "../lib/format.js";
 import type { Draft, Selection } from "./Designer.js";
 import { JumpPalette } from "./JumpPalette.js";
+import { PhoneDetails, PhoneMenu, PhoneSave, type PhoneDetailsProps, type PhoneMenuProps, type PhoneSaveProps } from "./PhoneMenu.js";
 import { paletteJumps, type DesignerMode } from "./mode.js";
 import { ChecksPanel, SelectionPanel, Stats, type PanelProps } from "./SidePanels.js";
 import { SNAP_LABEL, type ToolPaletteProps } from "./ToolPalette.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
 
-export type PhoneSheetKind = "selection" | "checks" | "jump" | "howto";
+/** the sheets above the toolbar, and the ⋯ menu (#124), the one modal sheet, over the toolbar too */
+export type PhoneSheetKind = "selection" | "checks" | "jump" | "howto" | "save" | "details" | "menu";
 /** the open sheet and its height (a sheet that closes is `null`, not "closed") */
 export interface PhoneSheetOpen {
   kind: PhoneSheetKind;
@@ -135,26 +137,39 @@ export interface PhoneSheetsProps {
   panels: PanelProps;
   built: Built;
   jumps: ToolPaletteProps;
+  menu: PhoneMenuProps;
+  save: PhoneSaveProps;
+  details: PhoneDetailsProps;
 }
+
+const LABEL: Record<Exclude<PhoneSheetKind, "selection">, string> = { checks: "Checks", jump: "Jumps", howto: "How to draw", save: "Save", details: "Layout details", menu: "More" };
 
 /** the toolbar's height: the sheets sit above it */
 const TOOLBAR = 64;
 
 /** The open sheet, if any, above the toolbar. */
-export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps }: PhoneSheetsProps) {
+export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps, menu, save, details }: PhoneSheetsProps) {
   if (!sheet) return null;
   const { kind, height } = sheet;
   const p = panels;
-  const label = kind === "selection" ? sheetLabel(p.sel, p.view, p.draft) : kind === "checks" ? "Checks" : kind === "jump" ? "Jumps" : "How to draw";
+  const label = kind === "selection" ? sheetLabel(p.sel, p.view, p.draft) : LABEL[kind];
+  // the menu: modal, over a scrim that covers the plan and the toolbar, as tall as its rows
+  const modal = kind === "menu";
   return (
     // one Sheet per kind (keyed), so a new kind starts at its own top and slides in
-    <Sheet key={kind} label={label} height={height} onHeight={onHeight} tucked={tucked} below={TOOLBAR} className={`phone-sheet phone-sheet-${kind}`}>
+    <Sheet key={kind} label={label} height={height} onHeight={onHeight} tucked={tucked && !modal} modal={modal} hug={modal} below={modal ? 0 : TOOLBAR} className={`phone-sheet phone-sheet-${kind}`}>
       {kind === "selection" ? (
         <SelectionPanel sel={p.sel} view={p.view} draft={p.drawn} live={p.live} update={p.update} onDelete={p.onDelete} fromVenue={p.venueName} inCorner={p.inCorner} touch phone />
       ) : kind === "checks" ? (
         <PhoneChecks {...p} built={built} />
       ) : kind === "jump" ? (
         <PhoneJumps {...jumps} />
+      ) : kind === "menu" ? (
+        <PhoneMenu {...menu} />
+      ) : kind === "save" ? (
+        <PhoneSave {...save} />
+      ) : kind === "details" ? (
+        <PhoneDetails {...details} />
       ) : (
         <PhoneHowTo view={p.view} />
       )}

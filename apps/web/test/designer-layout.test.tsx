@@ -1,6 +1,7 @@
 // The designer's layout shell (#120): one state, three layouts. Desktop is the fallback (bar, palette, plan, side
 // column), a coarse pointer in Quick mode gets the tablet layout (plan, dock, pill), and under 640 px the phone gets the
-// view-only screen ("Design on a laptop or tablet"). Static renders with the plan and the bake mocked.
+// phone layout (#124), or while laying the lanes a screen that says to lay them on a laptop or tablet. Static renders
+// with the plan and the bake mocked.
 import type { RcTrack } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -63,37 +64,29 @@ const setup = (mode: "quick" | "advanced", screen?: "phone" | "tablet") => {
 beforeEach(() => (plans.length = 0));
 afterEach(() => (vi.unstubAllGlobals(), (baked = undefined)));
 
-describe("a phone (under 640 px): the view-only screen", () => {
-  it.each(["quick", "advanced"] as const)("%s, a saved track: the plan to look at, the figures, a link to copy; nothing to edit with", (mode) => {
+describe("a phone (under 640 px): the phone layout (#124)", () => {
+  it.each(["quick", "advanced"] as const)("%s, a saved track: the phone's header, plan and toolbar; none of the laptop's or tablet's pieces", (mode) => {
     setup(mode, "phone");
     const html = edit();
-    expect(html).toMatch(/^<div class="designer designer-phone">/);
-    expect(html).toContain("<h1>Design on a laptop or tablet</h1>");
-    expect(html).toContain("Copy link to this design");
-    // the plan, view only
+    expect(html).toMatch(new RegExp(`^<div class="designer designer-phone-edit designer-${mode}">`));
+    expect(html).not.toContain("Design on a laptop or tablet");
     expect(plans).toHaveLength(1);
-    expect(plans[0].interactive).toBe(false);
-    expect(plans[0].className).toBe("phone-plan");
-    expect(plans[0].label).toBe("Plan of Club A, view only");
-    // the figures
-    expect(html).toMatch(/<dd>[\d.]+ m<\/dd><dt>Lap<\/dt>/);
-    expect(html).toMatch(/<dd>\d+<\/dd><dt>Corners<\/dt>/);
-    expect(html).toMatch(/<dd>Draft<\/dd><dt>Status<\/dt>/);
-    // back to the track
+    expect(plans[0].interactive).toBeUndefined();
     expect(html).toContain('href="/t/club-a"');
-    // none of the editing layouts
-    for (const s of ['class="designer-grid"', 'class="designer-palette"', 'class="designer-side"', 'class="designer-dock"', 'class="mode-toggle"', "Save revision", "designer-hint", 'role="toolbar"']) {
+    for (const s of ['class="designer-grid"', 'class="designer-palette"', 'class="designer-side"', 'class="designer-dock"', 'class="mode-toggle"']) {
       expect(html, s).not.toContain(s);
     }
   });
 
-  it("a new track: nothing laid yet, and a note that unsaved work stays in the browser", () => {
+  it("a new track, laying the lanes (stage 2): the plan to look at, and where to lay them", () => {
     setup("quick", "phone");
     const html = laying();
-    expect(html).toContain("<h1>Design on a laptop or tablet</h1>");
+    expect(html).toMatch(/^<div class="designer designer-phone">/);
+    expect(html).toContain("<h1>Lay the lanes on a laptop or tablet</h1>");
     expect(html).toContain("Changes you haven&#x27;t saved stay in this browser until you save them.");
     expect(html).toContain("<dd>—</dd><dt>Lap</dt>");
     expect(html).toContain("<dd>Not saved</dd><dt>Status</dt>");
+    expect(plans[0].interactive).toBe(false);
     expect(plans[0].built).toBeUndefined(); // no track yet
     expect(html).not.toContain('class="designer-grid"');
   });

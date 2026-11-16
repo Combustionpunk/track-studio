@@ -1,13 +1,13 @@
-// The phone designer (#122): at 375 × 812 with touch and the switch on (`?phone=edit`), a header, the plan and a
+// The phone designer (#122): at 375 × 812 with touch (the default under 640 px since #124), a header, the plan and a
 // toolbar; tap selects, a drag moves a corner, two fingers pinch and pan and change nothing, Add point adds, Delete
 // deletes, Undo brings it back; on its side the phone says to turn it upright, and turning back loses nothing. Tablets
-// and the laptop are unchanged by the switch; a narrow laptop window gets the phone layout and zooms with the wheel.
+// and the laptop are unchanged; a narrow laptop window gets the phone layout and zooms with the wheel.
 // SHOTS=<dir> saves screenshots for the PR. The API is answered from the reference files, so only Vite is needed.
 import { expect, test } from "@playwright/test";
 import { corners, doc, emptyFloor, middleCorner, open, pinchIn, planBox, serve, shot, toolBtn, toolbar, viewBox } from "./phone-helper.js";
 import { Touch } from "./touch-helper.js";
 
-test.describe("phone, the switch on", () => {
+test.describe("phone", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "phone", "a phone, 375 × 812"));
 
   test("header, plan and toolbar fill the screen; 44 px targets; no site header, no zoom buttons", async ({ page }) => {
@@ -81,7 +81,7 @@ test.describe("phone, the switch on", () => {
     const moved = await corners(page);
     expect(moved.filter((_, k) => k !== i)).toEqual(before.filter((_, k) => k !== i));
     await expect(toolBtn(page, "Undo")).toBeEnabled();
-    await expect(page.locator(".phone-save")).toHaveText("Unsaved");
+    await expect(page.locator(".phone-save")).toHaveText("Save"); // the Save button (#124)
 
     // Delete: one corner fewer
     await toolBtn(page, "Delete").tap();
@@ -180,7 +180,7 @@ test.describe("phone, the switch on", () => {
     await expect(toolbar(page)).toBeVisible();
     expect(await corners(page)).toEqual(after);
     await expect(toolBtn(page, "Undo")).toBeEnabled();
-    await expect(page.locator(".phone-save")).toHaveText("Unsaved");
+    await expect(page.locator(".phone-save")).toHaveText("Save"); // the Save button (#124)
     expect(errors).toEqual([]);
   });
 
@@ -204,18 +204,19 @@ test.describe("phone, the switch on", () => {
     expect(more.x + more.width).toBeLessThanOrEqual(320);
   });
 
-  test("the switch off: the view-only screen, as today", async ({ page }) => {
-    await serve(page);
+  test("the phone layout is the default: no switch, no view-only screen (#124)", async ({ page }) => {
+    const errors = await serve(page);
     await open(page, "");
-    await expect(page.getByRole("heading", { name: "Design on a laptop or tablet" })).toBeVisible();
-    await expect(page.locator(".designer-phone-edit")).toHaveCount(0);
-    await expect(page.locator(".ts-header")).toBeVisible();
+    await expect(page.locator(".designer-phone-edit")).toBeVisible();
+    await expect(page.getByText("Design on a laptop or tablet")).toHaveCount(0);
+    await expect(page.locator(".ts-header")).toBeHidden();
+    expect(errors).toEqual([]);
   });
 });
 
-test.describe("tablets: the switch changes nothing", () => {
+test.describe("tablets: unchanged by the phone layout", () => {
   test.beforeEach(({}, info) => test.skip(!info.project.name.startsWith("tablet"), "tablets"));
-  test("the tablet layout with ?phone=edit", async ({ page }) => {
+  test("the tablet layout", async ({ page }) => {
     const errors = await serve(page);
     await open(page);
     await expect(page.locator(".designer")).toHaveClass(/designer-touch/);
@@ -229,7 +230,7 @@ test.describe("tablets: the switch changes nothing", () => {
 
 test.describe("a laptop", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "desktop-mouse", "the mouse"));
-  test("at 1200 px the switch changes nothing", async ({ page }) => {
+  test("at 1200 px the laptop layout", async ({ page }) => {
     const errors = await serve(page);
     await open(page);
     await expect(page.locator(".designer-palette")).toBeVisible();

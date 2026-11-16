@@ -28,7 +28,7 @@ import {
 } from "@track-studio/engine";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePlanPalette } from "../lib/theme.js";
-import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
+import { useBlocker, useNavigate } from "react-router-dom";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import type { SheetHeight } from "../components/Sheet.js";
 import { Skeleton } from "../components/states.js";
@@ -45,6 +45,7 @@ import { reverseDraft } from "./reverse.js";
 import {
   addJump,
   allows,
+  checkCounts,
   deleteJump,
   insertPoint,
   jumpsInCorner,
@@ -69,6 +70,7 @@ import { RADIUS_RANGE, WHEEL_PX_PER_STEP, WHEEL_STEP, WHEEL_WIDTH_STEP, WIDTH_RA
 import { VIEWS } from "./PlanOverlays.js";
 import type { PanelProps } from "./SidePanels.js";
 import type { PhoneSheetOpen } from "./PhoneSheets.js";
+import { submitWhy } from "./PhoneMenu.js";
 import type { ToolPaletteProps, ToolsProps } from "./ToolPalette.js";
 import { addCrossover, bridgeCrossing, makeCrossover, moveCrossover, moveStart } from "./crossings.js";
 import { addKey, floorTap, keyInsert, lanePress, stepCorner } from "./addtool.js";
@@ -94,13 +96,11 @@ const CORNER_TOUCH_PX = 13; // touch screens: the numbered corner handle, drawn 
 const APEX_TOUCH_PX = 8; // touch screens: the apex handle, drawn bigger
 /** how long "1 · Lay the lanes" waits for the second tap that confirms it */
 const CONFIRM_MS = 4000;
-/** narrower than this, the designer shows a view-only plan, or with the switch on the phone layout (#122) */
+/** narrower than this, the designer has its phone layout (#122, the default since #124) */
 export const PHONE_QUERY = "(max-width: 640px)";
-/** a phone on its side (its short side under 640 px, its long side a phone's, and a finger): with the switch on, "Turn
- * your phone upright"; a small tablet (1024 × 600) is wider than this */
+/** a phone on its side (its short side under 640 px, its long side a phone's, and a finger): "Turn your phone upright";
+ * a small tablet (1024 × 600) is wider than this */
 export const LANDSCAPE_PHONE_QUERY = "(orientation: landscape) and (max-height: 640px) and (max-width: 1000px) and (pointer: coarse)";
-/** the switch for the phone layout (#122), `?phone=edit`, until a phone can save (ticket 5) */
-export const PHONE_PARAM = "phone";
 /** touch screens (tablets): bigger handles, and a toggle for free placement since there's no Alt */
 export const TOUCH_QUERY = "(pointer: coarse)";
 
@@ -202,6 +202,8 @@ function ghostFeature(live: Live, type: FeatureType, hover: { s: number; at: Poi
 export function Designer({ mode, initial, base: initialBase, fromVenue, storageKey }: DesignerProps) {
   const navigate = useNavigate();
   const { me, loginUrl } = useSession();
+  const meRef = useRef(me);
+  meRef.current = me;
   const hist = useHistory<Draft>(initial);
   const draft = hist.present;
   const [base, setBase] = useState(initialBase);
@@ -262,11 +264,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   }, [hist.travels, draft.design.points]);
   const phone = useMediaQuery(PHONE_QUERY);
   const landscapePhone = useMediaQuery(LANDSCAPE_PHONE_QUERY);
-  const [params] = useSearchParams();
-  const phoneSwitch = params.get(PHONE_PARAM) === "edit";
-  /** any phone layout: no save pop-over (saving comes to the phone with ticket 5) */
-  const phoneRef = useRef(phone);
-  /** the view-only phone screen: the plan's keys do nothing */
+  /** the phone's screen while laying the lanes (stage 2): the plan's keys do nothing */
   const viewOnlyRef = useRef(phone);
   const touch = useMediaQuery(TOUCH_QUERY);
   /** Quick step 2: snapping to lane lines (off places corners freely, like holding Alt) */
@@ -298,6 +296,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [phoneSheet, setPhoneSheet] = useState<PhoneSheetOpen | null>(null);
   const phoneSheetRef = useRef(phoneSheet);
   phoneSheetRef.current = phoneSheet;
+  /** the phone's banner (#124): the notes put away this visit ("login", "approved") */
+  const [dismissed, setDismissed] = useState<string[]>([]);
   /** a finger (or the mouse) is dragging a handle past the slop: the phone's sheet tucks away until it lifts */
   const [handleDrag, setHandleDrag] = useState(false);
   /** Checks' Show changes the selection: the Checks sheet stays (at peek) rather than giving way to the selection's */
@@ -308,10 +308,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   const step = designStep(draft);
   const laying = step === 1;
-  /** the phone layout (#122): under 640 px, or a phone on its side, with the switch on; laying the lanes on a phone is
-   * stage 2, so until then a new track gets the view-only screen */
-  const phoneEdit = phoneSwitch && (phone || landscapePhone) && !laying;
-  phoneRef.current = phone || phoneEdit;
+  /** the phone layout (#122): under 640 px, or a phone on its side; laying the lanes on a phone is stage 2, so until then
+   * a new track gets a screen that says so */
+  const phoneEdit = (phone || landscapePhone) && !laying;
   const phoneEditRef = useRef(phoneEdit);
   phoneEditRef.current = phoneEdit;
   viewOnlyRef.current = phone && !phoneEdit;
@@ -478,7 +477,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       if (mod && e.key.toLowerCase() === "s") {
         // save works from anywhere, also while typing in a field
         e.preventDefault();
-        if (!phoneRef.current && !draftRef.current.laying) setSaveOpen(true);
+        if (draftRef.current.laying || viewOnlyRef.current) return;
+        // the phone: the Save sheet (#124), when there's someone to save as (the header offers Log in otherwise)
+        if (phoneEditRef.current) {
+          if (meRef.current) setPhoneSheet({ kind: "save", height: "peek" });
+        } else setSaveOpen(true);
         return;
       }
       if (isTyping(e.target) || viewOnlyRef.current) return; // inputs keep their own undo, delete, etc.; view-only phones
@@ -1046,6 +1049,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setSavedJson(draftJson);
       setNote("");
       setSaveOpen(false);
+      setPhoneSheet((s) => (s?.kind === "save" ? null : s));
       setMessage({ kind: "info", text: `Saved as revision ${res.track.revision}.` });
     } catch (e) {
       setMessage({ kind: "error", text: e instanceof ApiError && e.code === "stale" ? <>{e.message} <a href={window.location.pathname}>Reload</a></> : (e as Error).message });
@@ -1097,8 +1101,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // PlanView (info is never drawn, so Quick and Advanced show the same marks; Advanced adds their hover details); the
   // bake's checks lag the live line by a moment while dragging
   const problemScene = useMemo(() => ({ area, built }), [area, built]);
-  const palette = usePlanPalette();
-  const problems = (m: number) => (layers.checks ? planLayers(problemScene, { px: m, layers: ONLY_CHECKS, background: false, tips: advanced, palette }) : "");
+  const planPalette = usePlanPalette();
+  const problems = (m: number) => (layers.checks ? planLayers(problemScene, { px: m, layers: ONLY_CHECKS, background: false, tips: advanced, palette: planPalette }) : "");
   // matched against the bake's own jumps, so a note or warning stays on its jump while the bake catches up with a drag
   const inCorner = useMemo(() => {
     const b = bake.built;
@@ -1329,6 +1333,18 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const quickSide = !advanced && !tablet && !laying;
   /** where the reason is shown (#submit-why): by the button on Quick, else under the checks while they're showing */
   const whyShown = !!blocked && (quickSide || (!laying && (!tablet || sheet === "checks")));
+  /** the phone's Submit row (#124): why it waits, short; or why it isn't on offer at all */
+  const phoneSubmitWhy = showSubmit
+    ? submitWhy({ dirty, pending: bake.pending, checks: built.checks })
+    : !me
+      ? "Log in to submit"
+      : mode === "new" || !status
+        ? "Save the track first"
+        : status.status === "submitted"
+          ? "Submitted · waiting for approval"
+          : status.status !== "draft"
+            ? `${fmt.STATUS_LABEL[status.status]} · only a draft can be submitted`
+            : "Only its author can submit it";
   const checksHeading = useRef<HTMLHeadingElement>(null);
   const [toChecks, setToChecks] = useState(false);
   const seeChecks = () => {
@@ -1423,7 +1439,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   /** the phone's sheet pulled to a height, or closed (Close, Escape, pulled down): a closed selection sheet lets a jump or
    * the start line go, as the tablet's does; a corner stays selected, so Add point still adds after it */
   const phoneSheetHeight = (h: SheetHeight) => {
-    if (h !== "closed") return setPhoneSheet((s) => s && { ...s, height: h });
+    // the menu is as tall as its rows, all of them, or closed: never peek
+    if (h !== "closed") return setPhoneSheet((s) => s && (s.kind === "menu" ? s : { ...s, height: h }));
     if (phoneSheet?.kind === "selection" && sel?.kind !== "point") setSel(null);
     setPhoneSheet(null);
   };
@@ -1503,7 +1520,31 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       phoneEdit={
         phoneEdit
           ? {
-              header: { backTo, name: draft.info.name, dirty, revision: base?.revision, onHelp: () => togglePhoneSheet("howto", "full"), helpOpen: phoneSheet?.kind === "howto" },
+              header: {
+                backTo,
+                name: draft.info.name,
+                dirty,
+                revision: base?.revision,
+                loggedIn: !!me,
+                loginUrl: loginUrl(),
+                saving,
+                saveOpen: phoneSheet?.kind === "save",
+                onSave: () => togglePhoneSheet("save", "peek"),
+                menuOpen: phoneSheet?.kind === "menu",
+                onMenu: () => togglePhoneSheet("menu", "full"),
+              },
+              banner: {
+                restore,
+                revision: base?.revision,
+                onRestore: restoreAutosave,
+                onDiscard: discardAutosave,
+                loggedIn: !!me,
+                loginUrl: loginUrl(),
+                message,
+                approvedRevision: status?.approvedRevision,
+                dismissed,
+                onDismiss: (k) => (k === "message" ? setMessage(null) : setDismissed((d) => [...d, k])),
+              },
               toolbar: {
                 tool: tool.kind,
                 onSelect: () => setTool({ kind: "select" }),
@@ -1529,6 +1570,50 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                     setPhoneSheet(null);
                   },
                 },
+                // the ⋯ menu (#124): a row that opens a sheet hands over to it; one that acts puts the menu away
+                menu: {
+                  view,
+                  onView: setView,
+                  save: {
+                    label: mode === "new" ? "Save track" : "Save revision",
+                    state: dirty ? "Unsaved changes · kept on this device" : base?.revision !== undefined ? `Saved · revision ${base.revision}` : "Not saved yet",
+                    disabled: saving || (!dirty && mode === "edit"),
+                    loginUrl: me ? null : loginUrl(),
+                    onSave: () => setPhoneSheet({ kind: "save", height: "peek" }),
+                  },
+                  submit: {
+                    why: phoneSubmitWhy,
+                    onSubmit: () => {
+                      setPhoneSheet(null);
+                      void submit();
+                    },
+                    onSeeChecks: showSubmit && checkCounts(built.checks).errors > 0 ? () => setPhoneSheet({ kind: "checks", height: "full" }) : null,
+                  },
+                  reverse: {
+                    onReverse: () => {
+                      setPhoneSheet(null);
+                      reverse();
+                    },
+                    canReverse,
+                  },
+                  onFit: () => {
+                    setPhoneSheet(null);
+                    setFitRequest((n) => n + 1);
+                  },
+                  onDetails: () => setPhoneSheet({ kind: "details", height: "full" }),
+                  onHowTo: () => setPhoneSheet({ kind: "howto", height: "full" }),
+                  backTo,
+                },
+                save: { mode, note, setNote, onSave: () => void save(), saving, revision: base?.revision, approvedRevision: status?.approvedRevision },
+                details: {
+                  name: draft.info.name,
+                  onName: rename,
+                  description: draft.info.description,
+                  onDescription: (description) => update((d) => ({ ...d, info: { ...d.info, description } }), "description"),
+                  venueName,
+                  area,
+                  status,
+                },
               },
             }
           : null
@@ -1536,7 +1621,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       tablet={tablet}
       view={view}
       laying={laying}
-      phoneView={{ backTo, name: draft.info.name, canCopy: mode === "edit" && !dirty, laying, area, obstacles: guideObstacles, built, lapLength: live.total, status }}
+      phoneView={{ backTo, name: draft.info.name, laying, area, obstacles: guideObstacles, built, lapLength: live.total, status }}
       bar={{
         backTo,
         name: draft.info.name,
@@ -1572,13 +1657,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         checks: built.checks,
         onSeeChecks: seeChecks,
       }}
-      // the phone keeps the plan's room: only the restore prompt and the designer's own messages (the not-logged-in and
-      // approved notes come back with the phone's banner)
-      messages={
-        phoneEdit
-          ? restore || message ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: true, message, approvedRevision: null } : null
-          : restore || !me || message || status?.approvedRevision ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: !!me, message, approvedRevision: status?.approvedRevision } : null
-      }
+      // the phone has its own banner (above)
+      messages={restore || !me || message || status?.approvedRevision ? { restore, revision: base?.revision, onRestore: restoreAutosave, onDiscard: discardAutosave, loggedIn: !!me, message, approvedRevision: status?.approvedRevision } : null}
       palette={palette}
       planArea={{
         planWrapRef,

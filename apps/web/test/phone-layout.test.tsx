@@ -1,6 +1,6 @@
-// The phone designer (#122): under 640 px, with the switch on (`?phone=edit`), the designer is a 52 px header, the plan
-// and a 64 px toolbar; a landscape phone gets "Turn your phone upright to edit" over it. With the switch off the phone
-// keeps the view-only screen. Static renders with the plan and the bake mocked, as in designer-layout.test.tsx.
+// The phone designer (#122): under 640 px (the default since #124, which took the `?phone=edit` switch away), the
+// designer is a 52 px header, the plan and a 64 px toolbar; a landscape phone gets "Turn your phone upright to edit"
+// over it. Static renders with the plan and the bake mocked, as in designer-layout.test.tsx.
 import type { RcTrack } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -26,7 +26,7 @@ vi.mock("../src/components/PlanView.js", async (orig) => ({
   PlanView: (p: Record<string, unknown>) => (plans.push(p), <svg className={`plan-svg ${p.className ?? ""}`} aria-label={p.label as string} />),
 }));
 
-const { Designer, draftFromDoc, newDraft, PHONE_QUERY, TOUCH_QUERY, LANDSCAPE_PHONE_QUERY, PHONE_PARAM } = await import("../src/designer/Designer.js");
+const { Designer, draftFromDoc, newDraft, PHONE_QUERY, TOUCH_QUERY, LANDSCAPE_PHONE_QUERY } = await import("../src/designer/Designer.js");
 const { BottomToolbar, PhoneHeader } = await import("../src/designer/PhoneEditLayout.js");
 const { MODE_KEY } = await import("../src/designer/mode.js");
 const { SessionContext } = await import("../src/lib/session.js");
@@ -35,9 +35,8 @@ import type { DesignerBase } from "../src/designer/Designer.js";
 const me = { id: 1, username: "yeti", name: null, avatarUrl: null, organiser: false, admin: false, moderator: false };
 const session = { me, config: null, ready: true, refresh: async () => {}, logout: async () => {}, loginUrl: () => "/auth/login" };
 const track = { status: "draft", approvedRevision: null } as unknown as DesignerBase["track"];
-const SWITCH = `?${PHONE_PARAM}=edit`;
 /** a saved track of the author's, open to edit at `search` */
-const edit = (search = SWITCH, doc = saved()) => (
+const edit = (search = "", doc = saved()) => (
   (baked = doc.built),
   renderToStaticMarkup(
     <SessionContext.Provider value={session}>
@@ -47,7 +46,7 @@ const edit = (search = SWITCH, doc = saved()) => (
     </SessionContext.Provider>,
   ));
 /** a new track, laying the lanes */
-const laying = (search = SWITCH) =>
+const laying = (search = "") =>
   renderToStaticMarkup(
     <SessionContext.Provider value={session}>
       <MemoryRouter initialEntries={[`/new/design${search}`]}>
@@ -74,18 +73,18 @@ const tool = (html: string, label: string) => {
   return m?.[0] ?? "";
 };
 
-describe("a phone with the switch on: header, plan and toolbar", () => {
+describe("a phone: header, plan and toolbar", () => {
   it.each(["quick", "advanced"] as const)("%s: the three bands, and none of the other layouts", (mode) => {
     setup(mode, PHONE);
     const html = edit();
     expect(html).toMatch(new RegExp(`^<div class="designer designer-phone-edit designer-${mode}">`));
-    // the header: back to the track, the name, the save state in a word, the ⋯ button (its menu comes later)
+    // the header: back to the track, the name, the save state in a word, the ⋯ button (its menu came with #124)
     const header = /<header class="phone-header">.*?<\/header>/.exec(html)?.[0] ?? "";
     expect(header).toContain('href="/t/club-a"');
     expect(header).toContain('aria-label="Back to track"');
     expect(header).toContain('<p class="phone-name">Club A</p>');
     expect(header).toContain('<span class="phone-save" aria-live="polite">Saved</span>');
-    expect(header).toMatch(/<button[^>]*aria-label="More"[^>]*disabled/);
+    expect(header).toMatch(/<button[^>]*aria-label="More" aria-haspopup="menu"/);
     // the plan: editable, with no zoom buttons or layers
     expect(plans).toHaveLength(1);
     expect(plans[0].interactive).toBeUndefined();
@@ -135,32 +134,15 @@ describe("a phone with the switch on: header, plan and toolbar", () => {
     expect(html).toContain("Turn your phone upright to edit");
   });
 
-  it("a new track still laying the lanes: the view-only screen (laying on a phone is stage 2)", () => {
+  it("a new track still laying the lanes: a screen that says to lay them on a laptop or tablet (stage 2)", () => {
     setup("quick", PHONE);
     const html = laying();
     expect(html).toMatch(/^<div class="designer designer-phone">/);
-    expect(html).toContain("<h1>Design on a laptop or tablet</h1>");
+    expect(html).toContain("<h1>Lay the lanes on a laptop or tablet</h1>");
   });
 });
 
-describe("the switch off", () => {
-  it.each(["", "?phone=view"])("a phone at %s: the view-only screen, as before", (search) => {
-    setup("quick", PHONE);
-    const html = edit(search);
-    expect(html).toMatch(/^<div class="designer designer-phone">/);
-    expect(html).toContain("<h1>Design on a laptop or tablet</h1>");
-    expect(html).not.toContain("phone-toolbar");
-  });
-
-  it("a landscape phone without the switch: today's layout, no message", () => {
-    setup("quick", [LANDSCAPE_PHONE_QUERY, TOUCH_QUERY]);
-    const html = edit("");
-    expect(html).toMatch(/^<div class="designer designer-quick designer-touch">/);
-    expect(html).not.toContain("Turn your phone upright");
-  });
-});
-
-describe("the switch does nothing above 640 px", () => {
+describe("above 640 px: the laptop and tablet layouts, as they were", () => {
   it("a laptop", () => {
     setup("quick", []);
     expect(edit()).toMatch(/^<div class="designer designer-quick ">/);
@@ -176,18 +158,20 @@ describe("the switch does nothing above 640 px", () => {
 
 describe("the pieces", () => {
   const backTo = { to: "/t/x", label: "Back to track" };
+  // (#124) "Unsaved" and "Not saved yet" became a Save button: phone-menu.test.tsx
   it.each([
-    [{ dirty: true, revision: 3 }, "Unsaved"],
+    [{ dirty: true, revision: 3 }, "Save"],
     [{ dirty: false, revision: 3 }, "Saved"],
-    [{ dirty: false, revision: undefined }, "Not saved yet"],
-    [{ dirty: true, revision: undefined }, "Unsaved"],
+    [{ dirty: false, revision: undefined }, "Save"],
+    [{ dirty: true, revision: undefined }, "Save"],
   ])("the header's save state for %o: %s", (s, word) => {
     const html = renderToStaticMarkup(
       <MemoryRouter>
-        <PhoneHeader backTo={backTo} name="" {...s} onHelp={() => {}} helpOpen={false} />
+        <PhoneHeader backTo={backTo} name="" {...s} loggedIn loginUrl="/auth/login" saving={false} saveOpen={false} onSave={() => {}} menuOpen={false} onMenu={() => {}} />
       </MemoryRouter>,
     );
-    expect(html).toContain(`<span class="phone-save" aria-live="polite">${word}</span>`);
+    const state = /<span class="phone-save" aria-live="polite">(.*?)<\/span><button/.exec(html)?.[1] ?? "";
+    expect(state.replace(/<[^>]+>/g, "")).toBe(word);
     expect(html).toContain('<p class="phone-name">Untitled track</p>');
   });
 

@@ -22,9 +22,9 @@ let baked: RcTrack["built"] = undefined;
 vi.mock("../src/designer/useBake.js", () => ({ useBake: () => ({ built: baked ?? null, pending: false, error: null, ms: 0 }) }));
 vi.mock("../src/components/PlanView.js", async (orig) => ({ ...(await orig<typeof import("../src/components/PlanView.js")>()), PlanView: () => <svg className="plan-svg" /> }));
 
-const { Designer, draftFromDoc, PHONE_QUERY, TOUCH_QUERY, PHONE_PARAM } = await import("../src/designer/Designer.js");
+const { Designer, draftFromDoc, PHONE_QUERY, TOUCH_QUERY } = await import("../src/designer/Designer.js");
 const { PhoneSheets, PhoneChecks, PhoneJumps, PhoneHowTo, sheetLabel } = await import("../src/designer/PhoneSheets.js");
-const { BottomToolbar, PhoneHeader } = await import("../src/designer/PhoneEditLayout.js");
+const { BottomToolbar } = await import("../src/designer/PhoneEditLayout.js");
 const { liveGeometry } = await import("../src/designer/geometry.js");
 const { MODE_KEY } = await import("../src/designer/mode.js");
 const { SessionContext } = await import("../src/lib/session.js");
@@ -80,8 +80,15 @@ const jumps = (view: "quick" | "advanced", more: Partial<ToolPaletteProps> = {})
 });
 const render = (el: ReactElement) => renderToStaticMarkup(<MemoryRouter>{el}</MemoryRouter>);
 /** the one sheet, open on `kind` */
+/** the ⋯ menu's and its sheets' props (#124), not used by these sheets */
+const nop = () => {};
+const others = {
+  menu: { view: "quick" as const, onView: nop, save: { label: "Save revision", state: "Saved", disabled: true, loginUrl: null, onSave: nop }, submit: { why: null, onSubmit: nop, onSeeChecks: null }, reverse: { onReverse: nop, canReverse: true }, onFit: nop, onDetails: nop, onHowTo: nop, backTo: { to: "/t/x", label: "Back to track" } },
+  save: { mode: "edit" as const, note: "", setNote: nop, onSave: nop, saving: false, revision: 1, approvedRevision: null },
+  details: { name: "X", onName: nop, description: undefined, onDescription: nop, venueName: undefined, area: { length: 22, width: 12 }, status: undefined },
+};
 const sheet = (kind: "selection" | "checks" | "jump" | "howto", p: PanelProps, height: "peek" | "full" = "peek", tucked = false, j = jumps(p.view)) =>
-  render(<PhoneSheets sheet={{ kind, height }} onHeight={() => {}} tucked={tucked} panels={p} built={baked ?? ref<RcTrack>("examples/club-a.rctrack.json").built!} jumps={j} />);
+  render(<PhoneSheets sheet={{ kind, height }} onHeight={() => {}} tucked={tucked} panels={p} built={baked ?? ref<RcTrack>("examples/club-a.rctrack.json").built!} jumps={j} {...others} />);
 const buttons = (html: string) => html.match(/<button[^>]*>.*?<\/button>/g) ?? [];
 
 describe("the selection sheet", () => {
@@ -238,13 +245,13 @@ describe("the phone layout with the sheets", () => {
     (baked = doc.built),
     renderToStaticMarkup(
       <SessionContext.Provider value={session}>
-        <MemoryRouter initialEntries={[`/t/x/edit?${PHONE_PARAM}=edit`]}>
+        <MemoryRouter initialEntries={["/t/x/edit"]}>
           <Designer mode="edit" initial={draftFromDoc(doc)} base={{ id: "x", revision: 1, doc, track: { status: "draft", approvedRevision: null }, can: { submit: true } } as unknown as DesignerBase} storageKey="test" />
         </MemoryRouter>
       </SessionContext.Provider>,
     ));
 
-  it.each(["quick", "advanced"] as const)("%s: the checks pill over the plan, Jump on, How to draw in the header; no sheet open yet", (mode) => {
+  it.each(["quick", "advanced"] as const)("%s: the checks pill over the plan, Jump on, ⋯ in the header (How to draw is in its menu); no sheet open yet", (mode) => {
     setup(mode);
     const html = edit(extra("overlap-straights"));
     expect(html).toMatch(/<button type="button" class="checks-pill checks-pill-error" aria-expanded="false">.*?1 error<\/button>/);
@@ -253,7 +260,8 @@ describe("the phone layout with the sheets", () => {
     const jump = /<button[^>]*><svg[^>]*lucide-layout-grid[^>]*>.*?<\/svg><span class="phone-tool-label">Jump<\/span><\/button>/.exec(html)?.[0] ?? "";
     expect(jump).not.toBe("");
     expect(jump).not.toContain("disabled");
-    expect(html).toMatch(/<header class="phone-header">.*<button[^>]*aria-label="How to draw"/);
+    expect(html).toMatch(/<header class="phone-header">.*<button[^>]*aria-label="More" aria-haspopup="menu"/);
+    expect(/<header class="phone-header">.*?<\/header>/.exec(html)?.[0]).not.toContain("How to draw");
     expect(html).not.toContain('class="bottom-sheet');
   });
 
@@ -271,8 +279,4 @@ describe("the phone layout with the sheets", () => {
     expect(jump).not.toContain("aria-expanded");
   });
 
-  it("the header's How to draw button (until the ⋯ menu comes, ticket 5)", () => {
-    const html = render(<PhoneHeader backTo={{ to: "/t/x", label: "Back to track" }} name="X" dirty={false} revision={1} helpOpen onHelp={noop} />);
-    expect(html).toMatch(/<button type="button" class="phone-icon-btn" aria-label="How to draw" aria-expanded="true"><svg[^>]*lucide-circle-question-mark/);
-  });
 });

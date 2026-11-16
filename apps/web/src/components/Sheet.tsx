@@ -55,6 +55,7 @@ export function Sheet({
   onHeight,
   tucked = false,
   modal = false,
+  hug = false,
   below = 0,
   className,
   children,
@@ -68,6 +69,8 @@ export function Sheet({
   tucked?: boolean;
   /** over a scrim that covers the rest of the screen; a tap on the scrim closes it */
   modal?: boolean;
+  /** full height is its content's, up to the full height, rather than the full height itself (the overflow menu) */
+  hug?: boolean;
   /** the height of the bottom toolbar the sheet sits above, in px (the home-indicator inset is added to it) */
   below?: number;
   className?: string;
@@ -84,10 +87,12 @@ export function Sheet({
   // full or modal: focus moves into the sheet, and goes back where it was when the sheet closes or lets go
   useEffect(() => {
     if (!trap) return;
+    // the element itself: when the whole Sheet unmounts, the ref is already null by the time this cleans up
+    const el = ref.current;
     const before = document.activeElement as HTMLElement | null;
-    if (!ref.current?.contains(before)) ref.current?.focus();
+    if (!el?.contains(before)) el?.focus();
     return () => {
-      if (before?.isConnected && (!document.activeElement || document.activeElement === document.body || ref.current?.contains(document.activeElement))) before.focus();
+      if (before?.isConnected && (!document.activeElement || document.activeElement === document.body || el?.contains(document.activeElement))) before.focus();
     };
   }, [trap]);
 
@@ -105,7 +110,7 @@ export function Sheet({
   const style: CSSProperties = {
     bottom: `calc(${below}px + ${inset})`,
     maxHeight: drag !== null || height === "full" ? fullCss : `min(calc(100dvh / 3), ${fullCss})`,
-    height: tucked ? TUCKED : (drag ?? (height === "full" ? fullCss : undefined)),
+    height: tucked ? TUCKED : (drag ?? (height === "full" && !hug ? fullCss : undefined)),
   };
 
   /**
