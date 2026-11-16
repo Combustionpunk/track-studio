@@ -93,6 +93,7 @@ const MITRE_PX = 6; // outside-corner handle half-size on screen
 const GRAB_PX = 14; // a press on the track this close to a corner point grabs the point (instead of adding one)
 const CORNER_PX = 10; // Quick step 2: numbered corner handle radius on screen
 const APEX_PX = 6; // Quick step 2: apex handle radius on screen
+const LOUPE_DOT_PX = 5; // the drag loupe (#125): the other corners, as dots this size inside it
 const TOUCH_PX = 22; // touch screens: handles take a press this far out (44 px across)
 const CORNER_TOUCH_PX = 13; // touch screens: the numbered corner handle, drawn bigger
 const APEX_TOUCH_PX = 8; // touch screens: the apex handle, drawn bigger
@@ -1125,21 +1126,34 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const loupe = ((): LoupeProps | null => {
     if (!loupeDrag || laying) return null;
     const { client, d } = loupeDrag;
+    // what the loupe draws over the magnified plan: the lane edges, the snap guides, and the corners as small dots (not
+    // the one being moved: the crosshair is on it)
+    const moving = d.kind === "point" || d.kind === "mitre" ? d.i : -1;
+    const marks = (m: number) => (
+      <g className="ed loupe-marks">
+        <path className="ed-edges" d={lanePath(live.lanes)} vectorEffect="non-scaling-stroke" />
+        {shared && <line className="ed-shared" x1={shared.from[0]} y1={-shared.from[1]} x2={shared.to[0]} y2={-shared.to[1]} vectorEffect="non-scaling-stroke" />}
+        {guides.map((g, k) => (
+          <line key={k} className="ed-guide" x1={g.from[0]} y1={-g.from[1]} x2={g.to[0]} y2={-g.to[1]} vectorEffect="non-scaling-stroke" />
+        ))}
+        {pointsList.map((p, k) => (k === moving ? null : <circle key={k} className="loupe-dot" cx={p.x} cy={-p.z} r={LOUPE_DOT_PX * m} vectorEffect="non-scaling-stroke" />))}
+      </g>
+    );
     if (d.kind === "point" || d.kind === "mitre" || d.kind === "apex") {
       const p = pointsList[d.i];
       if (!p) return null;
-      if (d.kind !== "apex") return { client, at: [p.x, p.z], text: loupeText({ kind: "point", x: p.x, z: p.z }) };
+      if (d.kind !== "apex") return { client, at: [p.x, p.z], text: loupeText({ kind: "point", x: p.x, z: p.z }), marks };
       const a = apexOf(pointsList, d.i, lw);
       const c = live.corners[d.i];
       if (!a || !c) return null;
-      return { client, at: handlePoint(a, c.r), text: loupeText({ kind: "apex", radius: Math.max(0, c.r - c.w / 2) }) };
+      return { client, at: handlePoint(a, c.r), text: loupeText({ kind: "apex", radius: Math.max(0, c.r - c.w / 2) }), marks };
     }
     if (d.kind === "feature") {
       const f = built.features[d.i], df = draft.design.features?.[d.i];
-      return f && df ? { client, at: [f.x, f.z], text: loupeText({ kind: "along", distance: df.distance }) } : null;
+      return f && df ? { client, at: [f.x, f.z], text: loupeText({ kind: "along", distance: df.distance }), marks } : null;
     }
     const st = built.startLine;
-    return { client, at: [st.x, st.z], text: loupeText({ kind: "along", distance: st.distance }) };
+    return { client, at: [st.x, st.z], text: loupeText({ kind: "along", distance: st.distance }), marks };
   })();
   const overlay = (m: number) => {
     /** Quick step 2: corner i's apex handle (the middle of its inside edge), with its label; null where the line runs straight */

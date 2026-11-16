@@ -131,6 +131,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .plan-loupe-read { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 6px; padding: 2px 8px; border-radius: var(--radius-sm); white-space: nowrap; text-align: center; background: var(--header); color: var(--text); box-shadow: var(--shadow-float); font: 600 14px/20px var(--font-sans); font-variant-numeric: tabular-nums; }
 .plan-loupe[data-read="start"] .plan-loupe-read { left: 0; transform: none; }
 .plan-loupe[data-read="end"] .plan-loupe-read { left: auto; right: 0; transform: none; }
+.loupe-dot { fill: var(--plan-ink); stroke: var(--ed-point-edge); stroke-width: 1.5; pointer-events: none; }
 .plan-compact .plan-controls button { width: 30px; height: 30px; }
 .plan-controls button:focus-visible, .plan-viewswitch button:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
 /* the track page's 2D / 3D switch, over the plan's top-left corner (#83) */

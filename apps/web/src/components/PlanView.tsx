@@ -9,7 +9,7 @@ import { FEATURE_LABEL, metres } from "../lib/format.js";
 import { useElementSize } from "../lib/hooks.js";
 import { areaBounds, fitView, pan, viewBox, zoomAt, type View } from "../lib/plan.js";
 import { Fingers, pinchView, TAP_SLOP_PX, type Spot } from "../lib/touch.js";
-import { LOUPE_PX, loupePlace, loupeViewBox } from "../lib/loupe.js";
+import { LOUPE_PX, LOUPE_ZOOM, loupePlace, loupeViewBox } from "../lib/loupe.js";
 
 export type LayerKey = PlanLayer;
 export type Layers = Record<LayerKey, boolean>;
@@ -77,6 +77,9 @@ export interface LoupeProps {
   at: Point2;
   /** what it reads: a position, a radius, a distance along the lap */
   text: string;
+  /** the editor's marks drawn over the magnified plan (neighbouring corners, snap guides), at their usual screen size:
+   * gets the size of one loupe pixel in metres. No handles: the loupe never takes a pointer. */
+  marks?: (mPerPx: number) => ReactNode;
 }
 
 const MAX_SCALE = 400; // px per metre
@@ -382,12 +385,13 @@ export function PlanView(props: PlanViewProps) {
           onDoubleClick={onDoubleClick}
           onKeyDown={onKeyDown}
         >
-          {/* one group the loupe can show again (#125) */}
+          {/* the plan, in one group the loupe can show again (#125); the editor's handles stay out of it, or they'd be
+              magnified over what they mark */}
           <g id={`plan${uid}-content`}>
             <g className="plan-drawing" dangerouslySetInnerHTML={{ __html: drawing }} />
             {children}
-            {overlay?.(px)}
           </g>
+          {overlay?.(px)}
           {highlight && (
             <circle cx={highlight[0]} cy={-highlight[1]} r={Math.max(0.8, 14 * px)} className="plan-highlight" vectorEffect="non-scaling-stroke" />
           )}
@@ -442,11 +446,11 @@ export function PlanView(props: PlanViewProps) {
 }
 
 /**
- * The drag loupe (#125): the plan's content group again (`<use>`, so nothing is drawn twice in React) at 2.4 × round the
- * point being moved, with a crosshair on the point and a readout under it. Above the finger, or wherever `loupePlace`
+ * The drag loupe (#125): the plan's drawing again (`<use>` of its group, so React doesn't draw it twice) at 2.4 × round
+ * the point being moved, the editor's marks over it at their usual size, a crosshair on the point and a readout under it. Above the finger, or wherever `loupePlace`
  * finds room in the plan box; it never takes a pointer.
  */
-function Loupe({ client, at, text, box, width, height, scale, content }: LoupeProps & { box: HTMLElement | null; width: number; height: number; scale: number; content: string }) {
+function Loupe({ client, at, text, marks, box, width, height, scale, content }: LoupeProps & { box: HTMLElement | null; width: number; height: number; scale: number; content: string }) {
   const r = box?.getBoundingClientRect();
   if (!r) return null;
   const place = loupePlace({ x: client.x - r.left, y: client.y - r.top }, width, height);
@@ -454,6 +458,7 @@ function Loupe({ client, at, text, box, width, height, scale, content }: LoupePr
     <div className="plan-loupe" data-side={place.side} data-read={place.read} style={{ left: place.left, top: place.top, width: LOUPE_PX, height: LOUPE_PX }} aria-hidden="true">
       <svg viewBox={loupeViewBox(at, scale)} preserveAspectRatio="xMidYMid slice">
         <use href={`#${content}`} />
+        {marks?.(1 / (scale * LOUPE_ZOOM))}
       </svg>
       <span className="plan-loupe-cross" />
       <span className="plan-loupe-read">{text}</span>

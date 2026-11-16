@@ -87,10 +87,13 @@ test.describe("phone loupe", () => {
     const [x, z] = (await corners(page))[i];
     expect(vb[0] + vb[2] / 2).toBeCloseTo(x, 6);
     expect(-(vb[1] + vb[3] / 2)).toBeCloseTo(z, 6);
-    // it draws the plan (lanes and handles) through a <use> of the plan's content
+    // it draws the plan through a <use> of the plan's drawing, without the editor's handles (they'd be magnified over
+    // what they mark), and the other corners as dots at their usual size, but not the one being moved
     const href = await page.locator(".plan-loupe use").getAttribute("href");
-    await expect(page.locator(`svg.plan-svg g${href}`)).toHaveCount(1);
-    await expect(page.locator(`svg.plan-svg g${href} .ed-lane`)).toHaveCount(1);
+    await expect(page.locator(`svg.plan-svg g${href} .plan-drawing`)).toHaveCount(1);
+    await expect(page.locator(`svg.plan-svg g${href} [data-handle]`)).toHaveCount(0);
+    await expect(page.locator(".plan-loupe [data-handle]")).toHaveCount(0);
+    await expect(page.locator(".plan-loupe .loupe-dot")).toHaveCount((await corners(page)).length - 1);
     await onScreen(page);
     await clearOf(page, to);
     await shot(page, "375-loupe-middle");
