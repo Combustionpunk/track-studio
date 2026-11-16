@@ -211,6 +211,7 @@ test.describe("phone: save, submit and the ⋯ menu", () => {
     const submit = item(page, /^Submit track/);
     await expect(submit).toBeDisabled();
     await expect(submit).toContainText("Waiting on 1 error · see Checks");
+    await shot(page, "375-submit-error");
     await submit.tap({ force: true });
     await expect(page.getByRole("dialog", { name: "Checks" })).toBeVisible();
     await expect(menu(page)).toHaveCount(0);
