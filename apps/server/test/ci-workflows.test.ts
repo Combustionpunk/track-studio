@@ -49,7 +49,7 @@ describe("CI workflow (typecheck and Vitest)", () => {
 
   it("is named CI and runs on pull requests and on pushes to main", () => {
     expect(ci).toMatch(/^name: CI$/m);
-    expect(block(ci, "on", "push", "branches")).toMatch(/main/);
+    expect(block(ci, "on", "push")).toMatch(/^\s*branches: \[main\]$/m);
     expect(block(ci, "on")).toMatch(/^ {2}pull_request:/m);
   });
 
@@ -85,7 +85,7 @@ describe("workflows on main", () => {
     const text = workflow(name);
 
     it(`${name} runs on pushes to main`, () => {
-      expect(block(text, "on", "push", "branches")).toMatch(/main/);
+      expect(block(text, "on", "push")).toMatch(/^\s*branches: \[main\]$/m);
     });
 
     it(`${name} queues runs on main without cancelling them, and cancels superseded PR runs`, () => {

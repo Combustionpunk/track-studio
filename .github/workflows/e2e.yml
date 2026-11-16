@@ -10,6 +10,12 @@ on:
     branches: [main]
     paths: [apps/web/**, packages/engine/**, package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, .github/workflows/e2e.yml]
 
+# One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group without cancelling,
+# so they queue and every commit on main gets a result (#142).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
