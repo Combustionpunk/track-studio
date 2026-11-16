@@ -81,6 +81,6 @@ export type LoupeRead =
 /** The readout under the loupe: a corner's position, an apex handle's radius, or a jump's or the start's distance. */
 export function loupeText(r: LoupeRead): string {
   if (r.kind === "point") return `x ${num(r.x)} · z ${num(r.z)} m`;
-  if (r.kind === "apex") return `Radius ${num(r.radius)} m`;
+  if (r.kind === "apex") return `Radius ${num(r.radius, 1)} m`; // to 0.1 m, as the R label beside the handle
   return `${num(r.distance, 1)} m along the lap`;
 }

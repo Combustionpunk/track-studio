@@ -77,9 +77,9 @@ test.describe("phone loupe", () => {
     await expect(loupe(page)).toHaveCount(1);
     await expect(s).toHaveClass(/bottom-sheet--tucked/);
     // above the finger, centred on it, and showing the corner where it now is
+    await expect.poll(async () => { const b = (await loupe(page).boundingBox())!; return Math.abs(b.x + b.width / 2 - to[0]); }).toBeLessThan(2);
     const c = (await loupe(page).boundingBox())!;
     expect(c.y + c.height).toBeLessThan(to[1]);
-    expect(Math.abs(c.x + c.width / 2 - to[0])).toBeLessThan(2);
     await expect(loupe(page)).toHaveAttribute("data-side", "above");
     await expect.poll(async () => (await readout(page).textContent()) === pos((await corners(page))[i])).toBe(true);
     // centred on the corner: the magnified plan's middle is the corner point
@@ -108,38 +108,47 @@ test.describe("phone loupe", () => {
     expect(errors).toEqual([]);
   });
 
-  test("an apex handle reads its radius; a jump and the start line read their distance along the lap", async ({ page }) => {
+  test("an apex handle: the loupe reads its radius, as the R label beside it does", async ({ page }) => {
     const errors = await serve(page);
     await open(page);
     const t = await Touch.on(page);
     await pinchIn(page, t);
-    // the apex handle
-    let at = await grab(page, "circle.ed-hit-apex", "apex");
+    const at = await grab(page, "circle.ed-hit-apex", "apex");
     await t.down(at);
     await t.move([[at[0] + 12, at[1] + 12]], 6);
     await expect(loupe(page)).toHaveCount(1);
-    await expect(readout(page)).toHaveText(/^Radius \d+\.\d\d m$/);
-    // the same radius as the label on the plan (which reads to 0.1 m)
-    const label = (await page.locator("text.ed-label").first().textContent())!;
-    const r = Number((await readout(page).textContent())!.match(/[\d.]+/)![0]);
-    expect(label).toContain(`R ${Math.round(r * 10) / 10} m`);
+    await expect(readout(page)).toHaveText(/^Radius \d+\.\d m$/);
     await onScreen(page);
+    // the label of the handle being dragged: the R label nearest the finger
+    const labels = await page.locator("text.ed-label").evaluateAll((els, [x, y]) =>
+      els.map((e) => { const r = e.getBoundingClientRect(); return { d: Math.hypot(r.x + r.width / 2 - x, r.y + r.height / 2 - y), text: e.textContent ?? "" }; }).sort((a, b) => a.d - b.d), [at[0] + 12, at[1] + 12]);
+    const label = labels.find((l) => /^R /.test(l.text))!.text;
+    const r = Number((await readout(page).textContent())!.match(/[\d.]+/)![0]);
+    expect(Number(label.match(/[\d.]+/)![0])).toBe(r);
     await t.up();
     await expect(loupe(page)).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
 
-    // a jump: the distance along the lap, the same as its sheet's "Along the line" once it lifts
-    at = await grab(page, ".ed-hit-feature", "feature");
+  test("a jump and the start line: the loupe reads the distance along the lap, as their sheet does (Advanced)", async ({ page }) => {
+    const errors = await serve(page);
+    await open(page, "", "advanced");
+    const t = await Touch.on(page);
+    await pinchIn(page, t);
+    const along = page.locator("section.bottom-sheet").getByLabel("Along the line");
+    // a jump
+    let at = await grab(page, ".ed-hit-feature", "feature");
     await t.down(at);
     await t.move([[at[0] + 16, at[1] + 16]], 6);
     await expect(loupe(page)).toHaveCount(1);
     await expect(readout(page)).toHaveText(/^\d+\.\d m along the lap$/);
     await onScreen(page);
-    const along = (await readout(page).textContent())!;
+    let read = (await readout(page).textContent())!;
     await shot(page, "375-loupe-jump");
     await t.up();
     await expect(loupe(page)).toHaveCount(0);
-    const field = page.locator("section.bottom-sheet").getByLabel("Along the line");
-    if (await field.count()) expect(along).toBe(`${Number(await field.inputValue()).toFixed(1)} m along the lap`);
+    await expect(along).toHaveCount(1);
+    expect(read).toBe(`${Number(await along.inputValue()).toFixed(1)} m along the lap`);
 
     // the start line: pan it into the middle of the plan first (after the zoom it can be off to one side)
     const st = (await page.locator("g.ed-start .ed-hit").boundingBox())!;
@@ -152,8 +161,12 @@ test.describe("phone loupe", () => {
     await expect(loupe(page)).toHaveCount(1);
     await expect(readout(page)).toHaveText(/^\d+\.\d m along the lap$/);
     await onScreen(page);
+    read = (await readout(page).textContent())!;
     await t.up();
     await expect(loupe(page)).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Start line" })).toHaveCount(1);
+    await expect(along).toHaveCount(1);
+    expect(read).toBe(`${Number(await along.inputValue()).toFixed(1)} m along the lap`);
     expect(errors).toEqual([]);
   });
 

@@ -1142,7 +1142,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (d.kind === "point" || d.kind === "mitre" || d.kind === "apex") {
       const p = pointsList[d.i];
       if (!p) return null;
-      if (d.kind !== "apex") return { client, at: [p.x, p.z], text: loupeText({ kind: "point", x: p.x, z: p.z }), marks };
+      if (d.kind === "mitre") {
+        // Advanced: the finger has the pipes' outside corner, so that's what the loupe shows and reads
+        const mp = mitrePoint(pointsList, d.i, lw);
+        return mp ? { client, at: mp, text: loupeText({ kind: "point", x: mp[0], z: mp[1] }), marks } : null;
+      }
+      if (d.kind === "point") return { client, at: [p.x, p.z], text: loupeText({ kind: "point", x: p.x, z: p.z }), marks };
       const a = apexOf(pointsList, d.i, lw);
       const c = live.corners[d.i];
       if (!a || !c) return null;
@@ -1150,7 +1155,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     }
     if (d.kind === "feature") {
       const f = built.features[d.i], df = draft.design.features?.[d.i];
-      return f && df ? { client, at: [f.x, f.z], text: loupeText({ kind: "along", distance: df.distance }), marks } : null;
+      return f && df ? { client, at: [f.x, f.z], text: loupeText({ kind: "along", distance: wrapDistance(df.distance, live.total) }), marks } : null;
     }
     const st = built.startLine;
     return { client, at: [st.x, st.z], text: loupeText({ kind: "along", distance: st.distance }), marks };

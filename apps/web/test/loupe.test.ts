@@ -118,7 +118,8 @@ describe("loupe readout", () => {
     expect(loupeText({ kind: "point", x: -0.001, z: 0 })).toBe("x 0.00 · z 0.00 m");
   });
   it("gives an apex handle's radius", () => {
-    expect(loupeText({ kind: "apex", radius: 1.8 })).toBe("Radius 1.80 m");
+    expect(loupeText({ kind: "apex", radius: 1.8 })).toBe("Radius 1.8 m");
+    expect(loupeText({ kind: "apex", radius: 2.249 })).toBe("Radius 2.2 m");
   });
   it("gives a jump's or the start's distance along the lap", () => {
     expect(loupeText({ kind: "along", distance: 12.345 })).toBe("12.3 m along the lap");
