@@ -93,20 +93,37 @@ test.describe("phone: save, submit and the ⋯ menu", () => {
     await expect(menu(page).getByText("3D")).toHaveCount(0);
     // nothing scrolls inside it
     expect(await menu(page).locator(".bottom-sheet-body").evaluate((e) => e.scrollHeight - e.clientHeight)).toBeLessThanOrEqual(1);
-    // the scrim covers the toolbar: a finger on Undo lands on the scrim
-    const u = (await toolBtn(page, "Undo").boundingBox())!;
-    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.className, [u.x + u.width / 2, u.y + u.height / 2])).toContain("bottom-sheet-scrim");
+    // modal: the menu covers the toolbar, and the scrim the plan; a finger on either lands on neither
+    const vp = page.viewportSize()!;
+    for (const name of ["Undo", "Delete", "Select"]) {
+      const u = (await toolBtn(page, name).boundingBox())!;
+      expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest(".phone-toolbar"), [u.x + u.width / 2, u.y + u.height / 2]), name).toBe(false);
+    }
+    for (const y of [80, 150]) expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.className, [vp.width / 2, y])).toContain("bottom-sheet-scrim");
     await shot(page, "375-menu");
-    // arrow keys move between the rows
-    await expect(item(page, /^Save revision/)).toBeFocused();
-    await page.keyboard.press("ArrowDown");
+    // arrow keys move between the rows; the first one that can be used has the focus (nothing to save yet, so Submit)
+    await expect(item(page, /^Save revision/)).toBeDisabled();
     await expect(item(page, /^Submit track/)).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("menuitemradio", { name: "Quick" })).toBeFocused();
     await page.keyboard.press("End");
     await expect(item(page, /^Back to track/)).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(item(page, /^Save revision/)).toBeFocused();
+    await expect(item(page, /^Submit track/)).toBeFocused();
     await page.keyboard.press("ArrowUp");
     await expect(item(page, /^Back to track/)).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(item(page, /^Submit track/)).toBeFocused();
+    // from the keyboard: Enter on ⋯ opens it on its first row, Escape closes it and the focus goes back to ⋯
+    await page.keyboard.press("Escape");
+    await expect(menu(page)).toHaveCount(0);
+    await more(page).focus();
+    await page.keyboard.press("Enter");
+    await expect(item(page, /^Submit track/)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menu(page)).toHaveCount(0);
+    await expect(more(page)).toBeFocused();
+    await openMenu(page);
     // a tap on the scrim, above the menu: it goes, and nothing on the plan changed
     const before = await corners(page);
     const t = await Touch.on(page);
@@ -145,21 +162,36 @@ test.describe("phone: save, submit and the ⋯ menu", () => {
     const calls: Calls = { saves: [], submits: 0 };
     const errors = await serve(page, doc, calls);
     await open(page);
+    const submit = item(page, /^Submit track/);
+    // a corner dragged: Submit waits (on the change, or on an error the move made)
     const t = await Touch.on(page);
     await edit(page, t);
     await openMenu(page);
-    const submit = item(page, /^Submit track/);
+    await expect(submit).toBeDisabled();
+    await expect(submit).toContainText(/Waiting on \d+ errors? · see Checks|Save your changes first/);
+    await menu(page).getByRole("button", { name: "Close" }).tap();
+    // undone: the checks pass and nothing is unsaved, so it can go
+    await toolBtn(page, "Undo").tap();
+    await expect(state(page)).toHaveText("Saved");
+    await openMenu(page);
+    await expect(submit).toBeEnabled();
+    await expect(submit).toContainText("Send it to the organisers for approval");
+    // renamed: it waits for the save
+    await item(page, /^Layout details/).tap();
+    await page.getByRole("dialog", { name: "Layout details" }).getByLabel("Name").fill("Club night special");
+    await openMenu(page);
     await expect(submit).toBeDisabled();
     await expect(submit).toContainText("Save your changes first");
     await shot(page, "375-submit-blocked");
     // a tap on it does nothing
     await submit.tap({ force: true });
+    await expect(menu(page)).toBeVisible();
     expect(calls.submits).toBe(0);
     await item(page, /^Save revision/).tap();
-    await saveWithNote(page, "", 2);
+    await saveWithNote(page, "renamed", 2);
+    expect(calls.saves).toEqual([{ note: "renamed", baseRevision: 1, name: "Club night special" }]);
     await openMenu(page);
     await expect(submit).toBeEnabled();
-    await expect(submit).toContainText("Send it to the organisers for approval");
     await submit.tap();
     await expect(menu(page)).toHaveCount(0);
     await expect(banner(page)).toContainText("Submitted for approval.");
@@ -167,7 +199,7 @@ test.describe("phone: save, submit and the ⋯ menu", () => {
     // submitted: the row says so, and waits
     await openMenu(page);
     await expect(submit).toBeDisabled();
-    await expect(submit).toContainText("Submitted");
+    await expect(submit).toContainText("Submitted · waiting for approval");
     expect(errors).toEqual([]);
   });
 

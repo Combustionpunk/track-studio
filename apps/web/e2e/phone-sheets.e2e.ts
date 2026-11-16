@@ -85,7 +85,7 @@ test.describe("phone sheets", () => {
     await expect(sheet(page).locator("input, textarea, select")).toHaveCount(0);
     expect(await page.evaluate(() => !!document.activeElement?.matches("input, textarea, select, [contenteditable]"))).toBe(false);
     await expect(toolBtn(page, "Undo")).toBeEnabled();
-    await expect(page.locator(".phone-save")).toHaveText("Unsaved");
+    await expect(page.locator(".phone-save")).toHaveText("Save"); // the Save button (#124)
     expect(errors).toEqual([]);
   });
 

@@ -81,7 +81,7 @@ test.describe("phone", () => {
     const moved = await corners(page);
     expect(moved.filter((_, k) => k !== i)).toEqual(before.filter((_, k) => k !== i));
     await expect(toolBtn(page, "Undo")).toBeEnabled();
-    await expect(page.locator(".phone-save")).toHaveText("Unsaved");
+    await expect(page.locator(".phone-save")).toHaveText("Save"); // the Save button (#124)
 
     // Delete: one corner fewer
     await toolBtn(page, "Delete").tap();
@@ -180,7 +180,7 @@ test.describe("phone", () => {
     await expect(toolbar(page)).toBeVisible();
     expect(await corners(page)).toEqual(after);
     await expect(toolBtn(page, "Undo")).toBeEnabled();
-    await expect(page.locator(".phone-save")).toHaveText("Unsaved");
+    await expect(page.locator(".phone-save")).toHaveText("Save"); // the Save button (#124)
     expect(errors).toEqual([]);
   });
 

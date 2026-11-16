@@ -64,10 +64,10 @@ describe("the designer's 2D / 3D switch", () => {
     expect(toggle(render(draftFromDoc(adapted())))).toContain(">3D</button>");
   });
 
-  it("not on a phone, which only views the plan", () => {
+  it("not on a phone (3D on a phone is #127)", () => {
     setup("quick", "3d", PHONE_QUERY);
     const html = render(draftFromDoc(adapted()));
-    expect(html).toContain("designer-phone");
+    expect(html).toContain("designer-phone-edit");
     expect(toggle(html)).toBeUndefined();
     expect(plans.length).toBe(1); // the 2D plan, even with 3D picked on a bigger screen
   });
