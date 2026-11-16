@@ -6,7 +6,7 @@ The phone designer is still switched off by default. It only appears with `?phon
 
 ## Before
 
-- **Droplet snapshot:** asked for in the steps. It was not confirmed in the session.
+- **Droplet snapshot:** a DigitalOcean snapshot of `tracks-misfits` was taken before the deploy (confirmed by Yeti).
 - **Local backup:** the data volume was copied with the app stopped, to `/root/backups/track-studio-20261115T2351Z-before-phone3.tgz`:
   ```sh
   docker compose stop track-studio
@@ -24,6 +24,10 @@ The phone designer is still switched off by default. It only appears with `?phon
 ## Post-checks
 
 - **Phone designer:** on an existing track, `/t/<id>/edit?phone=edit` works on a real phone. Yeti's check: "appears to be working". The detailed 10-step list from the #133 review was not reported item by item.
+
+## Rollback
+
+Restore the droplet snapshot, or `git checkout` the previous commit, rebuild, and restore the volume from the backup above if the data needs to go back too.
 
 ## Still to do
 
