@@ -16,8 +16,8 @@ import {
   type DesignPoint,
   type FeatureType,
 } from "@track-studio/engine";
-import { ArrowRightLeft, CircleCheck, CircleX, Info, TriangleAlert } from "lucide-react";
-import { useEffect, useState, type Ref } from "react";
+import { ArrowRightLeft, CircleCheck, CircleX, Info, Minus, Plus, TriangleAlert } from "lucide-react";
+import { useEffect, useState, type ReactElement, type Ref } from "react";
 import * as fmt from "../lib/format.js";
 import { designerEstimate, useClassSpeeds } from "../lib/laps.js";
 import { bridgeAt, crossingHint, makeCrossover, moveStart, overText, swapOver } from "./crossings.js";
@@ -153,7 +153,7 @@ function NestNotes({ inner, outer, following, onMatch }: { inner: number | null;
   );
 }
 
-function Stats({ built, live, view }: { built: Built; live: Live; view: DesignerMode }) {
+export function Stats({ built, live, view }: { built: Built; live: Live; view: DesignerMode }) {
   // "≈ 14.6 s lap (2WD Buggy, est.)": lap length over the first class's speed (#76)
   const speeds = useClassSpeeds();
   const est = speeds && designerEstimate(live.total, speeds);
@@ -359,6 +359,28 @@ function TypeField({ f, i, live, update }: { f: DesignFeature; i: number; live: 
   );
 }
 
+/** the apex stepper's step (the field's 0.1 m) */
+export const APEX_STEP = 0.1; // m
+
+/** The phone's apex radius (#123): − / value / +, so no keyboard comes up. Stops at 0 and APEX_MAX. */
+function ApexStepper({ apex, onStep }: { apex: number; onStep: (a: number) => void }) {
+  const a = Math.round(apex * 10) / 10;
+  return (
+    <div className="field-row">
+      <span className="seg-label">Apex radius</span>
+      <div className="stepper" role="group" aria-label="Apex radius">
+        <button type="button" className="phone-icon-btn" aria-label="Smaller" disabled={a <= 0} onClick={() => onStep(Math.max(0, a - APEX_STEP))}>
+          <Minus size={20} aria-hidden="true" />
+        </button>
+        <output className="stepper-value" aria-live="polite">{a.toFixed(1)} m</output>
+        <button type="button" className="phone-icon-btn" aria-label="Bigger" disabled={a >= APEX_MAX} onClick={() => onStep(Math.min(APEX_MAX, a + APEX_STEP))}>
+          <Plus size={20} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SelectionPanel({
   sel,
   view,
@@ -369,6 +391,7 @@ export function SelectionPanel({
   fromVenue,
   inCorner,
   touch = false,
+  phone = false,
 }: {
   sel: Selection;
   view: DesignerMode;
@@ -381,7 +404,11 @@ export function SelectionPanel({
   inCorner: Map<number, CheckLevel>;
   /** the tablet's sheet: say what fingers do */
   touch?: boolean;
+  /** the phone's sheet (#123): the apex radius as a stepper, the sizes as chips, and no Delete (it's on the toolbar) */
+  phone?: boolean;
 }) {
+  // the phone's Delete is on its toolbar, not repeated in the sheet
+  const del = (button: ReactElement) => (phone ? null : button);
   const setPoint = (i: number, patch: Partial<DesignPoint>, key: string) =>
     update((d) => ({ ...d, design: { ...d.design, points: d.design.points.map((p, k) => (k === i ? { ...p, ...patch } : p)) } }), `${key}:${i}`);
   const setFeature = (i: number, patch: Partial<DesignFeature>, key: string) =>
@@ -411,16 +438,19 @@ export function SelectionPanel({
           <p className="sel-turn">{turnLabel(draft.design.points, sel.i)}</p>
           {turns ? (
             <>
-              <div className="fields">
-                <NumberField label="Apex radius" value={Math.round(apex * 10) / 10} step={0.1} min={0} max={APEX_MAX} onChange={(v) => v !== undefined && setTo(apexFromField(v), "apex")} />
-              </div>
-              <div className="sizes" role="group" aria-label="Quick sizes">
+              {phone ? null : (
+                <div className="fields">
+                  <NumberField label="Apex radius" value={Math.round(apex * 10) / 10} step={0.1} min={0} max={APEX_MAX} onChange={(v) => v !== undefined && setTo(apexFromField(v), "apex")} />
+                </div>
+              )}
+              <div className={phone ? "sizes phone-sizes" : "sizes"} role="group" aria-label="Quick sizes">
                 {QUICK_SIZES.map((q) => (
-                  <button key={q.label} type="button" className="palette-btn" aria-pressed={Math.abs(apex - q.apex) < 0.005} onClick={() => setTo(q.apex, `size${q.label}`)} title={`Apex radius ${q.apex.toFixed(1)} m`}>
+                  <button key={q.label} type="button" className={phone ? "phone-chip" : "palette-btn"} aria-pressed={Math.abs(apex - q.apex) < 0.005} onClick={() => setTo(q.apex, `size${q.label}`)} title={`Apex radius ${q.apex.toFixed(1)} m`}>
                     {q.label} <span className="size-m">{q.apex.toFixed(1)} m</span>
                   </button>
                 ))}
               </div>
+              {phone && <ApexStepper apex={apex} onStep={(a) => setTo(apexFromField(a), "apex")} />}
               {outerSeg}
               {notes}
               <div role="status">
@@ -439,9 +469,11 @@ export function SelectionPanel({
                 : "This corner is on a straight line: drag it to make a turn, or delete it."}
             </p>
           )}
-          <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= MIN_CORNERS}>
-            Delete corner
-          </button>
+          {del(
+            <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= MIN_CORNERS}>
+              Delete corner
+            </button>,
+          )}
         </section>
       );
     }
@@ -476,10 +508,13 @@ export function SelectionPanel({
         {notes}
         {c && c.th > 1e-3 && Math.abs(c.r - (p.radius ?? 1)) > 0.01 && <p className="hint">The radius is reduced to {c.r.toFixed(2)} m to fit the straights either side.</p>}
         {c && c.th <= 1e-3 && <p className="hint">This point is on a straight line — drag it to make a corner.</p>}
-        <p className="hint">Wheel over the point: radius · Ctrl + wheel: lane width · O: square / round outside.</p>
-        <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= 3}>
-          Delete point
-        </button>
+        {!phone && <p className="hint">Wheel over the point: radius · Ctrl + wheel: lane width · O: square / round outside.</p>}
+        {phone && <p className="hint">Drag the point to move it.</p>}
+        {del(
+          <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= 3}>
+            Delete point
+          </button>,
+        )}
       </section>
     );
   }
@@ -527,9 +562,11 @@ export function SelectionPanel({
               ? `Drag it along the track; it sits on the crossing it's near. Empty top length = the under lane plus 1 m each side; cars need ${BRIDGE_CLEARANCE.toFixed(2)} m to pass under.`
               : "Drag it along the track; it sits on the crossing it's near."}
           </p>
-          <button type="button" className="btn btn-danger" onClick={onDelete}>
-            Delete crossover
-          </button>
+          {del(
+            <button type="button" className="btn btn-danger" onClick={onDelete}>
+              Delete crossover
+            </button>,
+          )}
           {warn}
         </section>
       );
@@ -538,9 +575,11 @@ export function SelectionPanel({
         <section className="sel-panel" aria-labelledby="sel-h">
           <h2 id="sel-h">{fmt.FEATURE_LABEL[f.type]}</h2>
           <p className="hint">Drag it along the track to move it.</p>
-          <button type="button" className="btn btn-danger" onClick={onDelete}>
-            Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
-          </button>
+          {del(
+            <button type="button" className="btn btn-danger" onClick={onDelete}>
+              Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
+            </button>,
+          )}
           {warn}
         </section>
       );
@@ -554,9 +593,11 @@ export function SelectionPanel({
           <NumberField label="Height" value={f.height} placeholder={String(H0)} step={0.01} min={0} onChange={(v) => setFeature(sel.i, { height: v }, "height")} />
         </div>
         <p className="hint">Drag it along the track. Empty length / height = the usual size.</p>
-        <button type="button" className="btn btn-danger" onClick={onDelete}>
-          Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
-        </button>
+        {del(
+          <button type="button" className="btn btn-danger" onClick={onDelete}>
+            Delete {fmt.FEATURE_LABEL[f.type].toLowerCase()}
+          </button>,
+        )}
         {warn}
       </section>
     );

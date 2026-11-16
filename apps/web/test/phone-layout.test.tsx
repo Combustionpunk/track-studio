@@ -97,7 +97,7 @@ describe("a phone with the switch on: header, plan and toolbar", () => {
     for (const label of ["Select", "Add point", "Jump", "Delete", "Undo", "Redo"]) expect(tool(html, label), label).not.toBe("");
     expect(tool(html, "Select")).toContain('aria-pressed="true"');
     expect(tool(html, "Add point")).toContain('aria-pressed="false"');
-    expect(tool(html, "Jump")).toContain("disabled");
+    expect(tool(html, "Jump")).not.toContain("disabled"); // its sheet came with #123
     expect(tool(html, "Delete")).toContain("disabled"); // nothing selected
     expect(tool(html, "Undo")).toContain("disabled");
     expect(tool(html, "Redo")).toContain("disabled");
@@ -184,14 +184,14 @@ describe("the pieces", () => {
   ])("the header's save state for %o: %s", (s, word) => {
     const html = renderToStaticMarkup(
       <MemoryRouter>
-        <PhoneHeader backTo={backTo} name="" {...s} />
+        <PhoneHeader backTo={backTo} name="" {...s} onHelp={() => {}} helpOpen={false} />
       </MemoryRouter>,
     );
     expect(html).toContain(`<span class="phone-save" aria-live="polite">${word}</span>`);
     expect(html).toContain('<p class="phone-name">Untitled track</p>');
   });
 
-  const props = { tool: "select" as const, onSelect: () => {}, onAdd: () => {}, canDelete: false, onDelete: () => {}, undo: () => {}, redo: () => {}, canUndo: false, canRedo: false };
+  const props = { tool: "select" as const, onSelect: () => {}, onAdd: () => {}, canDelete: false, onDelete: () => {}, undo: () => {}, redo: () => {}, canUndo: false, canRedo: false, onJump: () => {} };
   it("Delete is enabled while something can be deleted; Add point is a mode", () => {
     const html = renderToStaticMarkup(<BottomToolbar {...props} tool="add" canDelete canUndo canRedo />);
     expect(tool(html, "Delete")).not.toContain("disabled");
@@ -199,8 +199,9 @@ describe("the pieces", () => {
     expect(tool(html, "Redo")).not.toContain("disabled");
     expect(tool(html, "Add point")).toContain('aria-pressed="true"');
     expect(tool(html, "Select")).toContain('aria-pressed="false"');
-    // Jump's sheet comes with ticket 4: shown, disabled
-    expect(tool(html, "Jump")).toContain("disabled");
+    // Jump opens its sheet (#123); pressed only while a jump is armed
+    expect(tool(html, "Jump")).not.toContain("disabled");
+    expect(tool(html, "Jump")).toContain('aria-pressed="false"');
   });
 
   it("every button has a label and a Lucide icon", () => {

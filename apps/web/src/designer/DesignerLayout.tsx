@@ -13,7 +13,7 @@ import { DesignerBar, DesignerMessages, type DesignerBarProps, type DesignerMess
 import type { LaneGrid } from "./lanes.js";
 import type { DesignerMode } from "./mode.js";
 import { ChecksPill, PlanArea, TabletDock, TabletSheet, type PlanAreaProps, type TabletDockProps } from "./PlanOverlays.js";
-import { PhoneEditLayout, type BottomToolbarProps, type PhoneHeaderProps } from "./PhoneEditLayout.js";
+import { PhoneEditLayout, type PhoneEditLayoutProps } from "./PhoneEditLayout.js";
 import { SidePanel, type PanelProps } from "./SidePanels.js";
 import { ToolPalette, type ToolPaletteProps } from "./ToolPalette.js";
 
@@ -33,8 +33,9 @@ export interface PhoneViewProps {
 export interface DesignerLayoutProps {
   /** under 640 px: the view-only screen */
   phone: boolean;
-  /** under 640 px with the switch on (#122): the header, the plan and the toolbar; `upright` while it's on its side */
-  phoneEdit: { header: PhoneHeaderProps; toolbar: BottomToolbarProps; upright: boolean } | null;
+  /** under 640 px with the switch on (#122): the header, the plan with the checks pill, the sheets (#123) and the
+   * toolbar; `upright` while it's on its side */
+  phoneEdit: Omit<PhoneEditLayoutProps, "view" | "messages" | "planArea"> | null;
   /** a coarse pointer in Quick mode: the plan with a dock */
   tablet: boolean;
   view: DesignerMode;
