@@ -81,8 +81,8 @@ for (const width of [1200, 860]) {
   });
 }
 
-test("375 px: the phone's view-only designer is as before", async ({ page }) => {
+test("375 px: the phone layout, with the checks pill (#124)", async ({ page }) => {
   await open(page, 375);
-  await expect(page.getByRole("heading", { name: "Design on a laptop or tablet" })).toBeVisible();
+  await expect(page.locator(".designer-phone-edit .checks-pill")).toBeVisible();
   await shot(page, "3-phone");
 });

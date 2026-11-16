@@ -12,8 +12,15 @@ export const doc = JSON.parse(readFileSync(`${REF}examples/freeform-at-sports-ha
 const hall = JSON.parse(readFileSync(`${REF}venues/sports-hall-b.rcvenue.json`, "utf8"));
 export const ID = "t-phone";
 
-/** Answer the edit page's API calls: the track (editable), its revision 1, and its venue; collect page errors. */
-export async function serve(page: Page, served = doc) {
+/** what the stubbed API was asked to change: each save (PUT) and submit */
+export interface Calls {
+  saves: { note?: string; baseRevision: number; name: string }[];
+  submits: number;
+}
+
+/** Answer the edit page's API calls, signed in as the author: the track (editable), its revisions, its venue, a save (a
+ * new revision) and a submit; collect page errors. `calls` records the saves and submits. */
+export async function serve(page: Page, served = doc, calls: Calls = { saves: [], submits: 0 }) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => m.type() === "error" && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
@@ -23,19 +30,36 @@ export async function serve(page: Page, served = doc) {
     newerRevision: null, errors: 0, derivedFrom: null, latestPreviewUrl: "", lapLength: 0, corners: 0, size: null, area: hall.area, footprint: { width: 0, height: 0 },
     venue: null, venueTemplateId: null, derivedFromId: null, createdAt: now, updatedAt: now, url: "", previewUrl: "",
   };
+  let current = { ...served, id: ID, revision: 1 };
   await page.route("**/api/**", (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path === `/api/tracks/${ID}`) return route.fulfill({ json: { track, doc: { ...served, id: ID, revision: 1 }, can: { edit: true, submit: true } } });
-    if (path === `/api/tracks/${ID}/r/1`) return route.fulfill({ json: { ...served, id: ID, revision: 1 } });
+    const method = route.request().method();
+    if (path === "/api/me") return route.fulfill({ json: { id: 1, username: "alice", name: "Alice", avatarUrl: null, organiser: false, admin: false, moderator: false } });
+    if (path === "/api/config") return route.fulfill({ json: { devLogin: false, forumUrl: "", baseUrl: "", organiserGroup: "organisers" } });
+    if (path === `/api/tracks/${ID}` && method === "PUT") {
+      const body = route.request().postDataJSON() as { track: typeof served; note?: string; baseRevision: number };
+      calls.saves.push({ note: body.note, baseRevision: body.baseRevision, name: body.track.info.name });
+      track.revision += 1;
+      track.publicRevision = track.revision;
+      track.name = body.track.info.name;
+      current = { ...body.track, built: current.built, id: ID, revision: track.revision };
+      return route.fulfill({ json: { track, doc: current, can: { edit: true, submit: track.status === "draft" } } });
+    }
+    if (path === `/api/tracks/${ID}/submit` && method === "POST") {
+      calls.submits += 1;
+      track.status = "submitted";
+      return route.fulfill({ json: { ok: true } });
+    }
+    if (path === `/api/tracks/${ID}`) return route.fulfill({ json: { track, doc: current, can: { edit: true, submit: track.status === "draft" } } });
+    if (path === `/api/tracks/${ID}/r/${track.revision}`) return route.fulfill({ json: current });
     if (path === "/api/venues/venue-2") return route.fulfill({ json: { venue: { id: "venue-2", name: "Sports hall B" }, doc: hall } });
     return route.fulfill({ status: 404, json: { error: "not found" } });
   });
   return errors;
 }
 
-/** The track open in the designer (the switch on, unless `search` says otherwise), nothing kept from an earlier test; in
- * Advanced mode if asked. */
-export async function open(page: Page, search = "?phone=edit", mode: "quick" | "advanced" = "quick") {
+/** The track open in the designer, nothing kept from an earlier test; in Advanced mode if asked. */
+export async function open(page: Page, search = "", mode: "quick" | "advanced" = "quick") {
   await page.goto(`/t/${ID}/edit${search}`);
   await page.evaluate((mode) => (localStorage.clear(), sessionStorage.clear(), mode === "advanced" && localStorage.setItem("designer-mode", JSON.stringify({ mode }))), mode);
   await page.reload();

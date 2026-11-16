@@ -1,8 +1,8 @@
-// The phone designer's sheets (#123): at 375 × 812 with touch and the switch on, a tapped corner opens its sheet at peek
+// The phone designer's sheets (#123): at 375 × 812 with touch, a tapped corner opens its sheet at peek
 // above the toolbar (no Delete in it; the toolbar's Undo and Delete stay one tap away), the apex stepper changes the
 // radius with no keyboard, a drag tucks the sheet away and it comes back, the checks pill opens Checks in both modes,
 // Show pans the plan and drops the sheet to peek, a jump picked from the Jump sheet arms the tool and a tap places it,
-// and How to draw opens from the header. SHOTS=<dir> saves screenshots for the PR.
+// and How to draw opens from the ⋯ menu. SHOTS=<dir> saves screenshots for the PR.
 import { readFileSync } from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { corners, emptyFloor, middleCorner, open, pinchIn, REF, serve, shot, toolBtn, toolbar, viewBox } from "./phone-helper.js";
@@ -131,7 +131,7 @@ test.describe("phone sheets", () => {
   for (const mode of ["quick", "advanced"] as const) {
     test(`${mode}: the checks pill opens Checks at full height; Show pans the plan to the problem and drops it to peek`, async ({ page }) => {
       const errors = await serve(page, overlap);
-      await open(page, "?phone=edit", mode);
+      await open(page, "", mode);
       await expect(page.locator(".designer")).toHaveClass(new RegExp(`designer-${mode}`));
       await expect(pill(page)).toHaveText("1 error");
       await pill(page).tap();
@@ -199,7 +199,7 @@ test.describe("phone sheets", () => {
 
   test("Advanced's Jump sheet: eight jumps and the Snap radio; Start line selects the start line", async ({ page }) => {
     const errors = await serve(page);
-    await open(page, "?phone=edit", "advanced");
+    await open(page, "", "advanced");
     await toolBtn(page, "Jump").tap();
     const s = page.getByRole("dialog", { name: "Jumps" });
     await expect(s.getByRole("group", { name: "Jumps" }).getByRole("button")).toHaveCount(8);
@@ -212,10 +212,11 @@ test.describe("phone sheets", () => {
     expect(errors).toEqual([]);
   });
 
-  test("How to draw opens from the header, for fingers", async ({ page }) => {
+  test("How to draw opens from the ⋯ menu, for fingers", async ({ page }) => {
     const errors = await serve(page);
     await open(page);
-    await page.getByRole("button", { name: "How to draw" }).tap();
+    await page.getByRole("button", { name: "More" }).tap();
+    await page.getByRole("menuitem", { name: "How to draw" }).tap();
     const s = page.getByRole("dialog", { name: "How to draw" });
     await expect(s).toBeVisible();
     await expect(s).toContainText("pinch to zoom");
@@ -231,7 +232,7 @@ test.describe("a laptop", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "desktop-mouse", "the mouse"));
   test("at 1200 px: Checks stays on the Advanced tab, no pill and no sheets", async ({ page }) => {
     const errors = await serve(page, overlap);
-    await open(page, "?phone=edit", "advanced");
+    await open(page, "", "advanced");
     await expect(page.locator(".designer-side .checks-panel:not(.venue-check)")).toContainText("1 error");
     await expect(page.locator(".checks-pill, section.bottom-sheet, .phone-toolbar")).toHaveCount(0);
     await shot(page, "1200-advanced");
