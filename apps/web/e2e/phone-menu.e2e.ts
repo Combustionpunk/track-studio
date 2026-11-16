@@ -124,6 +124,11 @@ test.describe("phone: save, submit and the ⋯ menu", () => {
     await expect(menu(page)).toHaveCount(0);
     await expect(more(page)).toBeFocused();
     await openMenu(page);
+    // a tap on the grab bar doesn't drop it to peek: every row stays on screen
+    await menu(page).locator(".bottom-sheet-handle").tap();
+    await page.waitForTimeout(300);
+    await expect(item(page, /^Back to track/)).toBeInViewport({ ratio: 1 });
+    await expect(item(page, /^Save revision/)).toBeInViewport({ ratio: 1 });
     // a tap on the scrim, above the menu: it goes, and nothing on the plan changed
     const before = await corners(page);
     const t = await Touch.on(page);

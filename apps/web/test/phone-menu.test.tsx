@@ -250,13 +250,21 @@ describe("the messages: one banner under the header", () => {
 
   it("nothing to say: nothing", () => expect(r(<PhoneBanner {...base} />)).toBe(""));
 
-  it("the restore prompt first, with Restore and Discard and no Dismiss: it's the only way back to the work", () => {
-    const html = r(<PhoneBanner {...base} restore={restore} loggedIn={false} approvedRevision={2} message={{ kind: "info", text: "Hi" }} />);
+  it("the restore prompt, with Restore and Discard and no Dismiss: it's the only way back to the work", () => {
+    const html = r(<PhoneBanner {...base} restore={restore} />);
     expect(count(html)).toBe(1);
     expect(html).toContain("You have unsaved changes from");
     expect(html).toMatch(/<button[^>]*>Restore them<\/button>/);
     expect(html).toMatch(/<button[^>]*>Discard<\/button>/);
     expect(html).not.toContain('aria-label="Dismiss"');
+  });
+
+  it("the restore prompt stays, and what just happened shows under it (a save error must be heard)", () => {
+    const html = r(<PhoneBanner {...base} restore={restore} loggedIn={false} approvedRevision={2} message={{ kind: "error", text: "Somebody saved first" }} />);
+    expect(count(html)).toBe(2);
+    expect(html.indexOf("You have unsaved changes")).toBeLessThan(html.indexOf("Somebody saved first"));
+    expect(html).toMatch(/<div class="msg msg-error" role="alert"><span>Somebody saved first<\/span><button[^>]*aria-label="Dismiss"/);
+    expect(html).not.toContain("not logged in");
   });
 
   it("then what just happened, not logged in, the approved revision; each can be dismissed", () => {

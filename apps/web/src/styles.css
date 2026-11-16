@@ -983,13 +983,16 @@ select.ts-input { padding: 0 var(--space-2); }
 .phone-menu-seg button { min-height: var(--touch-target); padding: 0 var(--space-3); font: 600 14px/20px var(--font-sans); }
 .phone-menu-seg button[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .phone-save-form, .phone-details { display: flex; flex-direction: column; gap: var(--space-3); }
-.phone-sheet .nfield > span:first-child { font: 600 11px/16px var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
-.phone-sheet .nfield input, .phone-sheet .nfield textarea { min-height: var(--touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font: 400 16px/22px var(--font-sans); }
+/* the two new sheets' fields: `label` above, and 16 px text in the field (one step over `body`), the size below which
+   iOS Safari zooms the page in when a field takes the focus */
+:is(.phone-save-form, .phone-details) .nfield > span:first-child { font: 600 11px/16px var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+:is(.phone-save-form, .phone-details) .nfield :is(input, textarea) { min-height: var(--touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--bg); color: var(--text); font: 400 16px/22px var(--font-sans); }
 .phone-details-facts { display: grid; gap: var(--space-2); margin: 0; }
 .phone-details-facts div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--touch-target); }
 .phone-details-facts dt { font: 600 11px/16px var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
 .phone-details-facts dd { margin: 0; font: 400 15px/22px var(--font-sans); text-align: right; }
-.phone-banner .msg { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-2) 0; padding: var(--space-2) var(--space-3); font: 400 13px/18px var(--font-sans); }
+.phone-banner { display: grid; gap: var(--space-2); padding-block: var(--space-2); }
+.phone-banner .msg { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; padding: var(--space-2) var(--space-3); font: 400 13px/18px var(--font-sans); }
 .phone-banner .msg > span { flex: 1 1 auto; min-width: 0; }
 .phone-banner .linkish { display: inline-flex; align-items: center; min-height: var(--touch-target); font-weight: 600; }
 .phone-banner-x { flex: none; display: grid; place-items: center; width: var(--touch-target); height: var(--touch-target); margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-3)) calc(-1 * var(--space-2)) 0; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; cursor: pointer; }

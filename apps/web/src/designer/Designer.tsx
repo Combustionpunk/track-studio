@@ -202,6 +202,8 @@ function ghostFeature(live: Live, type: FeatureType, hover: { s: number; at: Poi
 export function Designer({ mode, initial, base: initialBase, fromVenue, storageKey }: DesignerProps) {
   const navigate = useNavigate();
   const { me, loginUrl } = useSession();
+  const meRef = useRef(me);
+  meRef.current = me;
   const hist = useHistory<Draft>(initial);
   const draft = hist.present;
   const [base, setBase] = useState(initialBase);
@@ -476,9 +478,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         // save works from anywhere, also while typing in a field
         e.preventDefault();
         if (draftRef.current.laying || viewOnlyRef.current) return;
-        // the phone: the Save sheet (#124)
-        if (phoneEditRef.current) setPhoneSheet({ kind: "save", height: "peek" });
-        else setSaveOpen(true);
+        // the phone: the Save sheet (#124), when there's someone to save as (the header offers Log in otherwise)
+        if (phoneEditRef.current) {
+          if (meRef.current) setPhoneSheet({ kind: "save", height: "peek" });
+        } else setSaveOpen(true);
         return;
       }
       if (isTyping(e.target) || viewOnlyRef.current) return; // inputs keep their own undo, delete, etc.; view-only phones
@@ -1436,7 +1439,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   /** the phone's sheet pulled to a height, or closed (Close, Escape, pulled down): a closed selection sheet lets a jump or
    * the start line go, as the tablet's does; a corner stays selected, so Add point still adds after it */
   const phoneSheetHeight = (h: SheetHeight) => {
-    if (h !== "closed") return setPhoneSheet((s) => s && { ...s, height: h });
+    // the menu is as tall as its rows, all of them, or closed: never peek
+    if (h !== "closed") return setPhoneSheet((s) => s && (s.kind === "menu" ? s : { ...s, height: h }));
     if (phoneSheet?.kind === "selection" && sel?.kind !== "point") setSel(null);
     setPhoneSheet(null);
   };

@@ -74,9 +74,9 @@ export interface PhoneBannerProps extends DesignerMessagesProps {
 }
 
 /**
- * The messages under the phone's header as one banner, the most pressing first: the restore prompt (no Dismiss: it is
- * the only way back to the unsaved work, and Discard is its answer), what just happened, not logged in, an approved
- * revision. The others can be dismissed.
+ * The messages under the phone's header as one banner. The restore prompt stays while there is unsaved work on offer
+ * (no Dismiss: it is the only way back to that work, and Discard is its answer); under it, the one note that matters
+ * most of what just happened (a save, an error), not logged in and an approved revision, which can be dismissed.
  */
 export function PhoneBanner({ restore, revision, onRestore, onDiscard, loggedIn, loginUrl, message, approvedRevision, dismissed, onDismiss }: PhoneBannerProps) {
   const dismiss = (key: "message" | "login" | "approved") => (
@@ -84,51 +84,43 @@ export function PhoneBanner({ restore, revision, onRestore, onDiscard, loggedIn,
       <X size={18} aria-hidden="true" />
     </button>
   );
-  let body: ReactNode = null;
-  let kind: "info" | "error" = "info";
-  if (restore) {
-    body = (
+  const note = message ? (
+    <Message kind={message.kind}>
+      <span>{message.text}</span>
+      {dismiss("message")}
+    </Message>
+  ) : !loggedIn && !dismissed.includes("login") ? (
+    <Message>
       <span>
-        You have unsaved changes from {fmt.dateTime(restore.savedAt)}
-        {revision !== undefined && restore.baseRevision !== revision ? ` (made on revision ${restore.baseRevision}; the track is at revision ${revision} now)` : ""}.{" "}
-        <button type="button" className="linkish" onClick={onRestore}>
-          Restore them
-        </button>{" "}
-        ·{" "}
-        <button type="button" className="linkish" onClick={onDiscard}>
-          Discard
-        </button>
+        You're not logged in: your work is kept on this device. <a href={loginUrl}>Log in</a> to save it.
       </span>
-    );
-  } else if (message) {
-    kind = message.kind;
-    body = (
-      <>
-        <span>{message.text}</span>
-        {dismiss("message")}
-      </>
-    );
-  } else if (!loggedIn && !dismissed.includes("login")) {
-    body = (
-      <>
-        <span>
-          You're not logged in: your work is kept on this device. <a href={loginUrl}>Log in</a> to save it.
-        </span>
-        {dismiss("login")}
-      </>
-    );
-  } else if (approvedRevision && !dismissed.includes("approved")) {
-    body = (
-      <>
-        <span>Revision {approvedRevision} is approved: it stays in the library and at meetings until a newer revision is approved. Saving here creates a new draft.</span>
-        {dismiss("approved")}
-      </>
-    );
-  }
-  if (!body) return null;
+      {dismiss("login")}
+    </Message>
+  ) : approvedRevision && !dismissed.includes("approved") ? (
+    <Message>
+      <span>Revision {approvedRevision} is approved: it stays in the library and at meetings until a newer revision is approved. Saving here creates a new draft.</span>
+      {dismiss("approved")}
+    </Message>
+  ) : null;
+  if (!restore && !note) return null;
   return (
     <div className="designer-messages phone-banner">
-      <Message kind={kind}>{body}</Message>
+      {restore && (
+        <Message>
+          <span>
+            You have unsaved changes from {fmt.dateTime(restore.savedAt)}
+            {revision !== undefined && restore.baseRevision !== revision ? ` (made on revision ${restore.baseRevision}; the track is at revision ${revision} now)` : ""}.{" "}
+            <button type="button" className="linkish" onClick={onRestore}>
+              Restore them
+            </button>{" "}
+            ·{" "}
+            <button type="button" className="linkish" onClick={onDiscard}>
+              Discard
+            </button>
+          </span>
+        </Message>
+      )}
+      {note}
     </div>
   );
 }
