@@ -35,7 +35,9 @@ import { Skeleton } from "../components/states.js";
 import { ApiError, api, post, type Permissions, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useApi, useDebounced, useMediaQuery, useSessionChoice, useStored } from "../lib/hooks.js";
-import { LONG_PRESS_MS, slopFor } from "../lib/touch.js";
+import { LONG_PRESS_MS, slopFor, type Spot } from "../lib/touch.js";
+import { LOUPE_LAYOUTS, loupeText } from "../lib/loupe.js";
+import type { LoupeProps } from "../components/PlanView.js";
 import { featureCorners, lanePath, laneRuns, pts } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
 import { useHoldReload } from "../lib/version.js";
@@ -273,6 +275,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   laneSnapRef.current = laneSnap;
   /** tablets, in Quick mode: the plan with a dock, and the panels as a sheet over it */
   const tablet = touch && view === "quick";
+  const tabletRef = useRef(tablet);
+  tabletRef.current = tablet;
   /** tablet: the sheet over the plan shows the selected corner's panel (opened by a long-press) or the checks */
   const [sheet, setSheet] = useState<"selection" | "checks" | null>(null);
   /** a finger held on a corner: the ring fills over LONG_PRESS_MS, then it's selected (`done`) */
@@ -300,6 +304,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [dismissed, setDismissed] = useState<string[]>([]);
   /** a finger (or the mouse) is dragging a handle past the slop: the phone's sheet tucks away until it lifts */
   const [handleDrag, setHandleDrag] = useState(false);
+  /** a finger dragging a handle past the slop where the loupe is on (#125): where the finger is, and what it drags */
+  const [loupeDrag, setLoupeDrag] = useState<{ client: Spot; d: DragKind } | null>(null);
   /** Checks' Show changes the selection: the Checks sheet stays (at peek) rather than giving way to the selection's */
   const showingRef = useRef(false);
   const [hoverPt, setHoverPt] = useState<number | null>(null);
@@ -578,6 +584,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     let longPressed = false;
     /** past the slop: the phone's sheet is tucked away */
     let tucked = false;
+    /** a finger, where the loupe is on (#125): it shows from the slop on, following the finger */
+    const loupeOn = e.pointerType === "touch" && loupeLayout();
     const timer = opts.onLongPress && e.pointerType !== "mouse" && !started ? setTimeout(() => {
       longPressed = true;
       opts.onLongPress!();
@@ -588,6 +596,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         tucked = true;
         setHandleDrag(true);
       }
+      if (tucked && loupeOn) setLoupeDrag({ client: { x: ev.clientX, y: ev.clientY }, d });
       if (!started) {
         if (longPressed || Math.hypot(ev.clientX - x0, ev.clientY - y0) < slopFor(e.pointerType)) return;
         started = true;
@@ -667,6 +676,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setSnapInfo(null);
       setDragging(null);
       if (tucked) setHandleDrag(false);
+      if (loupeOn) setLoupeDrag(null);
       setPress((p) => (p?.done ? p : null)); // a long-press's ring stays while its corner is selected
       edit.current = null;
     };
@@ -688,6 +698,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
   };
+
+  /** the layouts the loupe is on in (#125): the phone's, for now */
+  const loupeLayout = () => (phoneEditRef.current ? LOUPE_LAYOUTS.phone : tabletRef.current && LOUPE_LAYOUTS.tablet);
 
   /** the Add point button: on, or off again */
   const toggleAdd = () => setTool((t) => (t.kind === "add" ? { kind: "select" } : { kind: "add" }));
@@ -1108,6 +1121,26 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const b = bake.built;
     return b && b.features.length === built.features.length ? jumpsInCorner(b.checks, b.features) : new Map<number, CheckLevel>();
   }, [bake.built, built.features.length]);
+  /** the loupe (#125): centred on what the finger drags, read from the live track so it keeps up with the drag */
+  const loupe = ((): LoupeProps | null => {
+    if (!loupeDrag || laying) return null;
+    const { client, d } = loupeDrag;
+    if (d.kind === "point" || d.kind === "mitre" || d.kind === "apex") {
+      const p = pointsList[d.i];
+      if (!p) return null;
+      if (d.kind !== "apex") return { client, at: [p.x, p.z], text: loupeText({ kind: "point", x: p.x, z: p.z }) };
+      const a = apexOf(pointsList, d.i, lw);
+      const c = live.corners[d.i];
+      if (!a || !c) return null;
+      return { client, at: handlePoint(a, c.r), text: loupeText({ kind: "apex", radius: Math.max(0, c.r - c.w / 2) }) };
+    }
+    if (d.kind === "feature") {
+      const f = built.features[d.i], df = draft.design.features?.[d.i];
+      return f && df ? { client, at: [f.x, f.z], text: loupeText({ kind: "along", distance: df.distance }) } : null;
+    }
+    const st = built.startLine;
+    return { client, at: [st.x, st.z], text: loupeText({ kind: "along", distance: st.distance }) };
+  })();
   const overlay = (m: number) => {
     /** Quick step 2: corner i's apex handle (the middle of its inside edge), with its label; null where the line runs straight */
     const apexHandle = (p: DesignPoint, i: number) => {
@@ -1491,6 +1524,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       onHandleWheel={onHandleWheel}
       controls={!tablet && !phoneEdit}
       fitWidth={phoneEdit}
+      loupe={loupe}
       fitRequest={fitRequest}
       onSecondFinger={() => {
         edit.current?.cancel();

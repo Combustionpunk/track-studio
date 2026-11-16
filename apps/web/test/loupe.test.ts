@@ -1,6 +1,6 @@
 // The drag loupe (#125): where it goes in the plan box, including every edge and corner, and its readouts.
 import { describe, expect, it } from "vitest";
-import { LOUPE_GAP_PX, LOUPE_LAYOUTS, LOUPE_MARGIN_PX, LOUPE_PX, LOUPE_READ_PX, LOUPE_ZOOM, loupePlace, loupeText, loupeViewBox, type LoupePlace } from "../src/designer/loupe.js";
+import { LOUPE_READ_MAX_PX, LOUPE_GAP_PX, LOUPE_LAYOUTS, LOUPE_MARGIN_PX, LOUPE_PX, LOUPE_READ_PX, LOUPE_ZOOM, loupePlace, loupeText, loupeViewBox, type LoupePlace } from "../src/lib/loupe.js";
 
 // the phone's plan box at 375 × 812: under the 52 px header, over the 64 px toolbar
 const W = 375, H = 812 - 52 - 64;
@@ -84,6 +84,20 @@ describe("loupe placement", () => {
       inside(p, W, h);
       clearOfFinger(p, { x: 60, y });
     }
+  });
+
+  it("lines the readout up so it stays inside the plan", () => {
+    // where the readout's left and right edges land, for each alignment
+    const readSpan = (p: LoupePlace) =>
+      p.read === "start" ? [p.left, p.left + LOUPE_READ_MAX_PX] : p.read === "end" ? [p.left + LOUPE_PX - LOUPE_READ_MAX_PX, p.left + LOUPE_PX] : [p.left + LOUPE_PX / 2 - LOUPE_READ_MAX_PX / 2, p.left + LOUPE_PX / 2 + LOUPE_READ_MAX_PX / 2];
+    for (let x = 0; x <= W; x += 5) {
+      const [a, b] = readSpan(loupePlace({ x, y: 400 }, W, H));
+      expect(a).toBeGreaterThanOrEqual(LOUPE_MARGIN_PX);
+      expect(b).toBeLessThanOrEqual(W - LOUPE_MARGIN_PX);
+    }
+    expect(loupePlace({ x: 180, y: 400 }, W, H).read).toBe("centre");
+    expect(loupePlace({ x: 0, y: 400 }, W, H).read).toBe("start");
+    expect(loupePlace({ x: W, y: 400 }, W, H).read).toBe("end");
   });
 });
 
