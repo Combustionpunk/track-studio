@@ -218,7 +218,6 @@ export function themeCss(t: Theme): string {
 }
 
 /** What goes in every page's <head>. */
-export const themeHead = (t: Theme) => `<style id="theme">${themeCss(t)}</style>\n<meta name="color-scheme" content="${t.light ? "dark light" : t.scheme.dark ? "dark" : "light"}">\n<meta name="theme-color" content="${normHex(t.colors.headerBg)}">`;
 
 // ------------------------------------------------------------------ sync
 export interface ThemeLog {

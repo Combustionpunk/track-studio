@@ -9,7 +9,7 @@
 // plain blocks, and the selected item's highlight is a mesh of its own.
 //
 // Positions are in three.js axes: x = plan x (east), y = up, z = −plan z (three's +z is south). Normals likewise.
-import { crossingCarpet, drawingArea, EYE_HEIGHT, PIPE_THICKNESS, PLAN_PALETTE, rostrumEye, type Area, type Built, type BuiltFeature, type Divider, type Obstacle, type Point2, type RcTrack, type Side } from "@track-studio/engine";
+import { crossingCarpet, drawingArea, EYE_HEIGHT, PIPE_THICKNESS, PLAN_PALETTE, rostrumEye, type Area, type PlanPalette, type Built, type BuiltFeature, type Divider, type Obstacle, type Point2, type RcTrack, type Side } from "@track-studio/engine";
 
 export type Part = "area" | "carpet" | "pipe" | "jump" | "jumpSide" | "startA" | "startB" | "line" | "rostrum" | "rail" | "guide" | "highlight";
 
@@ -42,19 +42,29 @@ const START_Y = 0.004;
 const LINE_Y = 0.006;
 const LINE_WIDTH = 0.05;
 
-const COLOUR: Record<Part, string> = {
-  area: PLAN_PALETTE["plan-area"],
-  carpet: PLAN_PALETTE["plan-carpet"],
-  pipe: PLAN_PALETTE["plan-pipe"],
-  jump: PLAN_PALETTE["plan-jump"],
-  jumpSide: PLAN_PALETTE["plan-jump-edge"],
-  startA: PLAN_PALETTE["plan-pipe"],
-  startB: PLAN_PALETTE["plan-floor"],
-  line: PLAN_PALETTE["plan-line"],
-  rostrum: PLAN_PALETTE["plan-rostrum"],
-  rail: PLAN_PALETTE["plan-pipe"],
-  guide: PLAN_PALETTE["plan-obstacle"],
-  highlight: PLAN_PALETTE["plan-line"],
+/** Each part's colour in a plan palette (the theme's, #135): the 3D view matches the 2D plan. */
+export function partColours(P: PlanPalette = PLAN_PALETTE): Record<Part, string> {
+  return {
+    area: P["plan-area"],
+    carpet: P["plan-carpet"],
+    pipe: P["plan-pipe"],
+    jump: P["plan-jump"],
+    jumpSide: P["plan-jump-edge"],
+    startA: P["plan-pipe"],
+    startB: P["plan-floor"],
+    line: P["plan-line"],
+    rostrum: P["plan-rostrum"],
+    rail: P["plan-pipe"],
+    guide: P["plan-obstacle"],
+    highlight: P["plan-line"],
+  };
+}
+const COLOUR = partColours();
+/** The meshes in a palette's colours (they are made in the fixed palette's). */
+const painted = (meshes: MeshData[], P?: PlanPalette) => {
+  if (!P) return meshes;
+  const c = partColours(P);
+  return meshes.map((m) => ({ ...m, colour: c[m.part] }));
 };
 
 /** Collects one mesh. Takes plan coordinates (x, z, height) and normals (nx, up, nz). */
@@ -512,7 +522,7 @@ function addStart(a: Mesh, b: Mesh, built: Built, bridges: Bridge[]) {
  * The whole layout: the area as the floor, carpet, pipes, jumps and bridges, start line and racing line; and in the
  * designer, the guide's obstacles.
  */
-export function buildScene({ area, built, obstacles = [] }: { area: Area; built: Built; obstacles?: Obstacle[] }): Scene3D {
+export function buildScene({ area, built, obstacles = [], palette }: { area: Area; built: Built; obstacles?: Obstacle[]; palette?: PlanPalette }): Scene3D {
   const floor = new Mesh();
   const L = area.length / 2, W = area.width / 2;
   floor.face([[-L, -W, 0], [L, -W, 0], [L, W, 0], [-L, W, 0]], [0, 1, 0]);
@@ -537,7 +547,7 @@ export function buildScene({ area, built, obstacles = [] }: { area: Area; built:
     (m) => m.indices.length > 0,
   );
   const shown = (built.crossings ?? []).flatMap((c, i) => (bridges.some((b) => b.crossings.includes(i)) ? [{ feature: c.bridge!.feature, over: c.over! }] : []));
-  return { area, background: PLAN_PALETTE["plan-floor"], meshes, triangles: meshes.reduce((n, m) => n + m.indices.length / 3, 0), bridges: shown };
+  return { area, background: (palette ?? PLAN_PALETTE)["plan-floor"], meshes: painted(meshes, palette), triangles: meshes.reduce((n, m) => n + m.indices.length / 3, 0), bridges: shown };
 }
 
 // ------------------------------------------------------------------------------------------- the designer (#85)
@@ -588,7 +598,7 @@ const POST: [number, number] = [0.3, 1.2];
  * The selected item as a box round it, drawn see-through over the layout: a jump's footprint up over its top, a post
  * on a corner's point, or a low box across the lane at the start line. Null when there's nothing (yet) to show.
  */
-export function highlightMesh(built: Built, h: Highlight): MeshData | null {
+export function highlightMesh(built: Built, h: Highlight, palette?: PlanPalette): MeshData | null {
   if (!h) return null;
   const m = new Mesh();
   if (h.kind === "feature") {
@@ -603,7 +613,7 @@ export function highlightMesh(built: Built, h: Highlight): MeshData | null {
     if (!s) return null;
     addPrism(m, rectRing(s.x, s.z, (s.heading * Math.PI) / 180, 0.3, s.width / 2 + HIGHLIGHT_MARGIN), 0, 0.25);
   }
-  return m.done("highlight");
+  return painted([m.done("highlight")], palette)[0];
 }
 
 /** The jump whose footprint has plan point p in it (the smallest, if they overlap), or null. */
@@ -642,7 +652,7 @@ const RAIL_POSTS = 5;
  * A simple rostrum where rostrumEye puts the drivers on `side` (a layout has none: this is the viewer's, so the orbit
  * view shows where the rostrum view stands): a deck centred on the spot and a rail along its front, facing the area.
  */
-export function rostrumMeshes(area: Area, side: Side): MeshData[] {
+export function rostrumMeshes(area: Area, side: Side, palette?: PlanPalette): MeshData[] {
   const e = rostrumEye(area, side);
   const ns = side === "north" || side === "south";
   const out = side === "north" || side === "east" ? 1 : -1; // away from the area, along the side's axis
@@ -661,7 +671,7 @@ export function rostrumMeshes(area: Area, side: Side): MeshData[] {
     const a = -along + b + ((2 * along - RAIL_BAR) * k) / (RAIL_POSTS - 1);
     box(rail, a - b, a + b, front, front + RAIL_BAR, DECK_HEIGHT, top - RAIL_BAR);
   }
-  return [deck.done("rostrum"), rail.done("rail")];
+  return painted([deck.done("rostrum"), rail.done("rail")], palette);
 }
 
 /** The scene for a layout file: its drawing area and built section (never its design). */

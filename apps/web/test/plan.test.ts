@@ -109,9 +109,9 @@ describe("one plan drawing everywhere", () => {
   const WEB = join(__dirname, "..");
   const src = (f: string) => readFileSync(join(WEB, f), "utf8");
 
-  it("the web app's plan colours are the engine's plan palette (tokens.json plan-*)", () => {
+  it("the web app's plan colours have every role of the engine's plan palette, from the theme (#135, test/theme.test.ts)", () => {
     const css = src("src/theme/plan-palette.css");
-    for (const [name, value] of Object.entries(PLAN_PALETTE)) expect(css, name).toContain(`--${name}: ${value};`);
+    for (const name of Object.keys(PLAN_PALETTE)) expect(css, name).toMatch(new RegExp(`--${name}: [^;]*var\\(--rm-`));
   });
 
   it("PlanView and the venue thumbnails draw with the engine's planLayers, not shapes of their own", () => {

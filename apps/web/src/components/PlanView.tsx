@@ -2,6 +2,7 @@
 // double-click / buttons, toggle layers, hover jumps, checks and obstacles for details. Two fingers pinch and pan
 // wherever they land, handles included, and nothing under them gets the touch (#16).
 import { niceLength, planLayers, type Area, type Built, type Check, type DesignFeature, type Obstacle, type PlanLayer, type Point2, type Side } from "@track-studio/engine";
+import { usePlanPalette } from "../lib/theme.js";
 import { Layers as LayersIcon, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { FEATURE_LABEL, metres } from "../lib/format.js";
@@ -338,7 +339,8 @@ export function PlanView(props: PlanViewProps) {
   const uid = useId().replace(/[^\w-]/g, "");
   const scene = useMemo(() => ({ area, obstacles, built, rostrum: props.rostrum }), [area, obstacles, built, props.rostrum]);
   const drawn = useMemo(() => (props.checksInOverlay ? { ...layers, checks: false } : layers), [layers, props.checksInOverlay]);
-  const drawing = useMemo(() => planLayers(scene, { px: pxStep, layers: drawn, tips: interactive, id: `plan${uid}` }), [scene, pxStep, drawn, interactive, uid]);
+  const palette = usePlanPalette(); // the theme's colours (#135)
+  const drawing = useMemo(() => planLayers(scene, { px: pxStep, layers: drawn, tips: interactive, id: `plan${uid}`, palette }), [scene, pxStep, drawn, interactive, uid, palette]);
   const scaleBar = v ? niceLength(120 / v.s) : 1;
 
   return (

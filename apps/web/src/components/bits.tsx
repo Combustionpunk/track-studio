@@ -1,5 +1,6 @@
 // Small shared pieces: status badge, copy button, messages, venue thumbnail.
 import { planLayers, venueRostrum, type RcVenue } from "@track-studio/engine";
+import { usePlanPalette } from "../lib/theme.js";
 import { useId, useState, type ReactNode } from "react";
 import { STATUS_LABEL } from "../lib/format.js";
 import type { TrackStatus } from "../lib/api.js";
@@ -45,7 +46,8 @@ export function VenueThumb({ venue }: { venue: RcVenue }) {
   const rostrum = venueRostrum(venue.area, venue.rostrum?.side, venue.rostrum?.offset);
   const uid = useId().replace(/[^\w-]/g, "");
   // drawn for a ~300 px wide card
-  const drawing = planLayers({ area: venue.area, obstacles: venue.obstacles, rostrum }, { px: (b.x1 - b.x0) / 300, layers: { grid: false }, id: `venue${uid}` });
+  const palette = usePlanPalette();
+  const drawing = planLayers({ area: venue.area, obstacles: venue.obstacles, rostrum }, { px: (b.x1 - b.x0) / 300, layers: { grid: false }, id: `venue${uid}`, palette });
   return (
     <svg className="venue-thumb" viewBox={`${b.x0} ${b.y0} ${b.x1 - b.x0} ${b.y1 - b.y0}`} role="img" aria-label={`${venue.info.name} outline`}>
       <g dangerouslySetInnerHTML={{ __html: drawing }} />

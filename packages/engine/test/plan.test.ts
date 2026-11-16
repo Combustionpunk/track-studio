@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { bake, fits, jumpSymbol, reverseDesign, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type PlanScene, type Point2, type RcTrack, type RcVenue } from "../src/index.js";
+import { bake, fits, jumpSymbol, reverseDesign, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type PlanPalette, type PlanScene, type Point2, type RcTrack, type RcVenue } from "../src/index.js";
 import { allTracks, examples, readJson, referenceDir, repoRoot, venues } from "./helpers.js";
 
 const club = () => readJson<RcTrack>(join(referenceDir, "examples", "club-a.rctrack.json"));
@@ -28,6 +28,23 @@ describe("plan palette", () => {
     const tokens = JSON.parse(readFileSync(join(repoRoot, "docs/design/tokens.json"), "utf8")) as { color: { tokens: { name: string; value: string }[] } };
     const plan = Object.fromEntries(tokens.color.tokens.filter((t) => t.name.startsWith("plan-")).map((t) => [t.name, t.value]));
     expect(PLAN_PALETTE).toEqual(plan);
+  });
+
+  it("can be replaced by a theme's palette (#135): every colour drawn comes from it", () => {
+    // distinct, made-up colours, so any colour left from the fixed palette shows up
+    const theme = Object.fromEntries(Object.keys(PLAN_PALETTE).map((k, i) => [k, `#0000${(i + 16).toString(16).padStart(2, "0")}`])) as PlanPalette;
+    const hex = (s: string) => new Set([...s.matchAll(/#[0-9a-f]{3,8}\b/gi)].map((m) => m[0].toLowerCase()));
+    for (const scene of [inVenue(club(), { obstacles: venues.flatMap(({ path }) => readJson<RcVenue>(path).obstacles ?? []) }), ...allTracks.map(({ path }) => planScene(readJson<RcTrack>(path)))]) {
+      const used = hex(planLayers(scene, { px: 0.025, palette: theme }));
+      for (const c of used) expect(Object.values(theme)).toContain(c);
+    }
+    const svg = draw(club(), { px: 0.025, palette: theme });
+    expect(svg).toContain(`fill="${theme["plan-carpet"]}"`);
+    expect(svg).toContain(`stroke="${theme["plan-line"]}"`);
+    expect(svg).toContain(`stroke="${theme["plan-pipe"]}"`);
+    expect(svg).toContain(`stroke="${theme["plan-grid"]}"`);
+    // the default is still the fixed palette (previews, cards and the embed's server-side pictures)
+    expect(draw(club())).toBe(draw(club(), { px: 0.025, palette: PLAN_PALETTE }));
   });
 });
 

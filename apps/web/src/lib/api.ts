@@ -188,6 +188,8 @@ export interface Me {
   organiser: boolean;
   admin: boolean;
   moderator: boolean;
+  /** the member's theme from the forum (a brand theme id), once the forum sends it (discourse-event-system #388) */
+  theme?: string | null;
 }
 
 export interface ServerConfig {
@@ -228,19 +230,6 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
 }
 
 export const post = <T>(path: string, json: unknown = {}) => api<T>(path, { method: "POST", json });
-
-/** The site theme (synced from the forum), as served by GET /api/theme.json. */
-export interface Theme {
-  source: "forum" | "cache" | "fallback";
-  syncedAt: string | null;
-  scheme: { name: string; dark: boolean };
-  colors: Record<string, string>;
-  light: { name: string; colors: Record<string, string> } | null;
-  fonts: { body: string; headings: string };
-}
-
-/** Organisers: fetch the forum's colour scheme now. `css` replaces the page's <style id="theme">. */
-export const refreshTheme = () => post<{ ok: boolean; error?: string; theme: Theme; css: string }>("/api/theme/refresh");
 
 /** Query string from an object, skipping empty values. */
 export function qs(params: Record<string, string | number | undefined | null>): string {
