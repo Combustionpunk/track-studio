@@ -64,7 +64,7 @@ describe("the designer's 2D / 3D switch", () => {
     expect(toggle(render(draftFromDoc(adapted())))).toContain(">3D</button>");
   });
 
-  it("not on a phone (3D on a phone is #127)", () => {
+  it("not on a phone without its switch (the phone's 3D button, #127, is in phone-3d.test.tsx)", () => {
     setup("quick", "3d", PHONE_QUERY);
     const html = render(draftFromDoc(adapted()));
     expect(html).toContain("designer-phone-edit");

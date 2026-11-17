@@ -311,6 +311,20 @@ html:has(.designer-phone-edit), body:has(.designer-phone-edit) { overscroll-beha
 @media (max-width: 359px) {
   .phone-tool-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+/* the seventh button, 3D (#127): 7 × 44 px = 308 px, so at 320 px the toolbar drops its gaps to fit; under 312 px it
+   would scroll rather than shrink a button below a finger */
+@media (max-width: 359px) {
+  .phone-toolbar-7 { gap: 0; padding-inline: 2px; overflow-x: auto; }
+  .phone-toolbar-7 .phone-tool { flex: 1 0 var(--touch-target); padding: 0; }
+}
+/* 3D on a phone: the no-WebGL note across the bottom of the plan, and the figures for the Board (with the switch on)
+   over the plan's foot, right */
+.designer-phone-edit .designer-3d-note { left: var(--space-3); right: var(--space-3); bottom: 36px; max-width: none; }
+/* the 3D view's own controls on a phone: below the checks pill, and a finger wide */
+.designer-phone-edit .plan3d .plan-controls { top: calc(var(--space-3) + var(--touch-target) + var(--space-2)); right: var(--space-3); }
+.designer-phone-edit .plan3d .plan3d-rostrum { left: var(--space-3); bottom: var(--space-3); }
+.designer-phone-edit .plan3d .plan-controls button, .designer-phone-edit .plan3d-rostrum button, .designer-phone-edit .plan3d-rostrum > span { min-width: var(--touch-target); height: var(--touch-target); }
+.phone-3d-figures { position: absolute; right: var(--space-3); bottom: calc(var(--space-3) + var(--touch-target) + var(--space-2)); z-index: 4; margin: 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--header); box-shadow: var(--shadow-float); color: var(--text-muted); font: 500 12px/16px var(--font-sans); font-variant-numeric: tabular-nums; pointer-events: none; }
 /* a phone on its side: the message over the plan, which stays where it was */
 .phone-upright { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: var(--space-6); background: var(--plan-dim); }
 .phone-upright-card { display: grid; justify-items: center; gap: var(--space-3); max-width: 360px; padding: var(--space-6); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-float); text-align: center; }

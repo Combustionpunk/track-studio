@@ -28,7 +28,7 @@ import {
 } from "@track-studio/engine";
 import { lazy, Suspense, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePlanPalette } from "../lib/theme.js";
-import { useBlocker, useNavigate } from "react-router-dom";
+import { useBlocker, useNavigate, useSearchParams } from "react-router-dom";
 import { DEFAULT_LAYERS, PlanView, type Layers } from "../components/PlanView.js";
 import type { SheetHeight } from "../components/Sheet.js";
 import { Skeleton } from "../components/states.js";
@@ -79,6 +79,7 @@ import { addKey, floorTap, keyInsert, lanePress, stepCorner } from "./addtool.js
 import { defaultRostrumSide } from "../viewer3d/rostrum.js";
 import type { Highlight } from "../viewer3d/scene.js";
 import { hasWebGL } from "../viewer3d/support.js";
+import { figures3d, lastRun, PHONE_3D_PARAM, phone3dSwitch, RUN_GAP_MS, type FrameRun } from "../lib/phone3d.js";
 import type { KeptCamera } from "../viewer3d/Viewer3D.js";
 
 // the 3D preview (#85): three.js and the viewer load only when 3D is opened
@@ -200,6 +201,15 @@ function ghostFeature(live: Live, type: FeatureType, hover: { s: number; at: Poi
   const f = addCrossover([], live.crossings, hover.at, hover.s, live.total).features[0];
   const k = live.crossings.findIndex((c) => c.distances.includes(f.distance));
   return placeFeature(live, f, k < 0 ? undefined : live.spans[k][f.over === "second" ? 1 : 0]);
+}
+
+/** this device's localStorage, if the browser lets the page have it */
+function deviceStorage(): Storage | undefined {
+  try {
+    return localStorage;
+  } catch {
+    return undefined;
+  }
 }
 
 export function Designer({ mode, initial, base: initialBase, fromVenue, storageKey }: DesignerProps) {
@@ -352,21 +362,50 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     };
   }, [bake.built, live]);
 
-  // the 3D preview (#85): view only, of the latest bake (as the checks panel), once it has settled; not on phones, and
-  // not while laying the lanes (no track yet)
+  // the 3D preview (#85): view only, of the latest bake (as the checks panel), once it has settled; not while laying the
+  // lanes (no track yet), and on a phone (#127) only with its switch on (`?phone3d=1`) until the Board has measured it
+  const [params] = useSearchParams();
+  const phone3dParam = params.get(PHONE_3D_PARAM);
+  const phone3d = useMemo(() => phone3dSwitch(phone3dParam, deviceStorage()), [phone3dParam]);
   const [view3d, setView3d] = useSessionChoice("designer-view", VIEWS, "2d");
-  const shown3d = view3d === "3d" && !laying && !phoneEdit;
+  const shown3d = view3d === "3d" && !laying && (!phoneEdit || phone3d);
   const [noWebGL, setNoWebGL] = useState<"none" | "lost">();
   const no3d = shown3d ? (noWebGL ?? (hasWebGL() ? undefined : "none")) : undefined;
   // the 3D view is on the screen (not its 2D fallback, which edits as usual): the plan's editing keys wait for 2D
   const viewing3d = shown3d && !no3d;
   const viewing3dRef = useRef(viewing3d);
   viewing3dRef.current = viewing3d;
-  // the 3D view is made afresh each time 3D is chosen, so a lost graphics context is left behind then
+  // the phone's figures for the Board (#127, with the switch on): from the tap on 3D to its first frame, and the last
+  // orbit's frames; worked out once a run of frames ends, so measuring doesn't re-render the designer every frame
+  const [figures, setFigures] = useState("");
+  const measure = useRef<{ opened: number | null; first: number | null; run: FrameRun | null; times: number[]; timer?: ReturnType<typeof setTimeout> }>({ opened: null, first: null, run: null, times: [] });
+  const onFrame3d = useCallback((t: number) => {
+    const m = measure.current;
+    if (m.first === null && m.opened !== null) {
+      m.first = t - m.opened;
+      setFigures(figures3d(m.first, m.run));
+    }
+    m.times.push(t);
+    if (m.times.length > 1200) m.times.splice(0, 600);
+    clearTimeout(m.timer);
+    m.timer = setTimeout(() => {
+      const run = lastRun(m.times);
+      if (run && run !== m.run) setFigures(figures3d(m.first, (m.run = run)));
+    }, RUN_GAP_MS + 50);
+  }, []);
+  useEffect(() => () => clearTimeout(measure.current.timer), []);
+  // the 3D view is made afresh each time 3D is chosen, so a lost graphics context is left behind then; on a phone, 3D
+  // puts the open sheet away and the tool back to Select (the editing tools wait for 2D)
   const chooseView = useCallback(
     (k: (typeof VIEWS)[number]) => {
       setView3d(k);
-      if (k === "3d") setNoWebGL((w) => (w === "lost" ? undefined : w));
+      if (k !== "3d") return;
+      setNoWebGL((w) => (w === "lost" ? undefined : w));
+      if (phoneEditRef.current) {
+        setPhoneSheet(null);
+        setTool({ kind: "select" });
+      }
+      measure.current = { opened: performance.now(), first: null, run: null, times: [] };
     },
     [setView3d],
   );
@@ -1004,10 +1043,16 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       showingRef.current = false;
       return;
     }
+    // 3D is view only (#127): no sheet to edit in until 2D
+    if (viewing3dRef.current) return;
     // (the context sheet goes with what it was for, as undo can take it away)
     if (!sel) setPhoneSheet((s) => (s?.kind === "selection" || s?.kind === "context" ? null : s));
     else setPhoneSheet((s) => (s?.kind === "selection" ? s : { kind: "selection", height: "peek" }));
   }, [sel]);
+  // back from 3D on a phone (#127): what's selected (a jump tapped in 3D, or what was before) has its sheet again
+  useEffect(() => {
+    if (!viewing3d && phoneEditRef.current && selRef.current) setPhoneSheet((s) => s ?? { kind: "selection", height: "peek" });
+  }, [viewing3d]);
   // out of the phone layout (laying again, or a wider window): no sheet waits to come back stale
   useEffect(() => {
     if (!phoneEdit) setPhoneSheet(null);
@@ -1508,7 +1553,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if ((phoneSheet?.kind === "selection" || phoneSheet?.kind === "context") && sel?.kind !== "point") setSel(null);
     setPhoneSheet(null);
   };
-  /** the plan, or the 3D view, in every layout but the phone's */
+  /** the plan, or the 3D view (on a phone, with its switch on: #127) */
   const plan = viewing3d ? (
     <Suspense
       fallback={
@@ -1531,6 +1576,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           rostrum={rostrum}
           onRostrum={onRostrum}
           keep={keep3d}
+          onFrame={phoneEdit && phone3d ? onFrame3d : undefined}
         />
       ) : (
         <div role="status" aria-busy="true" className="designer-plan">
@@ -1575,6 +1621,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       }}
     />
   );
+  const phone3dLabel = shown3d && no3d !== "lost" ? "2D" : "3D";
   const panels: PanelProps = { view, checks: built.checks, bakedFeatures, pending: bake.pending, showSubmit, blocked, onShow: showCheck, onMakeCrossover: makeItACrossover, onBridge: bridgeIt, draft, drawn, sel, live, update, onDelete: deleteSelection, venueName, inCorner, checksHeading };
   const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
   const history = { undo, redo, canUndo: hist.canUndo, canRedo: hist.canRedo };
@@ -1618,7 +1665,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                 onDelete: deleteSelection,
                 ...history,
                 onJump: () => togglePhoneSheet("jump", "peek"),
+                // 3D (#127): reads 2D while the preview shows, and while its no-WebGL message does (a tap puts it
+                // away); after a lost context it reads 3D again, to try again
+                view3d: phone3d ? { label: phone3dLabel, onToggle: () => chooseView(phone3dLabel === "2D" ? "2d" : "3d") } : undefined,
+                viewOnly: viewing3d,
               },
+              figures3d: phone3d && viewing3d ? figures : undefined,
               upright: landscapePhone,
               pill: { checks: built.checks, pending: bake.pending, open: phoneSheet?.kind === "checks", onToggle: () => togglePhoneSheet("checks", "full") },
               sheets: {
