@@ -140,7 +140,7 @@ describe("the context sheet on PhoneSheets", () => {
     const out = sheet(view, sel);
     expect(out).toMatch(new RegExp(`<section class="bottom-sheet bottom-sheet--peek[^"]*phone-sheet-context[^"]*"[^>]*role="dialog" aria-label="${name}"`));
     expect(out).not.toContain("bottom-sheet-scrim");
-    expect(out).toContain(`role="menu" aria-label="${name}"`);
+    expect(out).toContain(`<h2>${name}</h2><ul class="phone-menu phone-context" role="menu" aria-label="${name}"`);
     expect(out).toContain(">Delete<");
     // the actions only: no fields from the selection sheet
     expect(out).not.toContain("<input");

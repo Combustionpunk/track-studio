@@ -224,7 +224,11 @@ export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps, men
       {kind === "selection" ? (
         <SelectionPanel sel={p.sel} view={p.view} draft={p.drawn} live={p.live} update={p.update} onDelete={p.onDelete} fromVenue={p.venueName} inCorner={p.inCorner} touch phone />
       ) : kind === "context" ? (
-        <PhoneContext actions={contextActions(p.sel, p.view, p.drawn, p.live)} label={label} onAction={context.onAction} />
+        <>
+          {/* what's held, as the selection sheet's heading says */}
+          <h2>{label}</h2>
+          <PhoneContext actions={contextActions(p.sel, p.view, p.drawn, p.live)} label={label} onAction={context.onAction} />
+        </>
       ) : kind === "checks" ? (
         <PhoneChecks {...p} built={built} />
       ) : kind === "jump" ? (
