@@ -983,6 +983,8 @@ select.ts-input { padding: 0 var(--space-2); }
 .phone-menu { display: grid; margin: 0; padding: 0; list-style: none; }
 .phone-menu-item { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 52px; padding: 6px var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: 600 14px/20px var(--font-sans); text-align: left; text-decoration: none; cursor: pointer; }
 .phone-menu-item.phone-menu-primary { color: var(--accent); }
+.phone-menu-item.phone-menu-danger { color: var(--danger-text); }
+.phone-menu-item.phone-menu-danger:disabled { color: var(--text-muted); }
 .phone-menu-item:disabled, .phone-menu-item[aria-disabled="true"] { color: var(--text-muted); cursor: not-allowed; }
 .phone-menu-item:disabled svg, .phone-menu-item[aria-disabled="true"] svg { opacity: 0.45; }
 .phone-menu-item:focus-visible, .phone-menu-seg button:focus-visible { outline: none; box-shadow: var(--focus-ring); }

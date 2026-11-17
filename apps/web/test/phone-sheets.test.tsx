@@ -86,6 +86,7 @@ const others = {
   menu: { view: "quick" as const, onView: nop, save: { label: "Save revision", state: "Saved", disabled: true, loginUrl: null, onSave: nop }, submit: { why: null, onSubmit: nop, onSeeChecks: null }, reverse: { onReverse: nop, canReverse: true }, onFit: nop, onDetails: nop, onHowTo: nop, backTo: { to: "/t/x", label: "Back to track" } },
   save: { mode: "edit" as const, note: "", setNote: nop, onSave: nop, saving: false, revision: 1, approvedRevision: null },
   details: { name: "X", onName: nop, description: undefined, onDescription: nop, venueName: undefined, area: { length: 22, width: 12 }, status: undefined },
+  context: { onAction: nop },
 };
 const sheet = (kind: "selection" | "checks" | "jump" | "howto", p: PanelProps, height: "peek" | "full" = "peek", tucked = false, j = jumps(p.view)) =>
   render(<PhoneSheets sheet={{ kind, height }} onHeight={() => {}} tucked={tucked} panels={p} built={baked ?? ref<RcTrack>("examples/club-a.rctrack.json").built!} jumps={j} {...others} />);

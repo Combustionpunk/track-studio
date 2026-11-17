@@ -184,7 +184,7 @@ export function PhoneEditLayout({ view, header, banner, planArea, toolbar, uprig
     <div className={`designer designer-phone-edit designer-${view}`}>
       <PhoneHeader {...header} />
       <PhoneBanner {...banner} />
-      <PlanArea {...planArea} viewSwitch={false}>
+      <PlanArea {...planArea} viewSwitch={false} noContextMenu>
         <ChecksPill {...pill} />
       </PlanArea>
       <PhoneSheets {...sheets} />
