@@ -1,20 +1,25 @@
 // The phone designer's sheets (#123; mockups docs/design/phone/02-selected-point.html, 03-checks-sheet.html): the
 // desktop's side panels as bottom sheets on `Sheet`, above the toolbar, one at a time. Selection (opens at peek when
 // something is tapped), Checks (from the checks pill, at full height, in both modes), Jump (from the toolbar's Jump)
-// and How to draw. The Designer owns which sheet is open and its height; a drag on the plan tucks it away.
-import type { Built } from "@track-studio/engine";
+// and How to draw; and the context sheet (#126), the actions for what a finger held. The Designer owns which sheet is
+// open and its height; a drag on the plan tucks it away.
+import { outerStyle, type Built } from "@track-studio/engine";
+import { CornerUpLeft, Square, SquareRoundCorner, Trash2 } from "lucide-react";
 import { Sheet, type SheetHeight } from "../components/Sheet.js";
 import { FEATURE_LABEL } from "../lib/format.js";
 import type { Draft, Selection } from "./Designer.js";
+import type { Live } from "./geometry.js";
 import { JumpPalette } from "./JumpPalette.js";
 import { PhoneDetails, PhoneMenu, PhoneSave, type PhoneDetailsProps, type PhoneMenuProps, type PhoneSaveProps } from "./PhoneMenu.js";
-import { paletteJumps, type DesignerMode } from "./mode.js";
+import { allows, paletteJumps, type DesignerMode } from "./mode.js";
+import { MIN_CORNERS } from "./shape.js";
+import { makeHairpin } from "./snap.js";
 import { ChecksPanel, SelectionPanel, Stats, type PanelProps } from "./SidePanels.js";
 import { SNAP_LABEL, type ToolPaletteProps } from "./ToolPalette.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
 
 /** the sheets above the toolbar, and the ⋯ menu (#124), the one modal sheet, over the toolbar too */
-export type PhoneSheetKind = "selection" | "checks" | "jump" | "howto" | "save" | "details" | "menu";
+export type PhoneSheetKind = "selection" | "context" | "checks" | "jump" | "howto" | "save" | "details" | "menu";
 /** the open sheet and its height (a sheet that closes is `null`, not "closed") */
 export interface PhoneSheetOpen {
   kind: PhoneSheetKind;
@@ -30,6 +35,60 @@ export function sheetLabel(sel: Selection, view: DesignerMode, draft: Draft): st
   }
   if (sel?.kind === "start") return "Start line";
   return "Selected";
+}
+
+/** what the context sheet can do to what's held (#126) */
+export type ContextActionKind = "delete" | "outer" | "hairpin";
+export interface ContextAction {
+  action: ContextActionKind;
+  label: string;
+  /** why it can't be done here, or undefined when it can */
+  why?: string;
+}
+
+/**
+ * The context sheet's actions for what a finger held: Delete; for a corner, the outside corner it doesn't have now
+ * (as the O key); in Advanced, Make hairpin (as the H key). Delete is listed for the start line too, disabled with the
+ * reason, so a long press always shows what it can and can't do.
+ */
+export function contextActions(sel: Selection, view: DesignerMode, draft: Draft, live: Pick<Live, "corners">): ContextAction[] {
+  if (!sel) return [];
+  if (sel.kind === "start") return [{ action: "delete", label: "Delete", why: "A track always has a start line: drag it along the track to move it." }];
+  if (sel.kind === "feature") return [{ action: "delete", label: "Delete" }];
+  const pts = draft.design.points;
+  const p = pts[sel.i], c = live.corners[sel.i];
+  if (!p) return [];
+  const out: ContextAction[] = [{ action: "delete", label: "Delete", why: pts.length <= MIN_CORNERS ? `A track needs at least ${MIN_CORNERS} corner points.` : undefined }];
+  if (c && allows(view, "outer")) out.push({ action: "outer", label: outerStyle(p, c) === "square" ? "Round outside corner" : "Square outside corner" });
+  if (allows(view, "hairpin")) {
+    const can = makeHairpin(pts, sel.i, draft.design.laneWidth ?? 2);
+    out.push({ action: "hairpin", label: "Make hairpin", why: can ? undefined : "On a straight: there's no turn to make a hairpin of." });
+  }
+  return out;
+}
+
+const CONTEXT_ICON = { delete: Trash2, hairpin: CornerUpLeft } as const;
+
+/** The context sheet's rows: a menu of 44 px+ rows, one per action, each with its reason when it can't be done. */
+export function PhoneContext({ actions, label, onAction }: { actions: ContextAction[]; label: string; onAction: (a: ContextActionKind) => void }) {
+  return (
+    <ul className="phone-menu phone-context" role="menu" aria-label={label}>
+      {actions.map((a) => {
+        const Icon = a.action === "outer" ? (a.label.startsWith("Round") ? SquareRoundCorner : Square) : CONTEXT_ICON[a.action];
+        return (
+          <li key={a.action} role="none">
+            <button type="button" role="menuitem" className={`phone-menu-item${a.action === "delete" ? " phone-menu-danger" : ""}`} disabled={!!a.why} onClick={() => onAction(a.action)}>
+              <Icon size={20} aria-hidden="true" />
+              <span className="phone-menu-text">
+                {a.label}
+                {a.why && <small>{a.why}</small>}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 /** Checks, as the Advanced tab has them, then the venue check and the figures (lap, corners, jumps). */
@@ -140,26 +199,32 @@ export interface PhoneSheetsProps {
   menu: PhoneMenuProps;
   save: PhoneSaveProps;
   details: PhoneDetailsProps;
+  /** the context sheet (#126): an action picked for what's held */
+  context: { onAction: (a: ContextActionKind) => void };
 }
 
-const LABEL: Record<Exclude<PhoneSheetKind, "selection">, string> = { checks: "Checks", jump: "Jumps", howto: "How to draw", save: "Save", details: "Layout details", menu: "More" };
+const LABEL: Record<Exclude<PhoneSheetKind, "selection" | "context">, string> = { checks: "Checks", jump: "Jumps", howto: "How to draw", save: "Save", details: "Layout details", menu: "More" };
 
 /** the toolbar's height: the sheets sit above it */
 const TOOLBAR = 64;
 
 /** The open sheet, if any, above the toolbar. */
-export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps, menu, save, details }: PhoneSheetsProps) {
+export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps, menu, save, details, context }: PhoneSheetsProps) {
   if (!sheet) return null;
   const { kind, height } = sheet;
   const p = panels;
-  const label = kind === "selection" ? sheetLabel(p.sel, p.view, p.draft) : LABEL[kind];
+  const label = kind === "selection" || kind === "context" ? sheetLabel(p.sel, p.view, p.draft) : LABEL[kind];
   // the menu: modal, over a scrim that covers the plan and the toolbar, as tall as its rows
   const modal = kind === "menu";
+  // the context sheet: as tall as its few rows
+  const hug = modal || kind === "context";
   return (
     // one Sheet per kind (keyed), so a new kind starts at its own top and slides in
-    <Sheet key={kind} label={label} height={height} onHeight={onHeight} tucked={tucked && !modal} modal={modal} hug={modal} below={modal ? 0 : TOOLBAR} className={`phone-sheet phone-sheet-${kind}`}>
+    <Sheet key={kind} label={label} height={height} onHeight={onHeight} tucked={tucked && !modal} modal={modal} hug={hug} below={modal ? 0 : TOOLBAR} className={`phone-sheet phone-sheet-${kind}`}>
       {kind === "selection" ? (
         <SelectionPanel sel={p.sel} view={p.view} draft={p.drawn} live={p.live} update={p.update} onDelete={p.onDelete} fromVenue={p.venueName} inCorner={p.inCorner} touch phone />
+      ) : kind === "context" ? (
+        <PhoneContext actions={contextActions(p.sel, p.view, p.drawn, p.live)} label={label} onAction={context.onAction} />
       ) : kind === "checks" ? (
         <PhoneChecks {...p} built={built} />
       ) : kind === "jump" ? (

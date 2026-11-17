@@ -478,6 +478,19 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** H: make corner point i a hairpin (two points a lane apart), one undo step; on a straight, say why not */
+  const hairpinAt = useCallback((i: number) => {
+    const cur = draftRef.current;
+    const lw = cur.design.laneWidth ?? 2;
+    // a corner nested inside this one follows it down to a hairpin first (#106), while the corner is still one point
+    const pre = followNest(cur.design.points.map((q, k) => (k === i ? { ...q, radius: widthAt(q, lw) / 2 } : q)), i, lw);
+    const hp = makeHairpin(pre, i, lw);
+    if (hp) {
+      hist.set({ ...cur, design: { ...cur.design, points: hp } }, `hairpin:${Date.now()}`);
+      setMessage(null);
+    } else setMessage({ kind: "info", text: "That point is on a straight: there's no turn to make a hairpin of." });
+  }, [hist]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
@@ -504,16 +517,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         redo();
       } else if ((e.key === "h" || e.key === "H") && !mod && selRef.current?.kind === "point" && allows(viewRef.current, "hairpin")) {
         e.preventDefault();
-        const i = selRef.current.i;
-        const cur = draftRef.current;
-        const lw = cur.design.laneWidth ?? 2;
-        // a corner nested inside this one follows it down to a hairpin first (#106), while the corner is still one point
-        const pre = followNest(cur.design.points.map((q, k) => (k === i ? { ...q, radius: widthAt(q, lw) / 2 } : q)), i, lw);
-        const hp = makeHairpin(pre, i, lw);
-        if (hp) {
-          hist.set({ ...cur, design: { ...cur.design, points: hp } }, `hairpin:${Date.now()}`);
-          setMessage(null);
-        } else setMessage({ kind: "info", text: "That point is on a straight: there's no turn to make a hairpin of." });
+        hairpinAt(selRef.current.i);
       } else if ((e.key === "o" || e.key === "O") && !mod && selRef.current?.kind === "point" && allows(viewRef.current, "outer")) {
         e.preventDefault();
         toggleOuter(selRef.current.i);
@@ -559,7 +563,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hist, undo, redo, deleteSelection, toggleOuter]);
+  }, [hist, undo, redo, deleteSelection, toggleOuter, hairpinAt]);
 
   // ------------------------------------------------------------------------------------ dragging
   type DragKind =
@@ -707,6 +711,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const toggleAdd = () => setTool((t) => (t.kind === "add" ? { kind: "select" } : { kind: "add" }));
   /** a press on a corner lets an armed jump go, but leaves the Add point tool on (tap a corner, then add after it) */
   const disarmJump = () => setTool((t) => (t.kind === "feature" ? { kind: "select" } : t));
+  /**
+   * The phone (#126): a finger held still on a handle for LONG_PRESS_MS opens the context sheet for what it selected
+   * (on the press). Opening it is all it does: an action is a tap in the sheet (ADR 0005). Tablets keep their own.
+   */
+  const contextPress = (e: React.PointerEvent) => (phoneEditRef.current && e.pointerType !== "mouse" ? () => setPhoneSheet({ kind: "context", height: "peek" }) : undefined);
 
   const onPointDown = (e: React.PointerEvent<SVGElement>, i: number) => {
     if (e.button !== 0) return;
@@ -734,8 +743,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           setSel((selRef.current = { kind: "point", i }));
           setSheet("selection");
         }
-      : undefined;
-    startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] }, { threshold: quick, onClick, was, onLongPress });
+      : contextPress(e);
+    // a corner point in Advanced moves from the first pixel, but not under a phone's finger: there a still press is a
+    // long press, so it waits for the slop like Quick's
+    startDrag(e, svg, { kind: "point", i, offset: [pt.x - p[0], pt.z - p[1]] }, { threshold: quick || !!onLongPress, onClick, was, onLongPress });
   };
 
   const onApexDown = (e: React.PointerEvent<SVGElement>, i: number) => {
@@ -849,7 +860,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const f = draftRef.current.design.features![i];
     const s = nearestOnLine(liveRef.current, p).s;
     setSel({ kind: "feature", i });
-    startDrag(e, svg, { kind: "feature", i, ds: s - f.distance }, { threshold: true, was });
+    startDrag(e, svg, { kind: "feature", i, ds: s - f.distance }, { threshold: true, was, onLongPress: contextPress(e) });
   };
 
   const onStartDown = (e: React.PointerEvent<SVGElement>) => {
@@ -859,7 +870,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const p = planPoint(svg, e.clientX, e.clientY);
     const s = nearestOnLine(liveRef.current, p).s;
     setSel({ kind: "start" });
-    startDrag(e, svg, { kind: "start", ds: s - (draftRef.current.design.start?.distance ?? 0) }, { threshold: true, was });
+    startDrag(e, svg, { kind: "start", ds: s - (draftRef.current.design.start?.distance ?? 0) }, { threshold: true, was, onLongPress: contextPress(e) });
   };
 
   // ------------------------------------------------------------------------------------ step 1: lay the lanes
@@ -993,7 +1004,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       showingRef.current = false;
       return;
     }
-    if (!sel) setPhoneSheet((s) => (s?.kind === "selection" ? null : s));
+    // (the context sheet goes with what it was for, as undo can take it away)
+    if (!sel) setPhoneSheet((s) => (s?.kind === "selection" || s?.kind === "context" ? null : s));
     else setPhoneSheet((s) => (s?.kind === "selection" ? s : { kind: "selection", height: "peek" }));
   }, [sel]);
   // out of the phone layout (laying again, or a wider window): no sheet waits to come back stale
@@ -1615,6 +1627,16 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                 tucked: handleDrag,
                 panels,
                 built,
+                // the context sheet (#126): an action does it (one undo step) and puts the sheet away
+                context: {
+                  onAction: (a) => {
+                    const s = selRef.current;
+                    setPhoneSheet(null);
+                    if (a === "delete") deleteSelection();
+                    else if (s?.kind === "point" && a === "outer") toggleOuter(s.i);
+                    else if (s?.kind === "point" && a === "hairpin") hairpinAt(s.i);
+                  },
+                },
                 jumps: {
                   ...palette,
                   // picking a jump arms it and puts the sheet away; Start line selects it, and its sheet takes over

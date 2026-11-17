@@ -90,12 +90,15 @@ export interface PlanAreaProps {
   onView3d: (k: View3d) => void;
   /** the 2D / 3D switch over the plan (not on the phone yet: 3D comes to it with ticket 8) */
   viewSwitch?: boolean;
+  /** the phone (#126): the browser's own menu never opens over the plan (Android's long press); the handles' own
+   * `contextmenu` (a mouse's right-click deletes) still runs first */
+  noContextMenu?: boolean;
   /** after the canvas: the tablet's pill, sheet and dock */
   children?: ReactNode;
 }
 
 /** The plan's section: the live region, the lane grid's keyboard target, the hint, the canvas with the 3D note and the 2D / 3D switch. */
-export function PlanArea({ planWrapRef, said, laying, grid, onGridKey, onGridFocus, hint, adding, plan, shown3d, no3d, view3d, onView3d, viewSwitch = true, children }: PlanAreaProps) {
+export function PlanArea({ planWrapRef, said, laying, grid, onGridKey, onGridFocus, hint, adding, plan, shown3d, no3d, view3d, onView3d, viewSwitch = true, noContextMenu = false, children }: PlanAreaProps) {
   return (
     <section className="designer-plan-wrap" aria-label="Plan" ref={planWrapRef}>
       <p className="sr-only" role="status" aria-live="polite">
@@ -116,7 +119,7 @@ export function PlanArea({ planWrapRef, said, laying, grid, onGridKey, onGridFoc
         </div>
       )}
       <PlanHint {...hint} />
-      <div className={`designer-canvas ${adding ? "designer-adding" : ""}`}>
+      <div className={`designer-canvas ${adding ? "designer-adding" : ""}`} onContextMenu={noContextMenu ? (e) => e.preventDefault() : undefined}>
         {plan}
         {/* there while 3D is picked (an alert, so it's heard even when it comes with the region), so the plan's own
             status stays the only one */}
