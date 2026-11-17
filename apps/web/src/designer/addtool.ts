@@ -6,8 +6,8 @@ import { tooClose } from "./geometry.js";
 import { insertPoint, type DesignerMode } from "./mode.js";
 import { insertAfter } from "./shape.js";
 
-export type ToolKind = "select" | "add" | "feature";
-type SelKind = "point" | "feature" | "start" | null;
+export type ToolKind = "select" | "add" | "feature" | "marshal";
+type SelKind = "point" | "feature" | "marshal" | "start" | null;
 
 /**
  * What a press on the track does. `nearPoint`: a corner point is within grabbing reach; `onCorner`: the press is on a

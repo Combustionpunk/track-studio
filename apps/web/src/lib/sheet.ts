@@ -49,6 +49,12 @@ export function crossoverRows(s: BuildSheet): { label: string; position: string;
   }));
 }
 
+/** The marshal points (#151) in fill order: number, where to put the cone (from the south-west corner; a cone round
+ * the hall's edge can be just outside the area, a negative figure) and where it stands by the track. */
+export function marshalRows(s: BuildSheet): { label: string; position: string; where: string }[] {
+  return s.marshals.map((m) => ({ label: String(m.number), position: `${metres1(m.fromWest)}, ${metres1(m.fromSouth)}`, where: m.where }));
+}
+
 export function figures(s: BuildSheet): { label: string; value: string }[] {
   const { min, max } = s.laneWidth;
   return [
