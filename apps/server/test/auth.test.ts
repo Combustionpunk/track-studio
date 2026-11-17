@@ -28,6 +28,12 @@ describe("config", () => {
     expect(err).not.toContain("tooshort-but-secret");
   });
 
+  it("the timing site's address (#149): TIMING_URL, else the live site; an http(s) URL", () => {
+    expect(loadConfig(good).timingUrl).toBe("https://timing.rcmisfits.org");
+    expect(loadConfig({ ...good, TIMING_URL: "http://timing-dev.local:8080/" }).timingUrl).toBe("http://timing-dev.local:8080");
+    expect(() => loadConfig({ ...good, TIMING_URL: "javascript:alert(1)" })).toThrow(/TIMING_URL must be an http\(s\) URL/);
+  });
+
   it("refuses DEV_LOGIN in production", () => {
     expect(() => loadConfig({ ...good, DEV_LOGIN: "1", NODE_ENV: "production" })).toThrow(/DEV_LOGIN=1 is not allowed/);
     expect(loadConfig({ ...good, DEV_LOGIN: "1", DISCOURSE_CONNECT_SECRET: "" }).devLogin).toBe(true);

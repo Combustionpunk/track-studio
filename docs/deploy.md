@@ -60,6 +60,7 @@ In `/opt/track-studio/.env` set:
 ```sh
 BASE_URL=https://tracks.rcmisfits.org
 FORUM_URL=https://forum.rcmisfits.org
+# TIMING_URL=https://timing.rcmisfits.org          # the top bar's Timing link (#149); this is the default
 DISCOURSE_CONNECT_SECRET=<openssl rand -hex 32>   # the same value goes into the forum (below)
 SESSION_SECRET=<openssl rand -hex 32>             # changing it later logs everyone out
 ORGANISER_GROUP=track-admins

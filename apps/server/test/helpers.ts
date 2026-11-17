@@ -20,6 +20,7 @@ export function testConfig(over: Partial<Config> = {}): Config {
     host: "127.0.0.1",
     baseUrl: BASE_URL,
     forumUrl: FORUM_URL,
+    timingUrl: "http://timing.test",
     discourseConnectSecret: SECRET,
     sessionSecret: "s".repeat(40),
     dataDir: mkdtempSync(join(tmpdir(), "track-studio-test-")),
