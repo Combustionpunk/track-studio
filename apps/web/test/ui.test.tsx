@@ -686,7 +686,7 @@ describe("header", () => {
   const CONFIG = { ...FORUM, timingUrl: "https://timing.example" };
   const as = (node: ReactNode, signedIn = true, path = "/", config: object | null = CONFIG) =>
     renderToStaticMarkup(
-      <SessionContext.Provider value={{ ...session(), ...(signedIn ? {} : { me: null }), config: config as never }}>
+      <SessionContext.Provider value={{ ...session(), ...(signedIn ? {} : { me: null }), config: config as never, loginUrl: (r = "") => `/auth/login?return=${encodeURIComponent(r)}` }}>
         <MemoryRouter initialEntries={[path]}>{node}</MemoryRouter>
       </SessionContext.Provider>,
     );

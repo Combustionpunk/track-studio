@@ -1,28 +1,82 @@
-import logo from "@rcmisfits/brand/logo.svg";
-import { Menu, X } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+// The site's header (#149): the shared RC Misfits top bar, <rm-header site="tracks"> from the brand package (logo,
+// Forum · Meetings · Tracks · Timing, the account), and under it Track Studio's own pages. Sign in is the existing forum
+// sign-in; Sign out is the bar's rm-sign-out event, handled with the existing POST /auth/logout, never a GET link.
+import "@rcmisfits/brand/header.js";
+import { useEffect, useRef, useState, type DetailedHTMLProps, type FormEvent, type HTMLAttributes } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import type { ServerConfig } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
+import { SITE_MENU_OPENED, watchSiteMenu } from "../lib/siteMenu.js";
+
+type RmHeaderAttributes = {
+  site?: string;
+  user?: string;
+  "sign-in-url"?: string;
+  "sign-out-url"?: string;
+  "forum-url"?: string;
+  "meetings-url"?: string;
+  "tracks-url"?: string;
+  "timing-url"?: string;
+};
+
+declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "rm-header": DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & RmHeaderAttributes;
+    }
+  }
+}
+
+/** The bar's links from the server's addresses (the dev forum and timing site in dev); none said, the bar's live links stand. */
+export function siteLinks(config: Pick<ServerConfig, "forumUrl"> & { timingUrl?: string } | null): { forum?: string; meetings?: string; timing?: string } {
+  const out: { forum?: string; meetings?: string; timing?: string } = {};
+  const forum = config?.forumUrl?.replace(/\/+$/, "");
+  if (forum) {
+    out.forum = `${forum}/`;
+    out.meetings = `${forum}/events`;
+  }
+  const timing = config?.timingUrl?.replace(/\/+$/, "");
+  if (timing) out.timing = `${timing}/`;
+  return out;
+}
 
 export function Header() {
   const { me, config, ready, logout, loginUrl } = useSession();
   const loc = useLocation();
   const here = loc.pathname + loc.search;
-  // phones: navigation and the user's controls fold behind the menu button; any navigation closes it
-  const [open, setOpen] = useState(false);
-  useEffect(() => setOpen(false), [loc.pathname]);
+  const bar = useRef<HTMLElement>(null);
+  const links = siteLinks(config);
+
+  useEffect(() => {
+    const element = bar.current;
+    if (!element) return;
+    const onSignOut = (event: Event) => {
+      event.preventDefault();
+      void logout(); // the existing sign-out: a POST, then the forum's logout (#132)
+    };
+    element.addEventListener("rm-sign-out", onSignOut);
+    // the designer's sheets give way when the bar's phone menu opens (lib/siteMenu.ts)
+    const stop = watchSiteMenu(element, () => window.dispatchEvent(new Event(SITE_MENU_OPENED)));
+    return () => {
+      element.removeEventListener("rm-sign-out", onSignOut);
+      stop();
+    };
+  }, [logout]);
+
   return (
-    <header className="ts-header" data-open={open || undefined}>
-      <Link to="/" className="ts-brand">
-        {/* the brand's logo, as it is: never recoloured (#135) */}
-        <img className="brand-logo" src={logo} alt="RC Misfits" height={28} />
-        <span className="ts-brand__app">Track Studio</span>
-      </Link>
-      <button type="button" className="ts-btn ts-btn--quiet ts-btn--touch ts-header__menu" aria-label="Menu" aria-expanded={open} aria-controls="main-nav" onClick={() => setOpen((o) => !o)}>
-        {open ? <X size={20} aria-hidden /> : <Menu size={20} aria-hidden />}
-      </button>
-      <div className="ts-header__fold" id="main-nav">
-        <nav className="ts-nav" aria-label="Main">
+    <div className="ts-site-header">
+      <rm-header
+        ref={bar}
+        site="tracks"
+        user={ready && me ? me.username : ""}
+        sign-in-url={loginUrl(here)}
+        tracks-url="/"
+        forum-url={links.forum}
+        meetings-url={links.meetings}
+        timing-url={links.timing}
+      />
+      <nav className="ts-appnav" aria-label="Track Studio">
+        <div className="ts-appnav__links">
           {/* the library and its track pages */}
           <Link to="/" aria-current={inLibrary(loc.pathname) ? "page" : undefined}>
             Library
@@ -31,30 +85,10 @@ export function Header() {
           <NavLink to="/new">New track</NavLink>
           {/* the class speeds behind the lap time estimates (#76) */}
           {me?.organiser && <NavLink to="/lap-speeds">Lap speeds</NavLink>}
-        </nav>
-        <div className="ts-header__end">
-          {!ready ? null : me ? (
-            <>
-              {me.avatarUrl && <img src={me.avatarUrl.replace("{size}", "48")} alt="" width={24} height={24} className="avatar" />}
-              <span>
-                Signed in as {me.username}
-                {me.organiser && " · organiser"}
-              </span>
-              <button type="button" className="ts-btn ts-btn--quiet" onClick={() => logout()}>
-                Log out
-              </button>
-            </>
-          ) : (
-            <>
-              {config?.devLogin && <DevLogin returnPath={here} />}
-              <a className="ts-btn" href={loginUrl(here)}>
-                Log in with the forum
-              </a>
-            </>
-          )}
         </div>
-      </div>
-    </header>
+        {ready && !me && config?.devLogin && <DevLogin returnPath={here} />}
+      </nav>
+    </div>
   );
 }
 

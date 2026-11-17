@@ -195,6 +195,8 @@ export interface Me {
 export interface ServerConfig {
   devLogin: boolean;
   forumUrl: string;
+  /** the timing site, for the shared top bar (#149); missing from an older server */
+  timingUrl?: string;
   baseUrl: string;
   organiserGroup: string;
 }
