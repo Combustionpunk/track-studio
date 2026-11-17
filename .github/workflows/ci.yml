@@ -1,0 +1,62 @@
+# Typecheck and every package's Vitest (engine with the reference comparisons, server, web) on every PR and every
+# push to main (#142). Playwright is in e2e.yml and the image build in deploy-config.yml; both also run on main.
+# A red run on main opens a `board` issue (track-studio-ci-report.yml, .github/scripts/main-ci-status.cjs).
+# No secrets; only the repo's own code runs.
+#
+# Docs-only changes skip it: docs/** and any *.md, except the docs the tests read: docs/design/** (web tests) and
+# docs/deploy.md (apps/server/test/deploy.test.ts).
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "!docs/**"
+      - "docs/design/**"
+      - "docs/deploy.md"
+  push:
+    branches: [main]
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "!docs/**"
+      - "docs/design/**"
+      - "docs/deploy.md"
+
+# One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group and never cancel the
+# run in progress, so results on main arrive in commit order. GitHub keeps only one waiting run per group: if several
+# merges land while a run is going, the newest waits and the ones in between are cancelled, so the latest commit on
+# main always gets a result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: typecheck and Vitest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && pnpm install --frozen-lockfile
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      - name: Typecheck
+        run: pnpm typecheck
+      # one step per package, each run even if an earlier one failed: `pnpm -r test` stops at the first failure
+      - name: Engine tests (reference comparisons)
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @track-studio/engine test
+      - name: Server tests
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @track-studio/server test
+      - name: Web tests
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @track-studio/web test
