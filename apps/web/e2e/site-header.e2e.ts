@@ -87,6 +87,25 @@ test.describe("laptop", () => {
   });
 });
 
+test.describe("a narrow laptop window", () => {
+  test.beforeEach(({}, info) => test.skip(info.project.name !== "desktop-mouse", "a laptop"));
+  test.use({ viewport: { width: 700, height: 860 } });
+
+  test("the bar wraps with a long username; --site-chrome (what the editors leave room for) follows its height", async ({ page }) => {
+    await library(page, true);
+    await page.route("**/api/me", (r) => r.fulfill({ json: { ...ME, username: "Combustionpunk_Racing" } }));
+    await page.goto("/");
+    await expect(bar(page).locator(".rm-header__user")).toHaveText("Combustionpunk_Racing");
+    const chrome = () => page.evaluate(() => document.documentElement.style.getPropertyValue("--site-chrome"));
+    const top = (await page.locator(".ts-site-header").boundingBox())!;
+    expect(top.height).toBeGreaterThan(56 + 45); // the bar wrapped
+    await expect.poll(chrome).toBe(`${Math.round(top.height)}px`);
+    // wide again: one row, and the measure follows
+    await page.setViewportSize({ width: 1200, height: 860 });
+    await expect.poll(chrome).toBe("101px");
+  });
+});
+
 test.describe("phone", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "phone", "a phone, 375 × 812"));
 

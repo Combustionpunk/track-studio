@@ -720,6 +720,18 @@ describe("header", () => {
     expect(attr(h, "tracks-url")).toBe("/");
   });
 
+  it("until the session is known, the bar's account waits (no Sign in flash for a signed-in member)", () => {
+    const pending = renderToStaticMarkup(
+      <SessionContext.Provider value={{ ...session(), me: null, ready: false }}>
+        <MemoryRouter>
+          <Header />
+        </MemoryRouter>
+      </SessionContext.Provider>,
+    );
+    expect(pending).toMatch(/<div class="ts-site-header" data-pending=""/);
+    expect(as(<Header />)).not.toContain("data-pending");
+  });
+
   it("before the config arrives, the bar keeps its own (live) links", () => {
     const h = as(<Header />, true, "/", null);
     for (const a of ["forum-url", "meetings-url", "timing-url"]) expect(attr(h, a)).toBeUndefined();

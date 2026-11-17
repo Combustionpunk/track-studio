@@ -65,8 +65,24 @@ export function Header() {
     };
   }, [logout]);
 
+  // the editors fill what the header leaves (--site-chrome): the bar wraps on narrow screens and with a long username,
+  // so its height is measured, not assumed
+  const chrome = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = chrome.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => root.style.setProperty("--site-chrome", `${element.offsetHeight}px`));
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--site-chrome");
+    };
+  }, []);
+
   return (
-    <div className="ts-site-header">
+    // until the session is known the bar's account waits, so a signed-in member doesn't see Sign in flash first
+    <div className="ts-site-header" ref={chrome} data-pending={ready ? undefined : ""}>
       <rm-header
         ref={bar}
         site="tracks"

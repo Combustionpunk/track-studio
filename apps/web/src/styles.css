@@ -21,7 +21,6 @@ h2 { font-size: 1.1rem; }
 .lede { color: var(--muted); margin: 6px 0 0; max-width: 70ch; }
 
 /* header */
-.avatar { border-radius: 50%; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .dev-login { display: flex; gap: 6px; align-items: center; font-size: 0.85rem; color: var(--muted); }
 .dev-login input[type="text"], .dev-login input:not([type]) { padding: 4px 6px; }
@@ -642,8 +641,10 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-back:hover { text-decoration: underline; }
 
 /* the site header (#149): the shared RC Misfits top bar (<rm-header>, styled by the brand's header.css), and under it
-   Track Studio's own pages, one row of 44 px links. Together they are --site-chrome tall (theme/tokens.css). */
+   Track Studio's own pages, one row of 44 px links. Together they are --site-chrome tall: Header.tsx measures it (the bar
+   wraps on narrow screens); theme/tokens.css and the editors' rule below are the first guess. */
 .ts-site-header { position: sticky; top: 0; z-index: 8; }
+.ts-site-header[data-pending] .rm-header__account { visibility: hidden; }
 .ts-appnav { display: flex; align-items: center; gap: var(--space-2) var(--space-4); min-height: 45px; padding: 0 var(--space-6); box-sizing: border-box; background: var(--header); color: var(--header-text); border-bottom: 1px solid var(--line); }
 .ts-appnav__links { display: flex; gap: var(--space-1); min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .ts-appnav__links a { flex: none; display: flex; align-items: center; min-height: var(--touch-target); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--header-text); text-decoration: none; white-space: nowrap; font: 600 14px/20px var(--font-sans); }

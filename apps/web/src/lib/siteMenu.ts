@@ -4,7 +4,7 @@
 /** Sent on window when the shared bar's phone menu opens. */
 export const SITE_MENU_OPENED = "ts-site-menu-opened";
 
-/** Fold the shared bar's phone menu away, if it is open, the way its own button does (so its aria-expanded stays true). */
+/** Fold the shared bar's phone menu away, if it is open, the way its own button does (so its aria-expanded goes back to false with it). */
 export function closeSiteMenu(root: ParentNode = document): void {
   root.querySelector<HTMLButtonElement>("rm-header[data-open] .rm-header__menu")?.click();
 }
