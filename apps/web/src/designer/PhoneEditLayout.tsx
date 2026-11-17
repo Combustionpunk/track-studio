@@ -2,7 +2,7 @@
 // 64 px toolbar within thumb reach; on its side, a message to turn the phone upright over the plan. The default under
 // 640 px since #124. Under the header, the messages as one banner; over the plan, the checks pill; above the toolbar,
 // one sheet at a time (#123, PhoneSheets.tsx), and the ⋯ menu over everything (#124, PhoneMenu.tsx).
-import { ChevronLeft, Ellipsis, LayoutGrid, LogIn, MousePointer2, Plus, Redo2, RotateCcw, Save, Trash2, Undo2, X } from "lucide-react";
+import { Box, ChevronLeft, Ellipsis, LayoutGrid, LogIn, Map as MapIcon, MousePointer2, Plus, Redo2, RotateCcw, Save, Trash2, Undo2, X } from "lucide-react";
 import type { Check } from "@track-studio/engine";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -139,6 +139,10 @@ export interface BottomToolbarProps {
   canRedo: boolean;
   /** Jump: its sheet, open or closed again (Jump is a mode, `aria-pressed` while a jump is armed; the sheet is a dialog of its own) */
   onJump: () => void;
+  /** the seventh button (#127), behind its switch: "3D" opens the 3D preview, "2D" goes back to the plan */
+  view3d?: { label: "3D" | "2D"; onToggle: () => void };
+  /** the 3D preview is showing: Select, Add point, Jump and Delete wait for 2D (undo and redo work, as on a laptop) */
+  viewOnly?: boolean;
 }
 
 function Tool({ icon, label, ...rest }: { icon: ReactNode; label: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -150,16 +154,27 @@ function Tool({ icon, label, ...rest }: { icon: ReactNode; label: string } & But
   );
 }
 
-/** The phone's toolbar: Select · Add point · Jump · Delete · Undo · Redo. Jump opens the Jump sheet; it's pressed while a jump is armed. */
-export function BottomToolbar({ tool, onSelect, onAdd, canDelete, onDelete, undo, redo, canUndo, canRedo, onJump }: BottomToolbarProps) {
+/**
+ * The phone's toolbar: Select · Add point · Jump · Delete · Undo · Redo, and 3D behind its switch (#127). Jump opens
+ * the Jump sheet; it's pressed while a jump is armed. 3D reads 2D while the preview shows, and the editing tools wait.
+ */
+export function BottomToolbar({ tool, onSelect, onAdd, canDelete, onDelete, undo, redo, canUndo, canRedo, onJump, view3d, viewOnly = false }: BottomToolbarProps) {
   return (
-    <nav className="phone-toolbar" role="toolbar" aria-label="Designer tools">
-      <Tool icon={<MousePointer2 size={20} aria-hidden="true" />} label="Select" aria-pressed={tool === "select"} onClick={onSelect} />
-      <Tool icon={<Plus size={20} aria-hidden="true" />} label="Add point" aria-pressed={tool === "add"} data-add-tool onClick={onAdd} />
-      <Tool icon={<LayoutGrid size={20} aria-hidden="true" />} label="Jump" aria-pressed={tool === "feature"} onClick={onJump} />
-      <Tool icon={<Trash2 size={20} aria-hidden="true" />} label="Delete" disabled={!canDelete} onClick={onDelete} />
+    <nav className={view3d ? "phone-toolbar phone-toolbar-7" : "phone-toolbar"} role="toolbar" aria-label="Designer tools">
+      <Tool icon={<MousePointer2 size={20} aria-hidden="true" />} label="Select" aria-pressed={!viewOnly && tool === "select"} disabled={viewOnly} onClick={onSelect} />
+      <Tool icon={<Plus size={20} aria-hidden="true" />} label="Add point" aria-pressed={!viewOnly && tool === "add"} disabled={viewOnly} data-add-tool onClick={onAdd} />
+      <Tool icon={<LayoutGrid size={20} aria-hidden="true" />} label="Jump" aria-pressed={!viewOnly && tool === "feature"} disabled={viewOnly} onClick={onJump} />
+      <Tool icon={<Trash2 size={20} aria-hidden="true" />} label="Delete" disabled={viewOnly || !canDelete} onClick={onDelete} />
       <Tool icon={<Undo2 size={20} aria-hidden="true" />} label="Undo" disabled={!canUndo} onClick={undo} />
       <Tool icon={<Redo2 size={20} aria-hidden="true" />} label="Redo" disabled={!canRedo} onClick={redo} />
+      {view3d && (
+        <Tool
+          icon={view3d.label === "3D" ? <Box size={20} aria-hidden="true" /> : <MapIcon size={20} aria-hidden="true" />}
+          label={view3d.label}
+          title={view3d.label === "3D" ? "See the track in 3D (view only)" : "Back to the plan, to edit"}
+          onClick={view3d.onToggle}
+        />
+      )}
     </nav>
   );
 }
@@ -176,16 +191,19 @@ export interface PhoneEditLayoutProps {
   /** the checks pill, top right of the plan: opens Checks, in both modes */
   pill: { checks: Check[]; pending: boolean; open: boolean; onToggle: () => void };
   sheets: PhoneSheetsProps;
+  /** with the 3D switch on (#127): how long 3D took to draw, and the last orbit, for the Board to write down */
+  figures3d?: string;
 }
 
 /** A phone: the header, the plan between, the toolbar; on its side, "Turn your phone upright to edit" over it all. */
-export function PhoneEditLayout({ view, header, banner, planArea, toolbar, upright, pill, sheets }: PhoneEditLayoutProps) {
+export function PhoneEditLayout({ view, header, banner, planArea, toolbar, upright, pill, sheets, figures3d }: PhoneEditLayoutProps) {
   return (
     <div className={`designer designer-phone-edit designer-${view}`}>
       <PhoneHeader {...header} />
       <PhoneBanner {...banner} />
       <PlanArea {...planArea} viewSwitch={false} noContextMenu>
         <ChecksPill {...pill} />
+        {figures3d && <p className="phone-3d-figures">{figures3d}</p>}
       </PlanArea>
       <PhoneSheets {...sheets} />
       <BottomToolbar {...toolbar} />

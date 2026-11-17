@@ -50,6 +50,8 @@ export interface Viewer3DProps {
    * to edit and back doesn't move it (#85)
    */
   keep?: { current: KeptCamera | null };
+  /** after each frame is drawn, with the time (performance.now()): the phone's figures for the Board (#127) */
+  onFrame?: (t: number) => void;
 }
 
 export interface KeptCamera {
@@ -77,7 +79,7 @@ interface Stage {
 
 const SIDE_NAME = (s: Side) => s[0].toUpperCase() + s.slice(1);
 
-export default function Viewer3D({ area, built, label, className = "", onUnsupported, rostrum, onRostrum, obstacles, highlight = null, onPick, keep }: Viewer3DProps) {
+export default function Viewer3D({ area, built, label, className = "", onUnsupported, rostrum, onRostrum, obstacles, highlight = null, onPick, keep, onFrame }: Viewer3DProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const keysId = useId();
@@ -102,6 +104,8 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
   unsupportedRef.current = onUnsupported;
   const keepRef = useRef(keep);
   keepRef.current = keep;
+  const frameRef = useRef(onFrame);
+  frameRef.current = onFrame;
 
   useEffect(() => {
     const box = boxRef.current!, stageEl = stageRef.current!;
@@ -138,6 +142,7 @@ export default function Viewer3D({ area, built, label, className = "", onUnsuppo
       frame = requestAnimationFrame(() => {
         frame = 0;
         renderer.render(world, camera);
+        frameRef.current?.(performance.now());
         box.dataset.ready = "1";
         box.dataset.camera = camera.position.toArray().map((v) => v.toFixed(2)).join(" "); // for the browser tests
         box.dataset.fov = camera.fov.toFixed(1);
