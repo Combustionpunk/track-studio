@@ -1,19 +1,21 @@
 # Posts one comment on each PR with the result of the workflows below, and edits the same comment on every run.
 # It lets reviewers and agents read CI results through PR comments. It runs from main and only reads run details.
+# The `main` job keeps one `board` issue per workflow that is red on main, and closes it when it goes green (#142).
 name: CI report
  
 on:
   workflow_run:
-    workflows: ["PR checks", "Deploy config", "E2E"]
+    workflows: ["PR checks", "CI", "Deploy config", "E2E"]
     types: [completed]
  
-permissions:
-  actions: read
-  pull-requests: write
+permissions: {}
  
 jobs:
   report:
     if: github.event.workflow_run.event == 'pull_request'
+    permissions:
+      actions: read
+      pull-requests: write
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
@@ -68,3 +70,25 @@ jobs:
               if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
               else await github.rest.issues.createComment({ owner, repo, issue_number: pr, body });
             }
+
+  # Runs on main: opens, comments on or closes the "main is red" issue for this workflow. Checks out main (the
+  # default for workflow_run), never the commit under test, and only runs the script from there.
+  main:
+    if: github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    # No concurrency group: a waiting run in a group can be cancelled, which would lose a status update. Each
+    # workflow has its own issue, and runs of one workflow on main already finish in order (see its concurrency).
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const result = await require('./.github/scripts/main-ci-status.cjs')({ github, context, core });
+            core.info(`${context.payload.workflow_run.name} on main: ${result}`);
