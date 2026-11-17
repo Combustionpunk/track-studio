@@ -1,4 +1,4 @@
-// Types for the rctrack (v1.10) and rcvenue (v1.1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
+// Types for the rctrack (v1.11) and rcvenue (v1.1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
 // Units: metres. Origin at the centre of the (drawing) area, +x east, +z north. Headings in degrees, 0 = +x, CCW.
 
 export type TrackStatus = "draft" | "submitted" | "approved" | "archived";
@@ -20,7 +20,11 @@ export type CheckCode =
   | "crossover-unused"
   | "start-on-feature"
   | "lane-overlap"
-  | "lane-squeeze"; // 1.10 (#102): a lane squeezed against a shared pipe at a corner (warning)
+  | "lane-squeeze" // 1.10 (#102): a lane squeezed against a shared pipe at a corner (warning)
+  | "marshal-on-track" // 1.11 (#151): a cone in a lane or on a pipe (error)
+  | "marshal-number-repeated" // 1.11: two or more cones share a number (warning)
+  | "marshal-number-gap" // 1.11: a number missing from 1 up to the highest (warning)
+  | "marshal-far"; // 1.11: a cone more than MARSHAL_REACH from every lane edge (info)
 
 /** [x, z] in metres */
 export type Point2 = [number, number];
@@ -133,11 +137,21 @@ export interface RostrumPlacement {
   offset?: number;
 }
 
+/** A marshal point (v1.11): a numbered cone where a marshal stands, at a free position beside the track. */
+export interface DesignMarshal {
+  /** fill order, 1-99: with 6 marshals cones 1-6 are manned. May repeat (a warning). */
+  number: number;
+  x: number;
+  z: number;
+}
+
 export interface Design {
   laneWidth?: number;
   points: DesignPoint[];
   features?: DesignFeature[];
   start?: { distance?: number };
+  /** v1.11: marshal points, in placement order; none when absent */
+  marshals?: DesignMarshal[];
 }
 
 /** [x, z, laneWidth] */
@@ -192,6 +206,21 @@ export interface Crossing {
   bridge: { type: "crossover" | "tabletop"; feature: number } | null;
   /** the bridge's outline [[x, z] × 4], for drawing; null when unbridged */
   footprint: Point2[] | null;
+}
+
+/** A marshal point as baked (v1.11): one per design.marshals, same order. */
+export interface BuiltMarshal {
+  number: number;
+  x: number;
+  z: number;
+  /** lap distance (0 up to lapLength) of the nearest racing-line point */
+  distance: number;
+  /** side of the racing line, in the direction of travel */
+  side: "left" | "right";
+  /** metres to the nearest lane edge; 0 when the cone is on the track */
+  gap: number;
+  /** heading (deg) from the cone towards the nearest lane edge (on the track: towards the racing line) */
+  facing: number;
 }
 
 export interface Check {
@@ -252,6 +281,8 @@ export interface Built {
   lanes?: Lanes;
   /** absent in files baked before v1.2 */
   size?: Size;
+  /** v1.11: present only when the layout has marshal points */
+  marshals?: BuiltMarshal[];
   stats: Stats;
 }
 

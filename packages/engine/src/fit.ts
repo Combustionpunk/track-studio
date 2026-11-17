@@ -142,6 +142,7 @@ export function trackVenueRef(v: ForumVenueRef | null | undefined): VenueRef | n
 /**
  * An adapted copy of the track for the venue, in the chosen fit's orientation and position, re-baked. v1.7: nothing of
  * the venue is copied in but its area (as the drawing area) and the "drawn for" label — no obstacles, no rostrum.
+ * Marshal points (1.11) move with the layout. Cones are never part of the fit search or the venue checks.
  */
 export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: AdaptOptions = {}): RcTrack {
   const t: RcTrack = structuredClone(upgradeTrack(track));
@@ -149,6 +150,12 @@ export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: Adap
     const [x, z] = transformPt(p.x, p.z, fit.rotation, fit.mirror);
     p.x = pyRound(x + fit.shift[0], 3);
     p.z = pyRound(z + fit.shift[1], 3);
+  }
+  for (const m of t.design.marshals ?? []) {
+    // 1.11: cones stand at free positions, so they move with the points (features move by distance)
+    const [x, z] = transformPt(m.x, m.z, fit.rotation, fit.mirror);
+    m.x = pyRound(x + fit.shift[0], 3);
+    m.z = pyRound(z + fit.shift[1], 3);
   }
   t.area = { ...venue.area };
   t.info.drawnFor = { venueTemplate: venue.id, name: venue.info.name };
@@ -184,6 +191,8 @@ export function transformBuilt(b: Built, fit: Pick<FitResult, "rotation" | "mirr
     features: b.features.map((f) => ({ ...f, ...xz(tp(f.x, f.z)), heading: th(f.heading) })),
     ...(b.crossings ? { crossings: b.crossings.map((c) => ({ ...c, ...xz(tp(c.x, c.z)), footprint: c.footprint && c.footprint.map(([x, z]) => tp(x, z)) })) } : {}),
     startLine: { ...b.startLine, ...xz(tp(b.startLine.x, b.startLine.z)), heading: th(b.startLine.heading) },
+    // 1.11: mirroring keeps the driving order, so a cone ends up on the other side of the line
+    ...(b.marshals ? { marshals: b.marshals.map((m) => ({ ...m, ...xz(tp(m.x, m.z)), facing: th(m.facing), side: fit.mirror ? (m.side === "left" ? "right" : "left") : m.side })) } : {}),
     checks: b.checks.map((c) => (c.x !== undefined && c.z !== undefined ? { ...c, ...xz(tp(c.x, c.z)) } : c)),
   };
 }
