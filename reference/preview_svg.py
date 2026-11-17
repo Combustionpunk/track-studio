@@ -10,6 +10,8 @@ def svg(doc, px_per_m=40):
     a = drawing_area(doc); b = doc["built"]   # 1.7: area is optional, the layout's own drawing area
     L, W = a["length"], a["width"]
     m = 2.5                                   # margin (m)
+    for c in b.get("marshals", []):           # 1.11: wider where a marshal point stands further out
+        m = max(m, abs(c["x"]) - L / 2 + 0.5, abs(c["z"]) - W / 2 + 0.5)
     vw, vh = (L + 2 * m) * px_per_m, (W + 2 * m) * px_per_m
     X = lambda x: (x + L / 2 + m) * px_per_m
     Z = lambda z: (W / 2 + m - z) * px_per_m    # +z (north) is up on the page
@@ -46,6 +48,10 @@ def svg(doc, px_per_m=40):
     ax, az = s["x"] + math.cos(h) * 2.5, s["z"] + math.sin(h) * 2.5
     o.append(f'<line x1="{X(s["x"]+math.cos(h)*0.6):.1f}" y1="{Z(s["z"]+math.sin(h)*0.6):.1f}" x2="{X(ax):.1f}" y2="{Z(az):.1f}" stroke="#ff4fb0" stroke-width="5" marker-end="url(#a)"/>')
     o.insert(1, '<defs><marker id="a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff4fb0"/></marker></defs>')
+    # marshal points (1.11): numbered cones
+    for c in b.get("marshals", []):
+        o.append(f'<circle cx="{X(c["x"]):.1f}" cy="{Z(c["z"]):.1f}" r="9" fill="#ff7a1a" stroke="#1e2a22" stroke-width="2"/>')
+        o.append(f'<text x="{X(c["x"]):.1f}" y="{Z(c["z"]) + 4:.1f}" fill="#1e2a22" font-size="11" font-weight="bold" text-anchor="middle">{c["number"]}</text>')
     # checks: errors and warnings (#91: no ring for info, such as a jump into a corner, a technical section)
     for c in b["checks"]:
         if "x" in c and c["level"] != "info":

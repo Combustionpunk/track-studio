@@ -115,10 +115,37 @@
   ],
   "start": {
    "distance": 4.0
-  }
+  },
+  "marshals": [
+   {
+    "number": 1,
+    "x": -6.0,
+    "z": -1.5
+   },
+   {
+    "number": 2,
+    "x": 8.0,
+    "z": 2.5
+   },
+   {
+    "number": 2,
+    "x": -3.5,
+    "z": -1.5
+   },
+   {
+    "number": 4,
+    "x": 0.0,
+    "z": -4.05
+   },
+   {
+    "number": 6,
+    "x": 0.0,
+    "z": -10.0
+   }
+  ]
  },
  "built": {
-  "generator": "rctrack-bake.py 1.10",
+  "generator": "rctrack-bake.py 1.11",
   "lapLength": 93.534,
   "racingLine": [
    [
@@ -2303,7 +2330,43 @@
    "width": 2.0,
    "distance": 4.0
   },
-  "checks": [],
+  "checks": [
+   {
+    "level": "error",
+    "code": "marshal-on-track",
+    "x": 0.0,
+    "z": -4.05,
+    "message": "Cone 4 is on the track"
+   },
+   {
+    "level": "info",
+    "code": "marshal-far",
+    "x": 0.0,
+    "z": -10.0,
+    "message": "Cone 6 is 4.0 m from the track"
+   },
+   {
+    "level": "warning",
+    "code": "marshal-number-repeated",
+    "x": -3.5,
+    "z": -1.5,
+    "message": "Two cones are numbered 2"
+   },
+   {
+    "level": "warning",
+    "code": "marshal-number-gap",
+    "x": 0.0,
+    "z": -4.05,
+    "message": "No cone 3: with 3 marshals, cone 4 is manned and 3 is empty"
+   },
+   {
+    "level": "warning",
+    "code": "marshal-number-gap",
+    "x": 0.0,
+    "z": -10.0,
+    "message": "No cone 5: with 5 marshals, cone 6 is manned and 5 is empty"
+   }
+  ],
   "footprint": {
    "cell": 0.1,
    "origin": [
@@ -2496,6 +2559,53 @@
     6.0
    ]
   },
+  "marshals": [
+   {
+    "number": 1,
+    "x": -6.0,
+    "z": -1.5,
+    "distance": 39.197,
+    "side": "left",
+    "gap": 1.6,
+    "facing": 90.0
+   },
+   {
+    "number": 2,
+    "x": 8.0,
+    "z": 2.5,
+    "distance": 62.893,
+    "side": "left",
+    "gap": 1.0,
+    "facing": 0.0
+   },
+   {
+    "number": 2,
+    "x": -3.5,
+    "z": -1.5,
+    "distance": 36.697,
+    "side": "left",
+    "gap": 1.6,
+    "facing": 90.0
+   },
+   {
+    "number": 4,
+    "x": 0.0,
+    "z": -4.05,
+    "distance": 10.571,
+    "side": "left",
+    "gap": 0.0,
+    "facing": 270.0
+   },
+   {
+    "number": 6,
+    "x": 0.0,
+    "z": -10.0,
+    "distance": 10.571,
+    "side": "right",
+    "gap": 4.0,
+    "facing": 90.0
+   }
+  ],
   "stats": {
    "dividerLength": 167.129,
    "dividerRuns": 4,
