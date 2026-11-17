@@ -145,6 +145,13 @@ test.describe("phone context sheet", () => {
       await expect.poll(() => featureCount(page)).toBe(jumps - 1);
       await undo(page).tap();
       await expect.poll(() => featureCount(page)).toBe(jumps);
+      // closed without an action, the jump is let go, as closing its selection sheet does: the toolbar's Delete has nothing
+      at = await grab(page, ".ed-hit-feature", "feature");
+      await longPress(page, t, at);
+      await expect(toolBtn(page, "Delete")).toBeEnabled();
+      await context(page).getByRole("button", { name: "Close" }).tap();
+      await expect(context(page)).toHaveCount(0);
+      await expect(toolBtn(page, "Delete")).toBeDisabled();
 
       await startInView(page, t);
       at = await grab(page, "g.ed-start .ed-hit", "start");
@@ -190,8 +197,8 @@ test.describe("phone context sheet", () => {
     await t.down(at);
     await t.move([[at[0] + 3, at[1] + 2]], 3);
     await rest(HOLD);
-    // Chrome on Android fires contextmenu during a long press: the plan cancels it (no browser menu), and the point's
-    // own handler ignores it from a finger (ADR 0005)
+    // Chrome on Android fires contextmenu during a long press: no browser menu, and the point's own handler ignores it
+    // from a finger (ADR 0005; undo stays disabled). The floor below is what proves the plan itself cancels it
     const prevented = await page.evaluate(([x, y]) => {
       const el = document.elementFromPoint(x, y)!;
       const ev = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x, clientY: y });

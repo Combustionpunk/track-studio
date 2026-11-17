@@ -1505,7 +1505,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const phoneSheetHeight = (h: SheetHeight) => {
     // the menu is as tall as its rows, all of them, or closed: never peek
     if (h !== "closed") return setPhoneSheet((s) => s && (s.kind === "menu" ? s : { ...s, height: h }));
-    if (phoneSheet?.kind === "selection" && sel?.kind !== "point") setSel(null);
+    if ((phoneSheet?.kind === "selection" || phoneSheet?.kind === "context") && sel?.kind !== "point") setSel(null);
     setPhoneSheet(null);
   };
   /** the plan, or the 3D view, in every layout but the phone's */
