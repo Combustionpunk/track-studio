@@ -113,7 +113,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
     }
   });
   // what the web app needs to know about this server
-  app.get("/api/config", async () => ({ devLogin: config.devLogin, forumUrl: config.forumUrl, baseUrl: config.baseUrl, organiserGroup: config.organiserGroup }));
+  app.get("/api/config", async () => ({ devLogin: config.devLogin, forumUrl: config.forumUrl, timingUrl: config.timingUrl, baseUrl: config.baseUrl, organiserGroup: config.organiserGroup }));
   // the forum's colours as design tokens, for the sim and other tools
   app.get("/api/theme.json", async (_req, reply) => {
     reply.header("access-control-allow-origin", "*").header("cache-control", "public, max-age=300");

@@ -199,6 +199,12 @@ test.describe("phone loupe", () => {
       // put it back, so the next drag starts from the middle again
       await page.getByRole("button", { name: "Undo", exact: true }).tap();
       await rest(250);
+      // and put the corner's sheet away: under the shared top bar (#149) the plan is shorter, and the sheet would cover
+      // the middle corner
+      if (await page.locator("section.bottom-sheet").count()) {
+        await page.locator("section.bottom-sheet").getByRole("button", { name: "Close" }).tap();
+        await expect(page.locator("section.bottom-sheet")).toHaveCount(0);
+      }
     }
     expect(errors).toEqual([]);
   });

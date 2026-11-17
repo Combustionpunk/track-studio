@@ -47,8 +47,9 @@ test("unsaved designer changes: only the banner, no automatic reload", async ({ 
   await expect(banner(page)).toBeVisible();
   await mark(page);
   page.on("dialog", (d) => d.accept()); // the designer's own "leave anyway?" question
-  await page.getByRole("link", { name: "Venues" }).click();
-  await expect(page).toHaveURL(/\/v$/);
+  // the designer's own way out (in the editors Track Studio's row of pages gives its room to the plan, #149)
+  await page.getByRole("link", { name: "Start over" }).click();
+  await expect(page).toHaveURL(/\/new$/);
   expect(await marked(page)).toBe(true); // the app navigated; nothing reloaded over the designer
   await expect(banner(page)).toBeVisible();
 });

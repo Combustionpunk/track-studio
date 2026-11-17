@@ -229,6 +229,9 @@ test.describe("rostrum view by touch", () => {
     await tap(await centre(page.getByRole("button", { name: "3D", exact: true })));
     await ready(page);
     const home = (await camera(page))!;
+    // under the shared top bar and Track Studio's row (#149) the view's foot is just below a 768 px screen: scroll to it,
+    // as a finger would (the raw touches below don't scroll for themselves)
+    await page.getByRole("button", { name: "Rostrum south" }).scrollIntoViewIfNeeded();
     await tap(await centre(page.getByRole("button", { name: "Rostrum south" })));
     await expect.poll(() => camera(page)).toBe(EYES.south);
     await expect(page.getByRole("button", { name: "Rostrum south" })).toHaveAttribute("aria-pressed", "true");

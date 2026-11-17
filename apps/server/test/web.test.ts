@@ -98,7 +98,7 @@ describe("web app pages", () => {
 
   it("/api/config", async () => {
     const { app } = await makeApp({ config: { devLogin: true } });
-    expect((await app.inject({ method: "GET", url: "/api/config" })).json()).toMatchObject({ devLogin: true, forumUrl: FORUM_URL });
+    expect((await app.inject({ method: "GET", url: "/api/config" })).json()).toMatchObject({ devLogin: true, forumUrl: FORUM_URL, timingUrl: "http://timing.test" });
   });
 });
 

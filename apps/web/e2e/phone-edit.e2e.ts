@@ -10,23 +10,28 @@ import { Touch } from "./touch-helper.js";
 test.describe("phone", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "phone", "a phone, 375 × 812"));
 
-  test("header, plan and toolbar fill the screen; 44 px targets; no site header, no zoom buttons", async ({ page }) => {
+  test("the shared top bar, then the header, plan and toolbar fill the screen; 44 px targets; no zoom buttons", async ({ page }) => {
     const errors = await serve(page);
     await open(page);
     const ed = page.locator(".designer-phone-edit");
     await expect(ed).toBeVisible();
-    await expect(page.locator(".ts-header")).toBeHidden();
+    // the shared RC Misfits bar on top (#149); Track Studio's own pages aren't shown here (the header has Back)
+    await expect(page.locator(".ts-appnav")).toBeHidden();
+    const site = (await page.locator("rm-header").boundingBox())!;
+    expect(site.y).toBe(0);
+    // the brand's bar: 56 px, and 57 on a phone, where the site name goes under RC MISFITS
+    expect(site.height).toBeLessThanOrEqual(57);
     const vp = page.viewportSize()!;
     const header = (await page.locator(".phone-header").boundingBox())!;
-    expect(header.y).toBe(0);
+    expect(header.y).toBe(site.height);
     expect(header.height).toBe(52);
     const bar = (await toolbar(page).boundingBox())!;
     expect(bar.height).toBe(64);
     expect(bar.y + bar.height).toBe(vp.height);
     const plan = await planBox(page);
-    expect(plan.y).toBeGreaterThanOrEqual(52);
+    expect(plan.y).toBeGreaterThanOrEqual(site.height + 52);
     expect(plan.y + plan.height).toBeLessThanOrEqual(bar.y + 1);
-    expect(plan.height).toBeGreaterThan(vp.height - 52 - 64 - 2);
+    expect(plan.height).toBeGreaterThan(vp.height - site.height - 52 - 64 - 2);
     expect(plan.width).toBe(vp.width);
     await expect(page.locator(".phone-header")).toContainText(doc.info.name);
     await expect(page.locator(".phone-save")).toHaveText("Saved");
@@ -209,7 +214,7 @@ test.describe("phone", () => {
     await open(page, "");
     await expect(page.locator(".designer-phone-edit")).toBeVisible();
     await expect(page.getByText("Design on a laptop or tablet")).toHaveCount(0);
-    await expect(page.locator(".ts-header")).toBeHidden();
+    await expect(page.locator(".ts-appnav")).toBeHidden();
     expect(errors).toEqual([]);
   });
 });
@@ -221,7 +226,8 @@ test.describe("tablets: unchanged by the phone layout", () => {
     await open(page);
     await expect(page.locator(".designer")).toHaveClass(/designer-touch/);
     await expect(page.locator(".designer-dock")).toBeVisible();
-    await expect(page.locator(".ts-header")).toBeVisible();
+    await expect(page.locator(".ts-site-header rm-header")).toBeVisible();
+    await expect(page.locator(".ts-appnav")).toBeHidden(); // the editors give Track Studio's own row to the plan (#149)
     await expect(page.locator(".designer-phone-edit, .phone-upright")).toHaveCount(0);
     await shot(page, `${page.viewportSize()!.width}-tablet`);
     expect(errors).toEqual([]);

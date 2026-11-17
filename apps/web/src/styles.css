@@ -21,7 +21,6 @@ h2 { font-size: 1.1rem; }
 .lede { color: var(--muted); margin: 6px 0 0; max-width: 70ch; }
 
 /* header */
-.avatar { border-radius: 50%; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .dev-login { display: flex; gap: 6px; align-items: center; font-size: 0.85rem; color: var(--muted); }
 .dev-login input[type="text"], .dev-login input:not([type]) { padding: 4px 6px; }
@@ -189,7 +188,7 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* designer (Quick-mode mockup: docs/design/mockups/Designer.dc.html) */
-.designer { display: flex; flex-direction: column; height: calc(100vh - 57px); min-height: 520px; }
+.designer { display: flex; flex-direction: column; height: calc(100vh - var(--site-chrome)); min-height: 520px; }
 .designer-bar { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--header-bg); color: var(--header-text); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .designer-bar .back { color: var(--header-text); }
 .designer .btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; }
@@ -280,12 +279,12 @@ input, select { font: inherit; color: var(--text); background: var(--surface); b
 .phone-plan { aspect-ratio: 240 / 152; border-radius: 10px; border: 1px solid var(--border); }
 .phone-body .figures { display: flex; gap: 20px; }
 
-/* designer on a phone (#122; mockup docs/design/phone/01-plan-toolbar.html): with the switch on, the designer owns the
-   screen (no site header): a 52 px header, the plan, a 64 px toolbar over the home-indicator strip. The page never
+/* designer on a phone (#122; mockup docs/design/phone/01-plan-toolbar.html): the shared top bar (#149, not Track
+   Studio's own pages), then the designer's 52 px header, the plan, a 64 px toolbar over the home-indicator strip. The page never
    scrolls or bounces, so the plan's pinch and pan don't fight the browser's own zoom and pull-to-refresh. */
 html:has(.designer-phone-edit), body:has(.designer-phone-edit) { overscroll-behavior: none; }
 #root:has(.designer-phone-edit) { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
-#root:has(.designer-phone-edit) .ts-header { display: none; }
+#root:has(.designer-phone-edit) .ts-site-header { position: relative; flex: none; touch-action: none; }
 /* every gesture on the phone layout is the app's: no browser pinch-zoom from the header or the toolbar either */
 .designer-phone-edit, .phone-upright { touch-action: none; }
 #main:has(.designer-phone-edit) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
@@ -484,7 +483,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .btn-sm { padding: 5px 10px; font-size: 0.87rem; font-weight: 600; }
 .btn-icon:disabled { cursor: default; opacity: 0.45; }
 .ve-edit-btn { align-self: flex-start; }
-.venue-editor { display: flex; flex-direction: column; height: calc(100vh - 57px); min-height: 600px; } /* 57px: the site header */
+.venue-editor { display: flex; flex-direction: column; height: calc(100vh - var(--site-chrome)); min-height: 600px; }
 .ve-bar { display: flex; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .ve-title { min-width: 0; }
 .ve-title h1 { font-size: 2rem; line-height: 1.2; }
@@ -641,21 +640,21 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-back { justify-self: start; align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-1); font-size: 13px; color: var(--link); text-decoration: none; }
 .ts-back:hover { text-decoration: underline; }
 
-/* header */
-.ts-header { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-6); padding: var(--space-3) var(--space-6); background: var(--header); color: var(--header-text); border-bottom: 1px solid var(--line); }
-.ts-brand { display: flex; align-items: center; gap: var(--space-2); text-decoration: none; color: var(--header-text); border-radius: var(--radius-sm); }
-.ts-brand:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
-.brand-logo { display: block; height: 28px; width: auto; }
-.ts-brand__app { font: 500 20px/1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); }
-.ts-header__menu { display: none; margin-left: auto; color: var(--header-text); }
-.ts-header__fold { display: flex; align-items: center; gap: var(--space-3) var(--space-6); flex: 1 1 auto; flex-wrap: wrap; }
-.ts-nav { display: flex; gap: var(--space-1); flex-wrap: wrap; }
-.ts-nav a { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); color: var(--header-text); text-decoration: none; font: 600 14px/20px var(--font-sans); }
-.ts-nav a:hover { background: var(--bg-hover); }
-.ts-nav a:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
-.ts-nav a[aria-current="page"] { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); border-radius: 0; }
-.ts-nav a[aria-current="page"]:focus-visible { box-shadow: inset 0 -2px 0 var(--accent), var(--focus-ring); }
-.ts-header__end { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: 13px; color: var(--text-muted); }
+/* the site header (#149): the shared RC Misfits top bar (<rm-header>, styled by the brand's header.css), and under it
+   Track Studio's own pages, one row of 44 px links. Together they are --site-chrome tall: Header.tsx measures it (the bar
+   wraps on narrow screens); theme/tokens.css and the editors' rule below are the first guess. */
+.ts-site-header { position: sticky; top: 0; z-index: 8; }
+.ts-site-header[data-pending] .rm-header__account { visibility: hidden; }
+.ts-appnav { display: flex; align-items: center; gap: var(--space-2) var(--space-4); min-height: 45px; padding: 0 var(--space-6); box-sizing: border-box; background: var(--header); color: var(--header-text); border-bottom: 1px solid var(--line); }
+.ts-appnav__links { display: flex; gap: var(--space-1); min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.ts-appnav__links a { flex: none; display: flex; align-items: center; min-height: var(--touch-target); padding: 0 var(--space-3); border-radius: var(--radius-sm); color: var(--header-text); text-decoration: none; white-space: nowrap; font: 600 14px/20px var(--font-sans); }
+.ts-appnav__links a:hover { background: var(--bg-hover); }
+.ts-appnav__links a:focus-visible { outline: 2px solid transparent; box-shadow: inset var(--focus-ring); }
+.ts-appnav__links a[aria-current="page"] { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); border-radius: 0; }
+.ts-appnav .dev-login { margin-left: auto; }
+/* in the editors, Back and the shared bar's Tracks link are the way out: Track Studio's own row gives its room to the plan */
+#root:has(.designer, .venue-editor) .ts-appnav { display: none; }
+:root:has(.designer, .venue-editor) { --site-chrome: 56px; }
 
 /* library filters */
 .ts-filters { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; padding: var(--space-4); background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); }
@@ -816,18 +815,9 @@ select.ts-input { padding: 0 var(--space-2); }
 }
 /* phones: header menu, folded filters, full-width touch-size actions */
 @media (max-width: 640px) {
+  .ts-appnav { padding: 0 var(--space-2); }
   .ts-page { padding: var(--space-6) var(--space-4) var(--space-12); gap: var(--space-4); }
   .ts-title { font-size: 28px; line-height: 34px; }
-  .ts-header { padding: var(--space-2) var(--space-4); gap: var(--space-2); }
-  .brand-logo { height: 24px; }
-  .ts-brand__app { font-size: 17px; }
-  .ts-header__menu { display: inline-flex; }
-  .ts-header__fold { display: none; flex: 1 1 100%; flex-direction: column; align-items: stretch; padding-bottom: var(--space-2); }
-  .ts-header[data-open] .ts-header__fold { display: flex; }
-  .ts-nav { flex-direction: column; }
-  .ts-nav a { min-height: var(--touch-target); display: flex; align-items: center; }
-  .ts-nav a[aria-current="page"] { box-shadow: inset 2px 0 0 var(--accent); }
-  .ts-header__end { margin-left: 0; }
   .ts-page-head > .ts-btn { display: none; }
   .ts-filters { padding: 0; background: none; border: 0; }
   .ts-filters__search { flex-basis: 100%; }

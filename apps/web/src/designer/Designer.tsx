@@ -81,6 +81,7 @@ import type { Highlight } from "../viewer3d/scene.js";
 import { hasWebGL } from "../viewer3d/support.js";
 import { figures3d, lastRun, PHONE_3D_PARAM, phone3dSwitch, RUN_GAP_MS, type FrameRun } from "../lib/phone3d.js";
 import type { KeptCamera } from "../viewer3d/Viewer3D.js";
+import { closeSiteMenu, SITE_MENU_OPENED } from "../lib/siteMenu.js";
 
 // the 3D preview (#85): three.js and the viewer load only when 3D is opened
 const Viewer3D = lazy(() => import("../viewer3d/Viewer3D.js"));
@@ -311,6 +312,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [phoneSheet, setPhoneSheet] = useState<PhoneSheetOpen | null>(null);
   const phoneSheetRef = useRef(phoneSheet);
   phoneSheetRef.current = phoneSheet;
+  // the shared top bar's phone menu and the phone's sheets take turns, so their layers never overlap (#149): a sheet
+  // (or the ⋯ menu) opening folds the bar's menu away, and the bar's menu opening puts the sheet away, as Close does
+  const putSheetAway = useRef(() => {});
+  useEffect(() => {
+    if (phoneSheet) closeSiteMenu();
+  }, [phoneSheet?.kind]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const onSiteMenu = () => phoneSheetRef.current && putSheetAway.current();
+    window.addEventListener(SITE_MENU_OPENED, onSiteMenu);
+    return () => window.removeEventListener(SITE_MENU_OPENED, onSiteMenu);
+  }, []);
   /** the phone's banner (#124): the notes put away this visit ("login", "approved") */
   const [dismissed, setDismissed] = useState<string[]>([]);
   /** a finger (or the mouse) is dragging a handle past the slop: the phone's sheet tucks away until it lifts */
@@ -1553,6 +1565,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if ((phoneSheet?.kind === "selection" || phoneSheet?.kind === "context") && sel?.kind !== "point") setSel(null);
     setPhoneSheet(null);
   };
+  putSheetAway.current = () => phoneSheetHeight("closed");
   /** the plan, or the 3D view (on a phone, with its switch on: #127) */
   const plan = viewing3d ? (
     <Suspense

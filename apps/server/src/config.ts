@@ -12,6 +12,8 @@ export interface Config {
   baseUrl: string;
   /** forum URL, no trailing slash */
   forumUrl: string;
+  /** the timing site, for the shared top bar's Timing link (#149); no trailing slash. TIMING_URL, else the live site */
+  timingUrl: string;
   discourseConnectSecret: string;
   sessionSecret: string;
   /** absolute; holds the SQLite file and the preview cache */
@@ -51,6 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   const baseUrl = url("BASE_URL", required("BASE_URL"), problems);
   const forumUrl = url("FORUM_URL", required("FORUM_URL"), problems);
+  const timingUrl = url("TIMING_URL", env.TIMING_URL?.trim() || "https://timing.rcmisfits.org", problems);
   // without the forum secret, forum login is off; that's only allowed with DEV_LOGIN
   const discourseConnectSecret = devLogin ? env.DISCOURSE_CONNECT_SECRET?.trim() ?? "" : required("DISCOURSE_CONNECT_SECRET");
   if (discourseConnectSecret && discourseConnectSecret.length < 10) problems.push("DISCOURSE_CONNECT_SECRET must be at least 10 characters (Discourse's minimum)");
@@ -69,6 +72,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST?.trim() || "0.0.0.0",
     baseUrl,
     forumUrl,
+    timingUrl,
     discourseConnectSecret,
     sessionSecret,
     dataDir: isAbsolute(dataDirRaw) ? dataDirRaw : resolve(ROOT_DIR, dataDirRaw),
