@@ -19,18 +19,19 @@ test.describe("phone", () => {
     await expect(page.locator(".ts-appnav")).toBeHidden();
     const site = (await page.locator("rm-header").boundingBox())!;
     expect(site.y).toBe(0);
-    expect(site.height).toBe(56);
+    // the brand's bar: 56 px, and 57 on a phone, where the site name goes under RC MISFITS
+    expect(site.height).toBeLessThanOrEqual(57);
     const vp = page.viewportSize()!;
     const header = (await page.locator(".phone-header").boundingBox())!;
-    expect(header.y).toBe(56);
+    expect(header.y).toBe(site.height);
     expect(header.height).toBe(52);
     const bar = (await toolbar(page).boundingBox())!;
     expect(bar.height).toBe(64);
     expect(bar.y + bar.height).toBe(vp.height);
     const plan = await planBox(page);
-    expect(plan.y).toBeGreaterThanOrEqual(56 + 52);
+    expect(plan.y).toBeGreaterThanOrEqual(site.height + 52);
     expect(plan.y + plan.height).toBeLessThanOrEqual(bar.y + 1);
-    expect(plan.height).toBeGreaterThan(vp.height - 56 - 52 - 64 - 2);
+    expect(plan.height).toBeGreaterThan(vp.height - site.height - 52 - 64 - 2);
     expect(plan.width).toBe(vp.width);
     await expect(page.locator(".phone-header")).toContainText(doc.info.name);
     await expect(page.locator(".phone-save")).toHaveText("Saved");
@@ -226,7 +227,7 @@ test.describe("tablets: unchanged by the phone layout", () => {
     await expect(page.locator(".designer")).toHaveClass(/designer-touch/);
     await expect(page.locator(".designer-dock")).toBeVisible();
     await expect(page.locator(".ts-site-header rm-header")).toBeVisible();
-    await expect(page.locator(".ts-appnav")).toBeVisible();
+    await expect(page.locator(".ts-appnav")).toBeHidden(); // the editors give Track Studio's own row to the plan (#149)
     await expect(page.locator(".designer-phone-edit, .phone-upright")).toHaveCount(0);
     await shot(page, `${page.viewportSize()!.width}-tablet`);
     expect(errors).toEqual([]);

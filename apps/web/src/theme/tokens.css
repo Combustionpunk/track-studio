@@ -11,7 +11,8 @@
 @import "@rcmisfits/brand/header.css";
 
 :root {
-  /* the site header's height (#149): the shared top bar (56 px) and Track Studio's own pages under it (45 px) */
+  /* the site header's height (#149): the shared top bar (56 px) and Track Studio's own pages under it (45 px); in the
+     editors only the bar (styles.css) */
   --site-chrome: 101px;
   /* the page */
   --bg: var(--rm-bg);

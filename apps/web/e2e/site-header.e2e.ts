@@ -73,13 +73,15 @@ test.describe("laptop", () => {
     await shot(page, "1200-venues-signed-out");
   });
 
-  test("the designer fills what the site header leaves: no page scroll", async ({ page }) => {
+  test("the designer: only the shared bar above it (its own row gives way), and it fills the rest; no page scroll", async ({ page }) => {
     await serve(page);
     await open(page);
     await expect(bar(page)).toBeVisible();
+    await expect(page.locator(".ts-appnav")).toBeHidden();
     const designer = (await page.locator(".designer").boundingBox())!;
-    const nav = (await page.locator(".ts-appnav").boundingBox())!;
-    expect(designer.y).toBe(nav.y + nav.height);
+    const top = (await bar(page).boundingBox())!;
+    expect(top.height).toBe(56);
+    expect(designer.y).toBe(56);
     expect(Math.round(designer.y + designer.height)).toBe(page.viewportSize()!.height);
     await shot(page, "1200-edit");
   });
