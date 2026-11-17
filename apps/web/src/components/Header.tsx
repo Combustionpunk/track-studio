@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type DetailedHTMLProps, type FormEvent, ty
 import { Link, NavLink, useLocation } from "react-router-dom";
 import type { ServerConfig } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
-import { SITE_MENU_OPENED, watchSiteMenu } from "../lib/siteMenu.js";
+import { closeSiteMenuOnPressOutside, SITE_MENU_OPENED, watchSiteMenu } from "../lib/siteMenu.js";
 
 type RmHeaderAttributes = {
   site?: string;
@@ -57,9 +57,11 @@ export function Header() {
     element.addEventListener("rm-sign-out", onSignOut);
     // the designer's sheets give way when the bar's phone menu opens (lib/siteMenu.ts)
     const stop = watchSiteMenu(element, () => window.dispatchEvent(new Event(SITE_MENU_OPENED)));
+    const stopOutside = closeSiteMenuOnPressOutside(element);
     return () => {
       element.removeEventListener("rm-sign-out", onSignOut);
       stop();
+      stopOutside();
     };
   }, [logout]);
 
