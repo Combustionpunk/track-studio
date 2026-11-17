@@ -27,7 +27,7 @@ vi.mock("../src/lib/hooks.js", async (orig) => {
 // TrackPage reads :id from the route
 vi.mock("react-router-dom", async (orig) => ({ ...(await orig<typeof import("react-router-dom")>()), useParams: () => ({ id: "winter-3" }) }));
 
-const { Header } = await import("../src/components/Header.js");
+const { Header, siteLinks } = await import("../src/components/Header.js");
 const { TrackCard } = await import("../src/components/TrackCard.js");
 const { StatusBadge } = await import("../src/components/bits.js");
 const { EmptyState, ErrorAlert, CardGridSkeleton } = await import("../src/components/states.js");
@@ -679,26 +679,81 @@ describe("track page", () => {
   });
 });
 
+// the shared RC Misfits top bar (#149): <rm-header site="tracks"> from brand v0.2.0, and Track Studio's own pages under it
 describe("header", () => {
-  it("brand, navigation with the current page marked, the user", () => {
-    const h = html(<Header />, "/");
-    expect(h).toContain('class="ts-header"');
-    expect(h).toContain("brand-logo");
-    expect(text(h)).toContain("Track Studio");
+  const bar = (h: string) => h.match(/<rm-header[^>]*>/)?.[0] ?? "";
+  const attr = (h: string, name: string) => bar(h).match(new RegExp(` ${name}="([^"]*)"`))?.[1];
+  const CONFIG = { ...FORUM, timingUrl: "https://timing.example" };
+  const as = (node: ReactNode, signedIn = true, path = "/", config: object | null = CONFIG) =>
+    renderToStaticMarkup(
+      <SessionContext.Provider value={{ ...session(), ...(signedIn ? {} : { me: null }), config: config as never }}>
+        <MemoryRouter initialEntries={[path]}>{node}</MemoryRouter>
+      </SessionContext.Provider>,
+    );
+
+  it("is the shared bar, with Tracks as the current site; the old header is gone", () => {
+    const h = as(<Header />);
+    expect(bar(h)).not.toBe("");
+    expect(attr(h, "site")).toBe("tracks");
+    expect(h).not.toContain("ts-header");
+    expect(h).not.toContain("brand-logo");
+  });
+
+  it("signed in: the username, and Sign out is the event (no sign-out-url, so never a GET link)", () => {
+    const h = as(<Header />);
+    expect(attr(h, "user")).toBe("yeti");
+    expect(attr(h, "sign-out-url")).toBeUndefined();
+    expect(h).not.toContain("/auth/logout");
+  });
+
+  it("signed out: Sign in goes to the existing forum sign-in, coming back to this page", () => {
+    const h = as(<Header />, false, "/t/winter-3?x=1");
+    expect(attr(h, "user") ?? "").toBe("");
+    expect(attr(h, "sign-in-url")).toBe("/auth/login?return=%2Ft%2Fwinter-3%3Fx%3D1");
+  });
+
+  it("Forum and Meetings go to the server's forum, Timing to its timing site, Tracks to this one", () => {
+    const h = as(<Header />);
+    expect(attr(h, "forum-url")).toBe("https://forum.example/");
+    expect(attr(h, "meetings-url")).toBe("https://forum.example/events");
+    expect(attr(h, "timing-url")).toBe("https://timing.example/");
+    expect(attr(h, "tracks-url")).toBe("/");
+  });
+
+  it("before the config arrives, the bar keeps its own (live) links", () => {
+    const h = as(<Header />, true, "/", null);
+    for (const a of ["forum-url", "meetings-url", "timing-url"]) expect(attr(h, a)).toBeUndefined();
+  });
+
+  it("Track Studio's own pages sit in a bar under it, the current page marked", () => {
+    const h = as(<Header />);
+    expect(h).toMatch(/<nav class="ts-appnav"[^>]*aria-label="Track Studio"/);
     expect(h).toMatch(/<a [^>]*aria-current="page"[^>]*href="\/"[^>]*>Library<\/a>|<a [^>]*href="\/"[^>]*aria-current="page"[^>]*>Library<\/a>/);
-    expect(text(h)).toContain("Signed in as yeti");
+    expect(text(h)).toContain("Venues");
+    expect(text(h)).toContain("New track");
+    // the shared bar comes first
+    expect(h.indexOf("<rm-header")).toBeLessThan(h.indexOf("ts-appnav"));
   });
 
-  it("phones: a 44px menu button controls the navigation", () => {
-    const h = html(<Header />, "/");
-    expect(h).toMatch(/<button[^>]*aria-label="Menu"[^>]*>/);
-    expect(h).toContain('aria-expanded="false"');
-    expect(h).toContain('aria-controls="main-nav"');
-    expect(h).toContain('id="main-nav"');
+  it("with dev login on, signed out: the dev login form stays (development only)", () => {
+    expect(as(<Header />, false, "/", { ...CONFIG, devLogin: true })).toContain("Dev login");
+    expect(as(<Header />, false)).not.toContain("Dev login");
+    expect(as(<Header />, true, "/", { ...CONFIG, devLogin: true })).not.toContain("Dev login");
+  });
+});
+
+describe("siteLinks (#149)", () => {
+  it("builds the bar's links from the server's addresses", () => {
+    expect(siteLinks({ forumUrl: "http://discourse-dev.local:3000", timingUrl: "http://timing-dev.local:8080" })).toEqual({
+      forum: "http://discourse-dev.local:3000/",
+      meetings: "http://discourse-dev.local:3000/events",
+      timing: "http://timing-dev.local:8080/",
+    });
   });
 
-  it("signed out: log in with the forum", () => {
-    expect(text(html(<Header />, "/", false))).toContain("Log in with the forum");
+  it("leaves out what the server didn't say, so the bar's own live links stand", () => {
+    expect(siteLinks(null)).toEqual({});
+    expect(siteLinks({ forumUrl: "", timingUrl: undefined })).toEqual({});
   });
 });
 
@@ -754,7 +809,7 @@ describe("styles", () => {
 });
 
 describe("header on a track page", () => {
-  it("marks Library as the current place", () => {
+  it("marks Library as the current place in Track Studio's own bar", () => {
     const h = html(<Header />, "/t/winter-3");
     expect(h).toMatch(/<a [^>]*aria-current="page"[^>]*>Library<\/a>/);
   });
