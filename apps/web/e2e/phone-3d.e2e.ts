@@ -87,6 +87,9 @@ test.describe("phone: the 3D preview", () => {
     await expect(view3d(page)).toHaveCount(0);
     await expect(toolBtn(page, "3D")).toBeVisible();
     for (const l of ["Select", "Add point", "Jump"]) await expect(toolBtn(page, l), l).toBeEnabled();
+    // the corner is still selected, and its sheet is back; the figures went with 3D
+    await expect(page.locator("section.bottom-sheet")).toHaveCount(1);
+    await expect(page.locator(".phone-3d-figures")).toHaveCount(0);
     // the draft is as it was: the corner where it was moved to, and undo takes it back
     expect((await corners(page))[i]).toEqual(moved);
     await expect(toolBtn(page, "Undo")).toBeEnabled();
@@ -168,6 +171,33 @@ test.describe("phone: the 3D preview", () => {
     }
     expect(errors).toEqual([]);
   });
+
+  for (const width of [375, 360]) {
+    test(`${width} px: the seven buttons and their labels fit, none overlapping`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 760 });
+      const errors = await serve(page);
+      await open(page, "?phone3d=1");
+      const bar = toolbar(page);
+      await expect(bar.getByRole("button")).toHaveCount(7);
+      expect(await bar.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      // each label is visible and inside its button, and the buttons don't overlap
+      const rects = await bar.getByRole("button").evaluateAll((els) =>
+        els.map((e) => {
+          const b = e.getBoundingClientRect(), l = e.querySelector(".phone-tool-label")!.getBoundingClientRect();
+          return { left: b.left, right: b.right, width: b.width, lLeft: l.left, lRight: l.right, lWidth: l.width };
+        }),
+      );
+      rects.forEach((r, n) => {
+        expect(r.width).toBeGreaterThanOrEqual(44);
+        expect(r.lWidth).toBeGreaterThan(1);
+        expect(r.lLeft).toBeGreaterThanOrEqual(r.left - 0.5);
+        expect(r.lRight).toBeLessThanOrEqual(r.right + 0.5);
+        if (n) expect(r.left).toBeGreaterThanOrEqual(rects[n - 1].right - 0.5);
+      });
+      expect(rects[6].right).toBeLessThanOrEqual(width);
+      expect(errors).toEqual([]);
+    });
+  }
 
   test("320 px: the seven buttons fit, 44 px each, nothing overflows", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });

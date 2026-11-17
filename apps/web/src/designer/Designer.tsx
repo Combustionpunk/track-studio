@@ -1049,6 +1049,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (!sel) setPhoneSheet((s) => (s?.kind === "selection" || s?.kind === "context" ? null : s));
     else setPhoneSheet((s) => (s?.kind === "selection" ? s : { kind: "selection", height: "peek" }));
   }, [sel]);
+  // back from 3D on a phone (#127): what's selected (a jump tapped in 3D, or what was before) has its sheet again
+  useEffect(() => {
+    if (!viewing3d && phoneEditRef.current && selRef.current) setPhoneSheet((s) => s ?? { kind: "selection", height: "peek" });
+  }, [viewing3d]);
   // out of the phone layout (laying again, or a wider window): no sheet waits to come back stale
   useEffect(() => {
     if (!phoneEdit) setPhoneSheet(null);
@@ -1666,7 +1670,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                 view3d: phone3d ? { label: phone3dLabel, onToggle: () => chooseView(phone3dLabel === "2D" ? "2d" : "3d") } : undefined,
                 viewOnly: viewing3d,
               },
-              figures3d: phone3d ? figures : undefined,
+              figures3d: phone3d && viewing3d ? figures : undefined,
               upright: landscapePhone,
               pill: { checks: built.checks, pending: bake.pending, open: phoneSheet?.kind === "checks", onToggle: () => togglePhoneSheet("checks", "full") },
               sheets: {
