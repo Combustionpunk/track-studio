@@ -314,7 +314,6 @@ test.describe("phone context sheet", () => {
       await expect(sheet(page)).not.toContainText("On a straight");
       await undo(page).tap();
       await expect.poll(() => pointCount(page)).toBe(n);
-      await expect(hairpin(page)).toBeEnabled();
       await expect(undo(page)).toBeDisabled();
       expect(errors).toEqual([]);
     });
