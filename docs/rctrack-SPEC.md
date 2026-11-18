@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.11)
+# rctrack — shared track format (v1.12)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -101,9 +101,10 @@ the layout) and to check a layout against a venue (the fit search, which says wh
 - `size` — the track's real size from its lane edges (no pipe padding): `{length, width, bbox: [xmin, zmin, xmax, zmax]}`
   in metres, `length` along x. This is the figure to show people ("22 × 12 m"). *(v1.2)*
 - `footprint` — raster of the area the lanes and pipes cover, for fit searches only: `{cell, origin, rows, cols, bbox, rle}`
-  (`rle` = row-major run lengths, starting with an empty run). Its bbox includes pipe thickness and a one-cell margin, so
-  it is slightly bigger than `size`. Covered = discs of radius width/2 + 0.04 m round every other racing-line sample, plus
-  each square corner's outer half out to its mitre (see *Borders*).
+  (`rle` = row-major run lengths, starting with an empty run). Its bbox is framed 0.04 m round the lanes (`FOOT_MARGIN`,
+  which covers the pipe) plus a one-cell margin, so it is slightly bigger than `size`. Covered = discs of radius
+  width/2 + **0.0325 m** (half the pipe, `PIPE_SIZE / 2`; 0.04 m before 1.12) round every other racing-line sample, plus
+  each square corner's outer half out to its mitre (see *Borders*), padded the same.
 
 ## Geometry engine (reference: `bake.py`)
 1. **Racing line:** closed polyline through `points`, each corner filleted with its radius. A corner turning θ with
@@ -304,8 +305,9 @@ use this) and the public revision, approved if there is one, else the latest, at
 - `version` is the major version. A reader refuses a `version` it doesn't know (today only `1`) with a clear message,
   for example "This track needs a newer version of the sim (rctrack version 2; this sim reads version 1)". It never
   guesses at a file of another version.
-- From 1.10 on, changes within `version: 1` only **add**: new keys, new check codes, new feature types. Nothing is
-  removed, renamed or given a new meaning. (Before this rule, 1.7 removed the venue's parts from layouts and 1.10
+- From 1.10 on, changes within `version: 1` only **add**: new keys, new check codes (1.11 added `marshal-on-track`,
+  `marshal-number-repeated`, `marshal-number-gap` and `marshal-far`), new feature types. Nothing is removed, renamed
+  or given a new meaning. (Before this rule, 1.7 removed the venue's parts from layouts and 1.10
   split `lane-overlap`; see *Changes*. A reader of files that old drops the removed keys, as 1.7 says.) The minor
   version (1.10 in the title) is the engine's; it is in `built.generator` for information and readers don't branch
   on it.
@@ -321,15 +323,16 @@ and `design`.
 
 **What is optional.** A reader must cope with these being absent:
 - `built.crossings`: absent when the racing line doesn't cross itself (*Crossings*).
-- `built.marshals`: marshal points, planned in #151; absent until then, and on layouts without them.
+- `built.marshals` *(v1.11)*: marshal points; absent when the layout has no cones (*Marshal points*).
 - `area` (top level): absent on some layouts; use the drawing area (`drawingArea`, see *Top level*).
 - the `info` fields other than `name`.
 
 **Physical sizes not in the file.** These are fixed for `version: 1`; a reader uses these values. If a layout ever
 needs its own, they will be added as optional keys in `built`, with these as the defaults.
-- **Pipe (divider):** a round pipe **0.08 m** in diameter (the engine's pipe thickness: `footprint` pads the lanes by
-  half of it), lying on the carpet: bottom at 0, centre **0.04 m** up, top **0.08 m** up. Each `dividers[].points`
-  run is the pipe's centre line. At a bridge, only the over pass's pipes (the runs along the bridge, beside its lane)
+- **Pipe (divider)** *(v1.12)*: **0.065 × 0.065 m, square in section** (the engines' `PIPE_SIZE`), resting flat on the
+  carpet: bottom at 0, top **0.065 m** up, its sides **0.0325 m** either side of the run. Each `dividers[].points` run
+  is the centre line of the pipe in plan; build a square collider along it. (`footprint` pads the lanes by half the
+  pipe, 0.0325 m. Before 1.12 this section said a round pipe 0.08 m across; club pipe is 65 mm square.) At a bridge, only the over pass's pipes (the runs along the bridge, beside its lane)
   ride it, following the bridging feature's `profile` (`built.features[crossings[].bridge.feature]`) like the lane
   between them; the under pass's pipes stay on the floor and run under the bridge (see `built.crossings`). Dividers
   don't say which pass they belong to: go by direction, as the 3D viewer does.
@@ -337,11 +340,26 @@ needs its own, they will be added as optional keys in `built`, with these as the
   from it, and the area round the lanes is at the same height.
 
 **Conformance fixtures.** `reference/examples/*.rctrack.json` are the files consumers test against: every reader
-should load all of them without errors. They are re-baked whenever the engine changes, and between them they keep
-at least one layout with a jump (all of them), one with a crossover bridge (`figure-eight-crossover`) and, once
-#151 lands, one with marshal points. Each has its 2D preview beside it (`*.preview.svg`) to compare against.
+should load all of them without the reader failing. They are re-baked whenever the engine changes, and between them
+they keep at least one layout with a jump (all of them), one with a crossover bridge (`figure-eight-crossover`), one
+with a clean set of marshal points (`club-a`, cones 1–6) and one with an untidy set (`freeform-example`: a repeated
+number, missing numbers, a far cone and a cone on a pipe, so its `built.checks` carries all four `marshal-*` codes,
+one of them, `marshal-on-track`, an error on purpose; `freeform-at-sports-hall-b` is the same layout adapted to a
+venue). `figure-eight-crossover` has no cones and no `built.marshals` key. Each has its 2D preview beside it
+(`*.preview.svg`) to compare against.
 
 ## Changes
+- **1.12** — the divider pipe is **0.065 m square** in section (club pipe is 65 mm square), not 0.08 m round. No key is
+  added, removed or changed, and `version` stays `1`; the size is a fixed value (*Compatibility for consumers*), one
+  constant in both engines (`PIPE_SIZE`). What follows from it: `footprint` pads the lanes by 0.0325 m instead of
+  0.04 m, and so do the things read from it, the fit search and its `obstacle` check, and `marshal-on-track`.
+  **Re-baking a 1.11 layout changes `built.footprint.rle` and nothing else** (apart from the generator string): the
+  raster keeps its cell grid, origin and bbox (`FOOT_MARGIN`), and cells along the edge of the lanes are uncovered,
+  never added. So fit results can only get better: a layout may now fit, or sit more centrally, where a pillar was
+  within a centimetre of its pipes, and a cone within a centimetre of a pipe may lose its `marshal-on-track`. Racing
+  lines, lanes, dividers, features (a ramp is still 0.08 m narrower than its lane), `size` and the lane checks
+  (`lane-overlap`, `lane-squeeze`, which never used the pipe's width) are unchanged. Pictures draw the pipe 0.065 m
+  wide, and the 3D view draws it square. Older readers need nothing.
 - **1.11** — marshal points. `design.marshals[]` = `{number, x, z}`: numbered cones placed beside the track (or up to
   2 m outside the drawing area) where marshals stand; `number` is the fill order, so with 6 marshals cones 1–6 are
   manned. `built.marshals[]` = `{number, x, z, distance, side, gap, facing}`, absent when there are none. New checks:

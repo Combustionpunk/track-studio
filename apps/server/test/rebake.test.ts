@@ -147,6 +147,36 @@ describe("rebake", () => {
     expect(got.doc.built.checks.filter((c: { level: string }) => c.level === "error")).toEqual([]);
     expect(got.doc.built.checks.filter((c: { code: string }) => c.code === "lane-squeeze")).toHaveLength(1);
   });
+
+  it("rctrack 1.12, a 0.065 m square pipe: only the footprint changes, with fewer cells on the same grid (#155)", async () => {
+    const { app, config } = await makeApp({ seeded: true });
+    // club A's revision as 1.10 baked it (the lanes padded by half a 0.08 m pipe)
+    const stored = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/v110/club-a.rctrack.json"), "utf8")) as RcTrack;
+    expect(stored.id).toBe(CLUB_A);
+    app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ? AND revision = 1").run(JSON.stringify(stored), CLUB_A);
+    setRevisionColumns(app.db, CLUB_A, 1, stored);
+
+    const dry = rebakeAll(app.db, config.dataDir, { dryRun: true });
+    expect(dry.failed).toEqual([]);
+    expect(dry.changed.map((c) => [c.id, c.racingLineChanged, c.errors, c.gained, c.warnings, c.gainedWarnings, c.previewChanged, c.size[0] === c.size[1], c.corners[0] === c.corners[1]])).toEqual([
+      [CLUB_A, false, [0, 0], [], [0, 0], [], false, true, true],
+    ]);
+    expect(changeLine(dry.changed[0])).not.toMatch(/RACING LINE|errors|warnings|preview/);
+
+    expect(rebakeAll(app.db, config.dataDir).failed).toEqual([]);
+    const got = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().doc as RcTrack;
+    const now = got.built!.footprint, was = stored.built!.footprint;
+    // (the stored bake is bake.py's and the fresh one the engine's, the same within the reference tolerance)
+    expect(got.built!.checks).toEqual(stored.built!.checks);
+    expect(got.built!.size).toEqual(stored.built!.size);
+    expect(got.built!.racingLine).toHaveLength(stored.built!.racingLine.length);
+    expect({ ...now, rle: "" }).toEqual({ ...was, rle: "" }); // the same cell, origin, rows, cols and bbox
+    const covered = (rle: string) => rle.split(" ").reduce((n, run, i) => n + (i % 2 ? Number(run) : 0), 0);
+    expect(covered(now.rle)).toBeLessThan(covered(was.rle));
+    expect(covered(now.rle)).toBeGreaterThan(covered(was.rle) * 0.99);
+    // and a second rebake finds nothing to do
+    expect(rebakeAll(app.db, config.dataDir, { dryRun: true }).changed).toEqual([]);
+  });
 });
 
 describe("rebake report lines", () => {
