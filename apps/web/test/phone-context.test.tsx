@@ -104,7 +104,9 @@ describe("the context sheet", () => {
 
   it("an action that can't be done is disabled, with the reason under it", () => {
     const out = html("quick", { kind: "start" });
-    expect(out).toMatch(/<button[^>]*role="menuitem"[^>]*disabled=""/);
+    // aria-disabled, not disabled (#147): the row still takes the focus, so the menu's keys reach it and its reason is read
+    expect(out).toMatch(/<button[^>]*role="menuitem"[^>]*aria-disabled="true"/);
+    expect(out).not.toMatch(/<button[^>]*role="menuitem"[^>]*disabled=""/);
     expect(out).toMatch(/<small>[^<]*start line[^<]*<\/small>/i);
   });
 

@@ -62,7 +62,7 @@ import {
   wheelEdit,
   type DesignerMode,
 } from "./mode.js";
-import { hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
+import { HAIRPIN_STRAIGHT, hairpinWhy, hasMitre, keepPinned, tidy, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, SHARP_TURN, snapCentre, snapInsertion, snapMitre, turnDegrees, type SnapMode, type SnapResult, type SnapTag } from "./snap.js";
 import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, releaseStep, reopenLaying, same, withLaying, type Cell, type LaneGrid, type Laying, type Refusal } from "./lanes.js";
 import { alongBisector, apexOf, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, radiusFromDrag, followTravel, type Seen, widthAt } from "./shape.js";
 import { findNests, followNest, linkedTo } from "./nest.js";
@@ -558,7 +558,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     if (hp) {
       hist.set({ ...cur, design: { ...cur.design, points: hp } }, `hairpin:${Date.now()}`);
       setMessage(null);
-    } else setMessage({ kind: "info", text: "That point is on a straight: there's no turn to make a hairpin of." });
+    } else setMessage({ kind: "info", text: hairpinWhy(pre, i, lw) ?? HAIRPIN_STRAIGHT });
   }, [hist]);
 
   useEffect(() => {
@@ -1757,7 +1757,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     />
   );
   const phone3dLabel = shown3d && no3d !== "lost" ? "2D" : "3D";
-  const panels: PanelProps = { view, checks: built.checks, bakedFeatures, pending: bake.pending, showSubmit, blocked, onShow: showCheck, onMakeCrossover: makeItACrossover, onBridge: bridgeIt, draft, drawn, sel, live, update, onDelete: deleteSelection, venueName, inCorner, checksHeading };
+  const panels: PanelProps = { view, checks: built.checks, bakedFeatures, pending: bake.pending, showSubmit, blocked, onShow: showCheck, onMakeCrossover: makeItACrossover, onBridge: bridgeIt, draft, drawn, sel, live, update, onDelete: deleteSelection, onHairpin: hairpinAt, venueName, inCorner, checksHeading };
   const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onCone: pickCone, onDropCone: dropCone, onDragCone: dragCone, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
   const history = { undo, redo, canUndo: hist.canUndo, canRedo: hist.canRedo };
   const palette: ToolPaletteProps = { ...tools, snap: snap.mode, onSnap: (m) => setSnap({ mode: m }) };
