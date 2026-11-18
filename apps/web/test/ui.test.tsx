@@ -531,12 +531,12 @@ describe("track page", () => {
     expect(text(h)).toContain(checksSummary(checks));
   });
 
-  it("share and download: forum link, embed, .rctrack.json", () => {
+  it("share and download: forum link, embed, download for the sim with its file name (#155)", () => {
     const t = text(page(can()));
     expect(t).toContain("Copy forum link");
     expect(t).toContain("Copy embed");
-    expect(t).toContain("Download .rctrack.json");
-    expect(page(can())).toContain('href="/api/tracks/winter-3/r/4.rctrack.json"');
+    expect(t).toContain("Download for the sim club-a-r4.rctrack.json Put it in the sim's Tracks folder");
+    expect(page(can())).toContain('href="/api/tracks/winter-3/r/4.rctrack.json" download="club-a-r4.rctrack.json"');
   });
 
   it("revisions: newest first, status words, each one viewable and downloadable", () => {
