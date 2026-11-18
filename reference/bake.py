@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.11).
+Reference implementation of the rctrack geometry engine (format v1.12).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.11"
+GENERATOR = "rctrack-bake.py 1.12"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -473,16 +473,20 @@ def tangent_at(line, s, total, d):
 def heading_deg(t): return r3((math.degrees(math.atan2(t[1], t[0])) + 360) % 360)
 
 FOOT_CELL = 0.1        # footprint raster cell (m)
-PIPE_R = 0.04          # half the pipe thickness, added round the lanes
+FEATURE_INSET = 0.08   # a jump or a bridge is this much narrower than its lane, 0.04 m each side (not the pipe: unchanged in 1.12)
+FOOT_MARGIN = 0.04     # (1.12) the footprint raster is framed this far round the lanes, as in 1.11 (then half the pipe), so its cells stay where they were
+PIPE_SIZE = 0.065      # (1.12) the divider pipe: 0.065 m square in section; half of it is added round the lanes
 
-def lane_mask(line, corners, points, cell=FOOT_CELL, origin=None, shape=None, extra=PIPE_R):
+def lane_mask(line, corners, points, cell=FOOT_CELL, origin=None, shape=None, extra=PIPE_SIZE / 2):
     """Raster of the area covered by lanes (plus pipe thickness): discs along the racing line, plus the outer half of
     every square corner out to its mitre. Returns mask, origin(x0,z0)."""
     xy = line[:, :2]; hw = line[:, 2] / 2 + extra
     polys = square_corner_polygons(line, corners, points, extra)
     if origin is None:
-        lo = xy.min(0) - hw.max() - cell; hi = xy.max(0) + hw.max() + cell
-        for poly in polys: lo = np.minimum(lo, poly.min(0) - cell); hi = np.maximum(hi, poly.max(0) + cell)
+        # the frame: FOOT_MARGIN round the lanes whatever the pipe's size, so the cells are 1.11's and a thinner pipe only uncovers some
+        pad = max(extra, FOOT_MARGIN); hwf = (line[:, 2] / 2 + pad).max()
+        lo = xy.min(0) - hwf - cell; hi = xy.max(0) + hwf + cell
+        for poly in (polys if pad == extra else square_corner_polygons(line, corners, points, pad)): lo = np.minimum(lo, poly.min(0) - cell); hi = np.maximum(hi, poly.max(0) + cell)
         origin = lo; shape = (int(np.ceil((hi[1] - lo[1]) / cell)), int(np.ceil((hi[0] - lo[0]) / cell)))
     m = np.zeros(shape, bool)
     for (x, z), r in zip(xy[::2], hw[::2]):
@@ -895,7 +899,7 @@ def bake(doc):
             length = f.get("length", L0); height = f.get("height", H0)
             prof = [[r3(a / FEATURE_PROFILES[typ][-1][0] * length if FEATURE_PROFILES[typ][-1][0] else 0), r3(h * height)] for a, h in FEATURE_PROFILES[typ]]
         p, t, i = at_distance(xy, s, total, dist)
-        width = float(line[i, 2]) - 0.08
+        width = float(line[i, 2]) - FEATURE_INSET
         feats.append({"type": typ, "x": r3(p[0]), "z": r3(p[1]), "heading": heading_deg(t), "length": r3(length),
                       "width": r3(width), "height": r3(height), "profile": prof})
         spans.append((dist, length))

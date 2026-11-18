@@ -1,7 +1,7 @@
 // Quick mode step 1, "Lay the lanes": paint the lane through squares the size of the lane width, then close the loop
 // into corner points. Pure (no DOM): the designer turns each painted step into one undo step.
 import type { Area, DesignPoint, Obstacle, Point2 } from "@track-studio/engine";
-import { PIPE_R, racingLine } from "@track-studio/engine";
+import { PIPE_SIZE, racingLine } from "@track-studio/engine";
 
 /** [column, row] of a grid square, counted from the area's south-west corner */
 export type Cell = [number, number];
@@ -19,9 +19,9 @@ export interface LaneGrid {
 
 /**
  * A square is blocked when an obstacle reaches into it or into the pipe round it: the bake checks obstacles against
- * the lanes plus half the pipe's thickness (PIPE_R), so a lane square touching an obstacle would fail.
+ * the lanes plus half the pipe's width (PIPE_SIZE / 2), so a lane square touching an obstacle would fail.
  */
-const MARGIN = PIPE_R; // m
+const MARGIN = PIPE_SIZE / 2; // m
 
 export const key = (c: Cell) => `${c[0]},${c[1]}`;
 export const same = (a: Cell, b: Cell) => a[0] === b[0] && a[1] === b[1];

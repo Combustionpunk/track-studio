@@ -153,6 +153,18 @@ places a cone and saves (a dry run lists nothing: it ignores the generator strin
 the older schema allows the extra keys and the older engine ignores `design.marshals`, so a layout saved with cones
 still opens; re-baked by the older code it loses `built.marshals` and the marshal checks.
 
+The rctrack 1.12 release (#155, a 0.065 m square pipe) needs a rebake, so stored footprints match the engine. The
+footprint pads the lanes by 0.0325 m instead of 0.04 m: it keeps its grid and loses a few cells along the lanes' edges.
+Nothing else in `built` changes, with one exception: a cone standing in a cell that is no longer covered loses its
+`marshal-on-track` error (the dry run shows "errors 1 → 0" for it). The dry run lists the revisions whose footprint
+loses a cell (most of them; a layout that loses none isn't listed), each with the same corners and size, none with
+"RACING LINE CHANGED" and none with "preview re-rendered" (at a preview's scale a pipe is drawn at its 1.5 px
+minimum, as before). The rebake clears the fit cache; fits can only get better (a layout may newly fit a venue, or
+sit more centrally). Run the dry run first and check it says that. On 18 November 2026 the public library held 2
+layouts and 1 venue template (Niagara centre – Indoor (Winter)): both layouts change their footprint only (9 and 10
+cells of about 22,000 and 24,500), and neither changes fit (all four orientations fit, before and after). Rolling back
+needs no restore: re-baking with the older code puts the old footprints back.
+
 ```sh
 docker compose exec track-studio node dist/rebake.js --dry-run   # see what would change
 docker compose exec track-studio node dist/rebake.js

@@ -61,7 +61,11 @@ describe("crossings on the plan", () => {
       expect(gap(under[0], under[1], under[2])).toBeCloseTo(2, 1);
       // the over pass's pipes run along both long sides, solid
       expect(attr(g, "p-over", "stroke-dasharray")).toBeUndefined();
-      expect(points(attr(g, "p-over", "d")!)).toHaveLength(4);
+      const over = points(attr(g, "p-over", "d")!);
+      expect(over).toHaveLength(4);
+      // at the over pass's lane edges, a lane apart, where its dividers run (1.12: the pipe is thinner than the 0.08 m
+      // a bridge is narrower than its lane, so "half a pipe out from the bridge" is no longer the lane's edge)
+      expect(gap(over[0], over[1], over[2])).toBeCloseTo(doc.built!.features[c.bridge!.feature].width + 0.08, 2); // the lane, not the bridge plus a pipe
     });
   });
 

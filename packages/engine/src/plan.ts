@@ -4,7 +4,7 @@
 //
 // Units are metres, SVG y = -z (north up). Lines that should look the same at any zoom (grid, racing line, outlines)
 // are sized in screen pixels via `px`, the size of one output pixel in metres.
-import { drawingArea, rostrumPosition } from "./bake.js";
+import { drawingArea, FEATURE_INSET, PIPE_SIZE, rostrumPosition } from "./bake.js";
 import type { Area, Built, BuiltFeature, Crossing, Obstacle, Point2, RcTrack, Side } from "./types.js";
 
 /** The fixed plan palette: tokens.json's plan-* colours (a test keeps them equal). */
@@ -91,7 +91,6 @@ export interface PlanDrawOptions {
 }
 
 export const PLAN_MARGIN = 2.5; // m around the area (room for the rostrum)
-export const PIPE_THICKNESS = 0.08; // m (2 × PIPE_R in bake.ts)
 export const GRID_BOXES = 10; // a full final
 const ROSTRUM_SIZE: [number, number] = [5, 1.2]; // m, along × across its side
 
@@ -340,12 +339,12 @@ function drawBridge(built: Built, c: Crossing, s: number[], total: number, px: n
   const under = passes(built, c, s, total)[c.over === "first" ? 1 : 0];
   const nrm: Point2 = [-under.t[1], under.t[0]];
   const edges = [-1, 1].flatMap((side) => clipLine([c.x + nrm[0] * side * (under.w / 2), c.z + nrm[1] * side * (under.w / 2)], under.t, q) ?? []);
-  // the over pass's pipes: the footprint's long sides (0-1 and 3-2), out by half a pipe (the bridge is the lane less a pipe)
+  // the over pass's pipes: the footprint's long sides (0-1 and 3-2), out to the lane's edge, where the dividers run (the bridge is FEATURE_INSET narrower than its lane)
   const [a, b, cc, d] = q;
   const across = Math.hypot(a[0] - d[0], a[1] - d[1]) || 1;
   const out: Point2 = [(a[0] - d[0]) / across, (a[1] - d[1]) / across];
-  const shift = (p: Point2, k: number): Point2 => [p[0] + out[0] * (PIPE_THICKNESS / 2) * k, p[1] + out[1] * (PIPE_THICKNESS / 2) * k];
-  const pipeW = Math.max(PIPE_THICKNESS, 1.5 * px);
+  const shift = (p: Point2, k: number): Point2 => [p[0] + out[0] * (FEATURE_INSET / 2) * k, p[1] + out[1] * (FEATURE_INSET / 2) * k];
+  const pipeW = Math.max(PIPE_SIZE, 1.5 * px);
   const seg = ([p, r]: Point2[]) => `M${pt(...p)} L${pt(...r)}`;
   const o: string[] = [`<g class="p-crossing" data-bridge="${c.bridge!.type}" data-over="${c.over}"${tips ? ` data-tip="f${c.bridge!.feature}"` : ""}>`];
   if (f) o.push(drawJump(f, c.bridge!.feature, px, false, P, print, id));
@@ -492,7 +491,7 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
 
   // pipes at real thickness (at least 1.5 px), a core line inside shared ones
   if (layers.dividers && built) {
-    const w = Math.max(PIPE_THICKNESS, 1.5 * px);
+    const w = Math.max(PIPE_SIZE, 1.5 * px);
     for (const d of built.dividers) {
       const dd = path(d.points, d.closed);
       o.push(`<path class="p-pipe" d="${dd}" fill="none" stroke="${P["plan-pipe"]}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/>`);

@@ -1,5 +1,5 @@
 // The 3D viewer's scene builder (#83): pure, no WebGL. Built from `built` and the drawing area only.
-import { bake, drawingArea, PIPE_THICKNESS, PLAN_PALETTE, type Built, type BuiltFeature, type Crossing, type Point2, type RcTrack } from "@track-studio/engine";
+import { bake, drawingArea, FEATURE_INSET, PIPE_SIZE, PLAN_PALETTE, type Built, type BuiltFeature, type Crossing, type Point2, type RcTrack } from "@track-studio/engine";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -59,36 +59,57 @@ function ringArea(r: Point2[]): number {
 const club = ref("examples/club-a.rctrack.json");
 
 describe("pipes follow built.dividers", () => {
-  it("every divider point is the top of the pipe, and the pipe never strays more than a pipe from its run", () => {
+  it("every divider point is the middle of the pipe's top, and the pipe never strays more than a pipe from its run", () => {
     const b = club.built!;
     const m = pipeMesh(b.dividers);
-    for (const d of b.dividers) for (const [x, z] of d.points) expect(hasVert(m, x, z, PIPE_THICKNESS)).toBe(true);
+    const h = PIPE_SIZE / 2;
+    // each divider point has the top's two edges beside it (further out at a mitred corner, at most twice as far)
+    const tops = verts(m).filter(([, , y]) => Math.abs(y - PIPE_SIZE) < 1e-6);
+    for (const d of b.dividers)
+      for (const [x, z] of d.points) {
+        const near = tops.map(([a, c]) => Math.hypot(a - x, c - z)).filter((r) => r <= 2 * h + 1e-6);
+        expect(near.length, `top at ${x}, ${z}`).toBeGreaterThanOrEqual(2);
+        expect(Math.min(...near)).toBeGreaterThanOrEqual(h - 1e-6);
+      }
     for (const [x, z, y] of verts(m)) {
       expect(y).toBeGreaterThanOrEqual(-1e-9);
-      expect(y).toBeLessThanOrEqual(PIPE_THICKNESS + 1e-9);
-      // mitred joints reach further out than the radius at a corner, at most twice as far
-      expect(Math.min(...b.dividers.map((d) => toPolyline([x, z], d.points, d.closed)))).toBeLessThanOrEqual(PIPE_THICKNESS + 1e-6);
+      expect(y).toBeLessThanOrEqual(PIPE_SIZE + 1e-9);
+      // mitred joints reach further out than half the width at a corner, at most twice as far
+      expect(Math.min(...b.dividers.map((d) => toPolyline([x, z], d.points, d.closed)))).toBeLessThanOrEqual(PIPE_SIZE + 1e-6);
     }
   });
 
-  it("is round, 8 cm across, and shared pipes look the same", () => {
+  it("is square in section, 6.5 cm wide and high with flat faces, and shared pipes look the same", () => {
     const run = { points: [[0, 0], [4, 0]] as Point2[], closed: false };
     const a = pipeMesh([{ ...run, shared: false }]), s = pipeMesh([{ ...run, shared: true }]);
     expect(Array.from(s.positions)).toEqual(Array.from(a.positions));
     const v = verts(a);
-    expect(Math.max(...v.map((p) => p[1]))).toBeCloseTo(PIPE_THICKNESS / 2, 6);
-    expect(Math.min(...v.map((p) => p[1]))).toBeCloseTo(-PIPE_THICKNESS / 2, 6);
-    expect(Math.min(...v.map((p) => p[2]))).toBeCloseTo(0, 6);
+    // a run along x: the section is in (z across, y up), and every vertex is one of the square's four corners
+    const section = [...new Set(v.map(([, z, y]) => `${z.toFixed(4)},${y.toFixed(4)}`))].sort();
+    const h = (PIPE_SIZE / 2).toFixed(4), top = PIPE_SIZE.toFixed(4);
+    expect(section).toEqual([`-${h},0.0000`, `-${h},${top}`, `${h},0.0000`, `${h},${top}`].sort());
+    expect(PIPE_SIZE).toBe(0.065);
+    // flat faces: every side's normals point straight out (sideways or up and down), never between
+    // (a loop of four straight pieces too: a side is flat right up to its mitred corners, not shaded round them)
+    const loop = pipeMesh([{ points: [[0, 0], [4, 0], [4, 4], [0, 4]], shared: false, closed: true }]);
+    for (const mesh of [a, loop])
+      for (let i = 0; i < mesh.normals.length; i += 3) {
+        const [nx, ny, nz] = [mesh.normals[i], mesh.normals[i + 1], mesh.normals[i + 2]].map(Math.abs);
+        expect([nx, ny, nz].filter((c) => c > 1e-6)).toHaveLength(1);
+      }
     expect(buildScene({ area: drawingArea(club), built: club.built! }).meshes.filter((m) => m.part === "pipe")).toHaveLength(1);
   });
 
   it("a closed run joins up all round with no end caps; an open one is capped", () => {
     const sq: Point2[] = [[0, 0], [4, 0], [4, 4], [0, 4]];
     const tris = (closed: boolean) => pipeMesh([{ points: sq, shared: false, closed }]).indices.length / 3;
+    expect(PIPE_SIDES).toBe(4);
     expect(tris(true)).toBe(4 * PIPE_SIDES * 2);
-    expect(tris(false)).toBe(3 * PIPE_SIDES * 2 + 2 * (PIPE_SIDES - 2));
-    // the corner is mitred: its top is right over the divider point
-    expect(hasVert(pipeMesh([{ points: sq, shared: false, closed: true }]), 0, 0, PIPE_THICKNESS)).toBe(true);
+    expect(tris(false)).toBe(3 * PIPE_SIDES * 2 + 2 * 2);
+    // the corner is mitred: the top's outer and inner corners sit on the diagonal through the divider point
+    const m = pipeMesh([{ points: sq, shared: false, closed: true }]), h = PIPE_SIZE / 2;
+    expect(hasVert(m, h, h, PIPE_SIZE)).toBe(true);
+    expect(hasVert(m, -h, -h, PIPE_SIZE)).toBe(true);
   });
 });
 
@@ -291,7 +312,7 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
   const bridgeHeight = (b: Built, p: Point2) =>
     Math.max(0, ...bridgedFeatures(b).map((f) => {
       const fr = frameOf(f);
-      return Math.abs(fr.across(p)) <= f.width / 2 + PIPE_THICKNESS ? profileAt(f, fr.along(p)) : 0;
+      return Math.abs(fr.across(p)) <= f.width / 2 + FEATURE_INSET / 2 + PIPE_SIZE ? profileAt(f, fr.along(p)) : 0;
     }));
   const bridgedFeatures = (b: Built) => [...new Set((b.crossings ?? []).filter((c) => c.bridge && c.over).map((c) => c.bridge!.feature))].map((i) => b.features[i]);
 
@@ -352,7 +373,7 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
         const fr = frameOf(f);
         for (const [a] of f.profile)
           for (const side of [-1, 1]) {
-            const p = fr.at(a, side * (f.width / 2 + PIPE_THICKNESS / 2)), want = bridgeHeight(b, p) + PIPE_THICKNESS;
+            const p = fr.at(a, side * (f.width / 2 + FEATURE_INSET / 2 - PIPE_SIZE / 2)), want = bridgeHeight(b, p) + PIPE_SIZE;
             const near = verts(pipe).filter(([x, z, y]) => Math.hypot(x - p[0], z - p[1]) < 0.03 && Math.abs(y - want) < 0.005);
             expect(near.length, `pipe top at ${a} m, side ${side}`).toBeGreaterThan(0);
           }
@@ -373,16 +394,16 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
         const under = (x: number, z: number) => {
           const a = fr.along([x, z]), across = fr.across([x, z]);
           const v = (x - c.x) * u.n[0] + (z - c.z) * u.n[1];
-          return a > 0 && a < f.length && Math.abs(across) < f.width / 2 - 1e-3 && Math.abs(v) <= u.w / 2 + PIPE_THICKNESS;
+          return a > 0 && a < f.length && Math.abs(across) < f.width / 2 - 1e-3 && Math.abs(v) <= u.w / 2 + PIPE_SIZE;
         };
         for (const m of s.meshes)
           for (const [x, z, y] of verts(m))
-            if (under(x, z)) expect(y <= PIPE_THICKNESS + 1e-6 || y >= top - DECK_THICKNESS - 1e-6, `${m.part} at ${x.toFixed(2)}, ${z.toFixed(2)}, ${y.toFixed(3)}`).toBe(true);
+            if (under(x, z)) expect(y <= PIPE_SIZE + 1e-6 || y >= top - DECK_THICKNESS - 1e-6, `${m.part} at ${x.toFixed(2)}, ${z.toFixed(2)}, ${y.toFixed(3)}`).toBe(true);
         // and its pipes really pass beneath, on the floor at its lane's edges
         for (const side of [-1, 1]) {
           const hs = heightsAt(pipe, [c.x + (u.n[0] * side * u.w) / 2, c.z + (u.n[1] * side * u.w) / 2]);
           expect(hs.length, `under pipe, side ${side}`).toBeGreaterThan(0);
-          expect(Math.min(...hs)).toBeLessThanOrEqual(PIPE_THICKNESS + 1e-6);
+          expect(Math.min(...hs)).toBeLessThanOrEqual(PIPE_SIZE + 1e-6);
         }
       }
     });
@@ -458,7 +479,7 @@ describe("crossings: the over pass on the bridge, the under pass beneath (#71)",
       const doc = extra(name), b = doc.built!, s = sceneOf(doc);
       expect(b.crossings!.every((c) => !c.bridge)).toBe(true);
       for (const p of ["carpet", "line", "pipe", "startA", "startB"] as const)
-        for (const [, , y] of verts(part(s, p))) expect(y, p).toBeLessThanOrEqual(PIPE_THICKNESS + 1e-6);
+        for (const [, , y] of verts(part(s, p))) expect(y, p).toBeLessThanOrEqual(PIPE_SIZE + 1e-6);
       // any crossover there is an ordinary ramp, as before
       const top = s.meshes.find((m) => m.part === "jump");
       expect(Array.from(top?.positions ?? [])).toEqual(b.features.flatMap((f) => Array.from(jumpMesh(f).top.positions)));
