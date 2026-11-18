@@ -167,6 +167,35 @@ describe("saving tracks", () => {
     expect((dl.json() as RcTrack).revision).toBe(2);
   });
 
+  it("the latest link serves the public revision as a download and follows approval (#155)", async () => {
+    const { app, alice, org } = await setup();
+    const { track } = await createAs(app, alice);
+    const latest = () => req(app, "GET", `/api/tracks/${track.id}/latest.rctrack.json`);
+    const served = async () => {
+      const res = await latest();
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.headers["content-type"]).toMatch(/^application\/json/);
+      return { rev: (res.json() as RcTrack).revision, file: res.headers["content-disposition"] };
+    };
+    // no approved revision: the latest
+    expect(await served()).toEqual({ rev: 1, file: 'attachment; filename="freeform-example-r1.rctrack.json"' });
+    await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: { ...freeform(), info: { ...freeform().info, name: "Renamed" } }, note: "second" });
+    expect(await served()).toEqual({ rev: 2, file: 'attachment; filename="renamed-r2.rctrack.json"' });
+    // approved before the lock (#64) with a newer draft on top: the approved one, named as it was then
+    app.db.prepare("UPDATE tracks SET approved_revision = 1 WHERE id = ?").run(track.id);
+    expect(await served()).toEqual({ rev: 1, file: 'attachment; filename="freeform-example-r1.rctrack.json"' });
+    expect((await latest()).json().info.status).toBe("approved");
+    // approving the newer revision changes what it serves
+    expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).statusCode).toBe(200);
+    expect(await served()).toEqual({ rev: 2, file: 'attachment; filename="renamed-r2.rctrack.json"' });
+    // the same bytes as the pinned link
+    expect((await latest()).body).toBe((await req(app, "GET", `/api/tracks/${track.id}/r/2.rctrack.json`)).body);
+    // public: no session needed (above); unknown ids 404
+    const missing = await req(app, "GET", "/api/tracks/00000000-0000-4000-8000-000000000000/latest.rctrack.json");
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error).toBe("not-found");
+  });
+
   it("status workflow: draft and submitted save as before; approval locks", async () => {
     const { app, alice, org } = await setup();
     const { track } = await createAs(app, alice);
@@ -323,10 +352,10 @@ describe("saving tracks", () => {
   it("list filters", async () => {
     const { app } = await setup();
     const names = async (qs: string) => ((await req(app, "GET", `/api/tracks${qs}`)).json().tracks as { name: string }[]).map((t) => t.name).sort();
-    expect(await names("")).toEqual(["Club A", "Freeform example", "Freeform example @ Sports hall B"]);
+    expect(await names("")).toEqual(["Club A", "Figure of eight crossover", "Freeform example", "Freeform example @ Sports hall B"]);
     expect(await names("?q=freeform")).toEqual(["Freeform example", "Freeform example @ Sports hall B"]);
     expect(await names("?minLap=100")).toEqual(["Club A"]);
-    expect(await names("?maxLap=100")).toEqual(["Freeform example", "Freeform example @ Sports hall B"]);
+    expect(await names("?maxLap=100")).toEqual(["Figure of eight crossover", "Freeform example", "Freeform example @ Sports hall B"]);
     expect(await names("?venue=venue-2")).toEqual(["Freeform example @ Sports hall B"]);
     expect(await names("?status=draft")).toEqual([]);
     expect(await names("?q=%25")).toEqual([]);
@@ -344,7 +373,7 @@ describe("saving tracks", () => {
     };
     expect(await ids("?author=me", alice)).toEqual([{ id: a.track.id, author: "alice" }]);
     expect((await ids("?author=me", bob)).map((t) => t.author)).toEqual(["bob"]);
-    expect((await ids("", alice)).length).toBe(5);
+    expect((await ids("", alice)).length).toBe(6);
   });
 
   it("author=me combines with the other filters", async () => {
@@ -367,7 +396,7 @@ describe("saving tracks", () => {
     const a = await createAs(app, alice);
     expect((await req(app, "POST", `/api/tracks/${a.track.id}/approve`, org)).statusCode).toBe(200);
     const ids = async (qs: string) => ((await req(app, "GET", `/api/tracks${qs}`, alice)).json().tracks as { id: string }[]).map((t) => t.id);
-    expect(await ids("?fits=venue-2")).toHaveLength(3);
+    expect(await ids("?fits=venue-2")).toHaveLength(4);
     expect(await ids("?author=me&fits=venue-2")).toEqual([a.track.id]);
     expect(await ids("?author=me&fits=venue-3")).toEqual([]);
   });
@@ -430,7 +459,7 @@ describe("saving tracks", () => {
     // the check comes first, signed out too
     expect((await req(app, "GET", "/api/tracks?author=101")).statusCode).toBe(400);
     // empty means no filter, like the other parameters
-    expect((await req(app, "GET", "/api/tracks?author=")).json().tracks.length).toBe(3);
+    expect((await req(app, "GET", "/api/tracks?author=")).json().tracks.length).toBe(4);
   });
 });
 
@@ -457,7 +486,7 @@ describe("fit + adapt", () => {
     const { app, alice } = await setup();
     await createAs(app, alice); // a draft that would fit: not listed
     const res = (await req(app, "GET", "/api/tracks?fits=venue-2")).json().tracks as { id: string; fit: { results: { orientation: string }[] } }[];
-    expect(res.map((t) => t.id).sort()).toEqual(["3b542396-6bd2-55e8-8665-852e74dc54a9", "46897d82-0114-460f-9a75-984ee97bca0e"]);
+    expect(res.map((t) => t.id).sort()).toEqual(["3b542396-6bd2-55e8-8665-852e74dc54a9", "46897d82-0114-460f-9a75-984ee97bca0e", "5f1c2b9e-0d4a-4c8e-9b7a-1550c0de0155"]);
     expect(res.find((t) => t.id === FREEFORM)!.fit.results.map((r) => r.orientation)).toEqual(["rotated 180"]);
     expect((await req(app, "GET", "/api/tracks?fits=venue-3")).json().tracks).toEqual([]);
     expect((await req(app, "GET", "/api/tracks?fits=nope")).statusCode).toBe(404);

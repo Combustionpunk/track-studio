@@ -35,7 +35,7 @@ describe("rebake", () => {
     const designBefore = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().doc.design;
 
     const dry = rebakeAll(app.db, config.dataDir, { dryRun: true });
-    expect(dry.changed).toHaveLength(3);
+    expect(dry.changed).toHaveLength(4);
     expect((await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().track.corners).toBe(18);
 
     const report = rebakeAll(app.db, config.dataDir);
@@ -47,7 +47,7 @@ describe("rebake", () => {
     expect(got.track).toMatchObject({ corners: 12, size: { length: 22, width: 11.8 }, revision: 1, approvedRevision: 1 });
     expect(got.doc.built.size).toEqual({ length: 22, width: 11.8, bbox: [-11, -5.9, 11, 5.9] });
     expect(got.doc.design).toEqual(designBefore);
-    expect(app.db.prepare("SELECT COUNT(*) FROM track_revisions").pluck().get()).toBe(3);
+    expect(app.db.prepare("SELECT COUNT(*) FROM track_revisions").pluck().get()).toBe(4);
     expect(readdirSync(join(config.dataDir, "previews", CLUB_A))).toHaveLength(1); // drawing unchanged: picture kept
     expect((await app.inject({ method: "GET", url: "/api/tracks?minCorners=12&maxCorners=12" })).json().tracks.map((t: { id: string }) => t.id)).toEqual([CLUB_A]);
 
@@ -77,11 +77,11 @@ describe("rebake", () => {
     const { app, config } = await makeApp({ seeded: true });
     // the seeded examples as rctrack 1.6 stored them: obstacles, basedOn, design and built rostrum
     const v16 = join(ROOT_DIR, "packages/engine/test/fixtures/v16");
-    const rows = app.db.prepare("SELECT track_id, revision FROM track_revisions").all() as { track_id: string; revision: number }[];
-    for (const f of readdirSync(v16).filter((n) => n.endsWith(".rctrack.json"))) {
-      const doc = JSON.parse(readFileSync(join(v16, f), "utf8")) as RcTrack;
-      app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ?").run(JSON.stringify(doc), doc.id);
-    }
+    // (the examples that existed in 1.6; later ones, such as the crossover added for #155, stay as they are)
+    const old = readdirSync(v16).filter((n) => n.endsWith(".rctrack.json")).map((f) => JSON.parse(readFileSync(join(v16, f), "utf8")) as RcTrack);
+    const rows = (app.db.prepare("SELECT track_id, revision FROM track_revisions").all() as { track_id: string; revision: number }[]).filter((r) => old.some((d) => d.id === r.track_id));
+    expect(rows).toHaveLength(3);
+    for (const doc of old) app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ?").run(JSON.stringify(doc), doc.id);
     const stored = () => rows.map((r) => app.db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(r.track_id, r.revision) as string);
     expect(stored().every((j) => j.includes('"rostrum"'))).toBe(true);
     // read through the API before the rebake, they already come back as 1.7
@@ -146,6 +146,36 @@ describe("rebake", () => {
     expect(got.track).toMatchObject({ revision: 1, approvedRevision: 1, errors: 0 });
     expect(got.doc.built.checks.filter((c: { level: string }) => c.level === "error")).toEqual([]);
     expect(got.doc.built.checks.filter((c: { code: string }) => c.code === "lane-squeeze")).toHaveLength(1);
+  });
+
+  it("rctrack 1.12, a 0.065 m square pipe: the footprint loses cells on the same grid; checks, size and the report stay (#155)", async () => {
+    const { app, config } = await makeApp({ seeded: true });
+    // club A's revision as 1.10 baked it (the lanes padded by half a 0.08 m pipe)
+    const stored = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/v110/club-a.rctrack.json"), "utf8")) as RcTrack;
+    expect(stored.id).toBe(CLUB_A);
+    app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ? AND revision = 1").run(JSON.stringify(stored), CLUB_A);
+    setRevisionColumns(app.db, CLUB_A, 1, stored);
+
+    const dry = rebakeAll(app.db, config.dataDir, { dryRun: true });
+    expect(dry.failed).toEqual([]);
+    expect(dry.changed.map((c) => [c.id, c.racingLineChanged, c.errors, c.gained, c.warnings, c.gainedWarnings, c.previewChanged, c.size[0] === c.size[1], c.corners[0] === c.corners[1]])).toEqual([
+      [CLUB_A, false, [0, 0], [], [0, 0], [], false, true, true],
+    ]);
+    expect(changeLine(dry.changed[0])).not.toMatch(/RACING LINE|errors|warnings|preview/);
+
+    expect(rebakeAll(app.db, config.dataDir).failed).toEqual([]);
+    const got = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().doc as RcTrack;
+    const now = got.built!.footprint, was = stored.built!.footprint;
+    // (the stored bake is bake.py's and the fresh one the engine's, the same within the reference tolerance)
+    expect(got.built!.checks).toEqual(stored.built!.checks);
+    expect(got.built!.size).toEqual(stored.built!.size);
+    expect(got.built!.racingLine).toHaveLength(stored.built!.racingLine.length);
+    expect({ ...now, rle: "" }).toEqual({ ...was, rle: "" }); // the same cell, origin, rows, cols and bbox
+    const covered = (rle: string) => rle.split(" ").reduce((n, run, i) => n + (i % 2 ? Number(run) : 0), 0);
+    expect(covered(now.rle)).toBeLessThan(covered(was.rle));
+    expect(covered(now.rle)).toBeGreaterThan(covered(was.rle) * 0.99);
+    // and a second rebake finds nothing to do
+    expect(rebakeAll(app.db, config.dataDir, { dryRun: true }).changed).toEqual([]);
   });
 });
 

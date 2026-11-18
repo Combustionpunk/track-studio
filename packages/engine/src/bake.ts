@@ -24,7 +24,7 @@ import type {
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.11";
+export const GENERATOR = "track-studio-engine 1.12";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -66,7 +66,14 @@ export const OVERLAP_TOL = 0.05;
 /** 1.11 (#151): a marshal point further than this (m) from every lane edge is too far to reach a car (marshal-far, info) */
 export const MARSHAL_REACH = 3.0;
 export const FOOT_CELL = 0.1; // footprint raster cell (m)
-export const PIPE_R = 0.04; // half the pipe thickness, added round the lanes
+/** 1.12: the divider pipe is 0.065 m square in section (m, the side of the square). Half of it is added round the lanes
+ * for the footprint; the plan and the 3D view draw it this wide, and the 3D view this high. */
+export const PIPE_SIZE = 0.065;
+/** 1.12: the footprint raster is framed this far round the lanes, as in 1.11 (then half the pipe), so its cells stay where
+ * they were: a thinner pipe only uncovers cells, and fit results can only get better. */
+export const FOOT_MARGIN = 0.04;
+/** A jump or a bridge is this much narrower than its lane (m), 0.04 m each side. Not the pipe: unchanged in 1.12. */
+export const FEATURE_INSET = 0.08;
 export const EYE_HEIGHT = 2.8;
 export const ROSTRUM_SETBACK = 1.5; // rostrum distance outside the area edge (m)
 
@@ -883,7 +890,7 @@ export function laneMask(
   points: DesignPoint[],
   cell = FOOT_CELL,
   frameOf?: { origin: Point2; rows: number; cols: number },
-  extra = PIPE_R,
+  extra = PIPE_SIZE / 2,
 ): Raster {
   const { n, x, z } = line;
   const hw = new Float64Array(n);
@@ -891,15 +898,17 @@ export function laneMask(
   const polys = squareCornerPolygons(line, corners, points, extra);
   let origin: Point2, rows: number, cols: number;
   if (!frameOf) {
+    // the frame: FOOT_MARGIN round the lanes whatever the pipe's size, so the cells are 1.11's
+    const pad = Math.max(extra, FOOT_MARGIN);
     let minx = Infinity, minz = Infinity, maxx = -Infinity, maxz = -Infinity, hwmax = -Infinity;
     for (let i = 0; i < n; i++) {
       minx = Math.min(minx, x[i]); maxx = Math.max(maxx, x[i]);
       minz = Math.min(minz, z[i]); maxz = Math.max(maxz, z[i]);
-      hwmax = Math.max(hwmax, hw[i]);
+      hwmax = Math.max(hwmax, line.width[i] / 2 + pad);
     }
     origin = [minx - hwmax - cell, minz - hwmax - cell];
     const hi: Point2 = [maxx + hwmax + cell, maxz + hwmax + cell];
-    for (const poly of polys) {
+    for (const poly of pad === extra ? polys : squareCornerPolygons(line, corners, points, pad)) {
       for (const [px, pz] of poly) {
         origin = [Math.min(origin[0], px - cell), Math.min(origin[1], pz - cell)];
         hi[0] = Math.max(hi[0], px + cell); hi[1] = Math.max(hi[1], pz + cell);
@@ -1445,7 +1454,7 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
       profile = featureProfile(typ, length, height);
     }
     const { p, t, i } = atDistance(x, z, s, total, dist);
-    const width = line.width[i] - 0.08;
+    const width = line.width[i] - FEATURE_INSET;
     feats.push({ type: typ, x: r3(p[0]), z: r3(p[1]), heading: headingDeg(t), length: r3(length), width: r3(width), height: r3(height), profile });
     spans.push([dist, length]);
     const shown = pyMod(dist, total); // messages give distances from 0 up to the lap length, never "-1.5 m"

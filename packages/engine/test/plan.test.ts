@@ -76,12 +76,12 @@ describe("planLayers", () => {
     expect(svg).toMatch(/stroke-width="2(\.\d+)?"/);
   });
 
-  it("draws pipes at real thickness (0.08 m), never thinner than 1.5 px; shared pipes get a core line", () => {
+  it("draws pipes at real thickness (0.065 m), never thinner than 1.5 px; shared pipes get a core line", () => {
     const doc = club();
     const b = doc.built!;
     const svg = draw(doc, { px: 0.01 });
     expect(count(svg, /class="p-pipe"/g)).toBe(b.dividers.length);
-    expect(svg).toMatch(/class="p-pipe"[^>]*stroke-width="0\.08"/);
+    expect(svg).toMatch(/class="p-pipe"[^>]*stroke-width="0\.065"/);
     expect(count(svg, /class="p-shared"/g)).toBe(b.dividers.filter((d) => d.shared).length);
     expect(b.dividers.some((d) => d.shared)).toBe(true);
     // zoomed far out, a pipe is 1.5 px
@@ -278,7 +278,7 @@ describe("planSvg", () => {
     const { length: L, width: W } = doc.area!;
     // 2.5, or more for a cone further out (1.11): freeform-example's cone 6 is 4 m outside its area, and 2.64 m in the copy
     const m = planMargin(planScene(doc));
-    expect(m).toBeCloseTo(path.includes("club-a") ? 2.5 : path.includes("sports-hall") ? 3.14 : 4.5, 9);
+    expect(m).toBeCloseTo(path.includes("club-a") || path.includes("figure-eight") ? 2.5 : path.includes("sports-hall") ? 3.14 : 4.5, 9);
     expect(svg.startsWith(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${Math.round((1200 * (W + 2 * m)) / (L + 2 * m))}" viewBox="${-L / 2 - m} ${-W / 2 - m} ${L + 2 * m} ${W + 2 * m}"`)).toBe(true);
     expect(svg).toMatch(new RegExp(`<rect class="p-floor"[^>]*fill="${PLAN_PALETTE["plan-floor"]}"`));
     expect(svg).toMatch(/<g class="p-scale">.*>5 m<\/text><\/g>/);

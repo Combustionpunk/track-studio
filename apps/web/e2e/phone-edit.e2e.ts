@@ -3,9 +3,30 @@
 // deletes, Undo brings it back; on its side the phone says to turn it upright, and turning back loses nothing. Tablets
 // and the laptop are unchanged; a narrow laptop window gets the phone layout and zooms with the wheel.
 // SHOTS=<dir> saves screenshots for the PR. The API is answered from the reference files, so only Vite is needed.
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { corners, doc, emptyFloor, middleCorner, open, pinchIn, planBox, serve, shot, toolBtn, toolbar, viewBox } from "./phone-helper.js";
-import { Touch } from "./touch-helper.js";
+import { screen, Touch, type XY } from "./touch-helper.js";
+
+/**
+ * A corner in the upper half of the plan, where the selection sheet never reaches. The middle corner ends up under
+ * the sheet's grab bar once it has slid in (200 ms), so a drag from there only moved the corner on a fast machine.
+ */
+async function upperCorner(page: Page): Promise<{ i: number; at: XY }> {
+  const b = await planBox(page);
+  const want: XY = [b.x + b.width / 2, b.y + b.height * 0.3];
+  let best = { i: -1, at: [0, 0] as XY, d: Infinity };
+  const pts = await corners(page);
+  for (let i = 0; i < pts.length; i++) {
+    const at = await screen(page, pts[i][0], pts[i][1]);
+    const d = Math.hypot(at[0] - want[0], at[1] - want[1]);
+    // the corner's own dot is what a finger gets there (not an apex handle on top of it), with room to drag
+    const own = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-handle]")?.getAttribute("data-handle") === "point", at);
+    const room = at[0] > b.x + 30 && at[0] < b.x + b.width - 50 && at[1] > b.y + 30 && at[1] + 60 < b.y + b.height / 2;
+    if (own && room && d < best.d) best = { i, at, d };
+  }
+  expect(best.i, "a corner in the upper half of the plan").toBeGreaterThanOrEqual(0);
+  return best;
+}
 
 test.describe("phone", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "phone", "a phone, 375 × 812"));
@@ -71,7 +92,7 @@ test.describe("phone", () => {
     const t = await Touch.on(page);
     await pinchIn(page, t);
     const before = await corners(page);
-    const { i, at } = await middleCorner(page);
+    const { i, at } = await upperCorner(page);
 
     // tap: selected, Delete on
     await t.tap(at);
@@ -79,6 +100,10 @@ test.describe("phone", () => {
     await expect(toolBtn(page, "Delete")).toBeEnabled();
     expect(await corners(page)).toEqual(before);
     await shot(page, "375-selected");
+    // its sheet has slid in, and it leaves the corner and the drag's path clear
+    const sheet = page.locator("section.bottom-sheet");
+    await sheet.getByRole("button", { name: "Close" }).click({ trial: true });
+    expect((await sheet.boundingBox())!.y).toBeGreaterThan(at[1] + 60 + 22);
 
     // drag past the slop: the corner moves, the others stay
     await t.drag([at, [at[0] + 10, at[1] + 30], [at[0] + 20, at[1] + 60]], 6);

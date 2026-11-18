@@ -21,11 +21,12 @@ describe("build sheet tables", () => {
     });
   });
 
-  it.each(fixtures)("$name: jump rows match built.features", ({ doc }) => {
+  it.each(fixtures)("$name: jump rows match built.features (crossovers have their own table)", ({ doc }) => {
     const rows = jumpRows(buildSheet(doc));
-    expect(rows).toHaveLength(doc.built!.features.length);
+    const jumps = doc.built!.features.filter((f) => f.type !== "crossover");
+    expect(rows).toHaveLength(jumps.length);
     rows.forEach((r, i) => {
-      const f = doc.built!.features[i];
+      const f = jumps[i];
       const sw = fromSouthWest(doc.area!, f.x, f.z);
       expect(r.position).toBe(`${metres1(sw.fromWest)}, ${metres1(sw.fromSouth)}`);
       expect(r.size).toBe(`${Math.round(f.length * 100) / 100} × ${Math.round(f.height * 100) / 100} m`);

@@ -151,6 +151,166 @@
    }
   }
  },
+ "figure-eight-crossover.rctrack.json | club-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "north",
+    "x": 0.0,
+    "z": 7.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "figure-eight-crossover.rctrack.json | small-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -11.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "figure-eight-crossover.rctrack.json | sports-hall-b.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.56,
+     -0.06
+    ],
+    "spare": [
+     3.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.56,
+     -0.06
+    ],
+    "spare": [
+     3.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.56,
+     -0.06
+    ],
+    "spare": [
+     3.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.56,
+     -0.06
+    ],
+    "spare": [
+     3.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 10.51,
+     "z": -6.99,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "figure-eight-crossover.rctrack.json | obstacles-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 4.21,
+     "z": 2.91,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -10.5,
+    "z": 1.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "figure-eight-crossover.rctrack.json | rotated-desk.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 8.91,
+     "z": -5.99,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "east",
+    "x": 13.5,
+    "z": -1.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "freeform-at-sports-hall-b.rctrack.json | club-hall.rcvenue.json": {
   "fits": [
    {
@@ -808,7 +968,7 @@
     "mirror": false,
     "shift": [
      4.03,
-     0.84
+     0.74
     ],
     "spare": [
      11.5,
@@ -898,7 +1058,7 @@
     "rotation": 270,
     "mirror": true,
     "shift": [
-     0.84,
+     0.74,
      4.03
     ],
     "spare": [
@@ -3438,8 +3598,8 @@
     "rotation": 0,
     "mirror": false,
     "shift": [
-     0.42,
-     -0.13
+     0.52,
+     0.07
     ],
     "spare": [
      4.7,
@@ -3451,8 +3611,8 @@
     "rotation": 0,
     "mirror": true,
     "shift": [
-     -0.54,
-     0.17
+     -0.44,
+     -0.13
     ],
     "spare": [
      4.6,
@@ -5968,8 +6128,8 @@
     "rotation": 180,
     "mirror": false,
     "shift": [
-     -1.89,
-     0.18
+     -1.59,
+     0.08
     ],
     "spare": [
      10.2,
@@ -7836,7 +7996,7 @@
     "rotation": 180,
     "mirror": false,
     "shift": [
-     -1.74,
+     -1.84,
      0.44
     ],
     "spare": [

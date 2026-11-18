@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.11)
+# rctrack — shared track format (v1.12)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -101,9 +101,10 @@ the layout) and to check a layout against a venue (the fit search, which says wh
 - `size` — the track's real size from its lane edges (no pipe padding): `{length, width, bbox: [xmin, zmin, xmax, zmax]}`
   in metres, `length` along x. This is the figure to show people ("22 × 12 m"). *(v1.2)*
 - `footprint` — raster of the area the lanes and pipes cover, for fit searches only: `{cell, origin, rows, cols, bbox, rle}`
-  (`rle` = row-major run lengths, starting with an empty run). Its bbox includes pipe thickness and a one-cell margin, so
-  it is slightly bigger than `size`. Covered = discs of radius width/2 + 0.04 m round every other racing-line sample, plus
-  each square corner's outer half out to its mitre (see *Borders*).
+  (`rle` = row-major run lengths, starting with an empty run). Its bbox is framed 0.04 m round the lanes (`FOOT_MARGIN`,
+  which covers the pipe) plus a one-cell margin, so it is slightly bigger than `size`. Covered = discs of radius
+  width/2 + **0.0325 m** (half the pipe, `PIPE_SIZE / 2`; 0.04 m before 1.12) round every other racing-line sample, plus
+  each square corner's outer half out to its mitre (see *Borders*), padded the same.
 
 ## Geometry engine (reference: `bake.py`)
 1. **Racing line:** closed polyline through `points`, each corner filleted with its radius. A corner turning θ with
@@ -211,7 +212,7 @@ A track may cross itself where a bridge carries one pass over the other.
 For each cone in `design.marshals`, in order (reference: `marshal_points` in `bake.py`):
 - **Placed on the lap:** `distance` and `side` from the nearest point of the dense racing line (step 1; the first segment
   wins a tie); `gap` and `facing` from the nearest point of the lane-edge rings (`built.lanes`).
-- **On the track:** the cone's centre is in a cell the `footprint` raster covers (lanes plus pipe thickness, square
+- **On the track:** the cone's centre is in a cell the `footprint` raster covers (lanes plus half the pipe's width, square
   corners included). Its `gap` is 0 and it faces the racing line.
 - **Checks**, appended after the others, at the cone:
   - `marshal-on-track` (error): a cone in a lane or on a pipe, "Cone 3 is on the track"; a marshal can't stand there.
@@ -258,13 +259,13 @@ rcvenue changes:
 ## Fit search (reference: `fit.py`)
 For a track and a venue template: try 8 orientations (as designed, mirrored, rotated 90/180/270, mirrored + rotated),
 slide the footprint over the venue area on a 0.1 m grid, keep positions inside the area and clear of every obstacle
-(lanes + pipe thickness), prefer the most central. Results are labelled by orientation so organisers can judge the
+(lanes + half the pipe's width), prefer the most central. Results are labelled by orientation so organisers can judge the
 rostrum view.
 
 **Venue checks** *(v1.7; `check` in `fit.py`, `venueCheck` in the engine)* test the layout where it is drawn (its
 coordinates taken as the venue's) and report where the venue's rostrum stands, `{checks, rostrum: {side, x, z,
 eyeHeight}}`. Check codes: `outside-area` (error: a lane edge leaves the venue's area) and `obstacle` (error: lanes +
-pipe thickness overlap a fixed obstacle). These were in `built.checks` before 1.7; they belong to the fit, which has the
+half the pipe's width overlap a fixed obstacle). These were in `built.checks` before 1.7; they belong to the fit, which has the
 venue's area, obstacles and rostrum.
 
 Choosing a result creates an adapted copy for that venue (new id, `info.derivedFrom` = original id, revision and
@@ -289,8 +290,80 @@ A consumer that needs one (the sim) asks the player for the side, N/S/E/W, when 
 outside the middle of that side, eyes 2.8 m up). When the layout is loaded through an event or a venue, the side and
 position default to that venue's rostrum, which the fit check reports with its results (`venueCheck(...).rostrum`, in
 the venue's coordinates: for a copy adapted to the venue, these are the layout's own).
+What a reader can rely on, where to download a layout, and the pipe and carpet sizes: *Compatibility for consumers*.
+
+## Compatibility for consumers
+What a reader (the sim, a 3D viewer, a forum plugin) can rely on. Readers build from `built` and never re-bake.
+
+**Getting the file.** Track Studio serves every revision at `/api/tracks/<id>/r/<n>.rctrack.json` (pinned: meetings
+use this) and the public revision, approved if there is one, else the latest, at `/api/tracks/<id>/latest.rctrack.json`
+(follows approval: it changes when a newer revision is approved). Both are public and download as
+`<slug>-r<n>.rctrack.json`. An unknown id is a 404.
+
+**Format and version.**
+- `format` must be `"rctrack"`. Anything else is not a track file: refuse it.
+- `version` is the major version. A reader refuses a `version` it doesn't know (today only `1`) with a clear message,
+  for example "This track needs a newer version of the sim (rctrack version 2; this sim reads version 1)". It never
+  guesses at a file of another version.
+- From 1.10 on, changes within `version: 1` only **add**: new keys, new check codes (1.11 added `marshal-on-track`,
+  `marshal-number-repeated`, `marshal-number-gap` and `marshal-far`), new feature types. Nothing is removed, renamed
+  or given a new meaning. (One correction since: 1.12 put the pipe's size right, see *Physical sizes not in the file*.) (Before this rule, 1.7 removed the venue's parts from layouts and 1.10
+  split `lane-overlap`; see *Changes*. A reader of files that old drops the removed keys, as 1.7 says.) The minor
+  version (1.10 in the title) is the engine's; it is in `built.generator` for information and readers don't branch
+  on it.
+- A reader **ignores keys it doesn't know**, at every level. A check code it doesn't know is treated as the `level` it
+  carries (see `built.checks`). A `features[].type` it doesn't know is built from its `profile` like any ramp.
+
+**What `built` always has.** `generator`, `lapLength`, `racingLine`, `dividers`, `features` (may be empty),
+`startLine`, `checks` (may be empty), `stats` and `footprint`; and `lanes` and `size` in every file baked by 1.4 or
+later. Every layout Track Studio serves has been re-baked since (the 1.7 release needed it, and engine releases
+re-bake stored layouts), so in practice they are always there; a reader of older files falls back to the racing
+line's widths for the carpet. The top level always has `format`, `version`, `id`, `revision`, `info` (with `name`)
+and `design`.
+
+**What is optional.** A reader must cope with these being absent:
+- `built.crossings`: absent when the racing line doesn't cross itself (*Crossings*).
+- `built.marshals` *(v1.11)*: marshal points; absent when the layout has no cones (*Marshal points*).
+- `area` (top level): absent on some layouts; use the drawing area (`drawingArea`, see *Top level*).
+- the `info` fields other than `name`.
+
+**Physical sizes not in the file.** These are fixed for `version: 1`; a reader uses these values. If a layout ever
+needs its own, they will be added as optional keys in `built`, with these as the defaults. (They were corrected
+once, in 1.12, before any reader was built on them: 1.10 and 1.11 gave the pipe as 0.08 m round. A reader that used
+that value should change to the one below; no file changes.)
+- **Pipe (divider)** *(v1.12)*: **0.065 × 0.065 m, square in section** (the engines' `PIPE_SIZE`), resting flat on the
+  carpet: bottom at 0, top **0.065 m** up, its sides **0.0325 m** either side of the run. Each `dividers[].points` run
+  is the centre line of the pipe in plan; build a square collider along it. (`footprint` pads the lanes by half the
+  pipe, 0.0325 m. Before 1.12 this section said a round pipe 0.08 m across; club pipe is 65 mm square.) At a bridge, only the over pass's pipes (the runs along the bridge, beside its lane)
+  ride it, following the bridging feature's `profile` (`built.features[crossings[].bridge.feature]`) like the lane
+  between them; the under pass's pipes stay on the floor and run under the bridge (see `built.crossings`). Dividers
+  don't say which pass they belong to: go by direction, as the 3D viewer does.
+- **Carpet:** no thickness. The carpet is the floor surface, height 0; feature heights and profiles are measured
+  from it, and the area round the lanes is at the same height.
+
+**Conformance fixtures.** `reference/examples/*.rctrack.json` are the files consumers test against: every reader
+should load all of them without the reader failing. They are re-baked whenever the engine changes, and between them
+they keep at least one layout with a jump (all of them), one with a crossover bridge (`figure-eight-crossover`), one
+with a clean set of marshal points (`club-a`, cones 1–6) and one with an untidy set (`freeform-example`: a repeated
+number, missing numbers, a far cone and a cone on a pipe, so its `built.checks` carries all four `marshal-*` codes,
+one of them, `marshal-on-track`, an error on purpose; `freeform-at-sports-hall-b` is the same layout adapted to a
+venue). `figure-eight-crossover` has no cones and no `built.marshals` key. Each has its 2D preview beside it
+(`*.preview.svg`) to compare against.
 
 ## Changes
+- **1.12** — the divider pipe is **0.065 m square** in section (club pipe is 65 mm square), not 0.08 m round. No key is
+  added, removed or changed, and `version` stays `1`; the size is a fixed value (*Compatibility for consumers*), one
+  constant in both engines (`PIPE_SIZE`). What follows from it: `footprint` pads the lanes by 0.0325 m instead of
+  0.04 m, and so do the things read from it, the fit search and its `obstacle` check, and `marshal-on-track`.
+  **Re-baking a 1.11 layout changes `built.footprint.rle` and nothing else** (apart from the generator string): the
+  raster keeps its cell grid, origin and bbox (`FOOT_MARGIN`), and cells along the edge of the lanes are uncovered,
+  never added; many layouts lose a few cells, some none. So fit results can only get better: a layout may now fit,
+  or sit more centrally, where a pillar's edge was in a cell that is no longer covered. The one exception to "nothing
+  else": a cone standing in such a cell (within a cell, 0.1 m, of the lane's edge) is no longer on the track, so it
+  loses its `marshal-on-track` check and its `built.marshals[]` entry gets a real `gap` and `facing`. Racing lines,
+  lanes, dividers, features (a ramp is still 0.08 m narrower than its lane, `FEATURE_INSET`, so it now sits 7.5 mm
+  clear of each pipe), `size` and the lane checks (`lane-overlap`, `lane-squeeze`, which never used the pipe's width)
+  are unchanged. Pictures draw the pipe 0.065 m wide, and the 3D view draws it square. Older readers need nothing.
 - **1.11** — marshal points. `design.marshals[]` = `{number, x, z}`: numbered cones placed beside the track (or up to
   2 m outside the drawing area) where marshals stand; `number` is the fill order, so with 6 marshals cones 1–6 are
   manned. `built.marshals[]` = `{number, x, z, distance, side, gap, facing}`, absent when there are none. New checks:

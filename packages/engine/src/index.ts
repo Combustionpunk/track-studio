@@ -8,3 +8,4 @@ export { pyRound, pyFormat, r3 } from "./num.js";
 export { compareBuilt, distanceToPolyline, polylineDistance, type BuiltDiff } from "./compare.js";
 export * from "./sheet.js";
 export { reverseDesign } from "./reverse.js";
+export { fileSlug, rctrackFileName, rcvenueFileName } from "./files.js";

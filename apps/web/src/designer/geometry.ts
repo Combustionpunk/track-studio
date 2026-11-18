@@ -1,6 +1,7 @@
 // Designer geometry: live (main-thread) racing line and placements, pointer projection, snapping, starter loops.
 // The full bake (dividers, checks, stats) runs in a worker; this is the cheap part that has to keep up with the pointer.
 import {
+  FEATURE_INSET,
   arclength,
   atDistance,
   bakeBuilt,
@@ -108,7 +109,7 @@ export function placeFeature(live: Pick<Live, "line" | "s" | "total"> & Partial<
     height = f.height ?? H0;
     profile = featureProfile(f.type, length, height); // so the live plan draws the jump's symbol
   }
-  return { type: f.type, x: r3(p[0]), z: r3(p[1]), heading: headingDeg(t), length, width: r3(live.line.width[i] - 0.08), height, profile };
+  return { type: f.type, x: r3(p[0]), z: r3(p[1]), heading: headingDeg(t), length, width: r3(live.line.width[i] - FEATURE_INSET), height, profile };
 }
 
 /** Nearest point of the racing line: distance along it, how far away, and the dense sample index. */

@@ -717,6 +717,9 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-figure__sub { order: -1; font-size: 13px; line-height: 18px; color: var(--text-muted); }
 .ts-figures--key { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 .ts-figures--key .ts-figure__v { font-size: 28px; line-height: 32px; }
+/* "Download for the sim" (#155): the file name it saves as, and where it goes */
+.ts-download-hint { margin: 0; font-size: 13px; line-height: 18px; color: var(--text-muted); overflow-wrap: anywhere; }
+.ts-download-hint__file { font-family: var(--font-mono); color: var(--text); }
 .ts-desc { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 20px; }
 
 /* checks */
