@@ -10,10 +10,10 @@ import { FEATURE_LABEL } from "../lib/format.js";
 import type { Draft, Selection } from "./Designer.js";
 import type { Live } from "./geometry.js";
 import { JumpPalette } from "./JumpPalette.js";
-import { PhoneDetails, PhoneMenu, PhoneSave, type PhoneDetailsProps, type PhoneMenuProps, type PhoneSaveProps } from "./PhoneMenu.js";
+import { PhoneDetails, PhoneMenu, PhoneSave, useMenuKeys, type PhoneDetailsProps, type PhoneMenuProps, type PhoneSaveProps } from "./PhoneMenu.js";
 import { allows, paletteJumps, type DesignerMode } from "./mode.js";
 import { MIN_CORNERS } from "./shape.js";
-import { makeHairpin } from "./snap.js";
+import { hairpinWhy } from "./snap.js";
 import { ChecksPanel, SelectionPanel, Stats, type PanelProps } from "./SidePanels.js";
 import { SNAP_LABEL, type ToolPaletteProps } from "./ToolPalette.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
@@ -61,23 +61,29 @@ export function contextActions(sel: Selection, view: DesignerMode, draft: Draft,
   const out: ContextAction[] = [{ action: "delete", label: "Delete", why: pts.length <= MIN_CORNERS ? `A track needs at least ${MIN_CORNERS} corner points.` : undefined }];
   if (c && allows(view, "outer")) out.push({ action: "outer", label: outerStyle(p, c) === "square" ? "Round outside corner" : "Square outside corner" });
   if (allows(view, "hairpin")) {
-    const can = makeHairpin(pts, sel.i, draft.design.laneWidth ?? 2);
-    out.push({ action: "hairpin", label: "Make hairpin", why: can ? undefined : "On a straight: there's no turn to make a hairpin of." });
+    out.push({ action: "hairpin", label: "Make hairpin", why: hairpinWhy(pts, sel.i, draft.design.laneWidth ?? 2) });
   }
   return out;
 }
 
 const CONTEXT_ICON = { delete: Trash2, hairpin: CornerUpLeft } as const;
 
-/** The context sheet's rows: a menu of 44 px+ rows, one per action, each with its reason when it can't be done. */
+/**
+ * The context sheet's rows: a menu of 44 px+ rows, one per action, each with its reason when it can't be done. The menu's
+ * keys (#147): the arrow keys, Home and End move, Enter does the row, Escape closes the sheet. A row that can't be done
+ * is aria-disabled, so it still takes the focus and its reason is read out.
+ */
 export function PhoneContext({ actions, label, onAction }: { actions: ContextAction[]; label: string; onAction: (a: ContextActionKind) => void }) {
+  const { ref, onKeyDown } = useMenuKeys();
   return (
-    <ul className="phone-menu phone-context" role="menu" aria-label={label}>
+    <ul ref={ref} className="phone-menu phone-context" role="menu" aria-label={label} onKeyDown={onKeyDown}>
       {actions.map((a) => {
         const Icon = a.action === "outer" ? (a.label.startsWith("Round") ? SquareRoundCorner : Square) : CONTEXT_ICON[a.action];
         return (
           <li key={a.action} role="none">
-            <button type="button" role="menuitem" className={`phone-menu-item${a.action === "delete" ? " phone-menu-danger" : ""}`} disabled={!!a.why} onClick={() => onAction(a.action)}>
+            <button type="button" role="menuitem" className={`phone-menu-item${a.action === "delete" ? " phone-menu-danger" : ""}`} aria-disabled={a.why ? true : undefined}
+              onClick={a.why ? undefined : () => onAction(a.action)}
+            >
               <Icon size={20} aria-hidden="true" />
               <span className="phone-menu-text">
                 {a.label}
@@ -222,7 +228,7 @@ export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps, men
     // one Sheet per kind (keyed), so a new kind starts at its own top and slides in
     <Sheet key={kind} label={label} height={height} onHeight={onHeight} tucked={tucked && !modal} modal={modal} hug={hug} below={modal ? 0 : TOOLBAR} className={`phone-sheet phone-sheet-${kind}`}>
       {kind === "selection" ? (
-        <SelectionPanel sel={p.sel} view={p.view} draft={p.drawn} live={p.live} update={p.update} onDelete={p.onDelete} fromVenue={p.venueName} inCorner={p.inCorner} touch phone />
+        <SelectionPanel sel={p.sel} view={p.view} draft={p.drawn} live={p.live} update={p.update} onDelete={p.onDelete} onHairpin={p.onHairpin} fromVenue={p.venueName} inCorner={p.inCorner} touch phone />
       ) : kind === "context" ? (
         <>
           {/* what's held, as the selection sheet's heading says */}

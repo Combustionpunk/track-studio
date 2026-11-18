@@ -355,6 +355,12 @@ export function makeHairpin(points: DesignPoint[], i: number, lw: number): Desig
   return [...points.slice(0, i), p1, p2, ...points.slice(i + 1)];
 }
 
+/** why corner i can't be made a hairpin (the context sheet and the phone's selection sheet say it), or undefined when it can */
+export const HAIRPIN_STRAIGHT = "On a straight: there's no turn to make a hairpin of.";
+export function hairpinWhy(points: DesignPoint[], i: number, lw: number): string | undefined {
+  return makeHairpin(points, i, lw) ? undefined : HAIRPIN_STRAIGHT;
+}
+
 /** Turn of corner i in degrees (for the sharp-turn badge). */
 export function turnDegrees(points: DesignPoint[], i: number): number {
   const n = points.length;

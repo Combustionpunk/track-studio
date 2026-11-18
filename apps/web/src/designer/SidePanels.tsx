@@ -16,7 +16,7 @@ import {
   type DesignPoint,
   type FeatureType,
 } from "@track-studio/engine";
-import { ArrowRightLeft, CircleCheck, CircleX, Info, Minus, Plus, TriangleAlert } from "lucide-react";
+import { ArrowRightLeft, CircleCheck, CircleX, CornerUpLeft, Info, Minus, Plus, TriangleAlert } from "lucide-react";
 import { useEffect, useState, type ReactElement, type Ref } from "react";
 import * as fmt from "../lib/format.js";
 import { designerEstimate, useClassSpeeds } from "../lib/laps.js";
@@ -27,6 +27,7 @@ import { TURNS_HINT, type LaneGrid } from "./lanes.js";
 import { checkCounts, FEATURE_TYPES, visibleChecks, type DesignerMode } from "./mode.js";
 import { findNests, followNest, follows, innerOf, matchNest, outerOf } from "./nest.js";
 import { apexFromField, apexOf, apexRadius, APEX_MAX, isReduced, MIN_CORNERS, QUICK_SIZES, setApex, turnLabel, widthAt } from "./shape.js";
+import { hairpinWhy } from "./snap.js";
 import { RADIUS_RANGE, WIDTH_RANGE } from "./tuning.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
 
@@ -53,6 +54,8 @@ export interface PanelProps {
   live: Live;
   update: (fn: (d: Draft) => Draft, group?: string) => void;
   onDelete: () => void;
+  /** Make hairpin (as the H key) for corner point i: the phone's Advanced selection sheet has it as a row (#147) */
+  onHairpin?: (i: number) => void;
   venueName: string | undefined;
   /** jumps on or landing into a corner */
   inCorner: Map<number, CheckLevel>;
@@ -362,6 +365,23 @@ function TypeField({ f, i, live, update }: { f: DesignFeature; i: number; live: 
 /** the apex stepper's step (the field's 0.1 m) */
 export const APEX_STEP = 0.1; // m
 
+/** The phone's Make hairpin (#147), as the context sheet's row: disabled on a straight, with the reason under it. */
+function HairpinRow({ why, onHairpin }: { why: string | undefined; onHairpin: () => void }) {
+  return (
+    <div className="phone-hairpin">
+      <button type="button" className="btn" disabled={!!why} aria-describedby={why ? "hairpin-why" : undefined} onClick={onHairpin}>
+        <CornerUpLeft size={18} aria-hidden="true" />
+        Make hairpin
+      </button>
+      {why && (
+        <p className="hint" id="hairpin-why">
+          {why}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** The phone's apex radius (#123): − / value / +, so no keyboard comes up. Stops at 0 and APEX_MAX. */
 function ApexStepper({ apex, onStep }: { apex: number; onStep: (a: number) => void }) {
   const a = Math.round(apex * 10) / 10;
@@ -388,6 +408,7 @@ export function SelectionPanel({
   live,
   update,
   onDelete,
+  onHairpin,
   fromVenue,
   inCorner,
   touch = false,
@@ -399,6 +420,8 @@ export function SelectionPanel({
   live: Live;
   update: (fn: (d: Draft) => Draft, group?: string) => void;
   onDelete: () => void;
+  /** Make hairpin for corner point i (Advanced, on the phone: #147) */
+  onHairpin?: (i: number) => void;
   fromVenue?: string;
   /** jumps on or landing into a corner */
   inCorner: Map<number, CheckLevel>;
@@ -509,6 +532,7 @@ export function SelectionPanel({
         {c && c.th > 1e-3 && Math.abs(c.r - (p.radius ?? 1)) > 0.01 && <p className="hint">The radius is reduced to {c.r.toFixed(2)} m to fit the straights either side.</p>}
         {c && c.th <= 1e-3 && <p className="hint">This point is on a straight line — drag it to make a corner.</p>}
         {!phone && <p className="hint">Wheel over the point: radius · Ctrl + wheel: lane width · O: square / round outside.</p>}
+        {phone && onHairpin && <HairpinRow why={hairpinWhy(draft.design.points, sel.i, lw)} onHairpin={() => onHairpin(sel.i)} />}
         {phone && <p className="hint">Drag the point to move it.</p>}
         {del(
           <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= 3}>

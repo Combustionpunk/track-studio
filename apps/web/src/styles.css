@@ -943,6 +943,10 @@ select.ts-input { padding: 0 var(--space-2); }
 .phone-sheet .bottom-sheet-body { display: flex; flex-direction: column; gap: var(--space-3); }
 .phone-sheet .bottom-sheet-body h2 { margin: 0; font: 500 22px/28px var(--font-display); letter-spacing: 0.01em; }
 .phone-sheet .sel-panel, .phone-sheet .checks-panel { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; }
+.phone-hairpin { display: flex; flex-direction: column; gap: var(--space-1); }
+.phone-hairpin .btn { min-height: 44px; justify-content: center; }
+.phone-hairpin .btn:disabled { cursor: not-allowed; }
+.phone-hairpin .hint { margin: 0; }
 .phone-sheet .hint, .phone-sheet .sel-turn { margin: 0; font-size: 13px; line-height: 18px; }
 .phone-sheet .fields { margin: 0; }
 .phone-sheet .nfield input { min-height: var(--touch-target); font: 400 15px/22px var(--font-sans); }
