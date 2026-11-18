@@ -85,23 +85,29 @@ test.describe("dragging a ramp on a laptop", () => {
 test.describe("dragging a ramp on a tablet", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "tablet-landscape", "a tablet, 1024 × 768"));
 
-  test("drag a kicker from the dock onto the plan with a finger", async ({ page }) => {
-    const errors = await serve(page);
-    await open(page);
-    const t = await Touch.on(page);
-    const n = await jumps(page).count();
-    const button = page.locator(".designer-dock").getByRole("button", { name: "Kicker", exact: true });
-    await expect(button).toBeVisible();
-    const from = await centre(button);
-    const to = await laneSpot(page);
-    await t.down(from);
-    await t.move([[from[0], from[1] - 20]], 3);
-    await t.move([to], 10);
-    await t.up();
-    await expect(jumps(page)).toHaveCount(n + 1);
-    await expect(button).toHaveAttribute("aria-pressed", "false");
-    expect(errors).toEqual([]);
-  });
+  for (const what of ["Kicker", "Cone"] as const) {
+    test(`drag ${what === "Cone" ? "the cone" : "a kicker"} from the dock onto the plan with a finger`, async ({ page }) => {
+      const errors = await serve(page);
+      await open(page);
+      const t = await Touch.on(page);
+      const count = what === "Cone" ? cones : jumps;
+      const n = await count(page).count();
+      const button = page.locator(".designer-dock").getByRole("button", { name: what, exact: true });
+      await expect(button).toBeVisible();
+      // the dock's buttons take a touch-action of their own: a drag from one must not be taken as a pan
+      expect(await button.evaluate((b) => getComputedStyle(b).touchAction)).toBe("none");
+      const from = await centre(button);
+      const to = await laneSpot(page);
+      await t.down(from);
+      await t.move([[from[0], from[1] - 20]], 3);
+      await t.move([to], 10);
+      await expect(page.locator(".palette-drag-ghost")).toBeVisible();
+      await t.up();
+      await expect(count(page)).toHaveCount(n + 1);
+      await expect(button).toHaveAttribute("aria-pressed", "false");
+      expect(errors).toEqual([]);
+    });
+  }
 
   test("with a jump armed, a pinch and a pan place nothing; a tap does", async ({ page }) => {
     const errors = await serve(page);

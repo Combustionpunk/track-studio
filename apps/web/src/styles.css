@@ -392,9 +392,11 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-cone-ghost { fill: var(--plan-cone); fill-opacity: 0.6; stroke: var(--plan-ink); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
 .cone-symbol path { fill: var(--plan-cone); }
 .cone-symbol .cone-band { fill: var(--plan-jump-edge); stroke: none; }
-.cone-btn { touch-action: none; }
-.cone-drag-ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -100%); filter: drop-shadow(0 1px 2px var(--plan-halo)); }
-.cone-drag-ghost .jump-symbol { width: 42px; height: 24px; }
+/* a jump or a cone dragged from the palette onto the plan (#151, #157): the press is the palette's, not a scroll
+   (button.: ahead of .dock-btn's touch-action, later in this file, which made the tablet take the drag as a pan) */
+button.cone-btn, button.jump-btn { touch-action: none; }
+.palette-drag-ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -100%); filter: drop-shadow(0 1px 2px var(--plan-halo)); }
+.palette-drag-ghost .jump-symbol { width: 42px; height: 24px; }
 .ed-start line { stroke: transparent; pointer-events: stroke; cursor: grab; }
 .ed-start .grip { fill: var(--plan-ink); stroke: var(--plan-ink-dark); stroke-width: 1.5; cursor: grab; }
 .ed-start.on .grip { fill: var(--plan-line); }

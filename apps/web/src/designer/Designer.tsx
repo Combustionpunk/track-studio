@@ -234,6 +234,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [hover, setHover] = useState<{ s: number; at: Point2 } | null>(null);
   /** where a cone would go (#151): under the pointer while the cone tool is armed, or while one is dragged from the palette */
   const [coneHover, setConeHover] = useState<Point2 | null>(null);
+  /** a jump being dragged from the palette (#157): its type and where on the line it would go */
+  const [jumpDrag, setJumpDrag] = useState<{ type: FeatureType; s: number; at: Point2 } | null>(null);
   const [highlight, setHighlight] = useState<Point2 | null>(null);
   const [layers, setLayers] = useStored<Layers>("designer-layers", { ...DEFAULT_LAYERS, checks: true });
   const [saving, setSaving] = useState(false);
@@ -880,14 +882,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const p = planPoint(svg, e.clientX, e.clientY);
     const hit = nearestOnLine(liveRef.current, p);
     if (tool.kind === "feature") {
+      // a finger lets the press through to the plan, which pans or pinches, and places the jump only on a tap (#157)
+      if (e.pointerType === "touch") return;
       e.stopPropagation();
-      const distance = wrapDistance(hit.s, liveRef.current.total);
-      const list = draftRef.current.design.features ?? [];
-      const { features, index } = tool.type === "crossover" ? addCrossover(list, liveRef.current.crossings, p, hit.s, liveRef.current.total) : addJump(list, tool.type, distance);
-      setFeatures(() => features);
-      setSel({ kind: "feature", i: index });
-      setTool({ kind: "select" });
-      setHover(null);
+      placeJump(tool.type, p);
       return;
     }
     const pts = draftRef.current.design.points;
@@ -931,6 +929,40 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     startDrag(e, svg, { kind: "point", i, offset: [at[0] - p[0], at[1] - p[1]] }, { threshold: true, group, was });
   };
 
+  /** A jump of this type at the racing line nearest plan point p (a crossover: on the crossing there), selected. */
+  const placeJump = (type: FeatureType, p: Point2) => {
+    const live = liveRef.current;
+    const hit = nearestOnLine(live, p);
+    const list = draftRef.current.design.features ?? [];
+    const { features, index } = type === "crossover" ? addCrossover(list, live.crossings, p, hit.s, live.total) : addJump(list, type, wrapDistance(hit.s, live.total));
+    setFeatures(() => features);
+    setSel({ kind: "feature", i: index });
+    setTool({ kind: "select" });
+    setHover(null);
+    setJumpDrag(null);
+  };
+  /** the plan svg, if (clientX, clientY) is over it: not over a sheet, the toolbar or the plan's buttons */
+  const planUnder = (clientX: number, clientY: number) => {
+    const svg = planWrapRef.current?.querySelector<SVGSVGElement>("svg.plan-svg");
+    return svg && document.elementFromPoint(clientX, clientY)?.closest("svg.plan-svg") === svg ? svg : null;
+  };
+  /** a jump dragged from the palette and let go at (clientX, clientY): placed on the line nearest there if that's over the plan (#157) */
+  const dropJump = (type: FeatureType, clientX: number, clientY: number): boolean => {
+    setJumpDrag(null);
+    if (laying || viewing3dRef.current) return false;
+    const svg = planUnder(clientX, clientY);
+    if (!svg) return false;
+    placeJump(type, planPoint(svg, clientX, clientY));
+    return true;
+  };
+  /** a jump being dragged from the palette is over the plan here: the plan shows where it would go */
+  const dragJump = (type: FeatureType, clientX: number, clientY: number) => {
+    const svg = laying ? null : planUnder(clientX, clientY);
+    if (!svg) return setJumpDrag(null);
+    const at = planPoint(svg, clientX, clientY);
+    setJumpDrag({ type, s: nearestOnLine(liveRef.current, at).s, at });
+  };
+
   const onFeatureDown = (e: React.PointerEvent<SVGElement>, i: number) => {
     if (e.button !== 0) return;
     const was = before();
@@ -968,6 +1000,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   /** the armed cone tool: a press anywhere it may go places one */
   const onConeDown = (e: React.PointerEvent<SVGElement>) => {
     if (e.button !== 0) return;
+    // a finger lets the press through to the plan, which pans or pinches, and places the cone only on a tap (#157)
+    if (e.pointerType === "touch") return;
     e.stopPropagation();
     placeCone(planPoint(svgOf(e.currentTarget), e.clientX, e.clientY));
   };
@@ -976,16 +1010,15 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setConeHover(null);
     if (laying || viewing3dRef.current) return false;
     // on the plan itself: let go over a sheet, the toolbar or the plan's buttons and the drop is called off
-    const svg = planWrapRef.current?.querySelector<SVGSVGElement>("svg.plan-svg");
-    if (!svg || document.elementFromPoint(clientX, clientY)?.closest("svg.plan-svg") !== svg) return false;
+    const svg = planUnder(clientX, clientY);
+    if (!svg) return false;
     placeCone(planPoint(svg, clientX, clientY));
     return true;
   };
   /** a cone being dragged from the palette is over the plan here: its ghost follows */
   const dragCone = (clientX: number, clientY: number) => {
-    const svg = planWrapRef.current?.querySelector<SVGSVGElement>("svg.plan-svg");
-    const over = !!svg && document.elementFromPoint(clientX, clientY)?.closest("svg.plan-svg") === svg;
-    setConeHover(over ? clampToPlacement(planPoint(svg!, clientX, clientY), areaRef.current) : null);
+    const svg = planUnder(clientX, clientY);
+    setConeHover(svg ? clampToPlacement(planPoint(svg, clientX, clientY), areaRef.current) : null);
   };
 
   const onStartDown = (e: React.PointerEvent<SVGElement>) => {
@@ -1353,7 +1386,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const selPt = sel?.kind === "point" ? pointsList[sel.i] : null;
     const corner = sel?.kind === "point" ? live.corners[sel.i] : null;
     const placing = tool.kind === "feature";
-    const ghost = placing && hover ? featureCorners(ghostFeature(live, tool.type, hover)) : null;
+    const ghost = placing && hover ? featureCorners(ghostFeature(live, tool.type, hover)) : jumpDrag ? featureCorners(ghostFeature(live, jumpDrag.type, jumpDrag)) : null;
     // the cone tool (#151): a press anywhere a cone may stand places one (the area plus the margin round it)
     const coneArea = { x: -area.length / 2 - MARSHAL_PLACE_MARGIN, z: -area.width / 2 - MARSHAL_PLACE_MARGIN, w: area.length + 2 * MARSHAL_PLACE_MARGIN, h: area.width + 2 * MARSHAL_PLACE_MARGIN };
     const coneR = Math.max(0.2, 8 * m);
@@ -1361,6 +1394,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       <g className={`ed ${placing || tool.kind === "marshal" ? "ed-placing" : tool.kind === "add" ? "ed-adding" : ""}`}>
         <g
           data-handle="lane"
+          data-tap-through={placing ? "" : undefined}
           className="ed-lane"
           onPointerDown={onLaneDown}
           onPointerMove={(e) => {
@@ -1416,6 +1450,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {tool.kind === "marshal" && (
           <rect
             data-handle="marshal-place"
+            data-tap-through=""
             className="ed-cone-place"
             x={coneArea.x}
             y={-(coneArea.z + coneArea.h)}
@@ -1744,6 +1779,14 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       }}
       onBackgroundClick={(e) => {
         setHighlight(null);
+        // a tap with a jump or the cone armed (#157): a finger's press went through to the plan, so a drag pans and a
+        // second finger pinches; only a tap on the track (a jump) or where a cone may stand places one
+        if (e.pointerType === "touch" && (tool.kind === "feature" || tool.kind === "marshal")) {
+          const on = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-handle]")?.getAttribute("data-handle");
+          const p = planPoint(e.currentTarget, e.clientX, e.clientY);
+          if (tool.kind === "feature" && on === "lane") return placeJump(tool.type, p);
+          if (tool.kind === "marshal" && on === "marshal-place") return placeCone(p);
+        }
         // Quick step 2, with the Add point tool on: a tap on the floor adds a corner (after the selected one, or into
         // the track it's near)
         if (floorTap({ tool: tool.kind, view, laying, selKind: sel?.kind ?? null }) === "add") {
@@ -1758,7 +1801,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   );
   const phone3dLabel = shown3d && no3d !== "lost" ? "2D" : "3D";
   const panels: PanelProps = { view, checks: built.checks, bakedFeatures, pending: bake.pending, showSubmit, blocked, onShow: showCheck, onMakeCrossover: makeItACrossover, onBridge: bridgeIt, draft, drawn, sel, live, update, onDelete: deleteSelection, venueName, inCorner, checksHeading };
-  const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onCone: pickCone, onDropCone: dropCone, onDragCone: dragCone, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
+  const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onCone: pickCone, onDropCone: dropCone, onDragCone: dragCone, onDropJump: dropJump, onDragJump: dragJump, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
   const history = { undo, redo, canUndo: hist.canUndo, canRedo: hist.canRedo };
   const palette: ToolPaletteProps = { ...tools, snap: snap.mode, onSnap: (m) => setSnap({ mode: m }) };
   return (
