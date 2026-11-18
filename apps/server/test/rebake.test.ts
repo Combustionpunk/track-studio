@@ -148,7 +148,7 @@ describe("rebake", () => {
     expect(got.doc.built.checks.filter((c: { code: string }) => c.code === "lane-squeeze")).toHaveLength(1);
   });
 
-  it("rctrack 1.12, a 0.065 m square pipe: only the footprint changes, with fewer cells on the same grid (#155)", async () => {
+  it("rctrack 1.12, a 0.065 m square pipe: the footprint loses cells on the same grid; checks, size and the report stay (#155)", async () => {
     const { app, config } = await makeApp({ seeded: true });
     // club A's revision as 1.10 baked it (the lanes padded by half a 0.08 m pipe)
     const stored = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/v110/club-a.rctrack.json"), "utf8")) as RcTrack;

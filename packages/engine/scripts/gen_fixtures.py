@@ -14,7 +14,7 @@ import bake, fit  # noqa: E402
 
 def as17(built):
     """A built section as 1.7 bakes it: no rostrum, no venue checks, no generator. And no footprint: 1.12 pads the
-    lanes by half a 0.065 m square pipe (0.04 m before), so every older bake's footprint differs, and nothing else."""
+    lanes by half a 0.065 m square pipe (0.04 m before), so an older bake's footprint has a few more cells, and nothing else differs."""
     b = {k: v for k, v in built.items() if k not in ("rostrum", "generator", "footprint")}
     b["checks"] = [c for c in built["checks"] if c["code"] not in bake.VENUE_CHECKS]
     return b

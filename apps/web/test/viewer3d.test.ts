@@ -90,10 +90,13 @@ describe("pipes follow built.dividers", () => {
     expect(section).toEqual([`-${h},0.0000`, `-${h},${top}`, `${h},0.0000`, `${h},${top}`].sort());
     expect(PIPE_SIZE).toBe(0.065);
     // flat faces: every side's normals point straight out (sideways or up and down), never between
-    for (let i = 0; i < a.normals.length; i += 3) {
-      const [nx, ny, nz] = [a.normals[i], a.normals[i + 1], a.normals[i + 2]].map(Math.abs);
-      expect([nx, ny, nz].filter((c) => c > 1e-6)).toHaveLength(1);
-    }
+    // (a loop of four straight pieces too: a side is flat right up to its mitred corners, not shaded round them)
+    const loop = pipeMesh([{ points: [[0, 0], [4, 0], [4, 4], [0, 4]], shared: false, closed: true }]);
+    for (const mesh of [a, loop])
+      for (let i = 0; i < mesh.normals.length; i += 3) {
+        const [nx, ny, nz] = [mesh.normals[i], mesh.normals[i + 1], mesh.normals[i + 2]].map(Math.abs);
+        expect([nx, ny, nz].filter((c) => c > 1e-6)).toHaveLength(1);
+      }
     expect(buildScene({ area: drawingArea(club), built: club.built! }).meshes.filter((m) => m.part === "pipe")).toHaveLength(1);
   });
 

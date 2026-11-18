@@ -148,7 +148,7 @@ function mitres(pts: Point2[], closed: boolean): { n: Point2; scale: number }[] 
 // ------------------------------------------------------------------------------------------------------------- pipes
 
 /** A pipe's section: a square of PIPE_SIZE, as [across, up, normal across, normal up] for each face's two corners.
- * Every face has its own corners (flat shading), going round: outer side, top, inner side, bottom. */
+ * Every face has its own corners (flat shading), going round: the side on the left of the run, top, the side on its right, bottom. */
 const PIPE_SECTION: [number, number, number, number][] = (() => {
   const h = PIPE_SIZE / 2;
   const corners: [number, number][] = [[h, 0], [h, PIPE_SIZE], [-h, PIPE_SIZE], [-h, 0]];
@@ -158,21 +158,30 @@ const PIPE_SECTION: [number, number, number, number][] = (() => {
 /** the faces round a pipe's square section */
 export const PIPE_SIDES = 4;
 
+/** a run within this (m) of a bridge's lane is on it: slack for rounding, not a pipe size */
+const ON_BRIDGE_SLACK = 0.08;
+
 function addPipe(m: Mesh, d: Divider, bridges: Bridge[]) {
   const cleaned = clean(d.points, d.closed);
   if (cleaned.length < 2) return;
   const closed = d.closed && cleaned.length > 2;
   const { pts, y } = onBridges(bridges, cleaned, closed);
   const frames = mitres(pts, closed);
-  // at each point, the section's eight corners (two a face), mitred across the run
-  const rings = pts.map((p, i) => {
-    const { n, scale } = frames[i];
-    return PIPE_SECTION.map(([a, u, na, nu]) => m.vert(p[0] + n[0] * a * scale, p[1] + n[1] * a * scale, y[i] + u, n[0] * na, nu, n[1] * na));
-  });
+  // where the section's corners are at point i (mitred across the run)
+  const corner = (i: number, k: number): [number, number, number] => {
+    const { n, scale } = frames[i], [a, u] = PIPE_SECTION[k];
+    return [pts[i][0] + n[0] * a * scale, pts[i][1] + n[1] * a * scale, y[i] + u];
+  };
   const segs = closed ? pts.length : pts.length - 1;
   for (let i = 0; i < segs; i++) {
-    const a = rings[i], b = rings[(i + 1) % rings.length];
-    for (let f = 0; f < PIPE_SIDES; f++) m.quad(a[2 * f], b[2 * f], b[2 * f + 1], a[2 * f + 1]);
+    const j = (i + 1) % pts.length;
+    // each piece has its own vertices, with its own sides' normals, so every face is flat right up to the joints
+    const t = unit(pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]), n: Point2 = [-t[1], t[0]];
+    for (let f = 0; f < PIPE_SIDES; f++) {
+      const [, , na, nu] = PIPE_SECTION[2 * f];
+      const [a0, b0, b1, a1] = [corner(i, 2 * f), corner(j, 2 * f), corner(j, 2 * f + 1), corner(i, 2 * f + 1)].map((p) => m.vert(...p, n[0] * na, nu, n[1] * na));
+      m.quad(a0, b0, b1, a1);
+    }
   }
   if (closed) return;
   // end caps: the square itself, facing out along the pipe
@@ -416,7 +425,7 @@ export function bridgesOf(built: Built): Bridge[] {
 function liftAt(bridges: Bridge[], p: Point2, dir: Point2): number {
   let y = 0;
   for (const b of bridges) {
-    if (Math.abs(dir[0] * b.t[1] - dir[1] * b.t[0]) > b.parallel || Math.abs(b.across(p)) > b.lane + PIPE_SIZE) continue;
+    if (Math.abs(dir[0] * b.t[1] - dir[1] * b.t[0]) > b.parallel || Math.abs(b.across(p)) > b.lane + ON_BRIDGE_SLACK) continue;
     y = Math.max(y, heightOn(b.profile, b.along(p)));
   }
   return y;
@@ -440,7 +449,7 @@ function onBridges(bridges: Bridge[], pts: Point2[], closed: boolean): { pts: Po
     const cuts: number[] = [];
     for (const br of bridges) {
       if (Math.abs(d[0] * br.t[1] - d[1] * br.t[0]) > br.parallel) continue;
-      if (Math.abs(br.across(a)) > br.lane + PIPE_SIZE && Math.abs(br.across(b)) > br.lane + PIPE_SIZE) continue;
+      if (Math.abs(br.across(a)) > br.lane + ON_BRIDGE_SLACK && Math.abs(br.across(b)) > br.lane + ON_BRIDGE_SLACK) continue;
       const aa = br.along(a), ab = br.along(b);
       for (const [k] of br.profile) {
         const u = (k - aa) / (ab - aa);

@@ -212,7 +212,7 @@ A track may cross itself where a bridge carries one pass over the other.
 For each cone in `design.marshals`, in order (reference: `marshal_points` in `bake.py`):
 - **Placed on the lap:** `distance` and `side` from the nearest point of the dense racing line (step 1; the first segment
   wins a tie); `gap` and `facing` from the nearest point of the lane-edge rings (`built.lanes`).
-- **On the track:** the cone's centre is in a cell the `footprint` raster covers (lanes plus pipe thickness, square
+- **On the track:** the cone's centre is in a cell the `footprint` raster covers (lanes plus half the pipe's width, square
   corners included). Its `gap` is 0 and it faces the racing line.
 - **Checks**, appended after the others, at the cone:
   - `marshal-on-track` (error): a cone in a lane or on a pipe, "Cone 3 is on the track"; a marshal can't stand there.
@@ -259,13 +259,13 @@ rcvenue changes:
 ## Fit search (reference: `fit.py`)
 For a track and a venue template: try 8 orientations (as designed, mirrored, rotated 90/180/270, mirrored + rotated),
 slide the footprint over the venue area on a 0.1 m grid, keep positions inside the area and clear of every obstacle
-(lanes + pipe thickness), prefer the most central. Results are labelled by orientation so organisers can judge the
+(lanes + half the pipe's width), prefer the most central. Results are labelled by orientation so organisers can judge the
 rostrum view.
 
 **Venue checks** *(v1.7; `check` in `fit.py`, `venueCheck` in the engine)* test the layout where it is drawn (its
 coordinates taken as the venue's) and report where the venue's rostrum stands, `{checks, rostrum: {side, x, z,
 eyeHeight}}`. Check codes: `outside-area` (error: a lane edge leaves the venue's area) and `obstacle` (error: lanes +
-pipe thickness overlap a fixed obstacle). These were in `built.checks` before 1.7; they belong to the fit, which has the
+half the pipe's width overlap a fixed obstacle). These were in `built.checks` before 1.7; they belong to the fit, which has the
 venue's area, obstacles and rostrum.
 
 Choosing a result creates an adapted copy for that venue (new id, `info.derivedFrom` = original id, revision and
@@ -307,7 +307,7 @@ use this) and the public revision, approved if there is one, else the latest, at
   guesses at a file of another version.
 - From 1.10 on, changes within `version: 1` only **add**: new keys, new check codes (1.11 added `marshal-on-track`,
   `marshal-number-repeated`, `marshal-number-gap` and `marshal-far`), new feature types. Nothing is removed, renamed
-  or given a new meaning. (Before this rule, 1.7 removed the venue's parts from layouts and 1.10
+  or given a new meaning. (One correction since: 1.12 put the pipe's size right, see *Physical sizes not in the file*.) (Before this rule, 1.7 removed the venue's parts from layouts and 1.10
   split `lane-overlap`; see *Changes*. A reader of files that old drops the removed keys, as 1.7 says.) The minor
   version (1.10 in the title) is the engine's; it is in `built.generator` for information and readers don't branch
   on it.
@@ -328,7 +328,9 @@ and `design`.
 - the `info` fields other than `name`.
 
 **Physical sizes not in the file.** These are fixed for `version: 1`; a reader uses these values. If a layout ever
-needs its own, they will be added as optional keys in `built`, with these as the defaults.
+needs its own, they will be added as optional keys in `built`, with these as the defaults. (They were corrected
+once, in 1.12, before any reader was built on them: 1.10 and 1.11 gave the pipe as 0.08 m round. A reader that used
+that value should change to the one below; no file changes.)
 - **Pipe (divider)** *(v1.12)*: **0.065 × 0.065 m, square in section** (the engines' `PIPE_SIZE`), resting flat on the
   carpet: bottom at 0, top **0.065 m** up, its sides **0.0325 m** either side of the run. Each `dividers[].points` run
   is the centre line of the pipe in plan; build a square collider along it. (`footprint` pads the lanes by half the
@@ -355,11 +357,13 @@ venue). `figure-eight-crossover` has no cones and no `built.marshals` key. Each 
   0.04 m, and so do the things read from it, the fit search and its `obstacle` check, and `marshal-on-track`.
   **Re-baking a 1.11 layout changes `built.footprint.rle` and nothing else** (apart from the generator string): the
   raster keeps its cell grid, origin and bbox (`FOOT_MARGIN`), and cells along the edge of the lanes are uncovered,
-  never added. So fit results can only get better: a layout may now fit, or sit more centrally, where a pillar was
-  within a centimetre of its pipes, and a cone within a centimetre of a pipe may lose its `marshal-on-track`. Racing
-  lines, lanes, dividers, features (a ramp is still 0.08 m narrower than its lane), `size` and the lane checks
-  (`lane-overlap`, `lane-squeeze`, which never used the pipe's width) are unchanged. Pictures draw the pipe 0.065 m
-  wide, and the 3D view draws it square. Older readers need nothing.
+  never added; many layouts lose a few cells, some none. So fit results can only get better: a layout may now fit,
+  or sit more centrally, where a pillar's edge was in a cell that is no longer covered. The one exception to "nothing
+  else": a cone standing in such a cell (within a cell, 0.1 m, of the lane's edge) is no longer on the track, so it
+  loses its `marshal-on-track` check and its `built.marshals[]` entry gets a real `gap` and `facing`. Racing lines,
+  lanes, dividers, features (a ramp is still 0.08 m narrower than its lane, `FEATURE_INSET`, so it now sits 7.5 mm
+  clear of each pipe), `size` and the lane checks (`lane-overlap`, `lane-squeeze`, which never used the pipe's width)
+  are unchanged. Pictures draw the pipe 0.065 m wide, and the 3D view draws it square. Older readers need nothing.
 - **1.11** — marshal points. `design.marshals[]` = `{number, x, z}`: numbered cones placed beside the track (or up to
   2 m outside the drawing area) where marshals stand; `number` is the fill order, so with 6 marshals cones 1–6 are
   manned. `built.marshals[]` = `{number, x, z, distance, side, gap, facing}`, absent when there are none. New checks:

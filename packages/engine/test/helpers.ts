@@ -28,8 +28,8 @@ export const allVenues = [...venues, ...extraVenues];
 
 /**
  * A built section as 1.7 bakes it, for comparing with older bakes: no generator, no rostrum, no venue checks. And no
- * footprint: 1.12 pads the lanes by half a 0.065 m square pipe (0.04 m before), so every older bake's footprint differs,
- * and nothing else does (conformance.test.ts and v112.test.ts check the footprint itself).
+ * footprint: 1.12 pads the lanes by half a 0.065 m square pipe (0.04 m before), so an older bake's footprint has a few
+ * more cells, and nothing else differs (conformance.test.ts and v112.test.ts check the footprint itself).
  */
 export function as17(b: object): Omit<Built, "generator" | "footprint"> {
   const { generator: _g, rostrum: _r, footprint: _f, ...rest } = b as Built & { rostrum?: unknown };

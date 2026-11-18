@@ -55,6 +55,6 @@ describe("conformance fixtures (reference/examples)", () => {
     expect([...new Set(untidy.checks.filter((c) => c.code.startsWith("marshal-")).map((c) => c.code))].sort()).toEqual(["marshal-far", "marshal-number-gap", "marshal-number-repeated", "marshal-on-track"]);
     expect(untidy.checks.find((c) => c.code === "marshal-on-track")!.level).toBe("error");
     // and a layout without cones has no built.marshals key at all
-    expect(docs.some(({ doc }) => !("marshals" in doc.built!))).toBe(true);
+    expect("marshals" in of("figure-eight-crossover.rctrack.json")).toBe(false);
   });
 });
