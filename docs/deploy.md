@@ -147,6 +147,12 @@ warnings 0 → 1 (new: lane-squeeze)" and "preview re-rendered" (an amber ring i
 moves. The library and the forum show the new error count (0 for "Test"). Rolling back needs no restore: re-baking
 with the older code puts the errors back.
 
+The rctrack 1.11 release (#151, marshal points) needs no rebake. It adds `design.marshals` and `built.marshals` and four
+`marshal-*` checks, and a layout without cones bakes exactly as in 1.10, so no stored layout changes until someone
+places a cone and saves (a dry run lists nothing: it ignores the generator string). Rolling back needs no restore:
+the older schema allows the extra keys and the older engine ignores `design.marshals`, so a layout saved with cones
+still opens; re-baked by the older code it loses `built.marshals` and the marshal checks.
+
 ```sh
 docker compose exec track-studio node dist/rebake.js --dry-run   # see what would change
 docker compose exec track-studio node dist/rebake.js

@@ -112,3 +112,12 @@ export const ORGANISER: ForumUser = { id: 103, username: "olive", groups: ["trus
 export const ADMIN: ForumUser = { id: 1, username: "root", admin: true };
 
 export const referenceJson = <T = Record<string, unknown>>(rel: string): T => JSON.parse(readFileSync(join(ROOT_DIR, "reference", rel), "utf8")) as T;
+
+/**
+ * A layout without the marshal points the reference examples have had since rctrack 1.11 (#151): freeform-example's
+ * untidy set has a cone on a pipe, an error that holds back submitting. For the tests about other things.
+ */
+export function withoutCones<T extends { design: object }>(doc: T): T {
+  const { marshals: _m, ...design } = doc.design as { marshals?: unknown };
+  return { ...doc, design };
+}

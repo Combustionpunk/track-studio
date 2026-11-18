@@ -392,7 +392,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-cone-ghost { fill: var(--plan-jump); fill-opacity: 0.6; stroke: var(--plan-ink); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
 .cone-symbol .cone-band { fill: var(--plan-jump-edge); stroke: none; }
 .cone-btn { touch-action: none; }
-.cone-drag-ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -100%); filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.4)); }
+.cone-drag-ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -100%); filter: drop-shadow(0 1px 2px var(--plan-halo)); }
 .cone-drag-ghost .jump-symbol { width: 42px; height: 24px; }
 .ed-start line { stroke: transparent; pointer-events: stroke; cursor: grab; }
 .ed-start .grip { fill: var(--plan-ink); stroke: var(--plan-ink-dark); stroke-width: 1.5; cursor: grab; }

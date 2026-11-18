@@ -528,7 +528,7 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
     built.marshals.forEach((m, i) => {
       o.push(
         `<g class="p-marshal"${tip(`m${i}`)}><circle cx="${n(m.x)}" cy="${n(-m.z)}" r="${n(r)}" fill="${P["plan-jump"]}" stroke="${P["plan-jump-edge"]}" stroke-width="${n(Math.max(0.02, 1.5 * px))}"/>` +
-          `<text class="p-marshal-number" x="${n(m.x)}" y="${n(-m.z)}" dy="0.35em" text-anchor="middle" font-size="${n(r * (m.number > 9 ? 1.05 : 1.3))}" font-weight="700" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-jump-edge"]}">${m.number}</text></g>`,
+          `<text class="p-marshal-number" x="${n(m.x)}" y="${n(-m.z)}" dy="0.35em" text-anchor="middle" font-size="${n(r * (m.number > 9 ? 1.05 : 1.3))}" font-weight="600" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-jump-edge"]}">${m.number}</text></g>`,
       );
     });
   }

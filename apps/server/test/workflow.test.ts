@@ -3,10 +3,10 @@ import type { RcTrack } from "@track-studio/engine";
 import type { FastifyInstance } from "fastify";
 import { describe, expect, it } from "vitest";
 import { backfillRevisions } from "../src/store.js";
-import { ALICE, BOB, login, makeApp, ORGANISER, referenceJson } from "./helpers.js";
+import { ALICE, BOB, login, makeApp, ORGANISER, referenceJson, withoutCones } from "./helpers.js";
 
 const CLUB_A = "7c002509-b640-5e9d-8e79-0ae336a2ae04";
-const freeform = () => referenceJson<RcTrack>("examples/freeform-example.rctrack.json");
+const freeform = () => withoutCones(referenceJson<RcTrack>("examples/freeform-example.rctrack.json"));
 const send = (app: FastifyInstance, method: "GET" | "POST" | "PUT", url: string, cookie?: string, payload?: unknown) =>
   app.inject({ method, url, headers: cookie ? { cookie } : {}, ...(payload !== undefined ? { payload: payload as object } : {}) });
 
@@ -123,6 +123,11 @@ describe("errors block submitting", () => {
     const fixed = (await send(app, "PUT", `/api/tracks/${track.id}`, alice, { track: freeform() })).json();
     expect(fixed.track.errors).toBe(0);
     expect((await send(app, "POST", `/api/tracks/${track.id}/submit`, alice)).statusCode).toBe(200);
+    // a cone on the track is an error too (#151): the reference's untidy marshal points
+    const coned = (await send(app, "POST", "/api/tracks", alice, { track: referenceJson<RcTrack>("examples/freeform-example.rctrack.json") })).json();
+    expect(coned.track.errors).toBe(1);
+    const held = await send(app, "POST", `/api/tracks/${coned.track.id}/submit`, alice);
+    expect(held.json()).toMatchObject({ error: "has-errors", message: expect.stringContaining("Cone 4 is on the track") });
     // warnings only (a tight corner) don't block
     const tight = freeform();
     tight.design.points[0].radius = 0.4;
