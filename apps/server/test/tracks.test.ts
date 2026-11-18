@@ -167,6 +167,35 @@ describe("saving tracks", () => {
     expect((dl.json() as RcTrack).revision).toBe(2);
   });
 
+  it("the latest link serves the public revision as a download and follows approval (#155)", async () => {
+    const { app, alice, org } = await setup();
+    const { track } = await createAs(app, alice);
+    const latest = () => req(app, "GET", `/api/tracks/${track.id}/latest.rctrack.json`);
+    const served = async () => {
+      const res = await latest();
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.headers["content-type"]).toMatch(/^application\/json/);
+      return { rev: (res.json() as RcTrack).revision, file: res.headers["content-disposition"] };
+    };
+    // no approved revision: the latest
+    expect(await served()).toEqual({ rev: 1, file: 'attachment; filename="freeform-example-r1.rctrack.json"' });
+    await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: { ...freeform(), info: { ...freeform().info, name: "Renamed" } }, note: "second" });
+    expect(await served()).toEqual({ rev: 2, file: 'attachment; filename="renamed-r2.rctrack.json"' });
+    // approved before the lock (#64) with a newer draft on top: the approved one, named as it was then
+    app.db.prepare("UPDATE tracks SET approved_revision = 1 WHERE id = ?").run(track.id);
+    expect(await served()).toEqual({ rev: 1, file: 'attachment; filename="freeform-example-r1.rctrack.json"' });
+    expect((await latest()).json().info.status).toBe("approved");
+    // approving the newer revision changes what it serves
+    expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, org)).statusCode).toBe(200);
+    expect(await served()).toEqual({ rev: 2, file: 'attachment; filename="renamed-r2.rctrack.json"' });
+    // the same bytes as the pinned link
+    expect((await latest()).body).toBe((await req(app, "GET", `/api/tracks/${track.id}/r/2.rctrack.json`)).body);
+    // public: no session needed (above); unknown ids 404
+    const missing = await req(app, "GET", "/api/tracks/00000000-0000-4000-8000-000000000000/latest.rctrack.json");
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error).toBe("not-found");
+  });
+
   it("status workflow: draft and submitted save as before; approval locks", async () => {
     const { app, alice, org } = await setup();
     const { track } = await createAs(app, alice);
