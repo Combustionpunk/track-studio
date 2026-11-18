@@ -141,7 +141,7 @@ describe("seed", () => {
     const log: string[] = [];
     seed(app.db, config, join(ROOT_DIR, "reference"), (s) => log.push(s));
     const tracks = (await app.inject({ method: "GET", url: "/api/tracks?status=approved" })).json().tracks as { id: string; errors: number }[];
-    expect(tracks).toHaveLength(3);
+    expect(tracks).toHaveLength(4);
     const marshals: Record<string, number> = {};
     for (const t of tracks) {
       expect(t.errors, t.id).toBe(0);
@@ -150,7 +150,7 @@ describe("seed", () => {
       marshals[doc.info.name] = doc.design.marshals?.length ?? 0;
     }
     expect(marshals["Club A"]).toBe(6);
-    expect(Object.values(marshals).sort()).toEqual([0, 0, 6]);
+    expect(Object.values(marshals).sort()).toEqual([0, 0, 0, 6]);
     expect(log.filter((l) => /cones left out/.test(l))).toHaveLength(2);
     // the reference file itself still has the untidy set, for the check tests
     const ref = JSON.parse(readFileSync(join(ROOT_DIR, "reference/examples/freeform-example.rctrack.json"), "utf8"));
