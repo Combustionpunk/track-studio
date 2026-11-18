@@ -7,6 +7,11 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { doc, emptyFloor, open, planBox, serve, shot, toolBtn, withCones } from "./phone-helper.js";
 import { screen, Touch, type XY } from "./touch-helper.js";
 
+// SHOTS_SCHEME=dark: screenshots in Pit Lane (headless Chromium prefers light, which gives Pit Lane light)
+test.beforeEach(async ({ page }) => {
+  if (process.env.SHOTS_SCHEME === "dark") await page.emulateMedia({ colorScheme: "dark" });
+});
+
 const rest = (ms = 150) => new Promise((r) => setTimeout(r, ms));
 const HOLD = 700; // LONG_PRESS_MS (500) and some
 const cones = (page: Page) => page.locator("svg.plan-svg g.ed-marshal");
