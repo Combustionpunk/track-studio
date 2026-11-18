@@ -1,6 +1,6 @@
 import { bakeBuilt, borders, racingLine, unrle, type DesignPoint, type Point2, type RcTrack } from "@track-studio/engine";
 import { describe, expect, it } from "vitest";
-import { besideLines, keepPinned, tidy, laneGrid, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, snapCentre, snapInsertion, snapMitre, type SnapMode } from "../src/designer/snap.js";
+import { besideLines, hairpinWhy, HAIRPIN_STRAIGHT, keepPinned, tidy, laneGrid, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, snapCentre, snapInsertion, snapMitre, type SnapMode } from "../src/designer/snap.js";
 
 const area = { length: 22, width: 12 };
 const doc = (points: DesignPoint[], a = area, laneWidth = 2): RcTrack => ({ format: "rctrack", version: 1, id: "t", revision: 1, info: { name: "t" }, area: a, design: { laneWidth, points } });
@@ -198,6 +198,12 @@ describe("helpers", () => {
     expect(Number.isFinite(b.lapLength)).toBe(true);
     expect(b.racingLine.every((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]))).toBe(true);
     expect(makeHairpin([{ x: 0, z: 0 }, { x: 5, z: 0 }, { x: 10, z: 0 }, { x: 5, z: 5 }], 1, 2)).toBeNull(); // straight: nothing to do
+  });
+
+  it("hairpinWhy: no reason on a corner, the straight's reason on a straight (#147)", () => {
+    const square: DesignPoint[] = [{ x: -9, z: -4 }, { x: 9, z: -4 }, { x: 9, z: 4 }, { x: -9, z: 4 }];
+    expect(hairpinWhy(square, 1, 2)).toBeUndefined();
+    expect(hairpinWhy([{ x: 0, z: 0 }, { x: 5, z: 0 }, { x: 10, z: 0 }, { x: 5, z: 5 }], 1, 2)).toBe(HAIRPIN_STRAIGHT);
   });
 
   it("inserting a point uses the snap mode", () => {
