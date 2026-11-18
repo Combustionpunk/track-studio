@@ -1,6 +1,6 @@
 import { bakeBuilt, borders, racingLine, unrle, type DesignPoint, type Point2, type RcTrack } from "@track-studio/engine";
 import { describe, expect, it } from "vitest";
-import { besideLines, hairpinWhy, HAIRPIN_STRAIGHT, keepPinned, tidy, laneGrid, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, snapCentre, snapInsertion, snapMitre, type SnapMode } from "../src/designer/snap.js";
+import { besideLines, hairpinWhy, HAIRPIN_NO_ROOM, HAIRPIN_STRAIGHT, keepPinned, tidy, laneGrid, makeHairpin, mitrePoint, pinnedCorners, placeByMitre, snapCentre, snapInsertion, snapMitre, type SnapMode } from "../src/designer/snap.js";
 
 const area = { length: 22, width: 12 };
 const doc = (points: DesignPoint[], a = area, laneWidth = 2): RcTrack => ({ format: "rctrack", version: 1, id: "t", revision: 1, info: { name: "t" }, area: a, design: { laneWidth, points } });
@@ -204,6 +204,17 @@ describe("helpers", () => {
     const square: DesignPoint[] = [{ x: -9, z: -4 }, { x: 9, z: -4 }, { x: 9, z: 4 }, { x: -9, z: 4 }];
     expect(hairpinWhy(square, 1, 2)).toBeUndefined();
     expect(hairpinWhy([{ x: 0, z: 0 }, { x: 5, z: 0 }, { x: 10, z: 0 }, { x: 5, z: 5 }], 1, 2)).toBe(HAIRPIN_STRAIGHT);
+  });
+
+  it("hairpinWhy: the first point of a hairpin just made says it is one already, not that it's on a straight (#147)", () => {
+    const square: DesignPoint[] = [{ x: -9, z: -4 }, { x: 9, z: -4 }, { x: 9, z: 4 }, { x: -9, z: 4 }];
+    const hp = makeHairpin(square, 1, 2)!;
+    expect(hairpinWhy(hp, 1, 2)).toBe(HAIRPIN_NO_ROOM);
+    expect(HAIRPIN_NO_ROOM).toBe("Already a hairpin: there's no room for another point here.");
+    expect(makeHairpin(hp, 1, 2)).toBeNull(); // and H still does nothing there
+    // a right turn too
+    const cw = [...square].reverse();
+    expect(hairpinWhy(makeHairpin(cw, 1, 2)!, 1, 2)).toBe(HAIRPIN_NO_ROOM);
   });
 
   it("inserting a point uses the snap mode", () => {

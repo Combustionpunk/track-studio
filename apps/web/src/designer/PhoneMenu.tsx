@@ -61,7 +61,8 @@ function Row({ icon, label, sub, primary = false, ...rest }: { icon: ReactNode; 
  */
 export function useMenuKeys(): { ref: RefObject<HTMLUListElement | null>; onKeyDown: (e: KeyboardEvent) => void } {
   const ref = useRef<HTMLUListElement>(null);
-  // a frame later, so the Sheet notes what had the focus before as where it goes back to when the sheet closes
+  // a frame later, so a modal Sheet (the ⋯ menu) first notes what had the focus, to put it back when it closes; the
+  // context sheet isn't modal, so there the focus drops to the body on Enter or Escape
   useEffect(() => {
     const f = requestAnimationFrame(() => ref.current?.querySelector<HTMLElement>(ITEMS)?.focus());
     return () => cancelAnimationFrame(f);

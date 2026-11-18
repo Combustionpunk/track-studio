@@ -307,8 +307,14 @@ test.describe("phone context sheet", () => {
       await shot(page, "375-selection-hairpin");
       await hairpin(page).tap();
       await expect.poll(() => pointCount(page)).toBe(n + 1);
+      // the point stays selected: its row now says it's a hairpin already, not that it's on a straight
+      await expect(sheet(page)).toHaveCount(1);
+      await expect(hairpin(page)).toBeDisabled();
+      await expect(hairpin(page)).toHaveAccessibleDescription("Already a hairpin: there's no room for another point here.");
+      await expect(sheet(page)).not.toContainText("On a straight");
       await undo(page).tap();
       await expect.poll(() => pointCount(page)).toBe(n);
+      await expect(hairpin(page)).toBeEnabled();
       await expect(undo(page)).toBeDisabled();
       expect(errors).toEqual([]);
     });

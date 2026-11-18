@@ -340,16 +340,23 @@ export function snapMitre(raw: Point2, ctx: SnapContext): SnapResult {
  * so the track turns 180° round the end of a divider. Both get radius w/2 (the divider ends in a point).
  */
 export function makeHairpin(points: DesignPoint[], i: number, lw: number): DesignPoint[] | null {
+  const hp = tryHairpin(points, i, lw);
+  return typeof hp === "string" ? null : hp;
+}
+
+/** the points with corner i made a hairpin, or the reason it can't be */
+function tryHairpin(points: DesignPoint[], i: number, lw: number): DesignPoint[] | string {
   const n = points.length;
   const P = xz(points[i]);
   const a = unit(sub(P, xz(points[(i - 1 + n) % n]))), b = unit(sub(xz(points[(i + 1) % n]), P));
   const cross = a[0] * b[1] - a[1] * b[0];
-  if (Math.abs(cross) < 1e-9 && dot(a, b) > 0) return null; // a straight: no side to turn to
+  if (Math.abs(cross) < 1e-9 && dot(a, b) > 0) return HAIRPIN_STRAIGHT; // a straight: no side to turn to
   const side = cross >= 0 ? 1 : -1; // left turn: the second point goes to the left of the incoming straight
   const w = widthOf(points[i], lw);
   const Q: Point2 = [r3(P[0] - a[1] * side * w), r3(P[1] + a[0] * side * w)];
   const nextP = xz(points[(i + 1) % n]);
-  if (Math.hypot(Q[0] - nextP[0], Q[1] - nextP[1]) < 0.3) return null;
+  // the second point would land on the next one: the first point of a hairpin already made, most often
+  if (Math.hypot(Q[0] - nextP[0], Q[1] - nextP[1]) < 0.3) return HAIRPIN_NO_ROOM;
   const p1: DesignPoint = { ...points[i], radius: w / 2 };
   const p2: DesignPoint = { ...points[i], x: Q[0], z: Q[1], radius: w / 2 };
   return [...points.slice(0, i), p1, p2, ...points.slice(i + 1)];
@@ -357,8 +364,10 @@ export function makeHairpin(points: DesignPoint[], i: number, lw: number): Desig
 
 /** why corner i can't be made a hairpin (the context sheet and the phone's selection sheet say it), or undefined when it can */
 export const HAIRPIN_STRAIGHT = "On a straight: there's no turn to make a hairpin of.";
+export const HAIRPIN_NO_ROOM = "Already a hairpin: there's no room for another point here.";
 export function hairpinWhy(points: DesignPoint[], i: number, lw: number): string | undefined {
-  return makeHairpin(points, i, lw) ? undefined : HAIRPIN_STRAIGHT;
+  const hp = tryHairpin(points, i, lw);
+  return typeof hp === "string" ? hp : undefined;
 }
 
 /** Turn of corner i in degrees (for the sharp-turn badge). */
