@@ -270,29 +270,35 @@ use this) and the public revision, approved if there is one, else the latest, at
 - `version` is the major version. A reader refuses a `version` it doesn't know (today only `1`) with a clear message,
   for example "This track needs a newer version of the sim (rctrack version 2; this sim reads version 1)". It never
   guesses at a file of another version.
-- Within `version: 1`, changes only **add**: new keys, new check codes, new feature types. Nothing is removed,
-  renamed or given a new meaning. The minor version (1.10 in the title) is the engine's; it is in `built.generator`
-  for information and readers don't branch on it.
+- From 1.10 on, changes within `version: 1` only **add**: new keys, new check codes, new feature types. Nothing is
+  removed, renamed or given a new meaning. (Before this rule, 1.7 removed the venue's parts from layouts and 1.10
+  split `lane-overlap`; see *Changes*. A reader of files that old drops the removed keys, as 1.7 says.) The minor
+  version (1.10 in the title) is the engine's; it is in `built.generator` for information and readers don't branch
+  on it.
 - A reader **ignores keys it doesn't know**, at every level. A check code it doesn't know is treated as the `level` it
   carries (see `built.checks`). A `features[].type` it doesn't know is built from its `profile` like any ramp.
 
-**What `built` always has.** A file Track Studio serves is baked by the current engine, so `built` always has:
-`lapLength`, `racingLine`, `dividers`, `features` (may be empty), `startLine`, `checks` (may be empty), `stats`,
-`lanes`, `size` and `footprint`. The top level always has `format`, `version`, `id`, `revision`, `info` (with `name`)
+**What `built` always has.** `generator`, `lapLength`, `racingLine`, `dividers`, `features` (may be empty),
+`startLine`, `checks` (may be empty), `stats` and `footprint`; and `lanes` and `size` in every file baked by 1.4 or
+later. Every layout Track Studio serves has been re-baked since (the 1.7 release needed it, and engine releases
+re-bake stored layouts), so in practice they are always there; a reader of older files falls back to the racing
+line's widths for the carpet. The top level always has `format`, `version`, `id`, `revision`, `info` (with `name`)
 and `design`.
 
 **What is optional.** A reader must cope with these being absent:
 - `built.crossings`: absent when the racing line doesn't cross itself (*Crossings*).
 - `built.marshals`: marshal points, planned in #151; absent until then, and on layouts without them.
 - `area` (top level): absent on some layouts; use the drawing area (`drawingArea`, see *Top level*).
-- `built.generator`, and the `info` fields other than `name`.
+- the `info` fields other than `name`.
 
 **Physical sizes not in the file.** These are fixed for `version: 1`; a reader uses these values. If a layout ever
 needs its own, they will be added as optional keys in `built`, with these as the defaults.
 - **Pipe (divider):** a round pipe **0.08 m** in diameter (the engine's pipe thickness: `footprint` pads the lanes by
   half of it), lying on the carpet: bottom at 0, centre **0.04 m** up, top **0.08 m** up. Each `dividers[].points`
-  run is the pipe's centre line. Where a divider runs over a bridge (`crossings[].footprint`), it rides the bridge's
-  profile like the lane under it.
+  run is the pipe's centre line. At a bridge, only the over pass's pipes (the runs along the bridge, beside its lane)
+  ride it, following the bridging feature's `profile` (`built.features[crossings[].bridge.feature]`) like the lane
+  between them; the under pass's pipes stay on the floor and run under the bridge (see `built.crossings`). Dividers
+  don't say which pass they belong to: go by direction, as the 3D viewer does.
 - **Carpet:** no thickness. The carpet is the floor surface, height 0; feature heights and profiles are measured
   from it, and the area round the lanes is at the same height.
 

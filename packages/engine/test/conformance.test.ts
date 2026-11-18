@@ -7,7 +7,7 @@ import { examples, readJson, repoRoot } from "./helpers.js";
 
 const docs = examples.map(({ name, path }) => ({ name, doc: readJson<RcTrack>(path) }));
 const ALWAYS_TOP = ["format", "version", "id", "revision", "info", "design", "built"];
-const ALWAYS_BUILT = ["lapLength", "racingLine", "dividers", "features", "startLine", "checks", "stats", "lanes", "size", "footprint"];
+const ALWAYS_BUILT = ["generator", "lapLength", "racingLine", "dividers", "features", "startLine", "checks", "stats", "lanes", "size", "footprint"];
 const JUMPS = ["tabletop", "double", "kicker", "stepup", "stepdown", "whoops", "bump"];
 
 describe("conformance fixtures (reference/examples)", () => {

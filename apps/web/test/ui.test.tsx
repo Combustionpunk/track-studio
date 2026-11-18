@@ -535,8 +535,14 @@ describe("track page", () => {
     const t = text(page(can()));
     expect(t).toContain("Copy forum link");
     expect(t).toContain("Copy embed");
-    expect(t).toContain("Download for the sim club-a-r4.rctrack.json Put it in the sim's Tracks folder");
-    expect(page(can())).toContain('href="/api/tracks/winter-3/r/4.rctrack.json" download="club-a-r4.rctrack.json"');
+    expect(page(can())).toContain('href="/api/tracks/winter-3/r/4.rctrack.json"');
+    // the file name is the shown revision's: named once its document is the one on screen
+    const shown = page(can(), {}, { ...doc, revision: 4 });
+    expect(text(shown)).toContain("Download for the sim club-a-r4.rctrack.json Put it in the sim's Tracks folder");
+    expect(shown).toContain('href="/api/tracks/winter-3/r/4.rctrack.json" download="club-a-r4.rctrack.json"');
+    // another revision's document (still on screen while revision 4 loads): no name rather than a wrong one
+    expect(doc.revision).not.toBe(4);
+    expect(t).toContain("Download for the sim Put it in the sim's Tracks folder");
   });
 
   it("revisions: newest first, status words, each one viewable and downloadable", () => {

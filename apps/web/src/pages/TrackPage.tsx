@@ -235,7 +235,8 @@ export function TrackPage() {
   const embed = `<iframe src="${origin}/embed/${track.id}${viewing ? `?r=${viewing}` : ""}" width="100%" height="460" frameborder="0" loading="lazy" title="${escAttr(track.name)} – Track Studio"></iframe>`;
   const download = `/api/tracks/${track.id}/r/${rev}.rctrack.json`;
   // the name the server's content-disposition gives it (the shown revision's own name), once that revision has loaded
-  const fileName = doc ? rctrackFileName(doc.info.name, rev) : undefined;
+  // (while another loads, `doc` is still the last one)
+  const fileName = doc?.revision === rev ? rctrackFileName(doc.info.name, rev) : undefined;
   const status = rev === track.approvedRevision && track.status !== "archived" ? "approved" : rev === track.revision ? track.status : "draft";
 
   const copy = async () => {
