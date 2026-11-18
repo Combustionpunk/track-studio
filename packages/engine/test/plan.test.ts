@@ -76,12 +76,12 @@ describe("planLayers", () => {
     expect(svg).toMatch(/stroke-width="2(\.\d+)?"/);
   });
 
-  it("draws pipes at real thickness (0.08 m), never thinner than 1.5 px; shared pipes get a core line", () => {
+  it("draws pipes at real thickness (0.065 m), never thinner than 1.5 px; shared pipes get a core line", () => {
     const doc = club();
     const b = doc.built!;
     const svg = draw(doc, { px: 0.01 });
     expect(count(svg, /class="p-pipe"/g)).toBe(b.dividers.length);
-    expect(svg).toMatch(/class="p-pipe"[^>]*stroke-width="0\.08"/);
+    expect(svg).toMatch(/class="p-pipe"[^>]*stroke-width="0\.065"/);
     expect(count(svg, /class="p-shared"/g)).toBe(b.dividers.filter((d) => d.shared).length);
     expect(b.dividers.some((d) => d.shared)).toBe(true);
     // zoomed far out, a pipe is 1.5 px

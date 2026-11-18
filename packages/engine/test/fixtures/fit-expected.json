@@ -968,7 +968,7 @@
     "mirror": false,
     "shift": [
      4.03,
-     0.84
+     0.74
     ],
     "spare": [
      11.5,
@@ -1058,7 +1058,7 @@
     "rotation": 270,
     "mirror": true,
     "shift": [
-     0.84,
+     0.74,
      4.03
     ],
     "spare": [
@@ -3598,8 +3598,8 @@
     "rotation": 0,
     "mirror": false,
     "shift": [
-     0.42,
-     -0.13
+     0.52,
+     0.07
     ],
     "spare": [
      4.7,
@@ -3611,8 +3611,8 @@
     "rotation": 0,
     "mirror": true,
     "shift": [
-     -0.54,
-     0.17
+     -0.44,
+     -0.13
     ],
     "spare": [
      4.6,
@@ -6128,8 +6128,8 @@
     "rotation": 180,
     "mirror": false,
     "shift": [
-     -1.89,
-     0.18
+     -1.59,
+     0.08
     ],
     "spare": [
      10.2,
@@ -7996,7 +7996,7 @@
     "rotation": 180,
     "mirror": false,
     "shift": [
-     -1.74,
+     -1.84,
      0.44
     ],
     "spare": [

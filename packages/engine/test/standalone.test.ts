@@ -61,7 +61,7 @@ describe("upgradeTrack: loading a 1.6 file", () => {
     expect(t.design).not.toHaveProperty("rostrum");
     expect(t.built).not.toHaveProperty("rostrum");
     const want = as17(old.built!);
-    const diff = compareBuilt(t.built!, { ...want, generator: "" });
+    const diff = compareBuilt(t.built!, { ...want, generator: "", footprint: old.built!.footprint }); // (1.12: the same frame, fewer cells)
     expect(diff.racingLineCount[0]).toBe(diff.racingLineCount[1]);
     expect(diff.racingLineMax).toBeLessThanOrEqual(TOL);
     expect(diff.lapLength).toBeLessThanOrEqual(TOL);

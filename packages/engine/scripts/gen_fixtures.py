@@ -13,8 +13,9 @@ sys.path.insert(0, os.path.join(root, "reference"))
 import bake, fit  # noqa: E402
 
 def as17(built):
-    """A built section as 1.7 bakes it: no rostrum, no venue checks, no generator."""
-    b = {k: v for k, v in built.items() if k not in ("rostrum", "generator")}
+    """A built section as 1.7 bakes it: no rostrum, no venue checks, no generator. And no footprint: 1.12 pads the
+    lanes by half a 0.065 m square pipe (0.04 m before), so every older bake's footprint differs, and nothing else."""
+    b = {k: v for k, v in built.items() if k not in ("rostrum", "generator", "footprint")}
     b["checks"] = [c for c in built["checks"] if c["code"] not in bake.VENUE_CHECKS]
     return b
 
@@ -355,15 +356,18 @@ for f in sorted(glob.glob(os.path.join(fixtures, "v18", "*.rctrack.json"))):
     print(f"{os.path.basename(f)}: {'same as 1.8' if not diff else 'DIFFERENT from 1.8: ' + ', '.join(diff)}")
     assert not diff
 # 1.10 bakes (v110/: the reference examples as bake.py 1.10 baked them, before they had marshal points) bake the same in
-# 1.11, and the examples with cones now differ from them only by built.marshals and the marshal checks (#151)
+# 1.11, and the examples with cones now differ from them only by built.marshals and the marshal checks (#151).
+# 1.12: and by the footprint (half a 0.065 m square pipe round the lanes, was 0.04 m)
 MARSHAL_CHECKS = ("marshal-on-track", "marshal-number-repeated", "marshal-number-gap", "marshal-far")
 for f in sorted(glob.glob(os.path.join(fixtures, "v110", "*.rctrack.json"))):
     doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
-    assert "marshals" not in new and {k: v for k, v in old.items() if k != "generator"} == {k: v for k, v in new.items() if k != "generator"}
+    NOT_112 = ("generator", "footprint")
+    assert "marshals" not in new and {k: v for k, v in old.items() if k not in NOT_112} == {k: v for k, v in new.items() if k not in NOT_112}
+    assert old["footprint"] != new["footprint"]
     now = json.load(open(os.path.join(root, "reference/examples", os.path.basename(f))))["built"]
-    now = {k: v for k, v in now.items() if k not in ("generator", "marshals")}
+    now = {k: v for k, v in now.items() if k not in ("generator", "marshals", "footprint")}
     now["checks"] = [c for c in now["checks"] if c["code"] not in MARSHAL_CHECKS]
-    same = now == {k: v for k, v in old.items() if k != "generator"}
+    same = now == {k: v for k, v in old.items() if k not in NOT_112}
     print(f"{os.path.basename(f)}: {'same as 1.10 but for the marshal points' if same else 'DIFFERENT from 1.10'}")
     assert same
 print(f"{len(out)} fit results; fitting:", sum(1 for r in out.values() if r["fits"]))

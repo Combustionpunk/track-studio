@@ -26,9 +26,13 @@ export const extraVenues = listJson(extraDir, ".rcvenue.json");
 export const allTracks = [...examples, ...extraTracks];
 export const allVenues = [...venues, ...extraVenues];
 
-/** A built section as 1.7 bakes it, for comparing with older bakes: no generator, no rostrum, no venue checks. */
-export function as17(b: object): Omit<Built, "generator"> {
-  const { generator: _g, rostrum: _r, ...rest } = b as Built & { rostrum?: unknown };
+/**
+ * A built section as 1.7 bakes it, for comparing with older bakes: no generator, no rostrum, no venue checks. And no
+ * footprint: 1.12 pads the lanes by half a 0.065 m square pipe (0.04 m before), so every older bake's footprint differs,
+ * and nothing else does (conformance.test.ts and v112.test.ts check the footprint itself).
+ */
+export function as17(b: object): Omit<Built, "generator" | "footprint"> {
+  const { generator: _g, rostrum: _r, footprint: _f, ...rest } = b as Built & { rostrum?: unknown };
   return { ...rest, checks: rest.checks.filter((c) => !(VENUE_CHECKS as readonly string[]).includes(c.code)) };
 }
 
@@ -38,7 +42,7 @@ const JUMP_LABEL: Record<string, string> = { tabletop: "Tabletop", double: "Doub
  * as17, with a jump's feature-in-corner as 1.8 reports it (info, not a warning: a technical section) and the distances
  * in messages from 0 up to the lap length (#91).
  */
-export function as18(b: object): Omit<Built, "generator"> {
+export function as18(b: object): Omit<Built, "generator" | "footprint"> {
   const r = as17(b);
   return {
     ...r,
