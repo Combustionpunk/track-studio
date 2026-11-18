@@ -183,7 +183,11 @@ test.describe("phone: save, submit and the ⋯ menu", () => {
     await expect(submit).toContainText("Send it to the organisers for approval");
     // renamed: it waits for the save
     await item(page, /^Layout details/).tap();
-    await page.getByRole("dialog", { name: "Layout details" }).getByLabel("Name").fill("Club night special");
+    const details = page.getByRole("dialog", { name: "Layout details" });
+    await details.getByLabel("Name").fill("Club night special");
+    // put the sheet away first: once it has slid in, its Close button covers ⋯ (a tap on ⋯ only landed mid-slide)
+    await details.getByRole("button", { name: "Close" }).tap();
+    await expect(details).toHaveCount(0);
     await openMenu(page);
     await expect(submit).toBeDisabled();
     await expect(submit).toContainText("Save your changes first");

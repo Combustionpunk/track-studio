@@ -56,7 +56,7 @@ describe("size", () => {
   it("is the lane edges, without pipe padding", () => {
     const b = bakeBuilt(ex("club-a.rctrack.json"));
     expect(b.size).toEqual({ length: 22, width: 11.8, bbox: [-11, -5.9, 11, 5.9] });
-    // the footprint (fit checks) is padded: pipe radius + one cell each side
+    // the footprint (fit checks) is padded: the frame's 0.04 m + one cell each side
     expect(b.footprint.bbox[2] - b.footprint.bbox[0]).toBeGreaterThan(b.size!.length);
   });
 

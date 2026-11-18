@@ -122,7 +122,7 @@ describe("the lane-width grid", () => {
     expect(blocked(g)).toEqual(["11,0", "11,1", "3,3", "3,4", "9,3", "9,4"]);
   });
 
-  it("an obstacle within the pipes' 4 cm of a square blocks it; a turned one blocks what it reaches", () => {
+  it("an obstacle within half a pipe (3.25 cm) of a square blocks it; a turned one blocks what it reaches", () => {
     const area = { length: 10, width: 10 };
     // square [2, 2] is x and z −1 to 1: a box 5 cm short of its edges blocks only it
     const clear: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 1.9, width: 1.9, label: "Box" }];
@@ -130,6 +130,12 @@ describe("the lane-width grid", () => {
     // filling it exactly, it touches its neighbours' edges, where their lanes' pipes would sit: they're blocked too
     const touching: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 2, width: 2, label: "Box" }];
     expect(blocked(laneGrid(area, touching, 2))).toEqual(["1,1", "1,2", "1,3", "2,1", "2,2", "2,3", "3,1", "3,2", "3,3"]);
+    // 3 cm short of the edges is inside half a 0.065 m pipe (3.25 cm): the neighbours beside it are blocked; 3.5 cm short is clear
+    // (1.11's 4 cm blocked both)
+    const near: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 1.94, width: 1.94, label: "Box" }];
+    expect(blocked(laneGrid(area, near, 2))).toContain("1,2");
+    const justClear: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 1.93, width: 1.93, label: "Box" }];
+    expect(blocked(laneGrid(area, justClear, 2))).toEqual(["2,2"]);
     const turned: Obstacle[] = [{ type: "rect", x: 0, z: 0, length: 1.9, width: 1.9, rotation: 45, label: "Box" }]; // a diamond reaching 1.34 m
     expect(blocked(laneGrid(area, turned, 2))).toEqual(["1,2", "2,1", "2,2", "2,3", "3,2"]);
     const pillar: Obstacle[] = [{ type: "circle", x: -0.5, z: 0.5, radius: 0.4, label: "Pillar" }];

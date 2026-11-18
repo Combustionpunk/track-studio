@@ -1,5 +1,6 @@
 // JSON API. Reads are public; writes need a session (see auth.ts guards).
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import { rctrackFileName, rcvenueFileName, type RcTrack } from "@track-studio/engine";
 import type { DB } from "./db.js";
 import { requireOrganiser, requireUser } from "./auth.js";
 import { badRequest, notFound } from "./errors.js";
@@ -51,8 +52,6 @@ function revisionParam(v: string): number {
   if (!/^\d{1,9}$/.test(v)) throw notFound("Track revision");
   return Number(v);
 }
-
-const slug = (s: string) => s.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 60) || "track";
 
 export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumEvents, forumStats: ForumStats, forumVenues: ForumVenues): void {
   /**
@@ -143,18 +142,29 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     return { revisions: listRevisions(db, row) };
   });
 
-  // download: /api/tracks/:id/r/3.rctrack.json (or /r/3 for plain JSON)
+  const sendTrackFile = (reply: FastifyReply, doc: RcTrack, maxAge: number) =>
+    reply
+      .header("content-disposition", `attachment; filename="${rctrackFileName(doc.info.name, doc.revision)}"`)
+      .header("cache-control", `public, max-age=${maxAge}`)
+      .type("application/json; charset=utf-8")
+      .send(JSON.stringify(doc, null, 1));
+
+  // download: /api/tracks/:id/r/3.rctrack.json (or /r/3 for plain JSON); meetings pin a revision this way
   app.get("/api/tracks/:id/r/:file", async (req, reply) => {
     const { id, file } = req.params as { id: string; file: string };
     const m = /^(\d+)(\.rctrack\.json)?$/.exec(file);
     if (!m) throw notFound("Track revision");
     const row = getTrackRow(db, id);
     const doc = getTrackDoc(db, row, revisionParam(m[1]));
-    if (m[2]) {
-      reply.header("content-disposition", `attachment; filename="${slug(doc.info.name)}-r${doc.revision}.rctrack.json"`);
-      reply.header("cache-control", "public, max-age=300");
-    }
+    if (m[2]) return sendTrackFile(reply, doc, 300);
     return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 1));
+  });
+
+  // the public revision (approved ?? latest) as a download, for links that shouldn't know revision numbers: the forum's
+  // "practise in the sim" link, the sim's library (#155). Follows approval, so it is cached briefly.
+  app.get("/api/tracks/:id/latest.rctrack.json", async (req, reply) => {
+    const row = getTrackRow(db, (req.params as { id: string }).id);
+    return sendTrackFile(reply, getTrackDoc(db, row, publicRevision(row)), 60);
   });
 
   for (const action of ["submit", "approve", "archive"] as StatusAction[]) {
@@ -241,7 +251,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const m = /^(\d{1,9})(\.rcvenue\.json)?$/.exec(file);
     if (!m) throw notFound("Venue revision");
     const doc = getVenueDoc(db, id, Number(m[1]));
-    if (m[2]) reply.header("content-disposition", `attachment; filename="${slug(doc.info.name)}-r${doc.revision}.rcvenue.json"`);
+    if (m[2]) reply.header("content-disposition", `attachment; filename="${rcvenueFileName(doc.info.name, doc.revision)}"`);
     return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 1));
   });
 
