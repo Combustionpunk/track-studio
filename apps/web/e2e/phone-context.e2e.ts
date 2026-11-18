@@ -3,7 +3,7 @@
 // action is one undo step; a press that turns into a drag opens nothing; the browser's own menu never opens over the
 // plan. SHOTS=<dir> saves screenshots for the PR.
 import { expect, test, type Page } from "@playwright/test";
-import { emptyFloor, open, pinchIn, planBox, serve, shot, toolBtn } from "./phone-helper.js";
+import { doc, emptyFloor, open, pinchIn, planBox, serve, shot, toolBtn } from "./phone-helper.js";
 import { Touch, type XY } from "./touch-helper.js";
 
 const rest = (ms = 150) => new Promise((r) => setTimeout(r, ms));
@@ -164,6 +164,67 @@ test.describe("phone context sheet", () => {
     });
   }
 
+  // #147: the context sheet's rows are a menu, so the keys work as in a menu
+  test("advanced: the arrow keys, Home and End move round the rows, Enter does the row, Escape closes", async ({ page }) => {
+    const errors = await serve(page);
+    await open(page, "", "advanced");
+    const t = await Touch.on(page);
+    await pinchIn(page, t);
+    const n = await pointCount(page);
+    const at = await grab(page, "circle.ed-point", "point");
+    await longPress(page, t, at);
+    const rows = context(page).getByRole("menuitem");
+    await expect(rows).toHaveCount(3);
+    // opened: the first row has the focus
+    await expect(rows.nth(0)).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(1)).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(2)).toBeFocused();
+    await page.keyboard.press("ArrowDown"); // round to the top
+    await expect(rows.nth(0)).toBeFocused();
+    await page.keyboard.press("ArrowUp"); // and back to the bottom
+    await expect(rows.nth(2)).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(rows.nth(0)).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(rows.nth(2)).toHaveText(/^Make hairpin/);
+    await expect(rows.nth(2)).toBeFocused();
+    // Enter: Make hairpin, one undo step, the sheet put away
+    await page.keyboard.press("Enter");
+    await expect(context(page)).toHaveCount(0);
+    await expect.poll(() => pointCount(page)).toBe(n + 1);
+    await undo(page).tap();
+    await expect.poll(() => pointCount(page)).toBe(n);
+    await expect(undo(page)).toBeDisabled();
+    // Escape: closed, nothing done
+    await longPress(page, t, at);
+    await expect(rows.nth(0)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(context(page)).toHaveCount(0);
+    expect(await pointCount(page)).toBe(n);
+    await expect(undo(page)).toBeDisabled();
+    expect(errors).toEqual([]);
+  });
+
+  test("the start line's Delete takes the focus, so its reason is read, and Enter on it does nothing", async ({ page }) => {
+    const errors = await serve(page);
+    await open(page, "", "advanced");
+    const t = await Touch.on(page);
+    await pinchIn(page, t);
+    await startInView(page, t);
+    await longPress(page, t, await grab(page, "g.ed-start .ed-hit", "start"));
+    const row = item(page, /^Delete/);
+    await expect(row).toBeDisabled();
+    await expect(row).toBeFocused();
+    await page.keyboard.press("ArrowDown"); // the only row: it stays
+    await expect(row).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(context(page)).toHaveCount(1);
+    await expect(undo(page)).toBeDisabled();
+    expect(errors).toEqual([]);
+  });
+
   test("a press that turns into a drag moves the corner and never opens the sheet", async ({ page }) => {
     const errors = await serve(page);
     await open(page, "", "advanced");
@@ -225,5 +286,64 @@ test.describe("phone context sheet", () => {
     });
     expect(css.select).toBe("none");
     expect(errors).toEqual([]);
+  });
+
+  // #147: Make hairpin is in the Advanced selection sheet too, not only behind a long press
+  test.describe("the Advanced selection sheet's Make hairpin", () => {
+    const sheet = (page: Page) => page.locator("section.phone-sheet-selection");
+    const hairpin = (page: Page) => sheet(page).getByRole("button", { name: /^Make hairpin/ });
+
+    test("on a corner point: one tap makes the hairpin, one undo step", async ({ page }) => {
+      const errors = await serve(page);
+      await open(page, "", "advanced");
+      const t = await Touch.on(page);
+      await pinchIn(page, t);
+      const n = await pointCount(page);
+      await t.tap(await grab(page, "circle.ed-point", "point"));
+      await expect(sheet(page)).toHaveCount(1);
+      await expect(hairpin(page)).toBeEnabled();
+      await shot(page, "375-selection-hairpin");
+      await hairpin(page).tap();
+      await expect.poll(() => pointCount(page)).toBe(n + 1);
+      await undo(page).tap();
+      await expect.poll(() => pointCount(page)).toBe(n);
+      await expect(undo(page)).toBeDisabled();
+      expect(errors).toEqual([]);
+    });
+
+    test("on a straight: disabled, with the reason, as in the context sheet", async ({ page }) => {
+      // a point half way along the east straight (from the last corner back to the first)
+      const pts = doc.design.points;
+      const a = pts[pts.length - 1], b = pts[0];
+      const straight = { ...doc, design: { ...doc.design, points: [...pts, { x: a.x, z: (a.z + b.z) / 2, radius: 1, width: 2 }] } };
+      const errors = await serve(page, straight);
+      await open(page, "", "advanced");
+      const t = await Touch.on(page);
+      const n = await pointCount(page);
+      await t.tap(await grab(page, `circle.ed-point[data-index="${pts.length}"]`, "point"));
+      await expect(sheet(page)).toHaveCount(1);
+      await expect(sheet(page).locator("h2")).toHaveText(`Corner point ${pts.length + 1}`);
+      await expect(hairpin(page)).toBeDisabled();
+      await expect(hairpin(page)).toHaveAccessibleDescription("On a straight: there's no turn to make a hairpin of.");
+      await expect(sheet(page)).toContainText("On a straight: there's no turn to make a hairpin of.");
+      // and the context sheet says the same
+      await sheet(page).getByRole("button", { name: "Close" }).tap();
+      await longPress(page, t, await grab(page, `circle.ed-point[data-index="${pts.length}"]`, "point"));
+      await expect(item(page, /^Make hairpin/)).toBeDisabled();
+      await expect(item(page, /^Make hairpin/)).toContainText("On a straight: there's no turn to make a hairpin of.");
+      expect(await pointCount(page)).toBe(n);
+      expect(errors).toEqual([]);
+    });
+
+    test("Quick has no Make hairpin row", async ({ page }) => {
+      const errors = await serve(page);
+      await open(page, "", "quick");
+      const t = await Touch.on(page);
+      await pinchIn(page, t);
+      await t.tap(await grab(page, "g.ed-corner", "point"));
+      await expect(sheet(page)).toHaveCount(1);
+      await expect(hairpin(page)).toHaveCount(0);
+      expect(errors).toEqual([]);
+    });
   });
 });
