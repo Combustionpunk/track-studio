@@ -1,4 +1,4 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { seed } from "../src/seed.js";
@@ -136,6 +136,28 @@ describe("track page (Open Graph)", () => {
 });
 
 describe("seed", () => {
+  it("leaves no approved layout with an error: the untidy cones stay in the test fixtures, club-a keeps its clean ones (#157)", async () => {
+    const { app, config } = await makeApp();
+    const log: string[] = [];
+    seed(app.db, config, join(ROOT_DIR, "reference"), (s) => log.push(s));
+    const tracks = (await app.inject({ method: "GET", url: "/api/tracks?status=approved" })).json().tracks as { id: string; errors: number }[];
+    expect(tracks).toHaveLength(3);
+    const marshals: Record<string, number> = {};
+    for (const t of tracks) {
+      expect(t.errors, t.id).toBe(0);
+      const { doc } = (await app.inject({ method: "GET", url: `/api/tracks/${t.id}` })).json();
+      expect(doc.built.checks.filter((c: { level: string }) => c.level === "error"), t.id).toEqual([]);
+      marshals[doc.info.name] = doc.design.marshals?.length ?? 0;
+    }
+    expect(marshals["Club A"]).toBe(6);
+    expect(Object.values(marshals).sort()).toEqual([0, 0, 6]);
+    expect(log.filter((l) => /cones left out/.test(l))).toHaveLength(2);
+    // the reference file itself still has the untidy set, for the check tests
+    const ref = JSON.parse(readFileSync(join(ROOT_DIR, "reference/examples/freeform-example.rctrack.json"), "utf8"));
+    expect(ref.design.marshals).toHaveLength(5);
+    expect(ref.built.checks.some((c: { code: string }) => c.code === "marshal-on-track")).toBe(true);
+  });
+
   it("imports reference venues and examples as approved, once", async () => {
     const { app, config } = await makeApp();
     const log: string[] = [];

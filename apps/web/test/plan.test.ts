@@ -111,7 +111,11 @@ describe("one plan drawing everywhere", () => {
 
   it("the web app's plan colours have every role of the engine's plan palette, from the theme (#135, test/theme.test.ts)", () => {
     const css = src("src/theme/plan-palette.css");
-    for (const name of Object.keys(PLAN_PALETTE)) expect(css, name).toMatch(new RegExp(`--${name}: [^;]*var\\(--rm-`));
+    for (const name of Object.keys(PLAN_PALETTE)) {
+      // a cone is traffic-cone orange in every theme (#157)
+      if (name === "plan-cone") expect(css, name).toContain(`--plan-cone: ${PLAN_PALETTE["plan-cone"]};`);
+      else expect(css, name).toMatch(new RegExp(`--${name}: [^;]*var\\(--rm-`));
+    }
   });
 
   it("PlanView and the venue thumbnails draw with the engine's planLayers, not shapes of their own", () => {

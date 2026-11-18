@@ -89,6 +89,9 @@ describe.each(themeIds)("the plan in %s", (id) => {
   it("jumps, their edges, obstacles and the rostrum stand out", () => {
     expect(contrast(p["plan-jump"], p["plan-carpet"])).toBeGreaterThanOrEqual(1.5);
     expect(contrast(p["plan-jump-edge"], p["plan-jump"])).toBeGreaterThanOrEqual(3);
+    // cones (#157): traffic-cone orange in every theme, their numbers and outlines in the jumps' edge colour
+    expect(p["plan-cone"]).toBe(PLAN_PALETTE["plan-cone"]);
+    expect(contrast(p["plan-jump-edge"], p["plan-cone"])).toBeGreaterThanOrEqual(4.5);
     expect(contrast(p["plan-obstacle"], p["plan-area"])).toBeGreaterThanOrEqual(1.3);
     expect(contrast(p["plan-rostrum"], p["plan-floor"])).toBeGreaterThanOrEqual(1.5);
     expect(contrast(p["plan-pipe"], p["plan-rostrum"])).toBeGreaterThanOrEqual(1.5);

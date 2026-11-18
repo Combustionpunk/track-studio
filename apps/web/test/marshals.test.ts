@@ -1,4 +1,6 @@
 // #151: marshal points in the designer, as the designer edits design.marshals.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { addMarshal, clampToPlacement, deleteMarshal, MARSHAL_PLACE_MARGIN, moveMarshal, nextMarshalNumber, renumberMarshal } from "../src/designer/marshals.js";
 
@@ -46,5 +48,13 @@ describe("cone edits", () => {
     expect(renumberMarshal(list, 0, 0)[0].number).toBe(1);
     expect(renumberMarshal(list, 0, 150)[0].number).toBe(99);
     expect(renumberMarshal(list, 0, 2.6)[0].number).toBe(3);
+  });
+});
+
+describe("cone colour (#157)", () => {
+  it("the palette's Cone symbol and the drop ghost are plan-cone orange, not the jumps' colour", () => {
+    const css = readFileSync(join(__dirname, "..", "src/styles.css"), "utf8");
+    expect(css).toMatch(/\.cone-symbol path \{[^}]*fill: var\(--plan-cone\)/);
+    expect(css).toMatch(/\.ed-cone-ghost \{[^}]*fill: var\(--plan-cone\)/);
   });
 });
