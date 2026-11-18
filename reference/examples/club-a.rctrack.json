@@ -149,10 +149,42 @@
   ],
   "start": {
    "distance": 109.0
-  }
+  },
+  "marshals": [
+   {
+    "number": 1,
+    "x": -8.0,
+    "z": -6.5
+   },
+   {
+    "number": 2,
+    "x": 0.0,
+    "z": -6.5
+   },
+   {
+    "number": 3,
+    "x": 8.0,
+    "z": -6.5
+   },
+   {
+    "number": 4,
+    "x": 11.5,
+    "z": 0.0
+   },
+   {
+    "number": 5,
+    "x": 4.0,
+    "z": 6.5
+   },
+   {
+    "number": 6,
+    "x": -12.0,
+    "z": 0.0
+   }
+  ]
  },
  "built": {
-  "generator": "rctrack-bake.py 1.10",
+  "generator": "rctrack-bake.py 1.11",
   "lapLength": 123.972,
   "racingLine": [
    [
@@ -3134,6 +3166,62 @@
     5.9
    ]
   },
+  "marshals": [
+   {
+    "number": 1,
+    "x": -8.0,
+    "z": -6.5,
+    "distance": 106.972,
+    "side": "right",
+    "gap": 0.6,
+    "facing": 90.0
+   },
+   {
+    "number": 2,
+    "x": 0.0,
+    "z": -6.5,
+    "distance": 114.972,
+    "side": "right",
+    "gap": 0.6,
+    "facing": 90.0
+   },
+   {
+    "number": 3,
+    "x": 8.0,
+    "z": -6.5,
+    "distance": 122.972,
+    "side": "right",
+    "gap": 0.6,
+    "facing": 90.0
+   },
+   {
+    "number": 4,
+    "x": 11.5,
+    "z": 0.0,
+    "distance": 5.471,
+    "side": "right",
+    "gap": 0.5,
+    "facing": 180.0
+   },
+   {
+    "number": 5,
+    "x": 4.0,
+    "z": 6.5,
+    "distance": 15.941,
+    "side": "right",
+    "gap": 0.67,
+    "facing": 270.573
+   },
+   {
+    "number": 6,
+    "x": -12.0,
+    "z": 0.0,
+    "distance": 55.964,
+    "side": "right",
+    "gap": 1.0,
+    "facing": 360.0
+   }
+  ],
   "stats": {
    "dividerLength": 166.025,
    "dividerRuns": 5,

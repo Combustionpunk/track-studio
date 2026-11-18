@@ -67,6 +67,7 @@ const jumps = (view: "quick" | "advanced", more: Partial<ToolPaletteProps> = {})
   laying: false,
   canStartAgain: false,
   onStartAgain: () => {},
+  onCone: () => {},
   tool: { kind: "select" },
   onJump: () => {},
   onAdd: () => {},

@@ -10,7 +10,7 @@ import { FALLBACK_FONT, fontsKey, loadFonts, previewFontFiles, SERVER_FONTS_DIR 
 import { renderPng } from "../src/previews.js";
 import { drawPreview } from "../src/drawing.js";
 import { fallbackTheme } from "../src/theme.js";
-import { ALICE, BASE_URL, login, makeApp } from "./helpers.js";
+import { ALICE, BASE_URL, login, makeApp, withoutCones } from "./helpers.js";
 
 const SPORTS = "46897d82-0114-460f-9a75-984ee97bca0e";
 const CLUB = "7c002509-b640-5e9d-8e79-0ae336a2ae04";
@@ -164,7 +164,8 @@ describe("Open Graph card", () => {
   it("a new status gives a new card URL (the plan is unchanged)", async () => {
     const { app } = await makeApp({ seeded: true });
     const cookie = await login(app, ALICE);
-    const doc = (await app.inject({ method: "GET", url: `/api/tracks/${SPORTS}` })).json().doc;
+    // without the reference's untidy marshal points (#151): one is on a pipe, an error that holds back Submit
+    const doc = withoutCones((await app.inject({ method: "GET", url: `/api/tracks/${SPORTS}` })).json().doc);
     const created = (await app.inject({ method: "POST", url: "/api/tracks", headers: { cookie }, payload: doc })).json();
     const id = created.track.id as string;
     const before = meta((await app.inject({ method: "GET", url: `/t/${id}` })).body, "og:image");

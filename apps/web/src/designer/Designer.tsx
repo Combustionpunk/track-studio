@@ -17,6 +17,7 @@ import {
   type Check,
   type CheckLevel,
   type DesignFeature,
+  type DesignMarshal,
   type DesignPoint,
   type FeatureType,
   type PlanLayers,
@@ -76,6 +77,7 @@ import { submitWhy } from "./PhoneMenu.js";
 import type { ToolPaletteProps, ToolsProps } from "./ToolPalette.js";
 import { addCrossover, bridgeCrossing, makeCrossover, moveCrossover, moveStart } from "./crossings.js";
 import { addKey, floorTap, keyInsert, lanePress, stepCorner } from "./addtool.js";
+import { addMarshal, clampToPlacement, deleteMarshal, MARSHAL_PLACE_MARGIN, moveMarshal } from "./marshals.js";
 import { defaultRostrumSide } from "../viewer3d/rostrum.js";
 import type { Highlight } from "../viewer3d/scene.js";
 import { hasWebGL } from "../viewer3d/support.js";
@@ -129,9 +131,9 @@ export interface DesignerBase {
   can: Permissions;
 }
 
-export type Selection = { kind: "point"; i: number } | { kind: "feature"; i: number } | { kind: "start" } | null;
-/** select (the default), the Add point tool (#114), or a jump armed from the palette */
-export type Tool = { kind: "select" } | { kind: "add" } | { kind: "feature"; type: FeatureType };
+export type Selection = { kind: "point"; i: number } | { kind: "feature"; i: number } | { kind: "marshal"; i: number } | { kind: "start" } | null;
+/** select (the default), the Add point tool (#114), a jump armed from the palette, or a cone (a marshal point, #151) */
+export type Tool = { kind: "select" } | { kind: "add" } | { kind: "feature"; type: FeatureType } | { kind: "marshal" };
 
 export interface DesignerProps {
   mode: "new" | "edit";
@@ -230,6 +232,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   toolRef.current = tool;
   const [guides, setGuides] = useState<Guide[]>([]);
   const [hover, setHover] = useState<{ s: number; at: Point2 } | null>(null);
+  /** where a cone would go (#151): under the pointer while the cone tool is armed, or while one is dragged from the palette */
+  const [coneHover, setConeHover] = useState<Point2 | null>(null);
   const [highlight, setHighlight] = useState<Point2 | null>(null);
   const [layers, setLayers] = useStored<Layers>("designer-layers", { ...DEFAULT_LAYERS, checks: true });
   const [saving, setSaving] = useState(false);
@@ -355,7 +359,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const live = useMemo(() => liveGeometry(laying ? NO_TRACK : draft.design), [laying, draft.design]);
   const doc = useMemo(() => (laying ? null : toDoc(drawn, base)), [laying, drawn, base]);
   const bake = useBake(doc);
-  // what to draw: the worker's bake, with the cheap parts (line, jumps, start) taken from the live geometry
+  const cones = useMemo(() => (laying ? [] : draft.design.marshals ?? []), [laying, draft.design.marshals]);
+  // what to draw: the worker's bake, with the cheap parts (line, jumps, start, cones) taken from the live geometry
   const built: Built = useMemo(() => {
     const b = bake.built;
     return {
@@ -370,9 +375,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       footprint: b?.footprint ?? { cell: 0.1, origin: [0, 0], rows: 0, cols: 0, bbox: [0, 0, 0, 0], rle: "" },
       lanes: live.lanes,
       size: b?.size,
+      // marshal points (#151): where the design has them now (a drag runs ahead of the bake), the rest from the bake
+      ...(cones.length
+        ? { marshals: cones.map((m, i) => ({ number: m.number, x: m.x, z: m.z, distance: b?.marshals?.[i]?.distance ?? 0, side: b?.marshals?.[i]?.side ?? "left", gap: b?.marshals?.[i]?.gap ?? 0, facing: b?.marshals?.[i]?.facing ?? 0 })) }
+        : {}),
       stats: b?.stats ?? { dividerLength: 0, dividerRuns: 0, corners: 0 },
     };
-  }, [bake.built, live]);
+  }, [bake.built, live, cones]);
 
   // the 3D preview (#85): view only, of the latest bake (as the checks panel), once it has settled; not while laying the
   // lanes (no track yet), and on a phone (#127) only with its switch on (`?phone3d=1`) until the Board has measured it
@@ -449,6 +458,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const setPoints = (fn: (p: DesignPoint[]) => DesignPoint[], group?: string) => update((d) => ({ ...d, design: { ...d.design, points: fn(d.design.points) } }), group);
   const setFeatures = (fn: (f: DesignFeature[]) => DesignFeature[], group?: string) =>
     update((d) => ({ ...d, design: { ...d.design, features: fn(d.design.features ?? []) } }), group);
+  /** the marshal points (#151); none left drops the key, so a layout without cones saves as before */
+  const setMarshals = (fn: (m: DesignMarshal[]) => DesignMarshal[], group?: string) =>
+    update((d) => {
+      const { marshals: _m, ...rest } = d.design;
+      const next = fn(d.design.marshals ?? []);
+      return { ...d, design: next.length ? { ...rest, marshals: next } : rest };
+    }, group);
 
   // ------------------------------------------------------------------------------------ auto-save + leaving
   useEffect(() => {
@@ -504,6 +520,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setSel(null);
     } else if (s.kind === "feature") {
       setFeatures((f) => deleteJump(f, s.i));
+      setSel(null);
+    } else if (s.kind === "marshal") {
+      setMarshals((m) => deleteMarshal(m, s.i));
       setSel(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -622,6 +641,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     | { kind: "mitre"; i: number; offset: Point2 }
     | { kind: "apex"; i: number; dd: number }
     | { kind: "feature"; i: number; ds: number }
+    | { kind: "marshal"; i: number; offset: Point2 }
     | { kind: "start"; ds: number };
   const startDrag = (
     e: React.PointerEvent,
@@ -661,6 +681,14 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       }
       const p = planPoint(svg, ev.clientX, ev.clientY);
       const cur = draftRef.current;
+      if (d.kind === "marshal") {
+        // a cone (#151): anywhere beside the track, or up to MARSHAL_PLACE_MARGIN outside the area
+        const list = cur.design.marshals ?? [];
+        const moved = moveMarshal(list, d.i, [p[0] + d.offset[0], p[1] + d.offset[1]], areaRef.current);
+        if (!list[d.i] || (moved[d.i].x === list[d.i].x && moved[d.i].z === list[d.i].z)) return;
+        hist.set({ ...cur, design: { ...cur.design, marshals: moved } }, group);
+        return;
+      }
       if (d.kind === "apex") {
         // Quick step 2: the handle slides along the corner's inside bisector; only the radius changes
         const lw = cur.design.laneWidth ?? 2;
@@ -760,8 +788,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   /** the Add point button: on, or off again */
   const toggleAdd = () => setTool((t) => (t.kind === "add" ? { kind: "select" } : { kind: "add" }));
-  /** a press on a corner lets an armed jump go, but leaves the Add point tool on (tap a corner, then add after it) */
-  const disarmJump = () => setTool((t) => (t.kind === "feature" ? { kind: "select" } : t));
+  /** a press on a corner lets an armed jump (or cone) go, but leaves the Add point tool on (tap a corner, then add after it) */
+  const disarmJump = () => setTool((t) => (t.kind === "feature" || t.kind === "marshal" ? { kind: "select" } : t));
   /**
    * The phone (#126): a finger held still on a handle for LONG_PRESS_MS opens the context sheet for what it selected
    * (on the press). Opening it is all it does: an action is a tap in the sheet (ADR 0005). Tablets keep their own.
@@ -914,6 +942,52 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     startDrag(e, svg, { kind: "feature", i, ds: s - f.distance }, { threshold: true, was, onLongPress: contextPress(e) });
   };
 
+  /** a cone (#151): select it, drag it to move it; on the phone, hold it for its context sheet */
+  const onMarshalDown = (e: React.PointerEvent<SVGElement>, i: number) => {
+    if (e.button !== 0) return;
+    const was = before();
+    const svg = svgOf(e.currentTarget);
+    const p = planPoint(svg, e.clientX, e.clientY);
+    const m = draftRef.current.design.marshals?.[i];
+    if (!m) return;
+    setSel({ kind: "marshal", i });
+    disarmJump();
+    startDrag(e, svg, { kind: "marshal", i, offset: [m.x - p[0], m.z - p[1]] }, { threshold: true, was, onLongPress: contextPress(e) });
+  };
+
+  /** A cone at plan point p, with the lowest unused number, selected; one undo step. */
+  const placeCone = (p: Point2) => {
+    const r = addMarshal(draftRef.current.design.marshals ?? [], p, areaRef.current);
+    setMarshals(() => r.marshals, `marshal-add:${Date.now()}`);
+    setSel({ kind: "marshal", i: r.index });
+    setTool({ kind: "select" });
+    setConeHover(null);
+    setMessage(null);
+    say(`Cone ${r.marshals[r.index].number} placed.`);
+  };
+  /** the armed cone tool: a press anywhere it may go places one */
+  const onConeDown = (e: React.PointerEvent<SVGElement>) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    placeCone(planPoint(svgOf(e.currentTarget), e.clientX, e.clientY));
+  };
+  /** a cone dragged from the palette and let go at (clientX, clientY): placed if that's over the plan (#151) */
+  const dropCone = (clientX: number, clientY: number): boolean => {
+    setConeHover(null);
+    if (laying || viewing3dRef.current) return false;
+    // on the plan itself: let go over a sheet, the toolbar or the plan's buttons and the drop is called off
+    const svg = planWrapRef.current?.querySelector<SVGSVGElement>("svg.plan-svg");
+    if (!svg || document.elementFromPoint(clientX, clientY)?.closest("svg.plan-svg") !== svg) return false;
+    placeCone(planPoint(svg, clientX, clientY));
+    return true;
+  };
+  /** a cone being dragged from the palette is over the plan here: its ghost follows */
+  const dragCone = (clientX: number, clientY: number) => {
+    const svg = planWrapRef.current?.querySelector<SVGSVGElement>("svg.plan-svg");
+    const over = !!svg && document.elementFromPoint(clientX, clientY)?.closest("svg.plan-svg") === svg;
+    setConeHover(over ? clampToPlacement(planPoint(svg!, clientX, clientY), areaRef.current) : null);
+  };
+
   const onStartDown = (e: React.PointerEvent<SVGElement>) => {
     if (e.button !== 0) return;
     const was = before();
@@ -1039,7 +1113,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   useEffect(() => {
     if (sel?.kind === "point" && sel.i >= draft.design.points.length) setSel(null);
     if (sel?.kind === "feature" && sel.i >= (draft.design.features?.length ?? 0)) setSel(null);
-  }, [sel, draft.design.points.length, draft.design.features?.length]);
+    if (sel?.kind === "marshal" && sel.i >= (draft.design.marshals?.length ?? 0)) setSel(null);
+  }, [sel, draft.design.points.length, draft.design.features?.length, draft.design.marshals?.length]);
   // tablet: a jump or the start line opens its panel as soon as it's selected; a corner's waits for a long-press (a tap
   // on a corner picks where the next corner goes); letting go of the selection closes it
   useEffect(() => {
@@ -1160,9 +1235,16 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const advanced = view === "advanced";
   // what 3D highlights: the selected jump, corner (on its point) or start line
   const selPoint = sel?.kind === "point" ? draft.design.points[sel.i] : undefined;
+  // a cone (#151) is shown by a post on its spot, as a corner is
+  const selCone = sel?.kind === "marshal" ? draft.design.marshals?.[sel.i] : undefined;
   const highlight3d = useMemo<Highlight>(
-    () => (sel?.kind === "point" ? (selPoint ? { kind: "point", at: [selPoint.x, selPoint.z] } : null) : sel?.kind === "feature" ? (synced3d ? { kind: "feature", i: sel.i } : null) : sel?.kind === "start" ? { kind: "start" } : null),
-    [sel, selPoint, synced3d],
+    () =>
+      sel?.kind === "point"
+        ? selPoint ? { kind: "point", at: [selPoint.x, selPoint.z] } : null
+        : sel?.kind === "marshal"
+          ? selCone ? { kind: "point", at: [selCone.x, selCone.z] } : null
+          : sel?.kind === "feature" ? (synced3d ? { kind: "feature", i: sel.i } : null) : sel?.kind === "start" ? { kind: "start" } : null,
+    [sel, selPoint, selCone, synced3d],
   );
   // a jump clicked in 3D: selected, and back to 2D to edit it
   const pick3d = useCallback(
@@ -1176,7 +1258,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const unsupported3d = useCallback((why: "none" | "lost") => setNoWebGL(why), []);
   // a jump picked from the palette is placed on the plan: back to 2D
   useEffect(() => {
-    if (tool.kind === "feature") setView3d("2d");
+    if (tool.kind === "feature" || tool.kind === "marshal") setView3d("2d");
+    if (tool.kind !== "marshal") setConeHover(null);
   }, [tool.kind, setView3d]);
   // the corners round the same pipe as the selected one highlight while it's edited (#106)
   const linked = useMemo(() => (sel?.kind === "point" ? linkedTo(findNests(pointsList, lw), sel.i) : []), [sel, pointsList, lw]);
@@ -1221,6 +1304,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       const c = live.corners[d.i];
       if (!a || !c) return null;
       return { client, at: handlePoint(a, c.r), text: loupeText({ kind: "apex", radius: Math.max(0, c.r - c.w / 2) }), marks };
+    }
+    if (d.kind === "marshal") {
+      const c = draft.design.marshals?.[d.i];
+      return c ? { client, at: [c.x, c.z], text: loupeText({ kind: "point", x: c.x, z: c.z }), marks } : null;
     }
     if (d.kind === "feature") {
       const f = built.features[d.i], df = draft.design.features?.[d.i];
@@ -1267,8 +1354,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const corner = sel?.kind === "point" ? live.corners[sel.i] : null;
     const placing = tool.kind === "feature";
     const ghost = placing && hover ? featureCorners(ghostFeature(live, tool.type, hover)) : null;
+    // the cone tool (#151): a press anywhere a cone may stand places one (the area plus the margin round it)
+    const coneArea = { x: -area.length / 2 - MARSHAL_PLACE_MARGIN, z: -area.width / 2 - MARSHAL_PLACE_MARGIN, w: area.length + 2 * MARSHAL_PLACE_MARGIN, h: area.width + 2 * MARSHAL_PLACE_MARGIN };
+    const coneR = Math.max(0.2, 8 * m);
     return (
-      <g className={`ed ${placing ? "ed-placing" : tool.kind === "add" ? "ed-adding" : ""}`}>
+      <g className={`ed ${placing || tool.kind === "marshal" ? "ed-placing" : tool.kind === "add" ? "ed-adding" : ""}`}>
         <g
           data-handle="lane"
           className="ed-lane"
@@ -1314,6 +1404,31 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           </g>
         ))}
         <StartHandle built={built} m={m} touch={touch} on={sel?.kind === "start"} onPointerDown={onStartDown} />
+        {/* marshal points (#151): the plan draws each cone; this is its handle, and a ring round the selected one */}
+        {/* (none while the Marshal points layer is off: a hidden cone takes no presses) */}
+        {layers.marshals !== false && cones.map((c, i) => (
+          <g key={`cone${i}`} data-handle="marshal" data-number={c.number} className={`ed-marshal ${sel?.kind === "marshal" && sel.i === i ? "on" : ""}`} onPointerDown={(e) => onMarshalDown(e, i)}>
+            <title>{touch ? `Cone ${c.number}: drag to move it, hold for more` : `Cone ${c.number}: drag to move it; Delete removes the selected cone`}</title>
+            <circle className="ed-hit" cx={c.x} cy={-c.z} r={(touch ? TOUCH_PX : 11) * m} />
+            <circle className="ed-marshal-ring" cx={c.x} cy={-c.z} r={coneR + 3 * m} vectorEffect="non-scaling-stroke" />
+          </g>
+        ))}
+        {tool.kind === "marshal" && (
+          <rect
+            data-handle="marshal-place"
+            className="ed-cone-place"
+            x={coneArea.x}
+            y={-(coneArea.z + coneArea.h)}
+            width={coneArea.w}
+            height={coneArea.h}
+            onPointerDown={onConeDown}
+            onPointerMove={(e) => setConeHover(planPoint(svgOf(e.currentTarget), e.clientX, e.clientY))}
+            onPointerLeave={() => setConeHover(null)}
+          >
+            <title>{touch ? "Tap where a marshal stands to put a cone there" : "Click where a marshal stands to put a cone there"}</title>
+          </rect>
+        )}
+        {coneHover && <circle className="ed-cone-ghost" cx={coneHover[0]} cy={-coneHover[1]} r={coneR} vectorEffect="non-scaling-stroke" />}
         {/* apex handles under the corner dots where one lands on another corner's dot (a nest's outer corner, #106); the
             rest stay on top: a touch near both goes to whichever is on top, and the handle is the smaller target */}
         {!advanced && pointsList.map((p, i) => (crowdedApex(i) ? apexHandle(p, i) : null))}
@@ -1506,6 +1621,11 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       const d = Math.hypot(f.x - x, f.z - z);
       if (d < bestD) [best, bestD] = [{ kind: "feature", i }, d];
     });
+    // a marshal check is at its cone (#151)
+    cones.forEach((c, i) => {
+      const d = Math.hypot(c.x - x, c.z - z);
+      if (d < Math.min(bestD, 0.05)) [best, bestD] = [{ kind: "marshal", i }, d];
+    });
     // the phone: a change of selection keeps the Checks sheet, dropped to peek so the plan shows
     if (phoneEdit) {
       if (best || sel) showingRef.current = true;
@@ -1532,6 +1652,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   };
   /** a jump picked from the palette or the dock: armed, or let go if it was armed already */
   const pickJump = (t: FeatureType) => setTool(tool.kind === "feature" && tool.type === t ? { kind: "select" } : { kind: "feature", type: t });
+  /** the Cone button (#151): armed (tap or click where a marshal stands), or let go if it was armed already */
+  const pickCone = () => setTool((t) => (t.kind === "marshal" ? { kind: "select" } : { kind: "marshal" }));
   /** the Start line button: select it (and show where it is) */
   const pickStart = () => {
     setTool({ kind: "select" });
@@ -1636,7 +1758,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   );
   const phone3dLabel = shown3d && no3d !== "lost" ? "2D" : "3D";
   const panels: PanelProps = { view, checks: built.checks, bakedFeatures, pending: bake.pending, showSubmit, blocked, onShow: showCheck, onMakeCrossover: makeItACrossover, onBridge: bridgeIt, draft, drawn, sel, live, update, onDelete: deleteSelection, venueName, inCorner, checksHeading };
-  const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
+  const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onCone: pickCone, onDropCone: dropCone, onDragCone: dragCone, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
   const history = { undo, redo, canUndo: hist.canUndo, canRedo: hist.canRedo };
   const palette: ToolPaletteProps = { ...tools, snap: snap.mode, onSnap: (m) => setSnap({ mode: m }) };
   return (
@@ -1674,7 +1796,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                 tool: tool.kind,
                 onSelect: () => setTool({ kind: "select" }),
                 onAdd: toggleAdd,
-                canDelete: sel?.kind === "point" || sel?.kind === "feature",
+                canDelete: sel?.kind === "point" || sel?.kind === "feature" || sel?.kind === "marshal",
                 onDelete: deleteSelection,
                 ...history,
                 onJump: () => togglePhoneSheet("jump", "peek"),
@@ -1698,6 +1820,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                     const s = selRef.current;
                     setPhoneSheet(null);
                     if (a === "delete") deleteSelection();
+                    // a cone's number is set in its sheet (#151)
+                    else if (s?.kind === "marshal" && a === "renumber") setPhoneSheet({ kind: "selection", height: "peek" });
                     else if (s?.kind === "point" && a === "outer") toggleOuter(s.i);
                     else if (s?.kind === "point" && a === "hairpin") hairpinAt(s.i);
                   },
@@ -1707,6 +1831,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                   // picking a jump arms it and puts the sheet away; Start line selects it, and its sheet takes over
                   onJump: (t) => {
                     pickJump(t);
+                    setPhoneSheet(null);
+                  },
+                  onCone: () => {
+                    pickCone();
                     setPhoneSheet(null);
                   },
                 },

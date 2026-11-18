@@ -59,6 +59,15 @@ export interface SheetCrossover extends FromSouthWest {
   height: number;
 }
 
+/** A marshal point (v1.11), as the sheet lists it: in fill order. */
+export interface SheetMarshal extends FromSouthWest {
+  number: number;
+  x: number;
+  z: number;
+  /** where it stands, for people: "outside corner 3 (hairpin), by the double", "beside the straight after corner 2" */
+  where: string;
+}
+
 export type Compass = "east" | "north-east" | "north" | "north-west" | "west" | "south-west" | "south" | "south-east";
 
 export interface BuildSheet {
@@ -73,6 +82,8 @@ export interface BuildSheet {
   pipe: { length: number; runs: number };
   jumps: SheetJump[];
   crossovers: SheetCrossover[];
+  /** marshal points (v1.11) by number, the fill order; [] when there are none */
+  marshals: SheetMarshal[];
   start: FromSouthWest & { x: number; z: number; heading: Compass };
   direction: "clockwise" | "anticlockwise";
 }
@@ -113,6 +124,7 @@ export function buildSheet(doc: Pick<RcTrack, "area" | "design" | "built">): Bui
     pipe: { length: b.stats.dividerLength, runs: b.stats.dividerRuns },
     jumps: b.features.map((f) => ({ type: f.type, x: f.x, z: f.z, length: f.length, height: f.height, ...fromSouthWest(area, f.x, f.z) })),
     crossovers: crossovers(doc, area),
+    marshals: marshals(doc, area),
     start: { x: b.startLine.x, z: b.startLine.z, heading: compass(b.startLine.heading), ...fromSouthWest(area, b.startLine.x, b.startLine.z) },
     direction: twice < 0 ? "clockwise" : "anticlockwise",
   };
@@ -148,6 +160,62 @@ function crossovers(doc: Pick<RcTrack, "design" | "built">, area: Area): SheetCr
         height: f.height,
       };
     });
+}
+
+const JUMP_NAME: Record<FeatureType, string> = {
+  tabletop: "tabletop", double: "double", kicker: "kicker", stepup: "step-up", stepdown: "step-down", whoops: "whoops", bump: "bump", crossover: "crossover",
+};
+/** a cone this close (m, along the lap) to a corner's arc stands by that corner */
+const BY_CORNER = 1.0;
+/** a cone within this (m, along the lap) of a jump's ends stands by it */
+const BY_JUMP = 2.0;
+
+/**
+ * The marshal points in fill order (by number; cones sharing a number in placement order), each with where it stands:
+ * on the track, inside or outside the corner it stands by (within BY_CORNER of its arc along the lap), else beside the
+ * straight after the corner before it, plus the jump it stands by. From built.marshals (lap distance and side) and the
+ * corner numbering of cornerPoints; lap distances of the corners and jumps are measured on built.racingLine.
+ */
+function marshals(doc: Pick<RcTrack, "area" | "design" | "built">, area: Area): SheetMarshal[] {
+  const b = doc.built!;
+  const cones = b.marshals ?? [];
+  if (!cones.length) return [];
+  const lap = b.lapLength || 1;
+  const line = b.racingLine;
+  const s: number[] = [0];
+  for (let k = 1; k < line.length; k++) s.push(s[k - 1] + Math.hypot(line[k][0] - line[k - 1][0], line[k][1] - line[k - 1][1]));
+  const lapAt = (x: number, z: number) => {
+    let best = 0;
+    for (let k = 1; k < line.length; k++) if (Math.hypot(line[k][0] - x, line[k][1] - z) < Math.hypot(line[best][0] - x, line[best][1] - z)) best = k;
+    return s[best];
+  };
+  const fwd = (from: number, to: number) => (((to - from) % lap) + lap) % lap; // along the lap, from -> to
+  // each corner (racers' numbering): its lap span from the first point's arc start to the last point's arc end
+  const groups = new Map<number, { start: number; end: number; turn: "left" | "right"; hairpin: boolean }>();
+  for (const c of cornerPoints(doc)) {
+    const g = groups.get(c.number);
+    if (!g) groups.set(c.number, { start: lapAt(...c.arcStart), end: lapAt(...c.arcEnd), turn: c.turn, hairpin: c.hairpin });
+    else g.end = lapAt(...c.arcEnd);
+  }
+  const corners = [...groups.entries()].map(([number, g]) => ({ number, ...g }));
+  const jumps = (doc.design.features ?? []).map((f, i) => ({ name: JUMP_NAME[f.type], at: lapAt(b.features[i]?.x ?? 0, b.features[i]?.z ?? 0), half: (b.features[i]?.length ?? 0) / 2 }));
+
+  const where = (m: (typeof cones)[number]): string => {
+    if (m.gap === 0) return "on the track";
+    let place = "beside the track";
+    const by = corners.find((c) => fwd(c.start, m.distance) <= fwd(c.start, c.end) + BY_CORNER || fwd(m.distance, c.start) <= BY_CORNER);
+    if (by) place = `${m.side === by.turn ? "inside" : "outside"} corner ${by.number}${by.hairpin ? " (hairpin)" : ""}`;
+    else if (corners.length) {
+      const before = corners.reduce((best, c) => (fwd(c.end, m.distance) < fwd(best.end, m.distance) ? c : best));
+      place = `beside the straight after corner ${before.number}`;
+    }
+    const jump = jumps.find((j) => Math.min(fwd(j.at, m.distance), fwd(m.distance, j.at)) <= j.half + BY_JUMP);
+    return jump ? `${place}, by the ${jump.name}` : place;
+  };
+  return cones
+    .map((m, i) => ({ m, i }))
+    .sort((p, q) => p.m.number - q.m.number || p.i - q.i)
+    .map(({ m }) => ({ number: m.number, x: m.x, z: m.z, ...fromSouthWest(area, m.x, m.z), where: where(m) }));
 }
 
 /**

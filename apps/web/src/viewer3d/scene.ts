@@ -11,7 +11,7 @@
 // Positions are in three.js axes: x = plan x (east), y = up, z = −plan z (three's +z is south). Normals likewise.
 import { crossingCarpet, drawingArea, EYE_HEIGHT, PIPE_THICKNESS, PLAN_PALETTE, rostrumEye, type Area, type PlanPalette, type Built, type BuiltFeature, type Divider, type Obstacle, type Point2, type RcTrack, type Side } from "@track-studio/engine";
 
-export type Part = "area" | "carpet" | "pipe" | "jump" | "jumpSide" | "startA" | "startB" | "line" | "rostrum" | "rail" | "guide" | "highlight";
+export type Part = "area" | "carpet" | "pipe" | "jump" | "jumpSide" | "startA" | "startB" | "line" | "rostrum" | "rail" | "guide" | "highlight" | "cone" | "conePlate" | "coneNumber";
 
 export interface MeshData {
   part: Part;
@@ -57,6 +57,9 @@ export function partColours(P: PlanPalette = PLAN_PALETTE): Record<Part, string>
     rail: P["plan-pipe"],
     guide: P["plan-obstacle"],
     highlight: P["plan-line"],
+    cone: P["plan-jump"],
+    conePlate: P["plan-jump-edge"],
+    coneNumber: P["plan-pipe"],
   };
 }
 const COLOUR = partColours();
@@ -543,11 +546,73 @@ export function buildScene({ area, built, obstacles = [], palette }: { area: Are
     addRibbon(line, pts, true, () => LINE_WIDTH / 2, (i) => LINE_Y + y[i]);
   }
 
-  const meshes = [floor.done("area"), carpetMesh(built, bridges), pipeMesh(built.dividers ?? [], bridges), top.done("jump"), sides.done("jumpSide"), startA.done("startA"), startB.done("startB"), line.done("line"), guideMesh(obstacles)].filter(
+  const cone = new Mesh(), plate = new Mesh(), number = new Mesh();
+  addCones(cone, plate, number, built);
+
+  const meshes = [floor.done("area"), carpetMesh(built, bridges), pipeMesh(built.dividers ?? [], bridges), top.done("jump"), sides.done("jumpSide"), startA.done("startA"), startB.done("startB"), line.done("line"), guideMesh(obstacles), cone.done("cone"), plate.done("conePlate"), number.done("coneNumber")].filter(
     (m) => m.indices.length > 0,
   );
   const shown = (built.crossings ?? []).flatMap((c, i) => (bridges.some((b) => b.crossings.includes(i)) ? [{ feature: c.bridge!.feature, over: c.over! }] : []));
   return { area, background: (palette ?? PLAN_PALETTE)["plan-floor"], meshes: painted(meshes, palette), triangles: meshes.reduce((n, m) => n + m.indices.length / 3, 0), bridges: shown };
+}
+
+// ------------------------------------------------------------------------------------------- marshal points (#151)
+
+/** A marshal point's cone: this high, this wide at its foot, with this many sides. */
+export const CONE_HEIGHT = 0.4;
+const CONE_RADIUS = 0.13;
+const CONE_SIDES = 12;
+/** its number: seven-segment digits this high, on a plate laid flat beside the cone, towards the track */
+const DIGIT: { h: number; w: number; t: number; gap: number } = { h: 0.26, w: 0.14, t: 0.04, gap: 0.05 };
+const PLATE_Y = 0.003, DIGIT_Y = 0.005;
+
+/** The seven segments, a-g, as [x0, z0, x1, z1] boxes in a digit box w × h (origin bottom-left, z up). */
+const SEGMENT: Record<string, (w: number, h: number, t: number) => [number, number, number, number]> = {
+  a: (w, h, t) => [0, h - t, w, h],
+  b: (w, h, t) => [w - t, h / 2, w, h],
+  c: (w, h, t) => [w - t, 0, w, h / 2],
+  d: (w, _h, t) => [0, 0, w, t],
+  e: (_w, h, t) => [0, 0, t, h / 2],
+  f: (_w, h, t) => [0, h / 2, t, h],
+  g: (w, h, t) => [0, h / 2 - t / 2, w, h / 2 + t / 2],
+};
+const DIGITS = ["abcdef", "bc", "abdeg", "abcdg", "bcfg", "acdfg", "acdefg", "abc", "abcdefg", "abcdfg"];
+
+/** A digit's lit segments (0-9). */
+export function digitSegments(d: number): string[] {
+  return [...(DIGITS[d] ?? "")];
+}
+
+/** Cones (#151): a cone on each marshal point, and its number in light segments on a dark plate beside it (towards
+ * the track, read with north up as on the plan). From built.marshals only. */
+function addCones(cone: Mesh, plate: Mesh, number: Mesh, built: Built) {
+  for (const m of built.marshals ?? []) {
+    // the cone: a ring of sides up to the tip
+    for (let k = 0; k < CONE_SIDES; k++) {
+      const a0 = (2 * Math.PI * k) / CONE_SIDES, a1 = (2 * Math.PI * (k + 1)) / CONE_SIDES;
+      const am = (a0 + a1) / 2;
+      const slope = CONE_RADIUS / CONE_HEIGHT;
+      const nx = Math.cos(am), nz = Math.sin(am), ny = slope; // outward and up
+      const b0 = cone.vert(m.x + CONE_RADIUS * Math.cos(a0), m.z + CONE_RADIUS * Math.sin(a0), 0, nx, ny, nz);
+      const b1 = cone.vert(m.x + CONE_RADIUS * Math.cos(a1), m.z + CONE_RADIUS * Math.sin(a1), 0, nx, ny, nz);
+      const t = cone.vert(m.x, m.z, CONE_HEIGHT, nx, ny, nz);
+      cone.tri(b0, b1, t);
+    }
+    // the number's plate, its centre 0.35 m from the cone towards the track (`facing`)
+    const text = String(m.number);
+    const tw = text.length * DIGIT.w + (text.length - 1) * DIGIT.gap, pad = 0.04;
+    const f = (m.facing * Math.PI) / 180;
+    const cx = m.x + Math.cos(f) * (CONE_RADIUS + 0.22), cz = m.z + Math.sin(f) * (CONE_RADIUS + 0.22);
+    const x0 = cx - tw / 2 - pad, x1 = cx + tw / 2 + pad, z0 = cz - DIGIT.h / 2 - pad, z1 = cz + DIGIT.h / 2 + pad;
+    plate.face([[x0, z0, PLATE_Y], [x1, z0, PLATE_Y], [x1, z1, PLATE_Y], [x0, z1, PLATE_Y]], [0, 1, 0]);
+    [...text].forEach((ch, k) => {
+      const ox = cx - tw / 2 + k * (DIGIT.w + DIGIT.gap), oz = cz - DIGIT.h / 2;
+      for (const sg of digitSegments(Number(ch))) {
+        const [a, b, c, d] = SEGMENT[sg](DIGIT.w, DIGIT.h, DIGIT.t);
+        number.face([[ox + a, oz + b, DIGIT_Y], [ox + c, oz + b, DIGIT_Y], [ox + c, oz + d, DIGIT_Y], [ox + a, oz + d, DIGIT_Y]], [0, 1, 0]);
+      }
+    });
+  }
 }
 
 // ------------------------------------------------------------------------------------------- the designer (#85)

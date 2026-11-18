@@ -127,7 +127,7 @@ export function PhoneBanner({ restore, revision, onRestore, onDiscard, loggedIn,
 
 export interface BottomToolbarProps {
   /** the tool that's on: Select, Add point, or an armed jump */
-  tool: "select" | "add" | "feature";
+  tool: "select" | "add" | "feature" | "marshal";
   onSelect: () => void;
   onAdd: () => void;
   /** a corner or a jump is selected */
@@ -163,7 +163,7 @@ export function BottomToolbar({ tool, onSelect, onAdd, canDelete, onDelete, undo
     <nav className={view3d ? "phone-toolbar phone-toolbar-7" : "phone-toolbar"} role="toolbar" aria-label="Designer tools">
       <Tool icon={<MousePointer2 size={20} aria-hidden="true" />} label="Select" aria-pressed={!viewOnly && tool === "select"} disabled={viewOnly} onClick={onSelect} />
       <Tool icon={<Plus size={20} aria-hidden="true" />} label="Add point" aria-pressed={!viewOnly && tool === "add"} disabled={viewOnly} data-add-tool onClick={onAdd} />
-      <Tool icon={<LayoutGrid size={20} aria-hidden="true" />} label="Jump" aria-pressed={!viewOnly && tool === "feature"} disabled={viewOnly} onClick={onJump} />
+      <Tool icon={<LayoutGrid size={20} aria-hidden="true" />} label="Jump" aria-pressed={!viewOnly && (tool === "feature" || tool === "marshal")} disabled={viewOnly} onClick={onJump} />
       <Tool icon={<Trash2 size={20} aria-hidden="true" />} label="Delete" disabled={viewOnly || !canDelete} onClick={onDelete} />
       <Tool icon={<Undo2 size={20} aria-hidden="true" />} label="Undo" disabled={!canUndo} onClick={undo} />
       <Tool icon={<Redo2 size={20} aria-hidden="true" />} label="Redo" disabled={!canRedo} onClick={redo} />

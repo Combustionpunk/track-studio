@@ -67,9 +67,13 @@ describe("upgradeTrack: loading a 1.6 file", () => {
     expect(diff.lapLength).toBeLessThanOrEqual(TOL);
     expect(diff.footprint.bboxMax).toBeLessThanOrEqual(0.1 + 1e-9);
     expect(diff.checks[0]).toEqual(diff.checks[1]);
-    // and exactly what the engine bakes for the stored 1.7 file of the same track, where there is one
+    // and exactly what the engine bakes for the stored 1.7 file of the same track, where there is one (less the marshal
+    // points the reference examples gained in 1.11)
     const now = allTracks.find((f) => f.name === name);
-    if (now) expect({ ...t.built!, generator: "" }).toEqual({ ...bakeBuilt(readJson<RcTrack>(now.path)), generator: "" });
+    if (now) {
+      const doc = readJson<RcTrack>(now.path);
+      expect({ ...t.built!, generator: "" }).toEqual({ ...bakeBuilt({ ...doc, design: { ...doc.design, marshals: undefined } }), generator: "" });
+    }
   });
 });
 

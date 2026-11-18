@@ -4,7 +4,7 @@ import type { FeatureType } from "@track-studio/engine";
 import { Plus } from "lucide-react";
 import * as fmt from "../lib/format.js";
 import type { Tool } from "./Designer.js";
-import { JumpPalette } from "./JumpPalette.js";
+import { ConeButton, JumpPalette } from "./JumpPalette.js";
 import { TURNS_HINT } from "./lanes.js";
 import { paletteJumps, type DesignerMode } from "./mode.js";
 import type { SnapMode } from "./snap.js";
@@ -21,6 +21,12 @@ export interface ToolsProps {
   tool: Tool;
   /** a jump picked: armed, or let go if it was armed already */
   onJump: (t: FeatureType) => void;
+  /** the Cone button (#151): armed, or let go if it was armed already */
+  onCone: () => void;
+  /** a cone dragged from the palette and let go here (client px): true if it landed on the plan */
+  onDropCone?: (clientX: number, clientY: number) => boolean;
+  /** a cone dragged from the palette is here (client px) */
+  onDragCone?: (clientX: number, clientY: number) => void;
   /** the Add point tool on, or off again */
   onAdd: () => void;
   /** the start line is selected */
@@ -33,7 +39,7 @@ export interface ToolsProps {
 
 export type ToolPaletteProps = ToolsProps & { snap: SnapMode; onSnap: (m: SnapMode) => void };
 
-export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, onJump, onAdd, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
+export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, onJump, onCone, onDropCone, onDragCone, onAdd, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
   const advanced = view === "advanced";
   if (laying)
     return (
@@ -53,6 +59,8 @@ export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, o
     <aside className="designer-palette" aria-label="Add to the track">
       <span className="label">Jumps</span>
       <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} />
+      <span className="label label-gap">Marshals</span>
+      <ConeButton armed={tool.kind === "marshal"} onPick={onCone} onDrop={onDropCone} onDrag={onDragCone} />
       <span className="label label-gap">Track</span>
       <button
         type="button"
@@ -98,11 +106,13 @@ export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, o
           ? tool.type === "crossover"
             ? "Click where the track crosses itself to bridge it: the pass you click goes over. Esc to cancel."
             : `Click on the racing line to place the ${fmt.FEATURE_LABEL[tool.type].toLowerCase()}. Esc to cancel.`
-          : tool.kind === "add"
+          : tool.kind === "marshal"
+            ? "Click where a marshal stands to put a numbered cone there: beside the track, or up to 2 m outside the area. Esc to cancel."
+            : tool.kind === "add"
             ? advanced
               ? "Click a straight to add a point there. Esc or A to stop. Keys: N / P pick a corner, Enter adds a point halfway to the next."
               : "Click the track or the floor to add a corner. Esc or A to stop. Keys: N / P pick a corner, Enter adds one halfway to the next."
-            : "Pick a jump, then click on the racing line to place it. Add point (A) adds a corner point."}
+            : "Pick a jump, then click on the racing line to place it. Drag a cone onto the plan where a marshal stands. Add point (A) adds a corner point."}
       </p>
     </aside>
   );

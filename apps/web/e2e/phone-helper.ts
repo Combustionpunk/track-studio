@@ -8,7 +8,10 @@ import { screen, Touch, type XY } from "./touch-helper.js";
 
 export const SHOTS = process.env.SHOTS;
 export const REF = fileURLToPath(new URL("../../../reference/", import.meta.url));
-export const doc = JSON.parse(readFileSync(`${REF}examples/freeform-at-sports-hall-b.rctrack.json`, "utf8"));
+/** the layout these specs were written for: the reference example without the marshal points it has since rctrack 1.11
+ * (#151; one is on a pipe, an error that would hold Submit back). The cone specs serve their own. */
+export const withCones = JSON.parse(readFileSync(`${REF}examples/freeform-at-sports-hall-b.rctrack.json`, "utf8"));
+export const doc = { ...withCones, design: { ...withCones.design, marshals: undefined } };
 const hall = JSON.parse(readFileSync(`${REF}venues/sports-hall-b.rcvenue.json`, "utf8"));
 export const ID = "t-phone";
 

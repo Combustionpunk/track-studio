@@ -9,7 +9,7 @@ import { Loading, Message } from "../components/bits.js";
 import { ApiError, type TrackResponse, type TrackSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { useApi, useElementSize } from "../lib/hooks.js";
-import { cornerRows, crossoverRows, figures, jumpRows, PAPER, paperFrom, qrModules, SHEET_PX, sheetPlan, sheetStatus, shortLink, startText, type Paper } from "../lib/sheet.js";
+import { cornerRows, crossoverRows, figures, jumpRows, marshalRows, PAPER, paperFrom, qrModules, SHEET_PX, sheetPlan, sheetStatus, shortLink, startText, type Paper } from "../lib/sheet.js";
 import { NotFound } from "./NotFound.js";
 
 // the plan's room on the A3 layout: the plan column (narrower beside a split corner table) by what's left under the header
@@ -91,6 +91,7 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
   const corners = cornerRows(s);
   const jumps = jumpRows(s);
   const crossovers = crossoverRows(s);
+  const cones = marshalRows(s);
   const venue = track.venue?.name ?? doc.info.venue?.name;
   const m = 1 / plan.pxPerM; // one output pixel in metres
   const disc = 11 * m;
@@ -269,7 +270,29 @@ function Sheet({ track, doc, rev }: { track: TrackSummary; doc: RcTrack; rev: nu
               </tbody>
             </table>
           )}
+          {cones.length > 0 && (
+            <table className="sheet-table sheet-marshal-table">
+              <caption>Marshal points</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Cone</th>
+                  <th scope="col" className="num">Position (west, south)</th>
+                  <th scope="col">Where</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cones.map((c, i) => (
+                  <tr key={i}>
+                    <td className="no">{c.label}</td>
+                    <td className="num">{c.position}</td>
+                    <td>{c.where}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
           <p className="sheet-note">
+            {cones.length > 0 && "Marshal points: numbered cones, filled in order (with 6 marshals, cones 1 to 6). "}
             {crossovers.length > 0 && "Crossovers: X on the plan. Over is the pass that drives over the bridge, counting from the start line; size is ramp + flat top + ramp × height. "}
             {startText(s)}
           </p>

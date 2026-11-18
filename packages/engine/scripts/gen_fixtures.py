@@ -272,10 +272,32 @@ for slug, doc in EXTRA_VENUES.items():
     json.dump(doc, open(os.path.join(extra, f"{slug}.rcvenue.json"), "w"), indent=1)
 
 # reference examples: upgraded to 1.7 (the adapted one is labelled with its venue template's name) and re-baked
+# 1.11 (#151): marshal points. club-a has a clean set, 1-6, round the hall's edge (cone 6 is 1 m outside the area);
+# freeform-example an untidy one: cone 2 twice, no 3 or 5, cone 4 on the shared pipe (nearer the south lane), cone 6 4 m south of the area (far).
+# freeform-at-sports-hall-b is freeform-example adapted to Sports Hall B: its cones are moved the way fit.adapt moves them
+MARSHALS = {
+    "club-a": [{"number": 1, "x": -8.0, "z": -6.5}, {"number": 2, "x": 0.0, "z": -6.5}, {"number": 3, "x": 8.0, "z": -6.5},
+               {"number": 4, "x": 11.5, "z": 0.0}, {"number": 5, "x": 4.0, "z": 6.5}, {"number": 6, "x": -12.0, "z": 0.0}],
+    "freeform-example": [{"number": 1, "x": -6.0, "z": -1.5}, {"number": 2, "x": 8.0, "z": 2.5}, {"number": 2, "x": -3.5, "z": -1.5},
+                         {"number": 4, "x": 0.0, "z": -4.05}, {"number": 6, "x": 0.0, "z": -10.0}],
+}
+def adapted_marshals(src, doc):
+    """freeform-example's cones moved the way fit.adapt moved src's points into doc (rotation and mirror from the orientation label)."""
+    _, rot, mirror = next(o for o in fit.ORIENTS if o[0] == doc["info"]["derivedFrom"]["orientation"])
+    p0, q0 = src["design"]["points"][0], doc["design"]["points"][0]
+    x0, z0 = fit.transform_pt(p0["x"], p0["z"], rot, mirror); shift = (q0["x"] - x0, q0["z"] - z0)
+    out = []
+    for m in MARSHALS["freeform-example"]:
+        x, z = fit.transform_pt(m["x"], m["z"], rot, mirror)
+        out.append({"number": m["number"], "x": round(x + shift[0], 3), "z": round(z + shift[1], 3)})
+    return out
 venue_names = {v["id"]: v["info"]["name"] for v in (json.load(open(f)) for f in glob.glob(os.path.join(root, "reference/venues/*.rcvenue.json")))}
 for f in sorted(glob.glob(os.path.join(root, "reference/examples/*.rctrack.json"))):
-    doc = json.load(open(f))
+    doc = json.load(open(f)); slug = os.path.basename(f).replace(".rctrack.json", "")
     bake.upgrade(doc, venue_names.get((doc.get("basedOn") or {}).get("venueTemplate")))
+    if slug in MARSHALS: doc["design"]["marshals"] = MARSHALS[slug]
+    if slug == "freeform-at-sports-hall-b":
+        doc["design"]["marshals"] = adapted_marshals(json.load(open(f.replace(slug, "freeform-example"))), doc)
     json.dump(bake.bake(doc), open(f, "w"), indent=1)
 
 tracks = sorted(glob.glob(os.path.join(root, "reference/examples/*.rctrack.json"))) + sorted(glob.glob(os.path.join(extra, "*.rctrack.json")))
@@ -332,4 +354,16 @@ for f in sorted(glob.glob(os.path.join(fixtures, "v18", "*.rctrack.json"))):
     diff = sorted(k for k in a.keys() | b.keys() if json.dumps(a.get(k)) != json.dumps(b.get(k)))
     print(f"{os.path.basename(f)}: {'same as 1.8' if not diff else 'DIFFERENT from 1.8: ' + ', '.join(diff)}")
     assert not diff
+# 1.10 bakes (v110/: the reference examples as bake.py 1.10 baked them, before they had marshal points) bake the same in
+# 1.11, and the examples with cones now differ from them only by built.marshals and the marshal checks (#151)
+MARSHAL_CHECKS = ("marshal-on-track", "marshal-number-repeated", "marshal-number-gap", "marshal-far")
+for f in sorted(glob.glob(os.path.join(fixtures, "v110", "*.rctrack.json"))):
+    doc = json.load(open(f)); old = doc["built"]; new = bake.bake(json.loads(json.dumps(doc)))["built"]
+    assert "marshals" not in new and {k: v for k, v in old.items() if k != "generator"} == {k: v for k, v in new.items() if k != "generator"}
+    now = json.load(open(os.path.join(root, "reference/examples", os.path.basename(f))))["built"]
+    now = {k: v for k, v in now.items() if k not in ("generator", "marshals")}
+    now["checks"] = [c for c in now["checks"] if c["code"] not in MARSHAL_CHECKS]
+    same = now == {k: v for k, v in old.items() if k != "generator"}
+    print(f"{os.path.basename(f)}: {'same as 1.10 but for the marshal points' if same else 'DIFFERENT from 1.10'}")
+    assert same
 print(f"{len(out)} fit results; fitting:", sum(1 for r in out.values() if r["fits"]))
