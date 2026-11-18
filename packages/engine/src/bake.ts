@@ -5,10 +5,12 @@ import type {
   Area,
   Built,
   BuiltFeature,
+  BuiltMarshal,
   Check,
   CheckCode,
   Crossing,
   DesignFeature,
+  DesignMarshal,
   DesignPoint,
   Divider,
   FeatureType,
@@ -22,7 +24,7 @@ import type {
   Size,
 } from "./types.js";
 
-export const GENERATOR = "track-studio-engine 1.10";
+export const GENERATOR = "track-studio-engine 1.11";
 export const SAMPLE = 0.05; // internal sampling (m)
 export const EXPORT_STEP = 0.25; // racing line export spacing (m)
 export const MERGE_GAP = 0.6; // borders closer than this (from different parts of the track) are merged...
@@ -61,6 +63,8 @@ const CROSSING_BOX = 1e-9;
 // don't overlap. 1.10 (#102): 5 cm, was 2 cm; the shared-pipe allowance, so a corner rounded against a shared pipe
 // isn't an overlap of 2-3 cm
 export const OVERLAP_TOL = 0.05;
+/** 1.11 (#151): a marshal point further than this (m) from every lane edge is too far to reach a car (marshal-far, info) */
+export const MARSHAL_REACH = 3.0;
 export const FOOT_CELL = 0.1; // footprint raster cell (m)
 export const PIPE_R = 0.04; // half the pipe thickness, added round the lanes
 export const EYE_HEIGHT = 2.8;
@@ -1512,6 +1516,9 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     rle: rle(fp.mask),
   };
 
+  const lanes = laneRings(edges);
+  const marshals = marshalPoints(design.marshals ?? [], line, s, total, lanes, fp, checks); // 1.11
+
   let pipe = 0;
   for (const d of divs) {
     let run = 0;
@@ -1528,10 +1535,80 @@ export function bakeBuilt(doc: RcTrack, opts: BakeOptions = {}): Built {
     startLine,
     checks,
     footprint,
-    lanes: laneRings(edges),
+    lanes,
     size,
+    ...(marshals.length ? { marshals } : {}), // 1.11: only when the layout has marshal points
     stats: { dividerLength: r3(pipe), dividerRuns: divs.length, corners: countCorners(corners, opts.cornerJoinGap) },
   };
+}
+
+// ------------------------------------------------------------------ marshal points (1.11)
+/** Nearest point to p on a polyline (closed: back to its start): point, segment index, fraction, distance. The first
+ * segment wins a tie. */
+function nearestOnPolyline(px: number, pz: number, xs: ArrayLike<number>, zs: ArrayLike<number>, closed = true) {
+  const n = xs.length;
+  let best = { q: [xs[0], zs[0]] as Point2, k: 0, t: 0, d: Infinity };
+  for (let k = 0; k < (closed ? n : n - 1); k++) {
+    const ax = xs[k], az = zs[k], bx = xs[(k + 1) % n], bz = zs[(k + 1) % n];
+    const abx = bx - ax, abz = bz - az, L2 = abx * abx + abz * abz;
+    const t = L2 === 0 ? 0 : Math.min(1, Math.max(0, ((px - ax) * abx + (pz - az) * abz) / L2));
+    const qx = ax + abx * t, qz = az + abz * t, d = norm(px - qx, pz - qz);
+    if (d < best.d) best = { q: [qx, qz], k, t, d };
+  }
+  return best;
+}
+
+/**
+ * built.marshals and the marshal checks (1.11, #151; bake.py's marshal_points). For each cone, in design order: its lap
+ * distance (the nearest point of the dense racing line), the side of the line it stands (in the direction of travel),
+ * its gap to the nearest lane edge (built.lanes; 0 when it stands on the track: a footprint cell, lanes plus pipe
+ * thickness) and the heading from the cone towards that edge (on the track: towards the racing line). Checks, appended
+ * to `checks`: marshal-on-track (error) and marshal-far (info, gap > MARSHAL_REACH) per cone; marshal-number-repeated
+ * (warning, once per repeated number, at its second cone); marshal-number-gap (warning, one per missing number from 1
+ * up to the highest, at the first cone of the next number above it).
+ */
+export function marshalPoints(cones: DesignMarshal[], line: Line, s: Float64Array, total: number, lanes: Lanes, fp: Raster, checks: Check[]): BuiltMarshal[] {
+  if (!cones.length) return [];
+  const rings = [lanes.right, lanes.left].map((r) => ({ x: r.map((p) => p[0]), z: r.map((p) => p[1]) }));
+  const out: BuiltMarshal[] = [];
+  const per: Check[] = [];
+  for (const m of cones) {
+    const px = m.x, pz = m.z, num = Math.trunc(m.number);
+    const near = nearestOnPolyline(px, pz, line.x, line.z);
+    const j = (near.k + 1) % line.n;
+    const segx = line.x[j] - line.x[near.k], segz = line.z[j] - line.z[near.k];
+    const L = norm(segx, segz) || 1.0;
+    const distance = pyMod(s[near.k] + near.t * L, total);
+    const vx = px - near.q[0], vz = pz - near.q[1];
+    const side = segx * vz - segz * vx >= 0 ? "left" : "right";
+    const col = Math.floor((px - fp.origin[0]) / FOOT_CELL), row = Math.floor((pz - fp.origin[1]) / FOOT_CELL);
+    const on = row >= 0 && row < fp.rows && col >= 0 && col < fp.cols && fp.mask[row * fp.cols + col] === 1;
+    const edge = rings.map((r) => nearestOnPolyline(px, pz, r.x, r.z)).reduce((a, b) => (b.d < a.d ? b : a));
+    const gap = on ? 0 : edge.d;
+    const to = on ? near.q : edge.q;
+    const tx = to[0] - px, tz = to[1] - pz;
+    const facing = headingDeg(norm(tx, tz) > 1e-9 ? [tx, tz] : [segx, segz]);
+    out.push({ number: num, x: r3(px), z: r3(pz), distance: r3(distance), side, gap: r3(gap), facing });
+    const at = { x: r3(px), z: r3(pz) };
+    if (on) per.push({ level: "error", code: "marshal-on-track", ...at, message: `Cone ${num} is on the track` });
+    else if (gap > MARSHAL_REACH) per.push({ level: "info", code: "marshal-far", ...at, message: `Cone ${num} is ${pyFormat(gap, 1)} m from the track` });
+  }
+  checks.push(...per);
+  const nums = out.map((o) => o.number);
+  for (const num of [...new Set(nums)].sort((a, b) => a - b)) {
+    const at = out.filter((o) => o.number === num);
+    if (at.length > 1) {
+      checks.push({ level: "warning", code: "marshal-number-repeated", x: at[1].x, z: at[1].z, message: `${at.length === 2 ? "Two" : at.length} cones are numbered ${num}` });
+    }
+  }
+  const top = Math.max(...nums);
+  for (let miss = 1; miss < top; miss++) {
+    if (nums.includes(miss)) continue;
+    const next = Math.min(...nums.filter((v) => v > miss));
+    const o = out.find((c) => c.number === next)!;
+    checks.push({ level: "warning", code: "marshal-number-gap", x: o.x, z: o.z, message: `No cone ${miss}: with ${miss} marshals, cone ${next} is manned and ${miss} is empty` });
+  }
+  return out;
 }
 
 /** Returns a copy of the track, upgraded to 1.7 (upgradeTrack), with a fresh `built` section. Does not modify `doc`. */

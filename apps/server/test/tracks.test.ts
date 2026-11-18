@@ -4,9 +4,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ROOT_DIR } from "../src/config.js";
-import { ALICE, BOB, login, makeApp, ORGANISER, referenceJson } from "./helpers.js";
+import { ALICE, BOB, login, makeApp, ORGANISER, referenceJson, withoutCones } from "./helpers.js";
 
-const freeform = () => referenceJson<RcTrack>("examples/freeform-example.rctrack.json");
+const freeform = () => withoutCones(referenceJson<RcTrack>("examples/freeform-example.rctrack.json"));
 const fitExpected = JSON.parse(readFileSync(join(ROOT_DIR, "packages/engine/test/fixtures/fit-expected.json"), "utf8")) as Record<string, { fits: FitResult[]; check: VenueCheck }>;
 const CLUB_A = "7c002509-b640-5e9d-8e79-0ae336a2ae04";
 const FREEFORM = "3b542396-6bd2-55e8-8665-852e74dc54a9";
@@ -249,7 +249,7 @@ describe("saving tracks", () => {
     const { app, alice } = await setup();
     const doc = freeform();
     // move it so it fits Sports hall B's pillars (as the adapted example does)
-    const adapted = referenceJson<RcTrack>("examples/freeform-at-sports-hall-b.rctrack.json");
+    const adapted = withoutCones(referenceJson<RcTrack>("examples/freeform-at-sports-hall-b.rctrack.json"));
     const { doc: saved } = await createAs(app, alice, { track: { info: { name: "From template" }, design: adapted.design }, fromVenue: "venue-2" });
     const venue = referenceJson<RcVenue>("venues/sports-hall-b.rcvenue.json");
     expect(saved.area).toEqual(venue.area);

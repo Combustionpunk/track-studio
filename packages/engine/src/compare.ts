@@ -23,6 +23,9 @@ export interface BuiltDiff {
   /** crossings (v1.6; none when the key is absent): counts, worst position / lap distance / angle / footprint corner
    * differences (Infinity if the counts differ or one has a footprint and the other not), same over / bridge */
   crossings: { count: [number, number]; maxPos: number; maxDistance: number; maxAngle: number; maxFootprint: number; sameBridges: boolean };
+  /** marshal points (v1.11; none when the key is absent): counts, worst position / lap distance (round the lap) / gap /
+   * facing differences (Infinity if the counts differ), same numbers and sides */
+  marshals: { count: [number, number]; maxPos: number; maxDistance: number; maxGap: number; maxFacing: number; sameNumbers: boolean };
 }
 
 const dist = (a: Point2, b: Point2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -72,6 +75,24 @@ function compareCrossings(actual: Built, expected: Built): BuiltDiff["crossings"
     if (!c.footprint || !e.footprint) out.maxFootprint = Math.max(out.maxFootprint, c.footprint || e.footprint ? Infinity : 0);
     else out.maxFootprint = Math.max(out.maxFootprint, ...c.footprint.map((p, k) => dist(p, e.footprint![k])));
     out.sameBridges &&= c.over === e.over && JSON.stringify(c.bridge) === JSON.stringify(e.bridge);
+  });
+  return out;
+}
+
+function compareMarshals(actual: Built, expected: Built): BuiltDiff["marshals"] {
+  const ma = actual.marshals ?? [], me = expected.marshals ?? [];
+  const same = ma.length === me.length;
+  const out = { count: [ma.length, me.length] as [number, number], maxPos: same ? 0 : Infinity, maxDistance: same ? 0 : Infinity, maxGap: same ? 0 : Infinity, maxFacing: same ? 0 : Infinity, sameNumbers: same };
+  if (!same) return out;
+  const lap = expected.lapLength || 1;
+  ma.forEach((m, i) => {
+    const e = me[i];
+    const dd = Math.abs(m.distance - e.distance);
+    out.maxPos = Math.max(out.maxPos, dist([m.x, m.z], [e.x, e.z]));
+    out.maxDistance = Math.max(out.maxDistance, Math.min(dd, Math.abs(lap - dd)));
+    out.maxGap = Math.max(out.maxGap, Math.abs(m.gap - e.gap));
+    out.maxFacing = Math.max(out.maxFacing, angleDiff(m.facing, e.facing));
+    out.sameNumbers &&= m.number === e.number && m.side === e.side;
   });
   return out;
 }
@@ -144,6 +165,7 @@ export function compareBuilt(actual: Built, expected: Built): BuiltDiff {
           )
         : Infinity,
     crossings: compareCrossings(actual, expected),
+    marshals: compareMarshals(actual, expected),
     footprint: {
       bboxMax: Math.max(...fa.bbox.map((v, i) => Math.abs(v - fe.bbox[i]))),
       shape: [fa.rows, fa.cols, fe.rows, fe.cols],

@@ -22,7 +22,8 @@ export function previewSvg(doc: RcTrack, { pxPerM = 40 }: PreviewOptions = {}): 
   if (!b) throw new Error("previewSvg: track has no built section (bake it first)");
   const a = drawingArea(doc); // 1.7: area is optional, the layout's own drawing area
   const L = a.length, W = a.width;
-  const m = 2.5; // margin (m)
+  let m = 2.5; // margin (m)
+  for (const c of b.marshals ?? []) m = Math.max(m, Math.abs(c.x) - L / 2 + 0.5, Math.abs(c.z) - W / 2 + 0.5); // 1.11: wider for a far cone
   const vw = (L + 2 * m) * pxPerM, vh = (W + 2 * m) * pxPerM;
   const X = (x: number) => (x + L / 2 + m) * pxPerM;
   const Z = (z: number) => (W / 2 + m - z) * pxPerM; // +z (north) is up on the page
@@ -72,6 +73,11 @@ export function previewSvg(doc: RcTrack, { pxPerM = 40 }: PreviewOptions = {}): 
   const ax = s.x + Math.cos(h) * 2.5, az = s.z + Math.sin(h) * 2.5;
   o.push(`<line x1="${f1(X(s.x + Math.cos(h) * 0.6))}" y1="${f1(Z(s.z + Math.sin(h) * 0.6))}" x2="${f1(X(ax))}" y2="${f1(Z(az))}" stroke="#ff4fb0" stroke-width="5" marker-end="url(#a)"/>`);
   o.splice(1, 0, '<defs><marker id="a" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff4fb0"/></marker></defs>');
+  // marshal points (1.11): numbered cones
+  for (const c of b.marshals ?? []) {
+    o.push(`<circle cx="${f1(X(c.x))}" cy="${f1(Z(c.z))}" r="9" fill="#ff7a1a" stroke="#1e2a22" stroke-width="2"/>`);
+    o.push(`<text x="${f1(X(c.x))}" y="${f1(Z(c.z) + 4)}" fill="#1e2a22" font-size="11" font-weight="bold" text-anchor="middle">${c.number}</text>`);
+  }
   // checks: errors and warnings (#91: no ring for info, such as a jump into a corner, a technical section)
   const checkColours: Record<string, string> = { error: "#ff4040", warning: "#ffb000" };
   for (const c of b.checks) {

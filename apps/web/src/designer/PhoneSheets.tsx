@@ -4,12 +4,12 @@
 // and How to draw; and the context sheet (#126), the actions for what a finger held. The Designer owns which sheet is
 // open and its height; a drag on the plan tucks it away.
 import { outerStyle, type Built } from "@track-studio/engine";
-import { CornerUpLeft, Square, SquareRoundCorner, Trash2 } from "lucide-react";
+import { CornerUpLeft, Hash, Square, SquareRoundCorner, Trash2 } from "lucide-react";
 import { Sheet, type SheetHeight } from "../components/Sheet.js";
 import { FEATURE_LABEL } from "../lib/format.js";
 import type { Draft, Selection } from "./Designer.js";
 import type { Live } from "./geometry.js";
-import { JumpPalette } from "./JumpPalette.js";
+import { ConeButton, JumpPalette } from "./JumpPalette.js";
 import { PhoneDetails, PhoneMenu, PhoneSave, type PhoneDetailsProps, type PhoneMenuProps, type PhoneSaveProps } from "./PhoneMenu.js";
 import { allows, paletteJumps, type DesignerMode } from "./mode.js";
 import { MIN_CORNERS } from "./shape.js";
@@ -34,11 +34,12 @@ export function sheetLabel(sel: Selection, view: DesignerMode, draft: Draft): st
     return f ? FEATURE_LABEL[f.type] : "Jump";
   }
   if (sel?.kind === "start") return "Start line";
+  if (sel?.kind === "marshal") return `Cone ${draft.design.marshals?.[sel.i]?.number ?? ""}`.trim();
   return "Selected";
 }
 
 /** what the context sheet can do to what's held (#126) */
-export type ContextActionKind = "delete" | "outer" | "hairpin";
+export type ContextActionKind = "delete" | "outer" | "hairpin" | "renumber";
 export interface ContextAction {
   action: ContextActionKind;
   label: string;
@@ -55,6 +56,8 @@ export function contextActions(sel: Selection, view: DesignerMode, draft: Draft,
   if (!sel) return [];
   if (sel.kind === "start") return [{ action: "delete", label: "Delete", why: "A track always has a start line: drag it along the track to move it." }];
   if (sel.kind === "feature") return [{ action: "delete", label: "Delete" }];
+  // a cone (#151): its number is set in its sheet
+  if (sel.kind === "marshal") return [{ action: "delete", label: "Delete" }, { action: "renumber", label: "Change number" }];
   const pts = draft.design.points;
   const p = pts[sel.i], c = live.corners[sel.i];
   if (!p) return [];
@@ -67,7 +70,7 @@ export function contextActions(sel: Selection, view: DesignerMode, draft: Draft,
   return out;
 }
 
-const CONTEXT_ICON = { delete: Trash2, hairpin: CornerUpLeft } as const;
+const CONTEXT_ICON = { delete: Trash2, hairpin: CornerUpLeft, renumber: Hash } as const;
 
 /** The context sheet's rows: a menu of 44 px+ rows, one per action, each with its reason when it can't be done. */
 export function PhoneContext({ actions, label, onAction }: { actions: ContextAction[]; label: string; onAction: (a: ContextActionKind) => void }) {
@@ -104,7 +107,7 @@ export function PhoneChecks({ built, ...p }: PanelProps & { built: Built }) {
 }
 
 /** The jumps as 44 px chips with their plan symbols, Start line, and the snapping last (Quick: a switch; Advanced: the radio). */
-export function PhoneJumps({ view, tool, onJump, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
+export function PhoneJumps({ view, tool, onJump, onCone, onDropCone, onDragCone, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
   const advanced = view === "advanced";
   return (
     // no heading or help line, so it fits at peek height: the sheet is named "Jumps", and the hint over the plan says
@@ -117,6 +120,7 @@ export function PhoneJumps({ view, tool, onJump, startOn, onStartLine, laneSnap,
         <button type="button" className="phone-chip phone-chip-start" aria-pressed={startOn} onClick={onStartLine}>
           Start line
         </button>
+        <ConeButton armed={tool.kind === "marshal"} onPick={onCone} onDrop={onDropCone} onDrag={onDragCone} className="phone-chip" verb="Tap" />
       </div>
       {advanced ? (
         <div className="field-row">
@@ -162,6 +166,10 @@ export function PhoneHowTo({ view }: { view: DesignerMode }) {
             <b>Delete</b> on the toolbar removes the selected corner or jump.
           </li>
           <li>Tap Jump, pick a jump and tap the racing line to place it, then drag it along. Pick Start line to drag the start line the same way.</li>
+          <li>
+            <b>Cone</b> (under Jump) puts a numbered marshal point where you tap, or drag one onto the plan. The number is the order marshals fill them;
+            change it in the cone's sheet.
+          </li>
           <li>Drag the floor to pan; pinch to zoom. Undo and Redo are on the toolbar.</li>
           <li>The checks pill, top right, opens the Checks.</li>
         </ul>

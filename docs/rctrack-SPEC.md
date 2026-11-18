@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.10)
+# rctrack — shared track format (v1.11)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -45,6 +45,12 @@ the layout) and to check a layout against a venue (the fit search, which says wh
   `length`: `distance` is at the crossing (either pass's distance finds it; the bake puts it on the over pass), `over`
   is `"first"` (the default) or `"second"`, the pass that goes over, in driving order from the start line.
 - `start.distance` — start/finish line position along the racing line.
+- `marshals[]` *(v1.11)* — marshal points: numbered cones where marshals stand, `{number, x, z}`, in placement order.
+  `number` (a whole number, 1–99) is the **fill order** chosen by the designer: with 6 marshals, cones 1–6 are manned and
+  7 onwards are left empty. `x, z` is a free position in the layout's axes (metres), beside the track or round the edge
+  of the hall: the designer lets you place a cone up to **2 m outside** the drawing area (`area`, or `drawingArea`), and
+  nothing checks against the area. Two cones may share a number (a warning). No `marshals` means no cones. A cone stays
+  where it is when the track is edited or reversed; renumbering never moves one. See *Marshal points*.
 - Direction of travel is the order of `points`: reversing a track reorders them to `[p0, pn-1, …, p1]` and moves each `distance` so jumps and the start line stay in the same spot (no field for it).
 
 ## built
@@ -70,7 +76,8 @@ the layout) and to check a layout against a venue (the fit search, which says wh
 - `checks[]` — `{level: error|warning|info, code, message, x?, z?}`, the track's own checks *(v1.7: no venue checks;
   see Fit search)*. Codes: `tight-corner`, `narrow-lane`, `feature-in-corner`, `radius-reduced`, and *(v1.6)*
   `crossing-unbridged`, `crossing-too-low`, `crossing-angle`, `crossing-too-close`, `crossover-unused` (see *Crossings*),
-  *(v1.8)* `start-on-feature`, *(v1.9)* `lane-overlap` and *(v1.10)* `lane-squeeze` (see *Lane overlaps*). A consumer
+  *(v1.8)* `start-on-feature`, *(v1.9)* `lane-overlap`, *(v1.10)* `lane-squeeze` (see *Lane overlaps*) and *(v1.11)*
+  `marshal-on-track`, `marshal-number-repeated`, `marshal-number-gap`, `marshal-far` (see *Marshal points*). A consumer
   that meets a code it doesn't know treats it as the `level` it carries. A distance in a message is on the lap, from 0 up to `lapLength` *(v1.8)*: a feature
   at `distance` -1.5 is "at 47.1 m" on a 48.6 m lap.
   `start-on-feature` *(v1.8)*: a `warning` at the start line, "Start line is on a ramp", when `start.distance` lies
@@ -80,6 +87,12 @@ the layout) and to check a layout against a venue (the fit search, which says wh
   1 m past its end, across lap distance 0 if need be). For a jump it is `info`, "Tabletop at 12.4 m is on or lands
   into a corner (technical section)": a technical drive, not a mistake. For a crossover it is a `warning`, because a
   bridge's ramps need straight track.
+- `marshals[]` *(v1.11)* — one per `design.marshals`, in the same order; **absent** when there are none:
+  `{number, x, z, distance, side, gap, facing}`. `distance` is the lap distance (0 up to `lapLength`) of the racing-line
+  point nearest the cone; `side` is `"left"` or `"right"` of the racing line, in the direction of travel; `gap` is metres
+  from the cone to the nearest lane edge (`lanes`), 0 when the cone stands on the track; `facing` is the heading from the
+  cone towards that lane-edge point (on the track: towards the racing line), the way a marshal looks. Consumers sort by
+  `number` for the fill order and draw a numbered cone at `x, z`; nobody recomputes these.
 - `stats` — `{dividerLength, dividerRuns, corners}` (feeds the build sheet). `corners` counts corners the way racers
   do (see *Corner count* below).
 - `lanes` — `{right: [[x, z], …], left: [[x, z], …]}`: both lane edges as closed rings (the borders below, before
@@ -194,6 +207,26 @@ A track may cross itself where a bridge carries one pass over the other.
   short hairpin whose legs overlap by less than the cap (2 m lanes, 2.5 m legs 1.45 m apart: 0.55 m) is a squeeze. A squeeze doesn't
   block submitting or approving a layout; corner handling is to be improved in a later version.
 
+### Marshal points *(v1.11)*
+For each cone in `design.marshals`, in order (reference: `marshal_points` in `bake.py`):
+- **Placed on the lap:** `distance` and `side` from the nearest point of the dense racing line (step 1; the first segment
+  wins a tie); `gap` and `facing` from the nearest point of the lane-edge rings (`built.lanes`).
+- **On the track:** the cone's centre is in a cell the `footprint` raster covers (lanes plus pipe thickness, square
+  corners included). Its `gap` is 0 and it faces the racing line.
+- **Checks**, appended after the others, at the cone:
+  - `marshal-on-track` (error): a cone in a lane or on a pipe, "Cone 3 is on the track"; a marshal can't stand there.
+  - `marshal-far` (info): a cone more than **3 m** (`MARSHAL_REACH`) from every lane edge, "Cone 7 is 3.4 m from the
+    track"; too far to reach a car.
+  - `marshal-number-repeated` (warning): one per number that two or more cones share, at its second cone, "Two cones are
+    numbered 3".
+  - `marshal-number-gap` (warning): one per number missing from 1 up to the highest, at the first cone of the next number
+    above it, "No cone 3: with 3 marshals, cone 4 is manned and 3 is empty".
+
+  The per-cone checks come first (in cone order), then the repeated numbers, then the gaps (each in number order).
+- **Not the footprint:** cones are not part of the footprint, the size or the fit search, so a cone never stops a layout
+  fitting, and no venue check looks at them. Adapting a layout to a venue moves each cone with the points (the same
+  mirror, rotation and shift, rounded to 3 decimals); features need no moving, as they are placed by distance.
+
 ### Corner count
 A design point whose turn is more than 20° is a corner. Turns **the same way** joined by less than **3 m** of racing line
 (the straight between them, plus any intermediate turns of 20° or less) count as **one** corner — a hairpin drawn as two
@@ -235,7 +268,7 @@ pipe thickness overlap a fixed obstacle). These were in `built.checks` before 1.
 venue's area, obstacles and rostrum.
 
 Choosing a result creates an adapted copy for that venue (new id, `info.derivedFrom` = original id, revision and
-orientation), rotated or mirrored and moved to the chosen fit, and re-bakes it. Nothing of the venue is copied in but its
+orientation), rotated or mirrored and moved to the chosen fit, and re-bakes it; its marshal points *(v1.11)* move with it. Nothing of the venue is copied in but its
 area (as the drawing area) and `info.drawnFor`: no obstacles, no rostrum. Features (crossovers included) are placed by distance along the racing line, so they move
 with the track; mirroring and rotating keep the driving order, so each crossing keeps its over pass.
 
@@ -250,13 +283,21 @@ with the track; mirroring and rotating keep the driving order, so each crossing 
 
 ## Sim integration (plan)
 Import a `.rctrack.json` (file or forum link) and build directly from `built`: area (or the drawing area, see `area`)
-→ hall, dividers → pipes, features → ramps, startLine → timing line and grid. **Rostrum** *(v1.7)*: a layout has none.
+→ hall, dividers → pipes, features → ramps, startLine → timing line and grid, `built.marshals` *(v1.11)* → a cone with
+its number at `x, z`, turned to `facing`. **Rostrum** *(v1.7)*: a layout has none.
 A consumer that needs one (the sim) asks the player for the side, N/S/E/W, when loading the layout (standing 1.5 m
 outside the middle of that side, eyes 2.8 m up). When the layout is loaded through an event or a venue, the side and
 position default to that venue's rostrum, which the fit check reports with its results (`venueCheck(...).rostrum`, in
 the venue's coordinates: for a copy adapted to the venue, these are the layout's own).
 
 ## Changes
+- **1.11** — marshal points. `design.marshals[]` = `{number, x, z}`: numbered cones placed beside the track (or up to
+  2 m outside the drawing area) where marshals stand; `number` is the fill order, so with 6 marshals cones 1–6 are
+  manned. `built.marshals[]` = `{number, x, z, distance, side, gap, facing}`, absent when there are none. New checks:
+  `marshal-on-track` (error), `marshal-number-repeated` and `marshal-number-gap` (warnings), `marshal-far` (info).
+  Cones are not part of the footprint and never affect the fit search; adapting a layout to a venue moves them with it.
+  `version` stays `1`. A file with no `marshals` has no cones and bakes exactly as in 1.10 (apart from the generator
+  string). Older readers ignore both keys, and they show the new check codes at the level each check carries.
 - **1.10** — `lane-overlap` is split in two (*Lane overlaps*). An overlap at a corner where a built divider runs between
   the two lane centres, no deeper than the narrower lane less 1.4 m (0.6 m at 2 m lanes), is a new **warning**,
   `lane-squeeze` ("Lane narrows by 0.35 m at this corner"): a pipe still

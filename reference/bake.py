@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference implementation of the rctrack geometry engine (format v1.10).
+Reference implementation of the rctrack geometry engine (format v1.11).
 Reads a track file, (re)computes the "built" section from "design", writes it back.
 The web designer (TypeScript) and the sim (C#) must produce the same results as this file:
 the example tracks in examples/ double as test fixtures.
@@ -10,7 +10,7 @@ usage: python3 bake.py in.json [out.json]
 import json, math, sys
 import numpy as np
 
-GENERATOR = "rctrack-bake.py 1.10"
+GENERATOR = "rctrack-bake.py 1.11"
 SAMPLE = 0.05          # internal sampling (m)
 EXPORT_STEP = 0.25     # racing line export spacing (m)
 MERGE_GAP = 0.6        # borders closer than this (from different parts of the track) are merged...
@@ -43,6 +43,7 @@ CROSSING_BOX = 1e-9    # (1.9, #100) segment bounding boxes grow by this (m) bef
 OVERLAP_TOL = 0.05     # (1.9) lanes overlap where their centres are closer than half their widths' sum less this (m):
                        # two lanes sharing a pipe touch, they don't overlap. 1.10 (#102): 5 cm, was 2 cm; the shared-pipe
                        # allowance, so a corner rounded against a shared pipe isn't an overlap of 2-3 cm. lane_overlaps
+MARSHAL_REACH = 3.0    # (1.11) a marshal point further than this (m) from every lane edge is too far to reach a car: info
 
 FEATURE_PROFILES = {   # along-track distance (m), height (m), for default length/height; scaled to the feature's values
     "tabletop": [[0, 0], [0.70, 1], [1.50, 1], [2.20, 0]],
@@ -771,6 +772,63 @@ def lane_overlaps(line, s, total, zones, cr, divs):
                         "message": f"Lanes overlap by {deep:.2f} m here"})
     return out
 
+# ------------------------------------------------------------------ marshal points (1.11)
+def _nearest_on_ring(p, ring, closed=True):
+    """Nearest point to p on a polyline (closed: back to its start): (point, segment index, fraction, distance).
+    The first segment wins a tie."""
+    best = None; n = len(ring)
+    for k in range(n if closed else n - 1):
+        a = ring[k]; b = ring[(k + 1) % n]; ab = b - a; L2 = float(ab @ ab)
+        t = 0.0 if L2 == 0 else min(1.0, max(0.0, float((p - a) @ ab) / L2))
+        q = a + ab * t; d = float(np.linalg.norm(p - q))
+        if best is None or d < best[3]: best = (q, k, t, d)
+    return best
+
+def marshal_points(design, xy, s, total, lanes, mask, origin, checks):
+    """built.marshals and the marshal checks (1.11). For each cone, in design order: its lap distance (the nearest
+    point of the dense racing line), the side of the line it stands (in the direction of travel), its gap to the nearest
+    lane edge (built.lanes; 0 when it stands on the track: a footprint cell, lanes plus pipe thickness) and the heading
+    from the cone towards that edge (on the track: towards the racing line). Checks: marshal-on-track (error) and
+    marshal-far (info, gap > MARSHAL_REACH) per cone; marshal-number-repeated (warning, once per repeated number, at its
+    second cone) and marshal-number-gap (warning, one per missing number from 1 up to the highest, at the first cone of
+    the next number above it). Returns built.marshals ([] when there are none)."""
+    cones = design.get("marshals") or []
+    if not cones: return []
+    rings = [np.array(lanes["right"], float), np.array(lanes["left"], float)]
+    out = []; per = []
+    for m in cones:
+        p = np.array([float(m["x"]), float(m["z"])]); num = int(m["number"])
+        q, k, t, _ = _nearest_on_ring(p, xy)
+        seg = xy[(k + 1) % len(xy)] - xy[k]; L = float(np.linalg.norm(seg)) or 1.0
+        dist = (s[k] + t * L) % total
+        v = p - q; side = "left" if seg[0] * v[1] - seg[1] * v[0] >= 0 else "right"
+        c = int(math.floor((p[0] - origin[0]) / FOOT_CELL)); r = int(math.floor((p[1] - origin[1]) / FOOT_CELL))
+        on = 0 <= r < mask.shape[0] and 0 <= c < mask.shape[1] and bool(mask[r, c])
+        e = min((_nearest_on_ring(p, R) for R in rings), key=lambda h: h[3])
+        gap = 0.0 if on else e[3]
+        to = (q if on else e[0]) - p
+        facing = heading_deg(to if float(np.linalg.norm(to)) > 1e-9 else seg)
+        out.append({"number": num, "x": r3(p[0]), "z": r3(p[1]), "distance": r3(dist), "side": side, "gap": r3(gap), "facing": facing})
+        if on:
+            per.append({"level": "error", "code": "marshal-on-track", "x": r3(p[0]), "z": r3(p[1]), "message": f"Cone {num} is on the track"})
+        elif gap > MARSHAL_REACH:
+            per.append({"level": "info", "code": "marshal-far", "x": r3(p[0]), "z": r3(p[1]),
+                        "message": f"Cone {num} is {gap:.1f} m from the track"})
+    checks += per
+    nums = [o["number"] for o in out]
+    for num in sorted(set(nums)):
+        at = [o for o in out if o["number"] == num]
+        if len(at) > 1:
+            many = "Two" if len(at) == 2 else str(len(at))
+            checks.append({"level": "warning", "code": "marshal-number-repeated", "x": at[1]["x"], "z": at[1]["z"],
+                           "message": f"{many} cones are numbered {num}"})
+    for miss in range(1, max(nums)):
+        if miss in nums: continue
+        nxt = min(n for n in nums if n > miss); o = next(o for o in out if o["number"] == nxt)
+        checks.append({"level": "warning", "code": "marshal-number-gap", "x": o["x"], "z": o["z"],
+                       "message": f"No cone {miss}: with {miss} marshals, cone {nxt} is manned and {miss} is empty"})
+    return out
+
 FEATURE_LABEL = {"tabletop": "Tabletop", "double": "Double", "kicker": "Kicker", "stepup": "Step-up", "stepdown": "Step-down",
                  "whoops": "Whoops", "bump": "Bump"}
 
@@ -892,6 +950,9 @@ def bake(doc):
     E = np.concatenate(edges); lo, hi = E.min(0), E.max(0)
     size = {"length": r3(hi[0] - lo[0]), "width": r3(hi[1] - lo[1]), "bbox": [r3(lo[0]), r3(lo[1]), r3(hi[0]), r3(hi[1])]}
 
+    lanes = lane_rings(*edges)
+    marshals = marshal_points(design, xy, s, total, lanes, mask, origin, checks)   # 1.11
+
     pipe = sum(sum(math.dist(a, b) for a, b in zip(d["points"], d["points"][1:])) for d in divs)
     doc["built"] = {
         "generator": GENERATOR,
@@ -903,8 +964,9 @@ def bake(doc):
         "startLine": start,
         "checks": checks,
         "footprint": footprint,
-        "lanes": lane_rings(*edges),
+        "lanes": lanes,
         "size": size,
+        **({"marshals": marshals} if marshals else {}),      # 1.11: only when the layout has marshal points
         "stats": {"dividerLength": r3(pipe), "dividerRuns": len(divs), "corners": count_corners(corners)},
     }
     return doc

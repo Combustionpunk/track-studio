@@ -39,7 +39,9 @@ describe("adapt", () => {
     expect(out.area).toEqual(stored.area);
     expect(out.info).toEqual(stored.info);
     expect(out.info.drawnFor).toEqual({ venueTemplate: venue.id, name: venue.info.name });
-    expect(out.built!.checks).toEqual([]);
+    // the track itself is clean; its only checks are its untidy marshal points' (1.11, #151)
+    expect(out.built!.checks.filter((c) => !c.code.startsWith("marshal-"))).toEqual([]);
+    expect(out.built!.checks.map((c) => c.code)).toEqual(stored.built!.checks.map((c) => c.code));
     expect(venueCheck(out, venue).checks).toEqual([]);
     expect({ ...out.built!, generator: "" }).toEqual({ ...stored.built!, generator: "" });
     expect(validateTrack(out).valid).toBe(true);

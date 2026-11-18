@@ -1,7 +1,7 @@
 // The build sheet page (#17): the figures as printed, paper sizes, the DRAFT rule, the plan with its edge labels and the
 // QR code. The figures themselves come from the engine's buildSheet (drawn from `built`, measured from the south-west
 // corner of the track area).
-import { drawingArea, PLAN_MARGIN, planLayers, planScene, type BuildSheet, type RcTrack, type TrackStatus } from "@track-studio/engine";
+import { drawingArea, planLayers, planMargin, planScene, type BuildSheet, type RcTrack, type TrackStatus } from "@track-studio/engine";
 import qrcode from "qrcode-generator";
 import { FEATURE_LABEL, size } from "./format.js";
 
@@ -47,6 +47,12 @@ export function crossoverRows(s: BuildSheet): { label: string; position: string;
     over: c.over === "first" ? "1st pass" : c.over === "second" ? "2nd pass" : "None",
     size: `${trim(c.ramp)} + ${trim(c.top)} + ${trim(c.ramp)} × ${trim(c.height)} m`,
   }));
+}
+
+/** The marshal points (#151) in fill order: number, where to put the cone (from the south-west corner; a cone round
+ * the hall's edge can be just outside the area, a negative figure) and where it stands by the track. */
+export function marshalRows(s: BuildSheet): { label: string; position: string; where: string }[] {
+  return s.marshals.map((m) => ({ label: String(m.number), position: `${metres1(m.fromWest)}, ${metres1(m.fromSouth)}`, where: m.where }));
 }
 
 export function figures(s: BuildSheet): { label: string; value: string }[] {
@@ -128,8 +134,10 @@ const LABEL_ROOM = 1.4; // m outside the plan margin for the edge labels
 /** The print plan fitted into widthPx × heightPx, with room round the area for the rostrum and the edge labels. */
 export function sheetPlan(doc: Pick<RcTrack, "area" | "built">, widthPx: number, heightPx: number, id = "sheet"): SheetPlan {
   const { length: L, width: W } = drawingArea(doc);
-  const x = -L / 2 - PLAN_MARGIN - LABEL_ROOM, y = -W / 2 - PLAN_MARGIN;
-  const viewBox = { x, y, w: L + 2 * PLAN_MARGIN + LABEL_ROOM, h: W + 2 * PLAN_MARGIN + LABEL_ROOM };
+  // the plan's margin, wider where a marshal point stands further out (#151; planMargin)
+  const M = planMargin(planScene(doc));
+  const x = -L / 2 - M - LABEL_ROOM, y = -W / 2 - M;
+  const viewBox = { x, y, w: L + 2 * M + LABEL_ROOM, h: W + 2 * M + LABEL_ROOM };
   const px = Math.max(viewBox.w / widthPx, viewBox.h / heightPx);
   const svg = planLayers(planScene(doc), { px, palette: "print", layers: { checks: false }, id });
   // every 5 m, and the far wall unless it would crowd the last 5 m mark

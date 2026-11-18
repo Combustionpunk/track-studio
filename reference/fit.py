@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Reference "will it fit my venue?" search (rctrack v1.7).
+Reference "will it fit my venue?" search (rctrack v1.7; adapt moves marshal points, v1.11).
 For a track and a venue template, tries 8 orientations (as designed, mirrored, rotated 90/180/270, and
 mirrored + rotated), slides the track's footprint around the venue's area on a 0.1 m grid, and keeps
 positions where it stays inside the area and clear of every obstacle. Can write the adapted track.
@@ -91,6 +91,9 @@ def adapt(track, venue, fit):
     for p in t["design"]["points"]:
         x, z = transform_pt(p["x"], p["z"], fit["rotation"], fit["mirror"])
         p["x"], p["z"] = round(x + fit["shift"][0], 3), round(z + fit["shift"][1], 3)
+    for m in t["design"].get("marshals") or []:   # 1.11: cones stand at free positions, so they move with the points
+        x, z = transform_pt(m["x"], m["z"], fit["rotation"], fit["mirror"])
+        m["x"], m["z"] = round(x + fit["shift"][0], 3), round(z + fit["shift"][1], 3)
     bake.upgrade(t)   # 1.7: nothing of the venue is copied in but the drawing area and the "drawn for" label
     t["area"] = dict(venue["area"])
     t["info"]["drawnFor"] = {"venueTemplate": venue["id"], "name": venue["info"]["name"]}

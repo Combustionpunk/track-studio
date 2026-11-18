@@ -19,7 +19,7 @@ import { buildScene, featureAt, highlightMesh, rostrumMeshes, sameMesh, type Hig
 
 const FOV = 45;
 /** Flat layers over the floor, lowest first. */
-const FLAT_LAYER: Partial<Record<Part, number>> = { carpet: 1, startA: 2, startB: 2, line: 3 };
+const FLAT_LAYER: Partial<Record<Part, number>> = { carpet: 1, startA: 2, startB: 2, line: 3, conePlate: 2, coneNumber: 3 };
 /** Arrow keys turn the head this far at the rostrum (degrees). */
 const TURN_STEP = 5;
 /** A press that moves less than this (px) is a click, not a drag. */

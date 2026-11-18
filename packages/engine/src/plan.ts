@@ -61,9 +61,9 @@ const PRINT_ROLES: Palette = {
 
 const P: Palette = PLAN_PALETTE;
 
-export type PlanLayer = "lanes" | "racingLine" | "dividers" | "features" | "start" | "checks" | "obstacles" | "grid" | "rostrum";
+export type PlanLayer = "lanes" | "racingLine" | "dividers" | "features" | "start" | "checks" | "obstacles" | "grid" | "rostrum" | "marshals";
 export type PlanLayers = Record<PlanLayer, boolean>;
-export const ALL_PLAN_LAYERS: PlanLayers = { lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: true, obstacles: true, grid: true, rostrum: true };
+export const ALL_PLAN_LAYERS: PlanLayers = { lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: true, obstacles: true, grid: true, rostrum: true, marshals: true };
 
 /** What a plan shows. `obstacles` and `rostrum` come from a venue (v1.7: layouts have none): venue plans, fits. */
 export interface PlanScene {
@@ -77,7 +77,7 @@ export interface PlanDrawOptions {
   /** one output pixel in metres */
   px: number;
   layers?: Partial<PlanLayers>;
-  /** add data-tip="…" hooks for the web plan's hover details (f<i>, c<i>, o<i>, start, rostrum) */
+  /** add data-tip="…" hooks for the web plan's hover details (f<i>, c<i>, o<i>, m<i>, start, rostrum) */
   tips?: boolean;
   /** prefix for pattern ids, unique per page (default "plan") */
   id?: string;
@@ -94,6 +94,14 @@ export const PLAN_MARGIN = 2.5; // m around the area (room for the rostrum)
 export const PIPE_THICKNESS = 0.08; // m (2 × PIPE_R in bake.ts)
 export const GRID_BOXES = 10; // a full final
 const ROSTRUM_SIZE: [number, number] = [5, 1.2]; // m, along × across its side
+
+/** The margin to draw round the area (m): PLAN_MARGIN, or more where a marshal point (1.11) stands further out, so the
+ * plan always shows every cone with 0.5 m to spare. Cones placed in the designer (up to 2 m out) fit the usual margin. */
+export function planMargin(scene: Pick<PlanScene, "area" | "built">): number {
+  let m = PLAN_MARGIN;
+  for (const c of scene.built?.marshals ?? []) m = Math.max(m, Math.abs(c.x) - scene.area.length / 2 + 0.5, Math.abs(c.z) - scene.area.width / 2 + 0.5);
+  return m;
+}
 
 /** A layout's plan: its built geometry on its drawing area. Add a venue's obstacles and rostrum to place it in one. */
 export function planScene(doc: Pick<RcTrack, "area" | "built">): PlanScene {
@@ -514,6 +522,17 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
         o.push(`<text class="p-label" x="${n(ob.x)}" y="${n(-ob.z)}" dy="0.35em" text-anchor="middle" font-size="${n(Math.max(0.35, 11 * px))}" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-pipe"]}">${escapeXml(ob.label)}</text>`);
     });
 
+  // marshal points (1.11): a numbered cone each, at least 8 px across so the number reads at phone size
+  if (layers.marshals && built?.marshals) {
+    const r = Math.max(0.2, 8 * px);
+    built.marshals.forEach((m, i) => {
+      o.push(
+        `<g class="p-marshal"${tip(`m${i}`)}><circle cx="${n(m.x)}" cy="${n(-m.z)}" r="${n(r)}" fill="${P["plan-jump"]}" stroke="${P["plan-jump-edge"]}" stroke-width="${n(Math.max(0.02, 1.5 * px))}"/>` +
+          `<text class="p-marshal-number" x="${n(m.x)}" y="${n(-m.z)}" dy="0.35em" text-anchor="middle" font-size="${n(r * (m.number > 9 ? 1.05 : 1.3))}" font-weight="600" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-jump-edge"]}">${m.number}</text></g>`,
+      );
+    });
+  }
+
   o.push(...marks);
   return o.join("");
 }
@@ -578,7 +597,7 @@ export function planBounds(area: Area, margin = PLAN_MARGIN) {
   return { x0: -area.length / 2 - margin, y0: -area.width / 2 - margin, w: area.length + 2 * margin, h: area.width + 2 * margin };
 }
 
-export const planHeight = (area: Area, width: number) => Math.round((width * (area.width + 2 * PLAN_MARGIN)) / (area.length + 2 * PLAN_MARGIN));
+export const planHeight = (area: Area, width: number, margin = PLAN_MARGIN) => Math.round((width * (area.width + 2 * margin)) / (area.length + 2 * margin));
 
 /** 1, 2 or 5 × 10^n, close to `m`. */
 export function niceLength(m: number): number {
@@ -590,7 +609,7 @@ export function niceLength(m: number): number {
 /** The plan's contents fitted into a px box (x, y, w, h), as a nested <svg>: for pictures made of several parts. */
 export function planInBox(scene: PlanScene, box: { x: number; y: number; w: number; h: number }, opts: Omit<PlanSvgOptions, "width"> = {}): string {
   if (!(box.w > 0 && box.h > 0)) throw new Error("planInBox: box needs a positive width and height");
-  const b = planBounds(scene.area);
+  const b = planBounds(scene.area, planMargin(scene));
   const px = Math.max(b.w / box.w, b.h / box.h) * (opts.pixelRatio ?? 1);
   return `<svg x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" viewBox="${n(b.x0)} ${n(b.y0)} ${n(b.w)} ${n(b.h)}">${planLayers(scene, { px, layers: opts.layers, id: opts.id })}${opts.scaleBar === false ? "" : scaleBar(scene, px)}</svg>`;
 }
@@ -598,7 +617,7 @@ export function planInBox(scene: PlanScene, box: { x: number; y: number; w: numb
 /** Scale bar in the margin on the side away from the rostrum. */
 function scaleBar(scene: PlanScene, px: number): string {
   const { area } = scene;
-  const b = planBounds(area);
+  const b = planBounds(area, planMargin(scene));
   const m = niceLength(b.w / 6);
   const side = scene.rostrum?.side;
   const y = side === "south" ? -area.width / 2 - PLAN_MARGIN / 2 : area.width / 2 + PLAN_MARGIN / 2;
@@ -614,9 +633,10 @@ function scaleBar(scene: PlanScene, px: number): string {
 /** A standalone SVG of the plan: floor, area plus margins, everything on it and a scale bar. */
 export function planSvg(scene: PlanScene, opts: PlanSvgOptions): string {
   if (!(opts.width > 0)) throw new Error("planSvg: width must be positive");
-  const b = planBounds(scene.area);
+  const margin = planMargin(scene);
+  const b = planBounds(scene.area, margin);
   const px = (b.w / opts.width) * (opts.pixelRatio ?? 1);
-  const height = planHeight(scene.area, opts.width);
+  const height = planHeight(scene.area, opts.width, margin);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${opts.width}" height="${height}" viewBox="${n(b.x0)} ${n(b.y0)} ${n(b.w)} ${n(b.h)}">` +
     `<rect class="p-floor" x="${n(b.x0)}" y="${n(b.y0)}" width="${n(b.w)}" height="${n(b.h)}" fill="${P["plan-floor"]}"/>` +
