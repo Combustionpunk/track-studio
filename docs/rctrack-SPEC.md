@@ -255,6 +255,51 @@ A consumer that needs one (the sim) asks the player for the side, N/S/E/W, when 
 outside the middle of that side, eyes 2.8 m up). When the layout is loaded through an event or a venue, the side and
 position default to that venue's rostrum, which the fit check reports with its results (`venueCheck(...).rostrum`, in
 the venue's coordinates: for a copy adapted to the venue, these are the layout's own).
+What a reader can rely on, where to download a layout, and the pipe and carpet sizes: *Compatibility for consumers*.
+
+## Compatibility for consumers
+What a reader (the sim, a 3D viewer, a forum plugin) can rely on. Readers build from `built` and never re-bake.
+
+**Getting the file.** Track Studio serves every revision at `/api/tracks/<id>/r/<n>.rctrack.json` (pinned: meetings
+use this) and the public revision, approved if there is one, else the latest, at `/api/tracks/<id>/latest.rctrack.json`
+(follows approval: it changes when a newer revision is approved). Both are public and download as
+`<slug>-r<n>.rctrack.json`. An unknown id is a 404.
+
+**Format and version.**
+- `format` must be `"rctrack"`. Anything else is not a track file: refuse it.
+- `version` is the major version. A reader refuses a `version` it doesn't know (today only `1`) with a clear message,
+  for example "This track needs a newer version of the sim (rctrack version 2; this sim reads version 1)". It never
+  guesses at a file of another version.
+- Within `version: 1`, changes only **add**: new keys, new check codes, new feature types. Nothing is removed,
+  renamed or given a new meaning. The minor version (1.10 in the title) is the engine's; it is in `built.generator`
+  for information and readers don't branch on it.
+- A reader **ignores keys it doesn't know**, at every level. A check code it doesn't know is treated as the `level` it
+  carries (see `built.checks`). A `features[].type` it doesn't know is built from its `profile` like any ramp.
+
+**What `built` always has.** A file Track Studio serves is baked by the current engine, so `built` always has:
+`lapLength`, `racingLine`, `dividers`, `features` (may be empty), `startLine`, `checks` (may be empty), `stats`,
+`lanes`, `size` and `footprint`. The top level always has `format`, `version`, `id`, `revision`, `info` (with `name`)
+and `design`.
+
+**What is optional.** A reader must cope with these being absent:
+- `built.crossings`: absent when the racing line doesn't cross itself (*Crossings*).
+- `built.marshals`: marshal points, planned in #151; absent until then, and on layouts without them.
+- `area` (top level): absent on some layouts; use the drawing area (`drawingArea`, see *Top level*).
+- `built.generator`, and the `info` fields other than `name`.
+
+**Physical sizes not in the file.** These are fixed for `version: 1`; a reader uses these values. If a layout ever
+needs its own, they will be added as optional keys in `built`, with these as the defaults.
+- **Pipe (divider):** a round pipe **0.08 m** in diameter (the engine's pipe thickness: `footprint` pads the lanes by
+  half of it), lying on the carpet: bottom at 0, centre **0.04 m** up, top **0.08 m** up. Each `dividers[].points`
+  run is the pipe's centre line. Where a divider runs over a bridge (`crossings[].footprint`), it rides the bridge's
+  profile like the lane under it.
+- **Carpet:** no thickness. The carpet is the floor surface, height 0; feature heights and profiles are measured
+  from it, and the area round the lanes is at the same height.
+
+**Conformance fixtures.** `reference/examples/*.rctrack.json` are the files consumers test against: every reader
+should load all of them without errors. They are re-baked whenever the engine changes, and between them they keep
+at least one layout with a jump (all of them), one with a crossover bridge (`figure-eight-crossover`) and, once
+#151 lands, one with marshal points. Each has its 2D preview beside it (`*.preview.svg`) to compare against.
 
 ## Changes
 - **1.10** — `lane-overlap` is split in two (*Lane overlaps*). An overlap at a corner where a built divider runs between
