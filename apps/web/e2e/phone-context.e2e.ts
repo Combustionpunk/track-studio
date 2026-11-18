@@ -328,6 +328,12 @@ test.describe("phone context sheet", () => {
       await expect(hairpin(page)).toBeDisabled();
       await expect(hairpin(page)).toHaveAccessibleDescription("On a straight: there's no turn to make a hairpin of.");
       await expect(sheet(page)).toContainText("On a straight: there's no turn to make a hairpin of.");
+      // it still takes the focus (so the reason is read), and pressing it does nothing
+      await hairpin(page).focus();
+      await expect(hairpin(page)).toBeFocused();
+      await page.keyboard.press("Enter");
+      expect(await pointCount(page)).toBe(n);
+      await expect(undo(page)).toBeDisabled();
       await hairpin(page).scrollIntoViewIfNeeded();
       await shot(page, "375-selection-hairpin-straight");
       // and the context sheet says the same

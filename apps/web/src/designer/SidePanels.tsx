@@ -365,11 +365,14 @@ function TypeField({ f, i, live, update }: { f: DesignFeature; i: number; live: 
 /** the apex stepper's step (the field's 0.1 m) */
 export const APEX_STEP = 0.1; // m
 
-/** The phone's Make hairpin (#147), as the context sheet's row: disabled on a straight, with the reason under it. */
+/**
+ * The phone's Make hairpin (#147), as the context sheet's row: on a straight it's aria-disabled (it still takes the
+ * focus, so its reason is read out) with the reason under it.
+ */
 function HairpinRow({ why, onHairpin }: { why: string | undefined; onHairpin: () => void }) {
   return (
     <div className="phone-hairpin">
-      <button type="button" className="btn" disabled={!!why} aria-describedby={why ? "hairpin-why" : undefined} onClick={onHairpin}>
+      <button type="button" className="btn" aria-disabled={why ? true : undefined} aria-describedby={why ? "hairpin-why" : undefined} onClick={why ? undefined : onHairpin}>
         <CornerUpLeft size={18} aria-hidden="true" />
         Make hairpin
       </button>
