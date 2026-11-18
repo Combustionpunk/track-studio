@@ -14,7 +14,9 @@
   --plan-line: var(--rm-accent);
   --plan-jump: color-mix(in srgb, var(--rm-warning) 70%, var(--rm-surface2));
   --plan-jump-edge: color-mix(in srgb, var(--rm-bg) 85%, var(--plan-jump)); /* the app picks bg or text, whichever stands out */
-  --plan-cone: #ff7a1a; /* traffic-cone orange in every theme (#157), as PLAN_PALETTE */
+  /* traffic-cone orange in every theme, with a dark edge and number (#157), as PLAN_PALETTE */
+  --plan-cone: #ff7a1a;
+  --plan-cone-edge: #1e2a22;
   --plan-rostrum: color-mix(in srgb, var(--rm-muted) 45%, var(--rm-surface));
   --plan-obstacle: color-mix(in srgb, var(--rm-danger) 50%, var(--rm-surface));
   --plan-grid: color-mix(in srgb, var(--rm-text) 10%, transparent);

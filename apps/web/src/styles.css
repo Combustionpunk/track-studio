@@ -391,7 +391,7 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-cone-place { fill: transparent; cursor: crosshair; pointer-events: all; }
 .ed-cone-ghost { fill: var(--plan-cone); fill-opacity: 0.6; stroke: var(--plan-ink); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
 .cone-symbol path { fill: var(--plan-cone); }
-.cone-symbol .cone-band { fill: var(--plan-jump-edge); stroke: none; }
+.cone-symbol .cone-band { fill: var(--plan-cone-edge); stroke: none; }
 /* a jump or a cone dragged from the palette onto the plan (#151, #157): the press is the palette's, not a scroll
    (button.: ahead of .dock-btn's touch-action, later in this file, which made the tablet take the drag as a pan) */
 button.cone-btn, button.jump-btn { touch-action: none; }

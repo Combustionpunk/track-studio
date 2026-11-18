@@ -55,7 +55,9 @@ export function planPalette(c: ThemeColours): PlanPalette {
     "plan-line": h(c.accent),
     "plan-jump": jump,
     "plan-jump-edge": edge,
-    "plan-cone": PLAN_PALETTE["plan-cone"], // traffic-cone orange in every theme (#157)
+    // traffic-cone orange in every theme, with a dark edge and number (#157)
+    "plan-cone": PLAN_PALETTE["plan-cone"],
+    "plan-cone-edge": PLAN_PALETTE["plan-cone-edge"],
     "plan-rostrum": mix(c.muted, c.surface, 0.45),
     "plan-obstacle": mix(c.danger, c.surface, 0.5),
     "plan-grid": `${h(c.text)}1a`,

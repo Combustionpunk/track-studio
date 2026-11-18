@@ -276,8 +276,15 @@ describe("drawing", () => {
   it("the plan draws cones traffic-cone orange (plan-cone, as the forum preview), print-cone on the build sheet (#157)", () => {
     expect(PLAN_PALETTE["plan-cone"]).toBe("#ff7a1a");
     const plan = planLayers(planScene(example("club-a")), { px: 0.05 });
-    const fills = [...plan.matchAll(/<g class="p-marshal"><circle [^>]*fill="([^"]+)"/g)].map((m) => m[1]);
-    expect(fills).toEqual(Array(6).fill(PLAN_PALETTE["plan-cone"]));
+    const fills = [...plan.matchAll(/<g class="p-marshal"><circle [^>]*fill="([^"]+)" stroke="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+    expect(fills).toEqual(Array(6).fill([PLAN_PALETTE["plan-cone"], PLAN_PALETTE["plan-cone-edge"]]));
+    expect(plan.match(new RegExp(`class="p-marshal-number"[^>]*fill="${PLAN_PALETTE["plan-cone-edge"]}"`, "g"))).toHaveLength(6);
+    // the number reads on the orange: WCAG contrast 4.5:1 or more
+    const lum = (hex: string) => {
+      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    expect((lum(PLAN_PALETTE["plan-cone"]) + 0.05) / (lum(PLAN_PALETTE["plan-cone-edge"]) + 0.05)).toBeGreaterThanOrEqual(4.5);
     // jumps keep their own colour, so a cone is easy to tell from a jump
     expect(PLAN_PALETTE["plan-cone"]).not.toBe(PLAN_PALETTE["plan-jump"]);
     const print = planLayers(planScene(example("club-a")), { px: 0.05, palette: "print" });

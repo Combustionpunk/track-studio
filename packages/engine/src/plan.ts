@@ -18,6 +18,7 @@ export const PLAN_PALETTE = {
   "plan-jump": "#e0b16a",
   "plan-jump-edge": "#6b4a1f",
   "plan-cone": "#ff7a1a",
+  "plan-cone-edge": "#1e2a22",
   "plan-rostrum": "#8a8f96",
   "plan-obstacle": "#b07a7a",
   "plan-grid": "#ffffff1a",
@@ -54,6 +55,7 @@ const PRINT_ROLES: Palette = {
   "plan-jump": PRINT_PALETTE["print-jump"],
   "plan-jump-edge": PRINT_PALETTE["print-ink"],
   "plan-cone": PRINT_PALETTE["print-cone"],
+  "plan-cone-edge": PRINT_PALETTE["print-ink"],
   "plan-rostrum": PRINT_PALETTE["print-paper"],
   "plan-obstacle": PRINT_PALETTE["print-paper"],
   "plan-grid": PRINT_PALETTE["print-grid"],
@@ -530,8 +532,8 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
     const r = Math.max(0.2, 8 * px);
     built.marshals.forEach((m, i) => {
       o.push(
-        `<g class="p-marshal"${tip(`m${i}`)}><circle cx="${n(m.x)}" cy="${n(-m.z)}" r="${n(r)}" fill="${P["plan-cone"]}" stroke="${P["plan-jump-edge"]}" stroke-width="${n(Math.max(0.02, 1.5 * px))}"/>` +
-          `<text class="p-marshal-number" x="${n(m.x)}" y="${n(-m.z)}" dy="0.35em" text-anchor="middle" font-size="${n(r * (m.number > 9 ? 1.05 : 1.3))}" font-weight="600" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-jump-edge"]}">${m.number}</text></g>`,
+        `<g class="p-marshal"${tip(`m${i}`)}><circle cx="${n(m.x)}" cy="${n(-m.z)}" r="${n(r)}" fill="${P["plan-cone"]}" stroke="${P["plan-cone-edge"]}" stroke-width="${n(Math.max(0.02, 1.5 * px))}"/>` +
+          `<text class="p-marshal-number" x="${n(m.x)}" y="${n(-m.z)}" dy="0.35em" text-anchor="middle" font-size="${n(r * (m.number > 9 ? 1.05 : 1.3))}" font-weight="600" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-cone-edge"]}">${m.number}</text></g>`,
       );
     });
   }

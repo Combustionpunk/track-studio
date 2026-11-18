@@ -946,18 +946,22 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     const svg = planWrapRef.current?.querySelector<SVGSVGElement>("svg.plan-svg");
     return svg && document.elementFromPoint(clientX, clientY)?.closest("svg.plan-svg") === svg ? svg : null;
   };
-  /** a jump dragged from the palette and let go at (clientX, clientY): placed on the line nearest there if that's over the plan (#157) */
+  /** the plan svg, if (clientX, clientY) is on the track there (where a click or tap places an armed jump) */
+  const trackUnder = (clientX: number, clientY: number) => {
+    const svg = laying || viewing3dRef.current ? null : planUnder(clientX, clientY);
+    return svg && document.elementsFromPoint(clientX, clientY).some((el) => el.closest('[data-handle="lane"]')) ? svg : null;
+  };
+  /** a jump dragged from the palette and let go at (clientX, clientY): placed on the racing line there if that's on the track (#157) */
   const dropJump = (type: FeatureType, clientX: number, clientY: number): boolean => {
     setJumpDrag(null);
-    if (laying || viewing3dRef.current) return false;
-    const svg = planUnder(clientX, clientY);
+    const svg = trackUnder(clientX, clientY);
     if (!svg) return false;
     placeJump(type, planPoint(svg, clientX, clientY));
     return true;
   };
-  /** a jump being dragged from the palette is over the plan here: the plan shows where it would go */
+  /** a jump being dragged from the palette is over the track here: the plan shows where it would go */
   const dragJump = (type: FeatureType, clientX: number, clientY: number) => {
-    const svg = laying ? null : planUnder(clientX, clientY);
+    const svg = trackUnder(clientX, clientY);
     if (!svg) return setJumpDrag(null);
     const at = planPoint(svg, clientX, clientY);
     setJumpDrag({ type, s: nearestOnLine(liveRef.current, at).s, at });

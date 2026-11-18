@@ -1,9 +1,9 @@
 // #157: ramps get drag-and-drop, as cones did in #151: press a jump in the palette (laptop), the dock (tablet) or the
-// phone's Jump sheet, drag it onto the plan and let go; it lands on the racing line nearest the drop. Arm-and-tap
-// still works. With a jump or the cone armed, a two-finger pinch or a one-finger pan on touch places nothing: only a
-// tap does. Desktop (1200 × 860, a mouse), tablet (1024 × 768, touch) and phone (375 × 812, touch).
+// phone's Jump sheet, drag it onto the track and let go; it lands on the racing line there (a drop off the track, as a
+// click there with the jump armed, places nothing). Arm-and-tap still works. With a jump or the cone armed, a
+// two-finger pinch or a one-finger pan on touch places nothing: only a tap does. Desktop (1200 × 860, a mouse), tablet (1024 × 768, touch) and phone (375 × 812, touch).
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { doc, open, planBox, serve, shot, toolBtn, viewBox } from "./phone-helper.js";
+import { doc, emptyFloor, open, serve, shot, toolBtn, viewBox } from "./phone-helper.js";
 import { screen, Touch, type XY } from "./touch-helper.js";
 
 test.beforeEach(async ({ page }) => {
@@ -71,6 +71,11 @@ test.describe("dragging a ramp on a laptop", () => {
     // let go over the palette itself: called off
     const from = await centre(button);
     await mouseDrag(page, from, [from[0] + 40, from[1] + 10]);
+    await page.mouse.up();
+    await expect(jumps(page)).toHaveCount(n);
+    // let go on the floor, off the track: called off too, as a click there with a jump armed places nothing
+    await mouseDrag(page, await centre(button), await emptyFloor(page));
+    await expect(page.locator("svg.plan-svg polygon.ed-ghost")).toHaveCount(0);
     await page.mouse.up();
     await expect(jumps(page)).toHaveCount(n);
     // arm-and-click still works
@@ -152,8 +157,7 @@ test.describe("dragging a ramp on a phone", () => {
     const chip = page.getByRole("dialog", { name: "Jumps" }).getByRole("button", { name: "Kicker", exact: true });
     await expect(chip).toBeVisible();
     const from = await centre(chip);
-    const plan = await planBox(page);
-    const to: XY = [plan.x + plan.width / 2, plan.y + 140];
+    const to = await laneSpot(page); // on the track, above the sheet
     await t.down(from);
     await t.move([[from[0], from[1] - 20]], 3);
     await t.move([to], 10);
