@@ -88,21 +88,24 @@ export function ConeButton({ armed, onPick, onDrop, onDrag, className = "palette
       if (ev.pointerId !== id) return;
       end();
       if (!moving) return;
+      // the drop is the cone's, not a tap on what's under it (the plan would take it as a tap on the floor)
+      ev.stopPropagation();
       dragged.current = true;
       if (ev.type === "pointerup") onDrop(ev.clientX, ev.clientY);
       else onDrag?.(-1, -1);
     };
     const end = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("pointermove", move, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
       setGhost(null);
       stop.current = () => {};
     };
     stop.current = end;
-    window.addEventListener("pointermove", move, { passive: false });
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
+    // in the capture phase, ahead of the page's own handlers: the drop is seen before anything it lands on can react
+    window.addEventListener("pointermove", move, { passive: false, capture: true });
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
   };
   return (
     <>

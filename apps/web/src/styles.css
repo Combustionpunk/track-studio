@@ -974,7 +974,7 @@ select.ts-input { padding: 0 var(--space-2); }
 .stepper { display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--text); }
 .stepper-value { min-width: 64px; text-align: center; font: 500 18px/22px var(--font-display); font-variant-numeric: tabular-nums; }
 .phone-jumps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
-.phone-jumps .phone-chip { min-height: 52px; }
+.phone-jumps .phone-chip { min-height: 48px; } /* 48, not 52, since the Cone chip (#151) adds a row in Quick: it still fits at peek */
 .phone-jump-sheet { display: flex; flex-direction: column; gap: var(--space-3); }
 .phone-switch { width: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 600 14px/20px var(--font-sans); text-align: left; cursor: pointer; }
 .phone-switch-track { flex: none; position: relative; width: 44px; height: 24px; border-radius: 12px; background: var(--line-strong); transition: background 150ms ease; }
