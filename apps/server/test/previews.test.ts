@@ -137,10 +137,10 @@ describe("seed", () => {
   it("imports reference venues and examples as approved, once", async () => {
     const { app, config } = await makeApp();
     const log: string[] = [];
-    expect(seed(app.db, config, join(ROOT_DIR, "reference"), (s) => log.push(s))).toBe(6);
+    expect(seed(app.db, config, join(ROOT_DIR, "reference"), (s) => log.push(s))).toBe(7);
     expect(seed(app.db, config, join(ROOT_DIR, "reference"), () => {})).toBe(0);
     const tracks = (await app.inject({ method: "GET", url: "/api/tracks?status=approved" })).json().tracks;
-    expect(tracks).toHaveLength(3);
+    expect(tracks).toHaveLength(4);
     for (const t of tracks) expect(t).toMatchObject({ author: { id: 0, username: "system" }, approvedRevision: 1 });
     expect((await app.inject({ method: "GET", url: "/api/venues" })).json().venues.map((v: { id: string }) => v.id).sort()).toEqual(["venue-1", "venue-2", "venue-3"]);
     const sports = (await app.inject({ method: "GET", url: `/api/tracks/${SPORTS}` })).json();

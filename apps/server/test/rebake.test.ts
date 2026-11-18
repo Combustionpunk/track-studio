@@ -35,7 +35,7 @@ describe("rebake", () => {
     const designBefore = (await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().doc.design;
 
     const dry = rebakeAll(app.db, config.dataDir, { dryRun: true });
-    expect(dry.changed).toHaveLength(3);
+    expect(dry.changed).toHaveLength(4);
     expect((await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}` })).json().track.corners).toBe(18);
 
     const report = rebakeAll(app.db, config.dataDir);
@@ -47,7 +47,7 @@ describe("rebake", () => {
     expect(got.track).toMatchObject({ corners: 12, size: { length: 22, width: 11.8 }, revision: 1, approvedRevision: 1 });
     expect(got.doc.built.size).toEqual({ length: 22, width: 11.8, bbox: [-11, -5.9, 11, 5.9] });
     expect(got.doc.design).toEqual(designBefore);
-    expect(app.db.prepare("SELECT COUNT(*) FROM track_revisions").pluck().get()).toBe(3);
+    expect(app.db.prepare("SELECT COUNT(*) FROM track_revisions").pluck().get()).toBe(4);
     expect(readdirSync(join(config.dataDir, "previews", CLUB_A))).toHaveLength(1); // drawing unchanged: picture kept
     expect((await app.inject({ method: "GET", url: "/api/tracks?minCorners=12&maxCorners=12" })).json().tracks.map((t: { id: string }) => t.id)).toEqual([CLUB_A]);
 
@@ -77,11 +77,11 @@ describe("rebake", () => {
     const { app, config } = await makeApp({ seeded: true });
     // the seeded examples as rctrack 1.6 stored them: obstacles, basedOn, design and built rostrum
     const v16 = join(ROOT_DIR, "packages/engine/test/fixtures/v16");
-    const rows = app.db.prepare("SELECT track_id, revision FROM track_revisions").all() as { track_id: string; revision: number }[];
-    for (const f of readdirSync(v16).filter((n) => n.endsWith(".rctrack.json"))) {
-      const doc = JSON.parse(readFileSync(join(v16, f), "utf8")) as RcTrack;
-      app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ?").run(JSON.stringify(doc), doc.id);
-    }
+    // (the examples that existed in 1.6; later ones, such as the crossover added for #155, stay as they are)
+    const old = readdirSync(v16).filter((n) => n.endsWith(".rctrack.json")).map((f) => JSON.parse(readFileSync(join(v16, f), "utf8")) as RcTrack);
+    const rows = (app.db.prepare("SELECT track_id, revision FROM track_revisions").all() as { track_id: string; revision: number }[]).filter((r) => old.some((d) => d.id === r.track_id));
+    expect(rows).toHaveLength(3);
+    for (const doc of old) app.db.prepare("UPDATE track_revisions SET rctrack_json = ? WHERE track_id = ?").run(JSON.stringify(doc), doc.id);
     const stored = () => rows.map((r) => app.db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(r.track_id, r.revision) as string);
     expect(stored().every((j) => j.includes('"rostrum"'))).toBe(true);
     // read through the API before the rebake, they already come back as 1.7
