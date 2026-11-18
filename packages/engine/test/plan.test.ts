@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { bake, fits, jumpSymbol, reverseDesign, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type PlanPalette, type PlanScene, type Point2, type RcTrack, type RcVenue } from "../src/index.js";
+import { bake, fits, planMargin, jumpSymbol, reverseDesign, PLAN_PALETTE, planLayers, planScene, planSvg, transformBuilt, type BuiltFeature, type PlanPalette, type PlanScene, type Point2, type RcTrack, type RcVenue } from "../src/index.js";
 import { allTracks, examples, readJson, referenceDir, repoRoot, venues } from "./helpers.js";
 
 const club = () => readJson<RcTrack>(join(referenceDir, "examples", "club-a.rctrack.json"));
@@ -201,7 +201,7 @@ describe("planLayers", () => {
   });
 
   it("layers can be switched off", () => {
-    const svg = draw(club(), { px: 0.025, layers: { lanes: false, dividers: false, features: false, racingLine: false, start: false, rostrum: false, checks: false, obstacles: false, grid: false } });
+    const svg = draw(club(), { px: 0.025, layers: { lanes: false, dividers: false, features: false, racingLine: false, start: false, rostrum: false, checks: false, obstacles: false, grid: false, marshals: false } });
     expect(svg).not.toMatch(/p-carpet|p-pipe|p-jump|p-line|p-start|p-rostrum|p-grid/);
     expect(svg).toMatch(/p-area/);
   });
@@ -272,11 +272,14 @@ describe("jump symbols", () => {
 });
 
 describe("planSvg", () => {
-  it.each(examples)("$name: a standalone picture of the area plus 2.5 m margins, with a scale bar", ({ path }) => {
+  it.each(examples)("$name: a standalone picture of the area plus 2.5 m margins (more for a far cone), with a scale bar", ({ path }) => {
     const doc = readJson<RcTrack>(path);
     const svg = planSvg(planScene(doc), { width: 1200 });
     const { length: L, width: W } = doc.area!;
-    expect(svg.startsWith(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${Math.round((1200 * (W + 5)) / (L + 5))}" viewBox="${-L / 2 - 2.5} ${-W / 2 - 2.5} ${L + 5} ${W + 5}"`)).toBe(true);
+    // 2.5, or more for a cone further out (1.11): freeform-example's cone 6 is 4 m outside its area, and 2.64 m in the copy
+    const m = planMargin(planScene(doc));
+    expect(m).toBeCloseTo(path.includes("club-a") ? 2.5 : path.includes("sports-hall") ? 3.14 : 4.5, 9);
+    expect(svg.startsWith(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${Math.round((1200 * (W + 2 * m)) / (L + 2 * m))}" viewBox="${-L / 2 - m} ${-W / 2 - m} ${L + 2 * m} ${W + 2 * m}"`)).toBe(true);
     expect(svg).toMatch(new RegExp(`<rect class="p-floor"[^>]*fill="${PLAN_PALETTE["plan-floor"]}"`));
     expect(svg).toMatch(/<g class="p-scale">.*>5 m<\/text><\/g>/);
     expect(wellFormed(svg)).toBe(true);
@@ -327,7 +330,7 @@ describe("transformBuilt", () => {
 // Problem marks: the one drawing of a problem, for every plan and for both designer modes (moved from the designer's
 // own problemMarks, #28)
 describe("problem marks", () => {
-  const ONLY_CHECKS = { lanes: false, racingLine: false, dividers: false, features: false, start: false, checks: true, obstacles: false, grid: false, rostrum: false };
+  const ONLY_CHECKS = { lanes: false, racingLine: false, dividers: false, features: false, start: false, checks: true, obstacles: false, grid: false, rostrum: false, marshals: false };
   /** the checks layer alone, as the designer draws it over its handles */
   const marks = (doc: RcTrack, px = 0.025) => draw(doc, { px, layers: ONLY_CHECKS, background: false, tips: true });
   const sectionPoints = (svg: string) => /class="p-error" d="([^"]+)"/.exec(svg)![1].slice(1).split(" L").map((p) => p.split(" ").map(Number)).map(([x, y]) => [x, -y]);

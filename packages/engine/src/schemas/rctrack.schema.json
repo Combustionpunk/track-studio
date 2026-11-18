@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forum.rcmisfits.org/schemas/rctrack-v1.json",
-  "title": "RC track design (rctrack v1.10)",
+  "title": "RC track design (rctrack v1.11)",
   "type": "object",
   "required": [
     "format",
@@ -229,6 +229,32 @@
                 ],
                 "default": "first",
                 "description": "crossover: which pass goes over, in driving order from the start line. v1.6"
+              }
+            }
+          }
+        },
+        "marshals": {
+          "type": "array",
+          "description": "v1.11: marshal points, numbered cones where marshals stand, in placement order. number is the fill order: with 6 marshals cones 1-6 are manned. Free positions beside the track or up to 2 m outside the drawing area.",
+          "items": {
+            "type": "object",
+            "required": [
+              "number",
+              "x",
+              "z"
+            ],
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99,
+                "description": "Fill order, chosen by the designer; may repeat (a warning)"
+              },
+              "x": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
               }
             }
           }
@@ -484,6 +510,55 @@
               "minItems": 4,
               "maxItems": 4,
               "description": "[xmin, zmin, xmax, zmax]"
+            }
+          }
+        },
+        "marshals": {
+          "type": "array",
+          "description": "v1.11: one per design.marshals, same order; absent when the layout has none",
+          "items": {
+            "type": "object",
+            "required": [
+              "number",
+              "x",
+              "z",
+              "distance",
+              "side",
+              "gap",
+              "facing"
+            ],
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "x": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              },
+              "distance": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Lap distance of the nearest racing-line point (m, 0 up to lapLength)"
+              },
+              "side": {
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "description": "Side of the racing line, in the direction of travel"
+              },
+              "gap": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Metres to the nearest lane edge; 0 when the cone is on the track"
+              },
+              "facing": {
+                "type": "number",
+                "description": "Heading (deg) from the cone towards the nearest lane edge (on the track: towards the racing line)"
+              }
             }
           }
         },

@@ -6,7 +6,7 @@ import { ArrowRightLeft, CircleCheck, CircleX, Plus, Redo2, Scan, TriangleAlert,
 import type { KeyboardEvent, ReactNode, Ref } from "react";
 import { shapeHint } from "./addtool.js";
 import type { Selection, Tool } from "./Designer.js";
-import { JumpPalette } from "./JumpPalette.js";
+import { ConeButton, JumpPalette } from "./JumpPalette.js";
 import { startCursor, where, type LayKeys } from "./laykeys.js";
 import { TURNS_HINT, type Cell, type LaneGrid } from "./lanes.js";
 import { checkCounts, paletteJumps } from "./mode.js";
@@ -62,7 +62,9 @@ export function PlanHint({ snapInfo, viewing3d, synced3d, tablet, phone = false,
           : cells?.length
           ? `Drag on through the squares, corner to corner for a diagonal, or straight across the lane at right angles. Come back to the ring to close the loop. ${TURNS_HINT}`
           : `Press on a square and drag to lay the lane, straight or diagonally. ${TURNS_HINT}`)
-        : tool.kind === "feature"
+        : tool.kind === "marshal"
+          ? `${tablet ? "Tap" : "Click"} where a marshal stands to put a cone there: beside the track, or up to 2 m outside the area.`
+          : tool.kind === "feature"
           ? tool.type === "crossover"
             ? `${tablet ? "Tap" : "Click"} where the track crosses itself: the pass you ${tablet ? "tap" : "click"} goes over.`
             : `${tablet ? "Tap" : "Click"} on the racing line to place it.`
@@ -193,7 +195,7 @@ export type TabletDockProps = ToolsProps & {
 };
 
 /** Tablet: the dock of 44 px controls under the plan (#16). */
-export function TabletDock({ view, laying, canStartAgain, onStartAgain, tool, onJump, onAdd, startOn, onStartLine, laneSnap, onLaneSnap, undo, redo, canUndo, canRedo, reverse, canReverse, reverseTitle, onFit }: TabletDockProps) {
+export function TabletDock({ view, laying, canStartAgain, onStartAgain, tool, onJump, onCone, onDropCone, onDragCone, onAdd, startOn, onStartLine, laneSnap, onLaneSnap, undo, redo, canUndo, canRedo, reverse, canReverse, reverseTitle, onFit }: TabletDockProps) {
   return (
     <div className="designer-dock" role="toolbar" aria-label="Designer tools">
       <button type="button" className="dock-btn dock-icon" onClick={undo} disabled={!canUndo} aria-label="Undo">
@@ -210,6 +212,7 @@ export function TabletDock({ view, laying, canStartAgain, onStartAgain, tool, on
       ) : (
         <>
           <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} className="dock-btn" verb="Tap" />
+          <ConeButton armed={tool.kind === "marshal"} onPick={onCone} onDrop={onDropCone} onDrag={onDragCone} className="dock-btn" verb="Tap" />
           <button type="button" className="dock-btn" aria-pressed={tool.kind === "add"} aria-keyshortcuts="A" data-add-tool onClick={onAdd} title="Add a corner: tap Add point, then tap the track or the floor">
             <Plus size={18} aria-hidden="true" />
             Add point

@@ -50,6 +50,15 @@ describe.each(allTracks)("bake $name", ({ path }) => {
     expect(diff.crossings.sameBridges).toBe(true);
   });
 
+  it("marshal points: same numbers and sides, positions, distances and gaps within 1 cm (v1.11)", () => {
+    expect(diff.marshals.count[0]).toBe(diff.marshals.count[1]);
+    expect(diff.marshals.sameNumbers).toBe(true);
+    expect(diff.marshals.maxPos).toBeLessThanOrEqual(TOL);
+    expect(diff.marshals.maxDistance).toBeLessThanOrEqual(TOL);
+    expect(diff.marshals.maxGap).toBeLessThanOrEqual(TOL);
+    expect(diff.marshals.maxFacing).toBeLessThanOrEqual(0.5);
+  });
+
   it("same check codes", () => {
     expect(diff.checks[0]).toEqual(diff.checks[1]);
   });

@@ -29,6 +29,7 @@ import { findNests, followNest, follows, innerOf, matchNest, outerOf } from "./n
 import { apexFromField, apexOf, apexRadius, APEX_MAX, isReduced, MIN_CORNERS, QUICK_SIZES, setApex, turnLabel, widthAt } from "./shape.js";
 import { hairpinWhy } from "./snap.js";
 import { RADIUS_RANGE, WIDTH_RANGE } from "./tuning.js";
+import { MARSHAL_NUMBER_MAX, moveMarshal, renumberMarshal } from "./marshals.js";
 import { VenueCheckPanel } from "./VenueCheck.js";
 
 /**
@@ -404,6 +405,24 @@ function ApexStepper({ apex, onStep }: { apex: number; onStep: (a: number) => vo
   );
 }
 
+/** A cone's number (#151): a stepper, the same on every layout; a press is one undo step each. */
+function ConeNumber({ n, onSet }: { n: number; onSet: (n: number) => void }) {
+  return (
+    <div className="field-row">
+      <span className="seg-label">Cone number</span>
+      <div className="stepper" role="group" aria-label="Cone number">
+        <button type="button" className="phone-icon-btn" aria-label="Lower number" disabled={n <= 1} onClick={() => onSet(n - 1)}>
+          <Minus size={20} aria-hidden="true" />
+        </button>
+        <output className="stepper-value" aria-live="polite">{n}</output>
+        <button type="button" className="phone-icon-btn" aria-label="Higher number" disabled={n >= MARSHAL_NUMBER_MAX} onClick={() => onSet(n + 1)}>
+          <Plus size={20} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SelectionPanel({
   sel,
   view,
@@ -540,6 +559,34 @@ export function SelectionPanel({
         {del(
           <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= 3}>
             Delete point
+          </button>,
+        )}
+      </section>
+    );
+  }
+  if (sel?.kind === "marshal") {
+    // a marshal point (#151): its number is the fill order; renumbering never moves it
+    const c = draft.design.marshals?.[sel.i];
+    if (!c) return null;
+    const setCones = (fn: (m: NonNullable<typeof draft.design.marshals>) => NonNullable<typeof draft.design.marshals>, key: string) =>
+      update((d) => ({ ...d, design: { ...d.design, marshals: fn(d.design.marshals ?? []) } }), key);
+    const shared = (draft.design.marshals ?? []).filter((m) => m.number === c.number).length > 1;
+    return (
+      <section className="sel-panel" aria-labelledby="sel-h">
+        <h2 id="sel-h">Cone {c.number}</h2>
+        <p className="sel-turn">Marshal point · manned when there are {c.number} or more marshals</p>
+        <ConeNumber n={c.number} onSet={(n) => setCones((m) => renumberMarshal(m, sel.i, n), `cone-number:${sel.i}:${Date.now()}`)} />
+        {view === "advanced" && (
+          <div className="fields">
+            <NumberField label="East (x)" value={c.x} step={0.25} onChange={(v) => v !== undefined && setCones((m) => moveMarshal(m, sel.i, [v, c.z], draft.area), `cone-x:${sel.i}`)} />
+            <NumberField label="North (z)" value={c.z} step={0.25} onChange={(v) => v !== undefined && setCones((m) => moveMarshal(m, sel.i, [c.x, v], draft.area), `cone-z:${sel.i}`)} />
+          </div>
+        )}
+        <div role="status">{shared && <p className="sel-warning"><TriangleAlert size={16} aria-hidden="true" /><span>Another cone has number {c.number} too.</span></p>}</div>
+        <p className="hint">{touch ? "Drag the cone to move it: beside the track, or up to 2 m outside the area." : "Drag the cone to move it: beside the track, or up to 2 m outside the area. Delete removes it."}</p>
+        {del(
+          <button type="button" className="btn btn-danger" onClick={onDelete}>
+            Delete cone
           </button>,
         )}
       </section>

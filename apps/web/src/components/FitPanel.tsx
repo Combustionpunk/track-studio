@@ -118,7 +118,7 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
               obstacles={v.obstacles}
               built={placed}
               rostrum={{ ...xz(rostrumPos(v.area, v.rostrum?.side, v.rostrum?.offset)), side: v.rostrum?.side ?? "south" }}
-              layers={{ lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: false, obstacles: true, grid: true, rostrum: true }}
+              layers={{ lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: false, obstacles: true, grid: true, rostrum: true, marshals: true }}
               label={`${chosen.orientation} in ${v.info.name}`}
               className="ts-plan-well fit-plan"
             />

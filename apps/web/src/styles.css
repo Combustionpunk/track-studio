@@ -382,6 +382,18 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-feature.warn { stroke: var(--plan-warning); }
 .ed-feature.warn.on { stroke: var(--plan-ink); stroke-dasharray: 4 3; }
 .ed-ghost { fill: var(--ed-control); stroke: var(--plan-ink); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
+/* marshal points (#151): the plan draws the cone; the handle takes the press, with a ring round the selected one */
+.ed-marshal { cursor: grab; }
+.ed-marshal .ed-hit { fill: transparent; pointer-events: all; }
+.ed-marshal-ring { fill: none; stroke: transparent; stroke-width: 2; pointer-events: none; }
+.ed-marshal:hover .ed-marshal-ring { stroke: var(--ed-hover); }
+.ed-marshal.on .ed-marshal-ring { stroke: var(--plan-ink); stroke-dasharray: 4 3; }
+.ed-cone-place { fill: transparent; cursor: crosshair; pointer-events: all; }
+.ed-cone-ghost { fill: var(--plan-jump); fill-opacity: 0.6; stroke: var(--plan-ink); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
+.cone-symbol .cone-band { fill: var(--plan-jump-edge); stroke: none; }
+.cone-btn { touch-action: none; }
+.cone-drag-ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -100%); filter: drop-shadow(0 1px 2px var(--plan-halo)); }
+.cone-drag-ghost .jump-symbol { width: 42px; height: 24px; }
 .ed-start line { stroke: transparent; pointer-events: stroke; cursor: grab; }
 .ed-start .grip { fill: var(--plan-ink); stroke: var(--plan-ink-dark); stroke-width: 1.5; cursor: grab; }
 .ed-start.on .grip { fill: var(--plan-line); }
@@ -966,7 +978,7 @@ select.ts-input { padding: 0 var(--space-2); }
 .stepper { display: flex; align-items: center; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--text); }
 .stepper-value { min-width: 64px; text-align: center; font: 500 18px/22px var(--font-display); font-variant-numeric: tabular-nums; }
 .phone-jumps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
-.phone-jumps .phone-chip { min-height: 52px; }
+.phone-jumps .phone-chip { min-height: 48px; } /* 48, not 52, since the Cone chip (#151) adds a row in Quick: it still fits at peek */
 .phone-jump-sheet { display: flex; flex-direction: column; gap: var(--space-3); }
 .phone-switch { width: 100%; padding: 0; border: 0; background: transparent; color: var(--text); font: 600 14px/20px var(--font-sans); text-align: left; cursor: pointer; }
 .phone-switch-track { flex: none; position: relative; width: 44px; height: 24px; border-radius: 12px; background: var(--line-strong); transition: background 150ms ease; }

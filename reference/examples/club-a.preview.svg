@@ -50,5 +50,17 @@
 <polyline points="898.0,494.0 900.0,186.0 662.1,184.1 654.5,184.0 654.0,182.7 654.0,260.0 656.0,293.7 655.3,340.0 182.0,340.0 182.3,268.0 180.0,268.0 180.0,186.0 490.0,186.0 498.0,186.3 500.0,188.0" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
 <line x1="301.1" y1="496.0" x2="301.1" y2="576.0" stroke="#ffffff" stroke-width="8"/>
 <line x1="325.1" y1="536.0" x2="401.1" y2="536.0" stroke="#ff4fb0" stroke-width="5" marker-end="url(#a)"/>
+<circle cx="220.0" cy="600.0" r="9" fill="#ff7a1a" stroke="#1e2a22" stroke-width="2"/>
+<text x="220.0" y="604.0" fill="#1e2a22" font-size="11" font-weight="bold" text-anchor="middle">1</text>
+<circle cx="540.0" cy="600.0" r="9" fill="#ff7a1a" stroke="#1e2a22" stroke-width="2"/>
+<text x="540.0" y="604.0" fill="#1e2a22" font-size="11" font-weight="bold" text-anchor="middle">2</text>
+<circle cx="860.0" cy="600.0" r="9" fill="#ff7a1a" stroke="#1e2a22" stroke-width="2"/>
+<text x="860.0" y="604.0" fill="#1e2a22" font-size="11" font-weight="bold" text-anchor="middle">3</text>
+<circle cx="1000.0" cy="340.0" r="9" fill="#ff7a1a" stroke="#1e2a22" stroke-width="2"/>
+<text x="1000.0" y="344.0" fill="#1e2a22" font-size="11" font-weight="bold" text-anchor="middle">4</text>
+<circle cx="700.0" cy="80.0" r="9" fill="#ff7a1a" stroke="#1e2a22" stroke-width="2"/>
+<text x="700.0" y="84.0" fill="#1e2a22" font-size="11" font-weight="bold" text-anchor="middle">5</text>
+<circle cx="60.0" cy="340.0" r="9" fill="#ff7a1a" stroke="#1e2a22" stroke-width="2"/>
+<text x="60.0" y="344.0" fill="#1e2a22" font-size="11" font-weight="bold" text-anchor="middle">6</text>
 <text x="12" y="26" fill="#fff" font-size="20">Club A  -  124 m lap, 3 features, area 22 x 12 m</text>
 </svg>

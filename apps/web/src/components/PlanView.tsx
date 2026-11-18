@@ -1,7 +1,7 @@
 // Interactive 2D plan drawn from `built` (+ area, obstacles). Pan by dragging, zoom with the wheel / pinch /
 // double-click / buttons, toggle layers, hover jumps, checks and obstacles for details. Two fingers pinch and pan
 // wherever they land, handles included, and nothing under them gets the touch (#16).
-import { niceLength, planLayers, type Area, type Built, type Check, type DesignFeature, type Obstacle, type PlanLayer, type Point2, type Side } from "@track-studio/engine";
+import { niceLength, planLayers, planMargin, type Area, type Built, type Check, type DesignFeature, type Obstacle, type PlanLayer, type Point2, type Side } from "@track-studio/engine";
 import { usePlanPalette } from "../lib/theme.js";
 import { Layers as LayersIcon, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
@@ -20,13 +20,14 @@ export const LAYERS: { key: LayerKey; label: string }[] = [
   { key: "racingLine", label: "Racing line" },
   { key: "features", label: "Jumps" },
   { key: "start", label: "Start / finish" },
+  { key: "marshals", label: "Marshal points" },
   { key: "checks", label: "Checks" },
   { key: "obstacles", label: "Obstacles" },
   { key: "rostrum", label: "Rostrum" },
   { key: "grid", label: "1 m / 5 m grid" },
 ];
 
-export const DEFAULT_LAYERS: Layers = { lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: true, obstacles: true, grid: true, rostrum: true };
+export const DEFAULT_LAYERS: Layers = { lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: true, obstacles: true, grid: true, rostrum: true, marshals: true };
 
 export interface PlanViewProps {
   area: Area;
@@ -88,7 +89,9 @@ export function PlanView(props: PlanViewProps) {
   const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children, overlay, onHandleWheel, onBackgroundClick, onSecondFinger, fitRequest, controls = true, fitWidth = false, loupe } = props;
   const [boxRef, box] = useElementSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
-  const bounds = useMemo(() => areaBounds(area), [area]);
+  // the area and its margin, wider where a marshal point (#151) stands further out
+  const margin = planMargin({ area, built });
+  const bounds = useMemo(() => areaBounds(area, margin), [area, margin]);
   const fitted = useMemo(() => (box.width && box.height ? fitView(bounds, box.width, fitWidth ? Infinity : box.height) : null), [bounds, box.width, box.height, fitWidth]);
   const [view, setView] = useState<View | null>(null);
   const moved = useRef(false);
@@ -309,6 +312,17 @@ export function PlanView(props: PlanViewProps) {
         </>,
       );
     });
+    // marshal points (#151): the cone's number is its fill order
+    built?.marshals?.forEach((m, i) =>
+      t.set(
+        `m${i}`,
+        <>
+          <strong>Cone {m.number}</strong>
+          <span>Manned when there are {m.number} or more marshals</span>
+          {m.gap > 0 && <span>{metres(m.gap)} from the track</span>}
+        </>,
+      ),
+    );
     built?.checks.forEach((c: Check, i) =>
       t.set(
         `c${i}`,
@@ -418,7 +432,7 @@ export function PlanView(props: PlanViewProps) {
           </div>
           {layersOpen && onLayersChange && (
             <div className="plan-layers" role="group" aria-label="Layers">
-              {LAYERS.filter((l) => built || ["obstacles", "grid", "rostrum"].includes(l.key)).map((l) => (
+              {LAYERS.filter((l) => (built || ["obstacles", "grid", "rostrum"].includes(l.key)) && (l.key !== "marshals" || !!built?.marshals?.length)).map((l) => (
                 <label key={l.key}>
                   <input type="checkbox" checked={layers[l.key]} onChange={(e) => onLayersChange({ ...layers, [l.key]: e.target.checked })} />
                   {l.label}
