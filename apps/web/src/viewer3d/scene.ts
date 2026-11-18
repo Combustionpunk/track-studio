@@ -57,7 +57,7 @@ export function partColours(P: PlanPalette = PLAN_PALETTE): Record<Part, string>
     rail: P["plan-pipe"],
     guide: P["plan-obstacle"],
     highlight: P["plan-line"],
-    cone: P["plan-jump"],
+    cone: P["plan-cone"],
     conePlate: P["plan-jump-edge"],
     coneNumber: P["plan-pipe"],
   };
@@ -565,6 +565,10 @@ const CONE_SIDES = 12;
 /** its number: seven-segment digits this high, on a plate laid flat beside the cone, towards the track */
 const DIGIT: { h: number; w: number; t: number; gap: number } = { h: 0.26, w: 0.14, t: 0.04, gap: 0.05 };
 const PLATE_Y = 0.003, DIGIT_Y = 0.005;
+/** the plate's centre is this far from the cone's */
+const PLATE_OFFSET = CONE_RADIUS + 0.22;
+/** the plate stays this far short of the lane edge (`gap` is measured to it), clear of the pipe lying along it */
+export const PIPE_CLEAR = 0.1;
 
 /** The seven segments, a-g, as [x0, z0, x1, z1] boxes in a digit box w × h (origin bottom-left, z up). */
 const SEGMENT: Record<string, (w: number, h: number, t: number) => [number, number, number, number]> = {
@@ -584,7 +588,7 @@ export function digitSegments(d: number): string[] {
 }
 
 /** Cones (#151): a cone on each marshal point, and its number in light segments on a dark plate beside it (towards
- * the track, read with north up as on the plan). From built.marshals only. */
+ * the track unless that would put it on the pipe, read with north up as on the plan). From built.marshals only. */
 function addCones(cone: Mesh, plate: Mesh, number: Mesh, built: Built) {
   for (const m of built.marshals ?? []) {
     // the cone: a ring of sides up to the tip
@@ -598,12 +602,16 @@ function addCones(cone: Mesh, plate: Mesh, number: Mesh, built: Built) {
       const t = cone.vert(m.x, m.z, CONE_HEIGHT, nx, ny, nz);
       cone.tri(b0, b1, t);
     }
-    // the number's plate, its centre 0.35 m from the cone towards the track (`facing`)
+    // the number's plate, its centre PLATE_OFFSET from the cone towards the track (`facing`); where that would put it
+    // on the pipe (a cone close to the track: the plate reaches past `gap`), on the far side of the cone instead (#157)
     const text = String(m.number);
     const tw = text.length * DIGIT.w + (text.length - 1) * DIGIT.gap, pad = 0.04;
-    const f = (m.facing * Math.PI) / 180;
-    const cx = m.x + Math.cos(f) * (CONE_RADIUS + 0.22), cz = m.z + Math.sin(f) * (CONE_RADIUS + 0.22);
-    const x0 = cx - tw / 2 - pad, x1 = cx + tw / 2 + pad, z0 = cz - DIGIT.h / 2 - pad, z1 = cz + DIGIT.h / 2 + pad;
+    const hx = tw / 2 + pad, hz = DIGIT.h / 2 + pad;
+    const f0 = (m.facing * Math.PI) / 180;
+    const reach = PLATE_OFFSET + Math.abs(Math.cos(f0)) * hx + Math.abs(Math.sin(f0)) * hz;
+    const f = reach + PIPE_CLEAR <= m.gap ? f0 : f0 + Math.PI;
+    const cx = m.x + Math.cos(f) * PLATE_OFFSET, cz = m.z + Math.sin(f) * PLATE_OFFSET;
+    const x0 = cx - hx, x1 = cx + hx, z0 = cz - hz, z1 = cz + hz;
     plate.face([[x0, z0, PLATE_Y], [x1, z0, PLATE_Y], [x1, z1, PLATE_Y], [x0, z1, PLATE_Y]], [0, 1, 0]);
     [...text].forEach((ch, k) => {
       const ox = cx - tw / 2 + k * (DIGIT.w + DIGIT.gap), oz = cz - DIGIT.h / 2;

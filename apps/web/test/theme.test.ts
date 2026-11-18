@@ -182,6 +182,7 @@ describe("plan-palette.css", () => {
   const css = readFileSync(join(WEB, "src/theme/plan-palette.css"), "utf8");
 
   it("has a default for every plan colour the app sets from the theme", () => {
-    for (const k of Object.keys(PLAN_PALETTE)) expect(css).toMatch(new RegExp(`--${k}:\\s*[^;]*var\\(--rm-`));
+    // all from the theme, but the cone: traffic-cone orange in every theme (#157)
+    for (const k of Object.keys(PLAN_PALETTE)) expect(css).toMatch(k === "plan-cone" ? /--plan-cone:\s*#ff7a1a;/ : new RegExp(`--${k}:\\s*[^;]*var\\(--rm-`));
   });
 });

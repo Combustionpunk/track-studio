@@ -28,8 +28,8 @@ describe("PNG previews", () => {
     const png = first.rawPayload;
     expect(png.subarray(0, 8).equals(PNG_SIG)).toBe(true);
     expect(png.readUInt32BE(16)).toBe(1200); // IHDR width
-    // area 22 x 12, with margins of 4.5 m, not 2.5: its cone 6 stands 4 m south of the area (#151), and the plan shows it
-    expect(png.readUInt32BE(20)).toBe(Math.round((1200 * 21) / 31));
+    // area 22 x 12 + 2.5 m margins (seeded without its untidy cones, #157; the engine tests the margin a far cone adds)
+    expect(png.readUInt32BE(20)).toBe(Math.round((1200 * 17) / 27));
     const file = join(config.dataDir, "previews", FREEFORM, `1-${hash}.png`);
     expect(existsSync(file)).toBe(true);
     const mtime = statSync(file).mtimeMs;
@@ -78,8 +78,8 @@ describe("PNG previews", () => {
     const img = await app.inject({ method: "GET", url: res.thumbUrl });
     expect(img.statusCode).toBe(200);
     expect(img.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
-    // the venue's 25 x 14 m area; its margins grown to hold cone 6, placed 2.64 m beyond the north wall (#151)
-    expect(img.rawPayload.readUInt32BE(20)).toBe(Math.round((1200 * (14 + 2 * 3.14)) / (25 + 2 * 3.14)));
+    // the venue's 25 x 14 m area + 2.5 m margins (seeded without its untidy cones, #157)
+    expect(img.rawPayload.readUInt32BE(20)).toBe(Math.round((1200 * 19) / 30));
     const plain = await app.inject({ method: "GET", url: `/p/${FREEFORM}/1.png` });
     expect(img.rawPayload.equals(plain.rawPayload)).toBe(false);
     // an orientation that doesn't fit, or nonsense

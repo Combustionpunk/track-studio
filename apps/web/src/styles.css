@@ -389,7 +389,8 @@ kbd { font: 0.8em var(--font-body); border: 1px solid var(--border); border-bott
 .ed-marshal:hover .ed-marshal-ring { stroke: var(--ed-hover); }
 .ed-marshal.on .ed-marshal-ring { stroke: var(--plan-ink); stroke-dasharray: 4 3; }
 .ed-cone-place { fill: transparent; cursor: crosshair; pointer-events: all; }
-.ed-cone-ghost { fill: var(--plan-jump); fill-opacity: 0.6; stroke: var(--plan-ink); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
+.ed-cone-ghost { fill: var(--plan-cone); fill-opacity: 0.6; stroke: var(--plan-ink); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
+.cone-symbol path { fill: var(--plan-cone); }
 .cone-symbol .cone-band { fill: var(--plan-jump-edge); stroke: none; }
 .cone-btn { touch-action: none; }
 .cone-drag-ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -100%); filter: drop-shadow(0 1px 2px var(--plan-halo)); }
