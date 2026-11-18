@@ -190,6 +190,7 @@ test.describe("phone context sheet", () => {
     await page.keyboard.press("End");
     await expect(rows.nth(2)).toHaveText(/^Make hairpin/);
     await expect(rows.nth(2)).toBeFocused();
+    await shot(page, "375-context-keys");
     // Enter: Make hairpin, one undo step, the sheet put away
     await page.keyboard.press("Enter");
     await expect(context(page)).toHaveCount(0);
@@ -302,6 +303,7 @@ test.describe("phone context sheet", () => {
       await t.tap(await grab(page, "circle.ed-point", "point"));
       await expect(sheet(page)).toHaveCount(1);
       await expect(hairpin(page)).toBeEnabled();
+      await hairpin(page).scrollIntoViewIfNeeded();
       await shot(page, "375-selection-hairpin");
       await hairpin(page).tap();
       await expect.poll(() => pointCount(page)).toBe(n + 1);
@@ -315,7 +317,7 @@ test.describe("phone context sheet", () => {
       // a point half way along the east straight (from the last corner back to the first)
       const pts = doc.design.points;
       const a = pts[pts.length - 1], b = pts[0];
-      const straight = { ...doc, design: { ...doc.design, points: [...pts, { x: a.x, z: (a.z + b.z) / 2, radius: 1, width: 2 }] } };
+      const straight = { ...doc, design: { ...doc.design, points: [...pts, { x: a.x, z: Math.round(((a.z + b.z) / 2) * 100) / 100, radius: 1, width: 2 }] } };
       const errors = await serve(page, straight);
       await open(page, "", "advanced");
       const t = await Touch.on(page);
@@ -326,6 +328,8 @@ test.describe("phone context sheet", () => {
       await expect(hairpin(page)).toBeDisabled();
       await expect(hairpin(page)).toHaveAccessibleDescription("On a straight: there's no turn to make a hairpin of.");
       await expect(sheet(page)).toContainText("On a straight: there's no turn to make a hairpin of.");
+      await hairpin(page).scrollIntoViewIfNeeded();
+      await shot(page, "375-selection-hairpin-straight");
       // and the context sheet says the same
       await sheet(page).getByRole("button", { name: "Close" }).tap();
       await longPress(page, t, await grab(page, `circle.ed-point[data-index="${pts.length}"]`, "point"));
