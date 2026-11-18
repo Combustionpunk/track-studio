@@ -116,7 +116,7 @@ export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, o
             ? advanced
               ? "Click a straight to add a point there. Esc or A to stop. Keys: N / P pick a corner, Enter adds a point halfway to the next."
               : "Click the track or the floor to add a corner. Esc or A to stop. Keys: N / P pick a corner, Enter adds one halfway to the next."
-            : "Pick a jump, then click on the racing line to place it. Drag a cone onto the plan where a marshal stands. Add point (A) adds a corner point."}
+            : "Pick a jump, then click on the racing line to place it, or drag it onto the track. Drag a cone onto the plan where a marshal stands. Add point (A) adds a corner point."}
       </p>
     </aside>
   );

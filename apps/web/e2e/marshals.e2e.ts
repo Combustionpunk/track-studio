@@ -169,6 +169,7 @@ test.describe("marshal points on a laptop", () => {
     await expect(table.locator("tbody tr").nth(3)).toContainText("on the track");
     await expect(table.locator("tbody tr").first()).toContainText(/corner \d+|straight/);
     await expect(page.locator(".sheet-plan g.p-marshal")).toHaveCount(5);
+    await shot(page, "1200-build-sheet");
     await page.emulateMedia({ media: "print" });
     const pdf = (await page.pdf({ preferCSSPageSize: true, printBackground: true })).toString("latin1");
     expect(pdf.match(/\/Type\s*\/Page(?!s)/g)?.length).toBe(1);

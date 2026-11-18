@@ -481,8 +481,9 @@ describe("fit + adapt", () => {
     expect(fit.orientation).toBe("rotated 180");
     expect(track).toMatchObject({ status: "draft", revision: 1, venueTemplateId: "venue-2", derivedFromId: FREEFORM, author: { username: "alice" } });
     expect(doc.info).toMatchObject({ name: "Freeform example @ Sports hall B", derivedFrom: { id: FREEFORM, revision: 1, orientation: "rotated 180" } });
-    // same design as the reference's adapted example; none of the venue's obstacles or its rostrum (1.7)
-    expect(doc.design).toEqual(referenceJson<RcTrack>("examples/freeform-at-sports-hall-b.rctrack.json").design);
+    // same design as the reference's adapted example (seeded without its untidy cones, #157); none of the venue's
+    // obstacles or its rostrum (1.7)
+    expect(doc.design).toEqual(withoutCones(referenceJson<RcTrack>("examples/freeform-at-sports-hall-b.rctrack.json")).design);
     expect(doc.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
     expect(JSON.stringify(doc)).not.toMatch(/"obstacles"|"rostrum"|"basedOn"|Pillar/);
     expect((await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-3`, alice)).statusCode).toBe(422);
