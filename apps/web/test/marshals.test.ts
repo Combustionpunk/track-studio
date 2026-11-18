@@ -10,6 +10,7 @@ describe("nextMarshalNumber", () => {
     expect(nextMarshalNumber([{ number: 1, x: 0, z: 0 }, { number: 2, x: 0, z: 0 }])).toBe(3);
     expect(nextMarshalNumber([{ number: 1, x: 0, z: 0 }, { number: 4, x: 0, z: 0 }, { number: 2, x: 0, z: 0 }])).toBe(3);
     expect(nextMarshalNumber([{ number: 2, x: 0, z: 0 }])).toBe(1);
+    expect(nextMarshalNumber(Array.from({ length: 99 }, (_, k) => ({ number: k + 1, x: 0, z: 0 })))).toBe(99);
   });
 });
 

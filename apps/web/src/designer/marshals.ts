@@ -9,12 +9,12 @@ export const MARSHAL_NUMBER_MAX = 99;
 
 const cm = (v: number) => Math.round(v * 100) / 100 || 0;
 
-/** The lowest number no cone has: a new cone fills the first gap. */
+/** The lowest number no cone has: a new cone fills the first gap (99 when 1-99 are all taken: the format's highest). */
 export function nextMarshalNumber(list: readonly DesignMarshal[]): number {
   const used = new Set(list.map((m) => m.number));
   let n = 1;
   while (used.has(n)) n++;
-  return n;
+  return Math.min(n, MARSHAL_NUMBER_MAX);
 }
 
 /** A plan point held within the placement limit (the area plus MARSHAL_PLACE_MARGIN each side), to the centimetre. */

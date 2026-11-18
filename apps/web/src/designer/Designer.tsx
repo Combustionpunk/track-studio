@@ -77,7 +77,7 @@ import { submitWhy } from "./PhoneMenu.js";
 import type { ToolPaletteProps, ToolsProps } from "./ToolPalette.js";
 import { addCrossover, bridgeCrossing, makeCrossover, moveCrossover, moveStart } from "./crossings.js";
 import { addKey, floorTap, keyInsert, lanePress, stepCorner } from "./addtool.js";
-import { addMarshal, deleteMarshal, MARSHAL_PLACE_MARGIN, moveMarshal } from "./marshals.js";
+import { addMarshal, clampToPlacement, deleteMarshal, MARSHAL_PLACE_MARGIN, moveMarshal } from "./marshals.js";
 import { defaultRostrumSide } from "../viewer3d/rostrum.js";
 import type { Highlight } from "../viewer3d/scene.js";
 import { hasWebGL } from "../viewer3d/support.js";
@@ -975,17 +975,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const dropCone = (clientX: number, clientY: number): boolean => {
     setConeHover(null);
     if (laying || viewing3dRef.current) return false;
+    // on the plan itself: let go over a sheet, the toolbar or the plan's buttons and the drop is called off
     const svg = planWrapRef.current?.querySelector<SVGSVGElement>("svg.plan-svg");
-    const r = svg?.getBoundingClientRect();
-    if (!svg || !r || clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return false;
+    if (!svg || document.elementFromPoint(clientX, clientY)?.closest("svg.plan-svg") !== svg) return false;
     placeCone(planPoint(svg, clientX, clientY));
     return true;
   };
   /** a cone being dragged from the palette is over the plan here: its ghost follows */
   const dragCone = (clientX: number, clientY: number) => {
     const svg = planWrapRef.current?.querySelector<SVGSVGElement>("svg.plan-svg");
-    const r = svg?.getBoundingClientRect();
-    setConeHover(svg && r && clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom ? planPoint(svg, clientX, clientY) : null);
+    const over = !!svg && document.elementFromPoint(clientX, clientY)?.closest("svg.plan-svg") === svg;
+    setConeHover(over ? clampToPlacement(planPoint(svg!, clientX, clientY), areaRef.current) : null);
   };
 
   const onStartDown = (e: React.PointerEvent<SVGElement>) => {
@@ -1405,7 +1405,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         ))}
         <StartHandle built={built} m={m} touch={touch} on={sel?.kind === "start"} onPointerDown={onStartDown} />
         {/* marshal points (#151): the plan draws each cone; this is its handle, and a ring round the selected one */}
-        {cones.map((c, i) => (
+        {/* (none while the Marshal points layer is off: a hidden cone takes no presses) */}
+        {layers.marshals !== false && cones.map((c, i) => (
           <g key={`cone${i}`} data-handle="marshal" data-number={c.number} className={`ed-marshal ${sel?.kind === "marshal" && sel.i === i ? "on" : ""}`} onPointerDown={(e) => onMarshalDown(e, i)}>
             <title>{touch ? `Cone ${c.number}: drag to move it, hold for more` : `Cone ${c.number}: drag to move it; Delete removes the selected cone`}</title>
             <circle className="ed-hit" cx={c.x} cy={-c.z} r={(touch ? TOUCH_PX : 11) * m} />
