@@ -1,4 +1,4 @@
-import { drawingArea, type Point2, type RcTrack, type RcVenue, type Side } from "@track-studio/engine";
+import { drawingArea, rctrackFileName, type Point2, type RcTrack, type RcVenue, type Side } from "@track-studio/engine";
 import { ArrowLeft, Download, Lock } from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -234,6 +234,8 @@ export function TrackPage() {
   const link = `${origin}/t/${track.id}${viewing ? `?r=${viewing}` : ""}`;
   const embed = `<iframe src="${origin}/embed/${track.id}${viewing ? `?r=${viewing}` : ""}" width="100%" height="460" frameborder="0" loading="lazy" title="${escAttr(track.name)} – Track Studio"></iframe>`;
   const download = `/api/tracks/${track.id}/r/${rev}.rctrack.json`;
+  // the name the server's content-disposition gives it (the shown revision's own name), once that revision has loaded
+  const fileName = doc ? rctrackFileName(doc.info.name, rev) : undefined;
   const status = rev === track.approvedRevision && track.status !== "archived" ? "approved" : rev === track.revision ? track.status : "draft";
 
   const copy = async () => {
@@ -522,11 +524,20 @@ export function TrackPage() {
             <div className="ts-actions ts-actions--share">
               <CopyButton text={link} label="Copy forum link" />
               <CopyButton text={embed} label="Copy embed" />
-              <a className="ts-btn ts-btn--quiet" href={download} download>
+              <a className="ts-btn ts-btn--quiet" href={download} download={fileName ?? true} aria-describedby="sim-file">
                 <Download size={16} aria-hidden />
-                Download .rctrack.json
+                Download for the sim
               </a>
             </div>
+            <p id="sim-file" className="ts-download-hint">
+              {fileName && (
+                <>
+                  <code className="ts-download-hint__file">{fileName}</code>
+                  <br />
+                </>
+              )}
+              Put it in the sim's Tracks folder
+            </p>
           </section>
 
           <section className="ts-section" aria-labelledby="revs-h">
