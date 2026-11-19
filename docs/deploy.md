@@ -126,6 +126,16 @@ rctrack 1.7 release (#63, layouts stand alone) needs it: the rebake drops each s
 `basedOn` and re-bakes it, so the dry run lists every track as changed (none of them with "RACING LINE CHANGED"). Until
 then, 1.6 revisions are upgraded as they're read, but the library's error counts still include the old venue checks.
 
+**What the dry run reports.** One line per stored revision whose `built` would change (corners, size, racing line,
+errors, warnings, preview), then a `Fits` block (#160) with one line per venue template: how many cached fit answers
+it compared with the new engine's, how many changed, and how many layouts had no cached answer there, followed by a
+line per layout revision that fits differently (orientations gained or lost, "moved" for a different placement, and
+the as-drawn venue errors). The fit search reads the design with the engine's own lane mask, not the stored
+footprint, so the fit cache, which holds the previous engine's answers since the last rebake, is the only "before"
+there is: a layout nobody has fitted to a venue since then is counted as not cached and isn't compared. Run the dry
+run straight after `docker compose up -d --build`, since every fit asked for after that is cached with the new
+engine's answer. The rebake itself prints the same block and then clears the fit cache.
+
 The rctrack 1.8 release (#81, with #91's additions) needs one too, but changes much less: no fields are added or
 removed and no racing line moves. A 1.8 rebake changes only a jump next to a corner (its `feature-in-corner` check is
 `info`, with a new message), a start line on a corner join (its heading, by up to ~1.5°), checks across lap distance 0
@@ -160,7 +170,9 @@ Nothing else in `built` changes, with one exception: a cone standing in a cell t
 loses a cell (most of them; a layout that loses none isn't listed), each with the same corners and size, none with
 "RACING LINE CHANGED" and none with "preview re-rendered" (at a preview's scale a pipe is drawn at its 1.5 px
 minimum, as before). The rebake clears the fit cache; fits can only get better (a layout may newly fit a venue, or
-sit more centrally). Run the dry run first and check it says that. On 18 November 2026 the public library held 2
+sit more centrally). Run the dry run first and check it says that: its `Fits` block should show only gains ("new:",
+"moved:", "as drawn errors 1 → 0"), never "lost:", for the cached answers it compared; layouts not cached have no
+earlier answer to compare. On 18 November 2026 the public library held 2
 layouts and 1 venue template (Niagara centre – Indoor (Winter)): both layouts change their footprint only (9 and 10
 cells of about 22,000 and 24,500), and neither changes fit (all four orientations fit, before and after). Rolling back
 needs no restore: re-baking with the older code puts the old footprints back.
