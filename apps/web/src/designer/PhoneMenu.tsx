@@ -5,7 +5,7 @@
 // status and the description. The Designer owns the state; these only draw it.
 import type { Area, Check } from "@track-studio/engine";
 import { ArrowRightLeft, ChevronLeft, CircleQuestionMark, Pencil, Save, Scan, Send, SlidersHorizontal } from "lucide-react";
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { Link } from "react-router-dom";
 import { StatusBadge } from "../components/bits.js";
 import type { TrackSummary } from "../lib/api.js";
@@ -54,23 +54,34 @@ function Row({ icon, label, sub, primary = false, ...rest }: { icon: ReactNode; 
   );
 }
 
-/** The overflow menu's rows: `role="menu"`, with the arrow keys, Home and End moving between them. */
-export function PhoneMenu({ view, onView, save, submit, reverse, onFit, onDetails, onHowTo, backTo }: PhoneMenuProps) {
+/**
+ * A `role="menu"` list's keys (the ⋯ menu, the context sheet): opened, its first row that can take the focus has it;
+ * the arrow keys (round the ends), Home and End move between the rows. Enter is the row's own button; Escape is the
+ * Sheet's. Rows that are `disabled` are skipped; `aria-disabled` ones take the focus, so their reason is read out.
+ */
+export function useMenuKeys(): { ref: RefObject<HTMLUListElement | null>; onKeyDown: (e: KeyboardEvent) => void } {
   const ref = useRef<HTMLUListElement>(null);
-  // opened: the first row that can be used has the focus, so the arrow keys work straight away; a frame later, so the
-  // Sheet notes ⋯ as where the focus goes back to when the menu closes
+  // a frame later, so a modal Sheet (the ⋯ menu) first notes what had the focus, to put it back when it closes; the
+  // context sheet isn't modal, so there the focus drops to the body on Enter or Escape
   useEffect(() => {
     const f = requestAnimationFrame(() => ref.current?.querySelector<HTMLElement>(ITEMS)?.focus());
     return () => cancelAnimationFrame(f);
   }, []);
-  const keys = (e: KeyboardEvent) => {
+  const onKeyDown = (e: KeyboardEvent) => {
     const all = [...ref.current!.querySelectorAll<HTMLElement>(ITEMS)];
+    if (!all.length) return;
     const at = all.indexOf(document.activeElement as HTMLElement);
     const to = e.key === "ArrowDown" ? (at + 1) % all.length : e.key === "ArrowUp" ? (at - 1 + all.length) % all.length : e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : -1;
     if (to < 0) return;
     e.preventDefault();
     all[to].focus();
   };
+  return { ref, onKeyDown };
+}
+
+/** The overflow menu's rows: `role="menu"`, with the arrow keys, Home and End moving between them. */
+export function PhoneMenu({ view, onView, save, submit, reverse, onFit, onDetails, onHowTo, backTo }: PhoneMenuProps) {
+  const { ref, onKeyDown: keys } = useMenuKeys();
   const icon = (I: typeof Save) => <I size={20} aria-hidden="true" />;
   return (
     <ul ref={ref} className="phone-menu" role="menu" aria-label="More" onKeyDown={keys}>
