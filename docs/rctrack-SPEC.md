@@ -329,12 +329,12 @@ and `design`.
 
 **Physical sizes not in the file.** These are fixed for `version: 1`; a reader uses these values. If a layout ever
 needs its own, they will be added as optional keys in `built`, with these as the defaults. (They were corrected
-once, in 1.12, before any reader was built on them: 1.10 and 1.11 gave the pipe as 0.08 m round. A reader that used
-that value should change to the one below; no file changes.)
+once, in 1.12, before any reader was built on them: the footprint padded the lanes by 0.04 m before 1.12. A reader
+that used that padding should change to the one below; no file changes.)
 - **Pipe (divider)** *(v1.12)*: **0.065 × 0.065 m, square in section** (the engines' `PIPE_SIZE`), resting flat on the
   carpet: bottom at 0, top **0.065 m** up, its sides **0.0325 m** either side of the run. Each `dividers[].points` run
   is the centre line of the pipe in plan; build a square collider along it. (`footprint` pads the lanes by half the
-  pipe, 0.0325 m. Before 1.12 this section said a round pipe 0.08 m across; club pipe is 65 mm square.) At a bridge, only the over pass's pipes (the runs along the bridge, beside its lane)
+  pipe, 0.0325 m; the footprint padded the lanes by 0.04 m before 1.12. Club pipe is 65 mm square.) At a bridge, only the over pass's pipes (the runs along the bridge, beside its lane)
   ride it, following the bridging feature's `profile` (`built.features[crossings[].bridge.feature]`) like the lane
   between them; the under pass's pipes stay on the floor and run under the bridge (see `built.crossings`). Dividers
   don't say which pass they belong to: go by direction, as the 3D viewer does.
@@ -351,7 +351,8 @@ venue). `figure-eight-crossover` has no cones and no `built.marshals` key. Each 
 (`*.preview.svg`) to compare against.
 
 ## Changes
-- **1.12** — the divider pipe is **0.065 m square** in section (club pipe is 65 mm square), not 0.08 m round. No key is
+- **1.12** — the divider pipe is **0.065 m square** in section (club pipe is 65 mm square). Earlier versions gave no pipe size;
+  the footprint padded the lanes by 0.04 m before 1.12. No key is
   added, removed or changed, and `version` stays `1`; the size is a fixed value (*Compatibility for consumers*), one
   constant in both engines (`PIPE_SIZE`). What follows from it: `footprint` pads the lanes by 0.0325 m instead of
   0.04 m, and so do the things read from it, the fit search and its `obstacle` check, and `marshal-on-track`.
