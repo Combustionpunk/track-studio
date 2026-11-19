@@ -1804,7 +1804,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     />
   );
   const phone3dLabel = shown3d && no3d !== "lost" ? "2D" : "3D";
-  const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onCone: pickCone, onDropCone: dropCone, onDragCone: dragCone, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
+  const panels: PanelProps = { view, checks: built.checks, bakedFeatures, pending: bake.pending, showSubmit, blocked, onShow: showCheck, onMakeCrossover: makeItACrossover, onBridge: bridgeIt, draft, drawn, sel, live, update, onDelete: deleteSelection, onHairpin: hairpinAt, venueName, inCorner, checksHeading };
   const tools: ToolsProps = { view, laying, canStartAgain: !!draft.laying?.length, onStartAgain: startAgain, tool, onJump: pickJump, onCone: pickCone, onDropCone: dropCone, onDragCone: dragCone, onDropJump: dropJump, onDragJump: dragJump, onAdd: toggleAdd, startOn: sel?.kind === "start", onStartLine: pickStart, laneSnap, onLaneSnap: () => setLaneSnap((v) => !v) };
   const history = { undo, redo, canUndo: hist.canUndo, canRedo: hist.canRedo };
   const palette: ToolPaletteProps = { ...tools, snap: snap.mode, onSnap: (m) => setSnap({ mode: m }) };
