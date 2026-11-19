@@ -26,13 +26,28 @@ export function seed(db: DB, config: Config, referenceDir = join(ROOT_DIR, "refe
     added++;
   }
   // tracks based on a venue template need the venue first; venues are imported above
-  for (const { f, doc } of read("examples", ".rctrack.json")) {
-    if (db.prepare("SELECT 1 FROM tracks WHERE id = ?").get(doc.id)) { log(`  track ${f}: already there`); continue; }
+  for (const { f, doc: file } of read("examples", ".rctrack.json")) {
+    if (db.prepare("SELECT 1 FROM tracks WHERE id = ?").get(file.id)) { log(`  track ${f}: already there`); continue; }
+    const doc = withoutUntidyCones(file);
     createTrack(db, system, doc, { keepId: true, status: "approved", approve: true });
-    log(`  track ${f}: added (approved)`);
+    log(`  track ${f}: added (approved)${doc === file ? "" : "; its cones left out (they carry a deliberate error, for the tests)"}`);
     added++;
   }
   return added;
+}
+
+/**
+ * An example whose cones carry an error (freeform-example's untidy set has a cone on the track, #151) without them, so
+ * a fresh install never shows an approved layout with an error (#157); the reference file keeps them for the check
+ * tests. Judged from the file's stored bake; the save re-bakes it. Other examples come back as they are.
+ */
+export function withoutUntidyCones(doc: Record<string, unknown>): Record<string, unknown> {
+  const built = doc.built as { checks?: { level?: string; code?: string }[] } | undefined;
+  const untidy = built?.checks?.some((c) => c.level === "error" && c.code?.startsWith("marshal-"));
+  const design = doc.design as { marshals?: unknown } | undefined;
+  if (!untidy || !design?.marshals) return doc;
+  const { marshals: _m, ...rest } = design;
+  return { ...doc, design: rest };
 }
 
 if (process.argv[1] && /seed\.(ts|js)$/.test(process.argv[1])) {

@@ -89,6 +89,10 @@ describe.each(themeIds)("the plan in %s", (id) => {
   it("jumps, their edges, obstacles and the rostrum stand out", () => {
     expect(contrast(p["plan-jump"], p["plan-carpet"])).toBeGreaterThanOrEqual(1.5);
     expect(contrast(p["plan-jump-edge"], p["plan-jump"])).toBeGreaterThanOrEqual(3);
+    // cones (#157): traffic-cone orange in every theme, with a dark outline and number that read on it
+    expect(p["plan-cone"]).toBe(PLAN_PALETTE["plan-cone"]);
+    expect(p["plan-cone-edge"]).toBe(PLAN_PALETTE["plan-cone-edge"]);
+    expect(contrast(p["plan-cone-edge"], p["plan-cone"])).toBeGreaterThanOrEqual(4.5);
     expect(contrast(p["plan-obstacle"], p["plan-area"])).toBeGreaterThanOrEqual(1.3);
     expect(contrast(p["plan-rostrum"], p["plan-floor"])).toBeGreaterThanOrEqual(1.5);
     expect(contrast(p["plan-pipe"], p["plan-rostrum"])).toBeGreaterThanOrEqual(1.5);
@@ -179,6 +183,7 @@ describe("plan-palette.css", () => {
   const css = readFileSync(join(WEB, "src/theme/plan-palette.css"), "utf8");
 
   it("has a default for every plan colour the app sets from the theme", () => {
-    for (const k of Object.keys(PLAN_PALETTE)) expect(css).toMatch(new RegExp(`--${k}:\\s*[^;]*var\\(--rm-`));
+    // all from the theme, but the cone: traffic-cone orange in every theme (#157)
+    for (const k of Object.keys(PLAN_PALETTE)) expect(css).toMatch(k.startsWith("plan-cone") ? new RegExp(`--${k}:\\s*${PLAN_PALETTE[k as keyof typeof PLAN_PALETTE]};`) : new RegExp(`--${k}:\\s*[^;]*var\\(--rm-`));
   });
 });

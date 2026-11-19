@@ -180,7 +180,9 @@ export function PlanView(props: PlanViewProps) {
   const dragged = useRef(false);
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!interactive || e.button > 0) return;
-    if ((e.target as Element).closest("[data-handle]")) return; // the editor's handles take this pointer
+    // the editor's handles take this pointer, but for one marked data-tap-through that let it pass (#157: a finger on
+    // the track with a jump armed pans, or pinches with a second finger; the editor places the jump on a tap)
+    if ((e.target as Element).closest("[data-handle]:not([data-tap-through])")) return;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     pressedAt.current = { x: e.clientX, y: e.clientY };

@@ -195,7 +195,7 @@ export type TabletDockProps = ToolsProps & {
 };
 
 /** Tablet: the dock of 44 px controls under the plan (#16). */
-export function TabletDock({ view, laying, canStartAgain, onStartAgain, tool, onJump, onCone, onDropCone, onDragCone, onAdd, startOn, onStartLine, laneSnap, onLaneSnap, undo, redo, canUndo, canRedo, reverse, canReverse, reverseTitle, onFit }: TabletDockProps) {
+export function TabletDock({ view, laying, canStartAgain, onStartAgain, tool, onJump, onCone, onDropCone, onDragCone, onDropJump, onDragJump, onAdd, startOn, onStartLine, laneSnap, onLaneSnap, undo, redo, canUndo, canRedo, reverse, canReverse, reverseTitle, onFit }: TabletDockProps) {
   return (
     <div className="designer-dock" role="toolbar" aria-label="Designer tools">
       <button type="button" className="dock-btn dock-icon" onClick={undo} disabled={!canUndo} aria-label="Undo">
@@ -211,7 +211,7 @@ export function TabletDock({ view, laying, canStartAgain, onStartAgain, tool, on
         </button>
       ) : (
         <>
-          <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} className="dock-btn" verb="Tap" />
+          <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} onDrop={onDropJump} onDrag={onDragJump} className="dock-btn" verb="Tap" />
           <ConeButton armed={tool.kind === "marshal"} onPick={onCone} onDrop={onDropCone} onDrag={onDragCone} className="dock-btn" verb="Tap" />
           <button type="button" className="dock-btn" aria-pressed={tool.kind === "add"} aria-keyshortcuts="A" data-add-tool onClick={onAdd} title="Add a corner: tap Add point, then tap the track or the floor">
             <Plus size={18} aria-hidden="true" />

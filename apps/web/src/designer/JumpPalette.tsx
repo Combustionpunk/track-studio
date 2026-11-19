@@ -1,5 +1,6 @@
 // The designer's jump palette: one button per jump, each with its plan symbol (28 × 16, plan-jump / plan-jump-edge,
-// as in docs/design/mockups/Designer.dc.html) and its name. Pick one, then click on the racing line to place it.
+// as in docs/design/mockups/Designer.dc.html) and its name. Pick one, then click on the racing line to place it, or
+// drag it onto the plan (#157).
 import type { FeatureType } from "@track-studio/engine";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -25,22 +26,37 @@ export function JumpSymbol({ type }: { type: FeatureType }) {
   );
 }
 
-export function JumpPalette({ jumps, armed, onPick, className = "palette-btn", verb = "Click" }: { jumps: FeatureType[]; armed: FeatureType | null; onPick: (t: FeatureType) => void; className?: string; verb?: "Click" | "Tap" }) {
+/**
+ * The jump buttons: a click (or tap) arms one, then a click or tap on the racing line places it; or press one and drag
+ * the jump onto the plan, letting go where it should go (#157, as the Cone button). It lands on the racing line
+ * nearest the drop; `onDrag` follows the pointer, so the plan can show where.
+ */
+export function JumpPalette({ jumps, armed, onPick, onDrop, onDrag, className = "palette-btn", verb = "Click" }: { jumps: FeatureType[]; armed: FeatureType | null; onPick: (t: FeatureType) => void; onDrop?: (t: FeatureType, clientX: number, clientY: number) => boolean; onDrag?: (t: FeatureType, clientX: number, clientY: number) => void; className?: string; verb?: "Click" | "Tap" }) {
   return (
     <>
       {jumps.map((t) => (
-        <button
-          key={t}
-          type="button"
-          className={className}
-          aria-pressed={armed === t}
-          onClick={() => onPick(t)}
-          title={t === "crossover" ? `${verb} where the track crosses itself to bridge it with a crossover` : `${verb} on the racing line to place a ${FEATURE_LABEL[t].toLowerCase()}`}
-        >
-          <JumpSymbol type={t} />
-          {FEATURE_LABEL[t]}
-        </button>
+        <JumpButton key={t} type={t} armed={armed === t} onPick={onPick} onDrop={onDrop} onDrag={onDrag} className={className} verb={verb} />
       ))}
+    </>
+  );
+}
+
+function JumpButton({ type: t, armed, onPick, onDrop, onDrag, className, verb }: { type: FeatureType; armed: boolean; onPick: (t: FeatureType) => void; onDrop?: (t: FeatureType, clientX: number, clientY: number) => boolean; onDrag?: (t: FeatureType, clientX: number, clientY: number) => void; className: string; verb: "Click" | "Tap" }) {
+  const drag = usePaletteDrag(() => onPick(t), onDrop && ((x, y) => onDrop(t, x, y)), onDrag && ((x, y) => onDrag(t, x, y)));
+  const what = t === "crossover" ? `${verb} where the track crosses itself to bridge it with a crossover` : `${verb} on the racing line to place a ${FEATURE_LABEL[t].toLowerCase()}`;
+  return (
+    <>
+      <button type="button" className={`${className} jump-btn`} aria-pressed={armed} onPointerDown={drag.down} onClick={drag.click} title={onDrop ? `${what}, or drag it onto the plan` : what}>
+        <JumpSymbol type={t} />
+        {FEATURE_LABEL[t]}
+      </button>
+      {drag.ghost &&
+        createPortal(
+          <div className="palette-drag-ghost jump-drag-ghost" style={{ left: drag.ghost.x, top: drag.ghost.y }} aria-hidden="true">
+            <JumpSymbol type={t} />
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
@@ -55,15 +71,15 @@ export function ConeSymbol() {
   );
 }
 
-/** a press on the Cone button that moves this far (px) is a drag from the palette, not a click */
+/** a press on a palette button that moves this far (px) is a drag from the palette, not a click */
 const DRAG_PX = 8;
 
 /**
- * The Cone button (#151): a click (or tap) arms it, then a click or tap on the plan places a marshal point, as a jump
- * is placed; or press it and drag a cone onto the plan, letting go where the marshal stands. `onDrop` says whether the
- * drop landed on the plan (and placed a cone); `onDrag` follows the pointer, so the plan can show where it would go.
+ * Dragging from a palette button (#151 cones, #157 jumps): a press that moves DRAG_PX is a drag; the ghost follows the
+ * pointer, `onDrag` is told where it is (-1, -1 when called off) and `onDrop` where it was let go. A press that doesn't
+ * move is a click, which picks (arms) the tool; the click that ends a drag doesn't.
  */
-export function ConeButton({ armed, onPick, onDrop, onDrag, className = "palette-btn", verb = "Click" }: { armed: boolean; onPick: () => void; onDrop?: (clientX: number, clientY: number) => boolean; onDrag?: (clientX: number, clientY: number) => void; className?: string; verb?: "Click" | "Tap" }) {
+function usePaletteDrag(onPick: () => void, onDrop?: (clientX: number, clientY: number) => boolean, onDrag?: (clientX: number, clientY: number) => void) {
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
   /** the click that ends a drag from the palette isn't a pick */
   const dragged = useRef(false);
@@ -88,7 +104,7 @@ export function ConeButton({ armed, onPick, onDrop, onDrag, className = "palette
       if (ev.pointerId !== id) return;
       end();
       if (!moving) return;
-      // the drop is the cone's, not a tap on what's under it (the plan would take it as a tap on the floor)
+      // the drop is the palette's, not a tap on what's under it (the plan would take it as a tap on the floor)
       ev.stopPropagation();
       dragged.current = true;
       if (ev.type === "pointerup") onDrop(ev.clientX, ev.clientY);
@@ -107,6 +123,20 @@ export function ConeButton({ armed, onPick, onDrop, onDrag, className = "palette
     window.addEventListener("pointerup", up, true);
     window.addEventListener("pointercancel", up, true);
   };
+  const click = () => {
+    if (dragged.current) return void (dragged.current = false);
+    onPick();
+  };
+  return { ghost, down, click };
+}
+
+/**
+ * The Cone button (#151): a click (or tap) arms it, then a click or tap on the plan places a marshal point, as a jump
+ * is placed; or press it and drag a cone onto the plan, letting go where the marshal stands. `onDrop` says whether the
+ * drop landed on the plan (and placed a cone); `onDrag` follows the pointer, so the plan can show where it would go.
+ */
+export function ConeButton({ armed, onPick, onDrop, onDrag, className = "palette-btn", verb = "Click" }: { armed: boolean; onPick: () => void; onDrop?: (clientX: number, clientY: number) => boolean; onDrag?: (clientX: number, clientY: number) => void; className?: string; verb?: "Click" | "Tap" }) {
+  const drag = usePaletteDrag(onPick, onDrop, onDrag);
   return (
     <>
       <button
@@ -114,19 +144,16 @@ export function ConeButton({ armed, onPick, onDrop, onDrag, className = "palette
         className={`${className} cone-btn`}
         aria-pressed={armed}
         data-cone-tool
-        onPointerDown={down}
-        onClick={() => {
-          if (dragged.current) return void (dragged.current = false);
-          onPick();
-        }}
+        onPointerDown={drag.down}
+        onClick={drag.click}
         title={`${verb} where a marshal stands to put a numbered cone there, or drag a cone onto the plan`}
       >
         <ConeSymbol />
         Cone
       </button>
-      {ghost &&
+      {drag.ghost &&
         createPortal(
-          <div className="cone-drag-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true">
+          <div className="palette-drag-ghost cone-drag-ghost" style={{ left: drag.ghost.x, top: drag.ghost.y }} aria-hidden="true">
             <ConeSymbol />
           </div>,
           document.body,

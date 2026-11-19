@@ -27,6 +27,10 @@ export interface ToolsProps {
   onDropCone?: (clientX: number, clientY: number) => boolean;
   /** a cone dragged from the palette is here (client px) */
   onDragCone?: (clientX: number, clientY: number) => void;
+  /** a jump dragged from the palette and let go here (client px, #157): true if it landed on the plan */
+  onDropJump?: (t: FeatureType, clientX: number, clientY: number) => boolean;
+  /** a jump dragged from the palette is here (client px; -1, -1: called off) */
+  onDragJump?: (t: FeatureType, clientX: number, clientY: number) => void;
   /** the Add point tool on, or off again */
   onAdd: () => void;
   /** the start line is selected */
@@ -39,7 +43,7 @@ export interface ToolsProps {
 
 export type ToolPaletteProps = ToolsProps & { snap: SnapMode; onSnap: (m: SnapMode) => void };
 
-export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, onJump, onCone, onDropCone, onDragCone, onAdd, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
+export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, onJump, onCone, onDropCone, onDragCone, onDropJump, onDragJump, onAdd, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
   const advanced = view === "advanced";
   if (laying)
     return (
@@ -58,7 +62,7 @@ export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, o
   return (
     <aside className="designer-palette" aria-label="Add to the track">
       <span className="label">Jumps</span>
-      <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} />
+      <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} onDrop={onDropJump} onDrag={onDragJump} />
       <span className="label label-gap">Marshals</span>
       <ConeButton armed={tool.kind === "marshal"} onPick={onCone} onDrop={onDropCone} onDrag={onDragCone} />
       <span className="label label-gap">Track</span>
@@ -112,7 +116,7 @@ export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, o
             ? advanced
               ? "Click a straight to add a point there. Esc or A to stop. Keys: N / P pick a corner, Enter adds a point halfway to the next."
               : "Click the track or the floor to add a corner. Esc or A to stop. Keys: N / P pick a corner, Enter adds one halfway to the next."
-            : "Pick a jump, then click on the racing line to place it. Drag a cone onto the plan where a marshal stands. Add point (A) adds a corner point."}
+            : "Pick a jump, then click on the racing line to place it, or drag it onto the track. Drag a cone onto the plan where a marshal stands. Add point (A) adds a corner point."}
       </p>
     </aside>
   );

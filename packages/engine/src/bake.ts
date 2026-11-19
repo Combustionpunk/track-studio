@@ -866,7 +866,9 @@ function featureInCorner(typ: FeatureType, dist: number, p: Point2): Check {
 }
 
 export function headingDeg(t: Point2): number {
-  return r3(pyMod(degrees(Math.atan2(t[1], t[0])) + 360, 360));
+  // 0 up to (not including) 360: a hair short of 360 rounds to 0, not 360 (#157; bake.py heading_deg)
+  const h = r3(pyMod(degrees(Math.atan2(t[1], t[0])) + 360, 360));
+  return h >= 360 ? 0 : h;
 }
 
 // ------------------------------------------------------------------ footprint

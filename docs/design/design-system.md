@@ -48,6 +48,7 @@ The plan is what people see everywhere: library cards, the track page, the forum
 - Pipes `plan-pipe` at real thickness; a shared pipe carries a `plan-pipe-shared` core line.
 - Racing line `plan-line`, dashed, with direction chevrons.
 - Jumps `plan-jump` with a `plan-jump-edge` outline; the darker edge is the take-off.
+- Marshal points (cones) `plan-cone`, traffic-cone orange in every theme, with a `plan-cone-edge` outline and number; `print-cone` with `print-ink` on the build sheet.
 - Rostrum `plan-rostrum`, obstacles `plan-obstacle`, start line chequered in pipe and floor colours.
 - Grid every metre in `plan-grid`, every 5 m in `plan-grid-major`, with a scale bar in metres.
 - Problems: error sections as a 3px `plan-error` overlay on the lane, warnings as a `plan-warning` ring on the corner or jump.
