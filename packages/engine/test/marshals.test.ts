@@ -9,7 +9,10 @@ import {
   bakeBuilt,
   buildSheet,
   fits,
+  headingDeg,
   MARSHAL_REACH,
+  PLAN_PALETTE,
+  PRINT_PALETTE,
   planBounds,
   planLayers,
   planMargin,
@@ -25,7 +28,7 @@ import {
   type RcTrack,
   type RcVenue,
 } from "../src/index.js";
-import { examples, extraDir, readJson, venues } from "./helpers.js";
+import { allTracks, examples, extraDir, readJson, venues } from "./helpers.js";
 
 const example = (name: string) => readJson<RcTrack>(examples.find((e) => e.name === `${name}.rctrack.json`)!.path);
 const v110 = (name: string) => readJson<RcTrack>(join(extraDir, "..", "v110", `${name}.rctrack.json`));
@@ -270,6 +273,25 @@ describe("drawing", () => {
     expect(planLayers(planScene(example("club-a")), { px: 0.05, layers: { marshals: false } })).not.toContain("p-marshal");
   });
 
+  it("the plan draws cones traffic-cone orange (plan-cone, as the forum preview), print-cone on the build sheet (#157)", () => {
+    expect(PLAN_PALETTE["plan-cone"]).toBe("#ff7a1a");
+    const plan = planLayers(planScene(example("club-a")), { px: 0.05 });
+    const fills = [...plan.matchAll(/<g class="p-marshal"><circle [^>]*fill="([^"]+)" stroke="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+    expect(fills).toEqual(Array(6).fill([PLAN_PALETTE["plan-cone"], PLAN_PALETTE["plan-cone-edge"]]));
+    expect(plan.match(new RegExp(`class="p-marshal-number"[^>]*fill="${PLAN_PALETTE["plan-cone-edge"]}"`, "g"))).toHaveLength(6);
+    // the number reads on the orange: WCAG contrast 4.5:1 or more
+    const lum = (hex: string) => {
+      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    expect((lum(PLAN_PALETTE["plan-cone"]) + 0.05) / (lum(PLAN_PALETTE["plan-cone-edge"]) + 0.05)).toBeGreaterThanOrEqual(4.5);
+    // jumps keep their own colour, so a cone is easy to tell from a jump
+    expect(PLAN_PALETTE["plan-cone"]).not.toBe(PLAN_PALETTE["plan-jump"]);
+    const print = planLayers(planScene(example("club-a")), { px: 0.05, palette: "print" });
+    const printed = [...print.matchAll(/<g class="p-marshal"><circle [^>]*fill="([^"]+)"/g)].map((m) => m[1]);
+    expect(printed).toEqual(Array(6).fill(PRINT_PALETTE["print-cone"]));
+  });
+
   it("the plan's bounds grow to hold a cone further out than the margin, plus 0.5 m", () => {
     const club = planScene(example("club-a"));
     expect(planMargin(club)).toBe(2.5); // cones up to 2 m out sit in the usual margin
@@ -317,5 +339,23 @@ describe("build sheet", () => {
 
   it("no cones: an empty list", () => {
     expect(buildSheet(bake(oval())).marshals).toEqual([]);
+  });
+});
+
+describe("headings (#157)", () => {
+  it("a heading a hair short of 360 rounds to 0, never 360", () => {
+    expect(headingDeg([1, -1e-7])).toBe(0);
+    expect(headingDeg([1, 0])).toBe(0);
+    expect(headingDeg([0, -1])).toBe(270);
+    expect(headingDeg([1, -0.01])).toBeCloseTo(359.427, 3);
+  });
+
+  it.each(allTracks)("$name: every heading and facing is from 0 up to, not including, 360", ({ path }) => {
+    const b = readJson<RcTrack>(path).built!;
+    const all = [...b.features.map((f) => f.heading), b.startLine.heading, ...(b.marshals ?? []).map((m) => m.facing)];
+    for (const h of all) {
+      expect(h).toBeGreaterThanOrEqual(0);
+      expect(h).toBeLessThan(360);
+    }
   });
 });

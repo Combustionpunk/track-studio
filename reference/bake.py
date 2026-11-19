@@ -470,7 +470,10 @@ def tangent_at(line, s, total, d):
     u = np.array([math.cos(ta) + math.cos(tb), math.sin(ta) + math.sin(tb)])
     return u / (np.linalg.norm(u) or 1.0)
 
-def heading_deg(t): return r3((math.degrees(math.atan2(t[1], t[0])) + 360) % 360)
+def heading_deg(t):
+    """Heading of direction t in degrees, 0 up to (not including) 360: a hair short of 360 rounds to 0, not 360.0 (#157)."""
+    h = r3((math.degrees(math.atan2(t[1], t[0])) + 360) % 360)
+    return 0.0 if h >= 360 else h
 
 FOOT_CELL = 0.1        # footprint raster cell (m)
 FEATURE_INSET = 0.08   # a jump or a bridge is this much narrower than its lane, 0.04 m each side (not the pipe: unchanged in 1.12)

@@ -5,7 +5,7 @@
 // The plan and the 3D view are drawn with colours rather than CSS, so they take a palette made here from the theme's
 // colours (planPalette); the same palette is written to the --plan-* variables for what the app draws over the plan.
 import { contrast, defaultTheme, themeIds, themes, type ThemeColours } from "@rcmisfits/brand";
-import type { PlanPalette } from "@track-studio/engine";
+import { PLAN_PALETTE, type PlanPalette } from "@track-studio/engine";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 const KNOWN = new Set<string>(themeIds);
@@ -55,6 +55,9 @@ export function planPalette(c: ThemeColours): PlanPalette {
     "plan-line": h(c.accent),
     "plan-jump": jump,
     "plan-jump-edge": edge,
+    // traffic-cone orange in every theme, with a dark edge and number (#157)
+    "plan-cone": PLAN_PALETTE["plan-cone"],
+    "plan-cone-edge": PLAN_PALETTE["plan-cone-edge"],
     "plan-rostrum": mix(c.muted, c.surface, 0.45),
     "plan-obstacle": mix(c.danger, c.surface, 0.5),
     "plan-grid": `${h(c.text)}1a`,

@@ -199,7 +199,7 @@ describe("the Jump sheet", () => {
     const names = [...chips.matchAll(/<\/svg>([^<]+)<\/button>/g)].map((m) => m[1]);
     expect(names).toEqual(["Tabletop", "Double", "Kicker", "Whoops", "Crossover"]);
     expect(chips.match(/class="jump-symbol"/g)).toHaveLength(5);
-    for (const b of buttons(chips)) expect(b).toContain('class="phone-chip"');
+    for (const b of buttons(chips)) expect(b).toContain('class="phone-chip jump-btn"'); // jump-btn: dragged onto the plan (#157)
     expect(html).toMatch(/<button type="button" class="phone-chip phone-chip-start" aria-pressed="false">Start line<\/button>/);
     // the snap setting, last
     expect(html).toMatch(/<button type="button" role="switch" aria-checked="true"[^>]*>Snap to lanes/);

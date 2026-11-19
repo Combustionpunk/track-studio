@@ -113,7 +113,7 @@ export function PhoneChecks({ built, ...p }: PanelProps & { built: Built }) {
 }
 
 /** The jumps as 44 px chips with their plan symbols, Start line, and the snapping last (Quick: a switch; Advanced: the radio). */
-export function PhoneJumps({ view, tool, onJump, onCone, onDropCone, onDragCone, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
+export function PhoneJumps({ view, tool, onJump, onCone, onDropCone, onDragCone, onDropJump, onDragJump, startOn, onStartLine, laneSnap, onLaneSnap, snap, onSnap }: ToolPaletteProps) {
   const advanced = view === "advanced";
   return (
     // no heading or help line, so it fits at peek height: the sheet is named "Jumps", and the hint over the plan says
@@ -121,7 +121,7 @@ export function PhoneJumps({ view, tool, onJump, onCone, onDropCone, onDragCone,
     <div className="phone-jump-sheet">
       <div className="phone-jumps">
         <div className="phone-jumps-group" role="group" aria-label="Jumps">
-          <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} className="phone-chip" verb="Tap" />
+          <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} onDrop={onDropJump} onDrag={onDragJump} className="phone-chip" verb="Tap" />
         </div>
         <button type="button" className="phone-chip phone-chip-start" aria-pressed={startOn} onClick={onStartLine}>
           Start line
