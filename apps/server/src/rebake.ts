@@ -44,22 +44,27 @@ export interface FitChange {
   moved: string[];
   /** errors when the layout is checked where it is drawn (outside-area, obstacle); null for a pre-1.7 cache row, which has none */
   asDrawnErrors: [number, number] | null;
+  /** as-drawn error codes this engine gives and the cached answer didn't */
+  asDrawnGained: string[];
 }
 
 /**
  * The fit search reads the design and the engine's lane mask, not the stored footprint, so the only "before" there is
- * is the fit cache: answers the previous engine gave since the last rebake. Each cached answer for a venue template's
- * current revision is compared with this engine's; a layout nobody fitted there has nothing to compare (`notCached`).
+ * is the fit cache: answers the previous engine gave since the last rebake. For each layout's public revision (the one
+ * the library and fit search use), a cached answer for the venue template's current revision is compared with this
+ * engine's; a layout nobody fitted there has nothing to compare (`notCached`). compared + notCached = layouts.
  */
 export interface VenueFits {
   id: string;
   name: string;
   revision: number;
-  /** cached answers compared */
+  /** layouts whose public revision has a cached answer for this venue revision, compared */
   compared: number;
   changed: FitChange[];
   /** layouts whose public revision has no cached answer for this venue revision */
   notCached: number;
+  /** cached answers this engine couldn't recompute (they are still counted as compared) */
+  failed: { id: string; revision: number; error: string }[];
 }
 
 export interface RebakeReport {
@@ -94,7 +99,7 @@ const newCodes = (before: string[], after: string[]) => [...new Set(after)].filt
 
 const sizeText = (doc: RcTrack) => (doc.built?.size ? `${doc.built.size.length} × ${doc.built.size.width} m` : "—");
 
-const errorCount = (a: CachedFit["asDrawn"]) => a.checks.filter((c) => c.level === "error").length;
+const asDrawnErrorCodes = (a: CachedFit["asDrawn"]) => a.checks.filter((c) => c.level === "error").map((c) => c.code as string).sort();
 const sitsElsewhere = (a: FitResult, b: FitResult) =>
   [0, 1].some((i) => Math.abs(a.shift[i] - b.shift[i]) > 0.001 || Math.abs(a.spare[i] - b.spare[i]) > 0.001);
 
@@ -106,33 +111,48 @@ function fitChange(cached: CachedFit | FitResult[], now: CachedFit): Omit<FitCha
     return n && sitsElsewhere(o, n);
   });
   const orientations: [string[], string[]] = [old.results.map((r) => r.orientation), now.results.map((r) => r.orientation)];
-  const asDrawnErrors: [number, number] | null = old.asDrawn ? [errorCount(old.asDrawn), errorCount(now.asDrawn)] : null;
-  const same = orientations[0].join("|") === orientations[1].join("|") && !moved.length && (!asDrawnErrors || asDrawnErrors[0] === asDrawnErrors[1]);
-  return same ? null : { orientations, moved: moved.map((r) => r.orientation), asDrawnErrors };
+  const codes = old.asDrawn ? [asDrawnErrorCodes(old.asDrawn), asDrawnErrorCodes(now.asDrawn)] : null;
+  const same = orientations[0].join("|") === orientations[1].join("|") && !moved.length && (!codes || codes[0].join("|") === codes[1].join("|"));
+  if (same) return null;
+  return {
+    orientations,
+    moved: moved.map((r) => r.orientation),
+    asDrawnErrors: codes ? [codes[0].length, codes[1].length] : null,
+    asDrawnGained: codes ? newCodes(codes[0], codes[1]) : [],
+  };
 }
 
 /** Cached fit answers, per venue template, compared with this engine's (read-only). */
 export function fitReport(db: DB): VenueFits[] {
   const venues = db.prepare("SELECT id, name, current_revision FROM venues ORDER BY name, id").all() as { id: string; name: string; current_revision: number }[];
-  const tracks = db.prepare("SELECT id, current_revision, approved_revision FROM tracks").all() as { id: string; current_revision: number; approved_revision: number | null }[];
+  const tracks = db.prepare("SELECT id, current_revision, approved_revision FROM tracks ORDER BY id").all() as { id: string; current_revision: number; approved_revision: number | null }[];
   const getVenue = db.prepare("SELECT rcvenue_json FROM venue_revisions WHERE venue_id = ? AND revision = ?").pluck();
   const getRev = db.prepare("SELECT rctrack_json FROM track_revisions WHERE track_id = ? AND revision = ?").pluck();
-  const cachedFor = db.prepare("SELECT track_id, track_revision, results_json FROM fit_cache WHERE venue_id = ? AND venue_revision = ? ORDER BY track_id, track_revision");
+  const cached = db.prepare("SELECT results_json FROM fit_cache WHERE track_id = ? AND track_revision = ? AND venue_id = ? AND venue_revision = ?").pluck();
   const out: VenueFits[] = [];
   for (const v of venues) {
-    const venue = JSON.parse(getVenue.get(v.id, v.current_revision) as string) as RcVenue;
-    const rows = cachedFor.all(v.id, v.current_revision) as { track_id: string; track_revision: number; results_json: string }[];
-    const report: VenueFits = { id: v.id, name: v.name, revision: v.current_revision, compared: 0, changed: [], notCached: 0 };
-    for (const r of rows) {
-      const json = getRev.get(r.track_id, r.track_revision) as string | undefined;
-      if (!json) continue;
-      const track = upgradeStored(db, JSON.parse(json) as RcTrack);
-      report.compared++;
-      const change = fitChange(JSON.parse(r.results_json) as CachedFit | FitResult[], computeFit(track, venue));
-      if (change) report.changed.push({ id: r.track_id, name: track.info.name, revision: r.track_revision, ...change });
-    }
-    report.notCached = tracks.filter((t) => !rows.some((r) => r.track_id === t.id && r.track_revision === publicRevision(t))).length;
+    const report: VenueFits = { id: v.id, name: v.name, revision: v.current_revision, compared: 0, changed: [], notCached: 0, failed: [] };
     out.push(report);
+    const venueJson = getVenue.get(v.id, v.current_revision) as string | undefined;
+    for (const t of tracks) {
+      const revision = publicRevision(t);
+      const row = cached.get(t.id, revision, v.id, v.current_revision) as string | undefined;
+      if (!row) {
+        report.notCached++;
+        continue;
+      }
+      report.compared++;
+      try {
+        if (!venueJson) throw new Error(`venue revision ${v.current_revision} is missing`);
+        const json = getRev.get(t.id, revision) as string | undefined;
+        if (!json) throw new Error("track revision is missing");
+        const track = upgradeStored(db, JSON.parse(json) as RcTrack);
+        const change = fitChange(JSON.parse(row) as CachedFit | FitResult[], computeFit(track, JSON.parse(venueJson) as RcVenue));
+        if (change) report.changed.push({ id: t.id, name: track.info.name, revision, ...change });
+      } catch (e) {
+        report.failed.push({ id: t.id, revision, error: (e as Error).message });
+      }
+    }
   }
   return out;
 }
@@ -218,11 +238,11 @@ export function changeLine(c: RebakeChange): string {
 
 /**
  * The fit part of the report (#160): one line per venue template, then one per layout revision that fits differently
- * ("fits 2 → 4 (new: ...)", "moved: ...", "as drawn errors 1 → 0").
+ * ("fits 2 → 4 (new: ...)", "moved: ...", "as drawn errors 1 → 0"), and one per cached answer that couldn't be recomputed.
  */
 export function fitLines(venues: VenueFits[]): string[] {
   if (!venues.length) return ["Fits: no venue templates."];
-  const lines = ["Fits (cached answers from the previous engine compared with this one):"];
+  const lines = ["Fits (each layout's cached answer, from the engine that answered it, compared with this engine's):"];
   for (const v of venues) {
     const notCached = v.notCached ? `, ${v.notCached} layout${v.notCached === 1 ? "" : "s"} not cached (no earlier answer to compare)` : "";
     lines.push(`  ${v.name} r${v.revision}: ${v.compared} compared, ${v.changed.length} changed${notCached}`);
@@ -233,10 +253,13 @@ export function fitLines(venues: VenueFits[]): string[] {
       const parts = [
         count + (gained.length ? ` (new: ${gained.join(", ")})` : "") + (lost.length ? ` (lost: ${lost.join(", ")})` : ""),
         ...(c.moved.length ? [`moved: ${c.moved.join(", ")}`] : []),
-        ...(c.asDrawnErrors && c.asDrawnErrors[0] !== c.asDrawnErrors[1] ? [`as drawn errors ${c.asDrawnErrors[0]} → ${c.asDrawnErrors[1]}`] : []),
+        ...(c.asDrawnErrors && (c.asDrawnErrors[0] !== c.asDrawnErrors[1] || c.asDrawnGained.length)
+          ? [`as drawn errors ${c.asDrawnErrors[0]} → ${c.asDrawnErrors[1]}${c.asDrawnGained.length ? ` (new: ${c.asDrawnGained.join(", ")})` : ""}`]
+          : []),
       ];
       lines.push(`    ${c.name} r${c.revision}: ${parts.join(", ")}`);
     }
+    for (const f of v.failed) lines.push(`    FIT FAILED ${f.id} r${f.revision}: ${f.error}`);
   }
   return lines;
 }

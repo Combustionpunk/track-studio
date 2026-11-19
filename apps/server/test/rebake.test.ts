@@ -210,6 +210,7 @@ describe("rebake: fit changes per venue template (#160)", () => {
         orientations: [["as designed", "mirrored"], ["as designed", "mirrored", "rotated 180", "mirrored, rotated 180"]],
         moved: ["as designed"],
         asDrawnErrors: [1, 0],
+        asDrawnGained: [],
       },
     ]);
     expect(fitLines(dry.fits).join("\n")).toContain("    Club A r1: fits 2 → 4 (new: rotated 180, mirrored, rotated 180), moved: as designed, as drawn errors 1 → 0");
@@ -232,6 +233,51 @@ describe("rebake: fit changes per venue template (#160)", () => {
     expect(hall.changed.map((c) => [c.orientations[0], c.moved, c.asDrawnErrors])).toEqual([[["as designed"], [], null]]);
   });
 
+  it("notices one as-drawn error swapped for another", async () => {
+    const { app, config } = await makeApp({ seeded: true });
+    // "Freeform example @ Sports hall B" in Club hall: four orientations, one as-drawn error
+    const FREEFORM = "46897d82-0114-460f-9a75-984ee97bca0e";
+    await app.inject({ method: "GET", url: `/api/tracks/${FREEFORM}/fit/${CLUB_HALL}` });
+    const row = () => app.db.prepare("SELECT results_json FROM fit_cache WHERE track_id = ?").pluck().get(FREEFORM) as string;
+    const now = JSON.parse(row());
+    expect(now.asDrawn.checks.filter((c: { level: string }) => c.level === "error")).toHaveLength(1);
+    const swapped = { ...now, asDrawn: { ...now.asDrawn, checks: now.asDrawn.checks.map((c: { code: string }) => ({ ...c, code: c.code === "obstacle" ? "outside-area" : "obstacle" })) } };
+    app.db.prepare("UPDATE fit_cache SET results_json = ? WHERE track_id = ?").run(JSON.stringify(swapped), FREEFORM);
+    const hall = rebakeAll(app.db, config.dataDir, { dryRun: true }).fits.find((v) => v.id === CLUB_HALL)!;
+    expect(hall.changed.map((c) => [c.asDrawnErrors, c.asDrawnGained])).toEqual([[[1, 1], [now.asDrawn.checks[0].code]]]);
+    expect(fitLines([hall])[2]).toMatch(/: fits 4, as drawn errors 1 → 1 \(new: (obstacle|outside-area)\)$/);
+  });
+
+  it("compares each layout's public revision only: an approved revision with a newer draft is compared as the approved one", async () => {
+    const { app, config } = await makeApp({ seeded: true });
+    await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}/fit/${CLUB_HALL}` }); // r1, approved and public
+    const stale = (rev: number) => app.db.prepare("INSERT INTO fit_cache (track_id, track_revision, venue_id, venue_revision, results_json) VALUES (?, ?, ?, 1, '[]')").run(CLUB_A, rev, CLUB_HALL);
+    // a newer draft revision of Club A, fitted (and cached) with a different answer: not what the library shows
+    const r1 = app.db.prepare("SELECT * FROM track_revisions WHERE track_id = ? AND revision = 1").get(CLUB_A) as Record<string, unknown>;
+    app.db.prepare(`INSERT INTO track_revisions (${Object.keys(r1).join(", ")}) VALUES (${Object.keys(r1).map((k) => "@" + k).join(", ")})`).run({ ...r1, revision: 2 });
+    app.db.prepare("UPDATE tracks SET current_revision = 2 WHERE id = ?").run(CLUB_A);
+    stale(2);
+    const hall = rebakeAll(app.db, config.dataDir, { dryRun: true }).fits.find((v) => v.id === CLUB_HALL)!;
+    expect([hall.compared, hall.notCached, hall.changed]).toEqual([1, 3, []]);
+
+    // once nothing is approved, the public revision is the current one, r2
+    app.db.prepare("UPDATE tracks SET approved_revision = NULL WHERE id = ?").run(CLUB_A);
+    const after = rebakeAll(app.db, config.dataDir, { dryRun: true }).fits.find((v) => v.id === CLUB_HALL)!;
+    expect(after.changed.map((c) => [c.revision, c.orientations[0].length])).toEqual([[2, 0]]);
+  });
+
+  it("reports a cached answer it can't recompute and carries on with the rebake", async () => {
+    const { app, config } = await makeApp({ seeded: true });
+    await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}/fit/${CLUB_HALL}` });
+    app.db.prepare("UPDATE fit_cache SET results_json = 'not json'").run();
+    const report = rebakeAll(app.db, config.dataDir);
+    const hall = report.fits.find((v) => v.id === CLUB_HALL)!;
+    expect(hall.failed.map((f) => [f.id, f.revision])).toEqual([[CLUB_A, 1]]);
+    expect(fitLines([hall])).toContain(`    FIT FAILED ${CLUB_A} r1: ${hall.failed[0].error}`);
+    expect(report.failed).toEqual([]);
+    expect(app.db.prepare("SELECT COUNT(*) FROM fit_cache").pluck().get()).toBe(0); // the rebake still cleared it
+  });
+
   it("ignores cache rows for a venue's older revisions, which nothing reads any more", async () => {
     const { app, config } = await makeApp({ seeded: true });
     await app.inject({ method: "GET", url: `/api/tracks/${CLUB_A}/fit/${CLUB_HALL}` });
@@ -241,11 +287,11 @@ describe("rebake: fit changes per venue template (#160)", () => {
 });
 
 describe("rebake fit lines", () => {
-  const venue: VenueFits = { id: "v", name: "Niagara centre", revision: 2, compared: 2, notCached: 1, changed: [] };
+  const venue: VenueFits = { id: "v", name: "Niagara centre", revision: 2, compared: 2, notCached: 1, changed: [], failed: [] };
 
   it("prints one line per venue template, saying what had no earlier answer", () => {
     expect(fitLines([venue])).toEqual([
-      "Fits (cached answers from the previous engine compared with this one):",
+      "Fits (each layout's cached answer, from the engine that answered it, compared with this engine's):",
       "  Niagara centre r2: 2 compared, 0 changed, 1 layout not cached (no earlier answer to compare)",
     ]);
     expect(fitLines([{ ...venue, notCached: 0 }])[1]).toBe("  Niagara centre r2: 2 compared, 0 changed");
@@ -253,7 +299,7 @@ describe("rebake fit lines", () => {
   });
 
   it("lists each layout that fits differently", () => {
-    const changed = { id: "t", name: "Test", revision: 3, orientations: [[], ["as designed", "mirrored"]] as [string[], string[]], moved: [], asDrawnErrors: [1, 1] as [number, number] };
+    const changed = { id: "t", name: "Test", revision: 3, orientations: [[], ["as designed", "mirrored"]] as [string[], string[]], moved: [], asDrawnErrors: [1, 1] as [number, number], asDrawnGained: [] };
     expect(fitLines([{ ...venue, changed: [changed] }])[2]).toBe("    Test r3: fits 0 → 2 (new: as designed, mirrored)");
     expect(fitLines([{ ...venue, changed: [{ ...changed, orientations: [["mirrored"], ["mirrored"]], moved: ["mirrored"] }] }])[2]).toBe("    Test r3: fits 1, moved: mirrored");
     expect(fitLines([{ ...venue, changed: [{ ...changed, orientations: [["mirrored"], []], asDrawnErrors: null }] }])[2]).toBe("    Test r3: fits 1 → 0 (lost: mirrored)");
