@@ -726,6 +726,15 @@ export function fitThumbUrl(trackId: string, revision: number, trackHash: string
   return `/p/${trackId}/${revision}/fit/${venueId}/${k}.png?v=${trackHash}.${venueRevision}`;
 }
 
+/** What the fit cache holds for a track revision in a venue revision: computed by the engine, never stored elsewhere. */
+export interface CachedFit {
+  results: FitResult[];
+  asDrawn: VenueCheck;
+}
+
+/** The engine's fit answer, as fitTrack caches it. */
+export const computeFit = (track: RcTrack, venue: RcVenue): CachedFit => ({ results: fits(track, venue), asDrawn: venueCheck(track, venue) });
+
 /** Fit search for one track revision (default: the public one) in a venue's current revision, cached. */
 export function fitTrack(db: DB, row: TrackRow, venueId: string, revision = publicRevision(row)): FitAnswer {
   const vrow = getVenueRow(db, venueId);
@@ -734,11 +743,11 @@ export function fitTrack(db: DB, row: TrackRow, venueId: string, revision = publ
     .prepare("SELECT results_json FROM fit_cache WHERE track_id = ? AND track_revision = ? AND venue_id = ? AND venue_revision = ?")
     .pluck()
     .get(...key) as string | undefined;
-  let answer = cached ? (JSON.parse(cached) as { results: FitResult[]; asDrawn: VenueCheck } | FitResult[]) : null;
+  let answer = cached ? (JSON.parse(cached) as CachedFit | FitResult[]) : null;
   if (!answer || Array.isArray(answer)) {
     // (a bare array is a cache row from before 1.7, without the venue checks)
     const track = getTrackDoc(db, row, revision), venue = getVenueDoc(db, venueId, vrow.current_revision);
-    answer = { results: fits(track, venue), asDrawn: venueCheck(track, venue) };
+    answer = computeFit(track, venue);
     db.prepare("INSERT OR REPLACE INTO fit_cache (track_id, track_revision, venue_id, venue_revision, results_json) VALUES (?, ?, ?, ?, ?)").run(...key, JSON.stringify(answer));
   }
   const { results, asDrawn } = answer;
