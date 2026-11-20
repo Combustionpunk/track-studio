@@ -17,7 +17,7 @@ if (clean !== window.location.search) window.history.replaceState(window.history
 
 const router = createBrowserRouter(routes);
 
-/** The member's theme, else Pit Lane (#135). A page has no club yet, so there is no club theme to fall back on. */
+/** The member's theme from the forum (#135, #141), else Pit Lane. A page has no club yet, so there is no club theme to fall back on. */
 function MemberTheme({ children }: { children: React.ReactNode }) {
   const { me } = useSession();
   return <ThemeProvider theme={chooseTheme(me?.theme, undefined)}>{children}</ThemeProvider>;

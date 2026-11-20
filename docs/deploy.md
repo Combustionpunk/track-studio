@@ -70,6 +70,7 @@ SPACES_ENDPOINT=https://<region>.digitaloceanspaces.com
 SPACES_BUCKET=rcmisfits-backups
 SPACES_KEY=<access key id>
 SPACES_SECRET=<access key secret>
+FORUM_THEME_API_KEY=<the forum key for members' themes, below>
 ```
 
 `SILENT_SIGNIN=off` (optional) turns off the silent forum sign-in if it misbehaves on deploy day; see
@@ -106,6 +107,31 @@ On forum.rcmisfits.org, Admin → Settings:
 - `allowed iframes`: add `https://tracks.rcmisfits.org/embed/` (for the embedded track viewer in posts).
 - Create the group `track-admins` (or whatever `ORGANISER_GROUP` says) and add the organisers. Forum admins are
   organisers anyway.
+
+### The key for members' themes (FORUM_THEME_API_KEY)
+
+Signed-in members see the colours they chose in the forum (Preferences › Interface: a palette for light and dark, the
+light/dark/auto mode, or Match my car). Track Studio's server reads them from the forum
+(`GET /des/members/:user_id/theme.json`, the event-system plugin's #457) with a narrowly scoped key; pages never call
+the forum and never see the key. Without the key everything works as before (the club's theme, then Pit Lane).
+
+Make the key on forum.rcmisfits.org: **Admin › API › New API key**:
+
+- Description: `Track Studio: members' themes`;
+- User level: **Single user**, and pick **an admin** (the route needs an admin; an all-users key or a non-admin won't work);
+- Scope: **Granular**, and tick only `discourse_event_system` › **`read_member_themes`**.
+
+Copy the key into `.env` as `FORUM_THEME_API_KEY=…` (it is shown once; never paste it anywhere else, and never commit
+it: this repo is public), then `docker compose up -d`. The log says which way it is:
+
+```sh
+docker compose logs track-studio | grep "members' own themes"
+# members' own themes: read from the forum (FORUM_THEME_API_KEY set)
+```
+
+A wrong key or scope shows as `the forum refused the theme key (403)` in the log the first time a member signs in;
+pages then show the club's theme or Pit Lane. Answers are kept 10 minutes per member and read afresh at every sign-in.
+To stop it, empty the variable and `docker compose up -d`; to replace the key, revoke the old one in Admin › API.
 
 Check: log in at https://tracks.rcmisfits.org (it should bounce through the forum and back), then paste a track link
 into a forum post and see the preview, and try "Copy forum embed" from a track page.

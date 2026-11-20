@@ -4,56 +4,160 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { contrast, themeIds, themes } from "@rcmisfits/brand";
+import { contrast, generateTheme, themeIds, themes } from "@rcmisfits/brand";
 import { PLAN_PALETTE } from "@track-studio/engine";
 import { describe, expect, it } from "vitest";
-import { applyTheme, chooseTheme, mix, planPalette, themeColours } from "../src/lib/theme.js";
+import { applyTheme, chooseTheme, GENERATED_STYLE_ID, GENERATED_THEME_ID, memberThemePick, mix, planPalette, shownTheme, themeColours } from "../src/lib/theme.js";
 import { buildScene, partColours, rostrumMeshes } from "../src/viewer3d/scene.js";
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-describe("chooseTheme", () => {
-  it("the member's own theme first, then the club's, then none (Pit Lane)", () => {
-    expect(chooseTheme("synthwave", "ice")).toBe("synthwave");
-    expect(chooseTheme(null, "ice")).toBe("ice");
-    expect(chooseTheme(undefined, undefined)).toBeUndefined();
+/** The forum's body for a member (#141, plugin #457). */
+const forum = (theme: string | null, mode = "auto", more: { dark_theme?: string | null; colours?: string[] } = {}) => ({
+  theme,
+  dark_theme: null,
+  mode,
+  colours: [],
+  brand_version: "0.5.0",
+  ...more,
+});
+const WB = { dark_theme: "works-blue" };
+
+describe("memberThemePick: the forum's answer (#141)", () => {
+  it("no answer, not that object, or theme: null: no choice of their own (the club's applies)", () => {
+    for (const v of [undefined, null, "synthwave", [], {}, forum(null), forum("")]) expect(memberThemePick(v)).toEqual({ chosen: false });
   });
 
-  it("skips a value that isn't one of the brand's themes (an older or newer list, 'auto', a typo)", () => {
-    expect(chooseTheme("auto", "garage")).toBe("garage");
-    expect(chooseTheme("no-such-theme", null)).toBeUndefined();
-    expect(chooseTheme("", "")).toBeUndefined();
-    expect(chooseTheme("__proto__", "toString")).toBeUndefined();
+  it("a brand palette held to light or dark; dark uses dark_theme", () => {
+    expect(memberThemePick(forum("works-blue-light", "light", WB))).toEqual({ chosen: true, choice: "works-blue-light" });
+    expect(memberThemePick(forum("works-blue-light", "dark", WB))).toEqual({ chosen: true, choice: "works-blue" });
+  });
+
+  it("auto follows the device between theme (light) and dark_theme (dark)", () => {
+    expect(memberThemePick(forum("works-blue-light", "auto", WB))).toEqual({ chosen: true, choice: { light: "works-blue-light", dark: "works-blue" } });
+    // no mode (an older body) is auto
+    expect(memberThemePick({ theme: "works-blue-light", dark_theme: "works-blue" })).toEqual({ chosen: true, choice: { light: "works-blue-light", dark: "works-blue" } });
+  });
+
+  it("dark_theme null: theme in both modes", () => {
+    expect(memberThemePick(forum("synthwave", "dark"))).toEqual({ chosen: true, choice: "synthwave" });
+    expect(memberThemePick(forum("synthwave", "light"))).toEqual({ chosen: true, choice: "synthwave" });
+    expect(memberThemePick(forum("synthwave", "auto"))).toEqual({ chosen: true, choice: "synthwave" });
+  });
+
+  it("an id Track Studio doesn't know is Pit Lane in that mode", () => {
+    expect(memberThemePick(forum("a-newer-palette", "light"))).toEqual({ chosen: true, choice: "pit-lane-light" });
+    expect(memberThemePick(forum("a-newer-palette", "dark"))).toEqual({ chosen: true, choice: "pit-lane" });
+    expect(memberThemePick(forum("synthwave-light", "auto", { dark_theme: "a-newer-palette" }))).toEqual({ chosen: true, choice: { light: "synthwave-light", dark: "pit-lane" } });
+    expect(memberThemePick(forum("a-newer-palette", "auto", { dark_theme: "garage" }))).toEqual({ chosen: true, choice: { light: "pit-lane-light", dark: "garage" } });
+    // both unknown under auto: Pit Lane by device
+    expect(memberThemePick(forum("__proto__", "auto"))).toEqual({ chosen: true, choice: undefined });
+  });
+
+  it("Match my car: the member's colours, held to the mode (auto follows the device)", () => {
+    const colours = ["#E6FF00", "#111111"];
+    expect(memberThemePick(forum("match-my-car", "dark", { colours }))).toEqual({ chosen: true, choice: { colours, mode: "dark" } });
+    expect(memberThemePick(forum("match-my-car", "light", { colours }))).toEqual({ chosen: true, choice: { colours, mode: "light" } });
+    expect(memberThemePick(forum("match-my-car", "auto", { colours }))).toEqual({ chosen: true, choice: { colours } });
+    // race colour keys are taken too; only the first three count
+    expect(memberThemePick(forum("match-my-car", "dark", { colours: ["black", "#ff0000", "#00ff00", "#0000ff"] }))).toEqual({
+      chosen: true,
+      choice: { colours: ["#111111", "#ff0000", "#00ff00"], mode: "dark" },
+    });
+    // no usable colours: Pit Lane in that mode
+    expect(memberThemePick(forum("match-my-car", "light", { colours: [] }))).toEqual({ chosen: true, choice: "pit-lane-light" });
+    expect(memberThemePick(forum("match-my-car", "dark", { colours: ["burnt-sienna"] }))).toEqual({ chosen: true, choice: "pit-lane" });
+  });
+});
+
+describe("chooseTheme", () => {
+  it("the member's own theme first, then the club's, then none (Pit Lane)", () => {
+    expect(chooseTheme(forum("synthwave", "dark"), "ice")).toBe("synthwave");
+    expect(chooseTheme(forum(null), "ice")).toBe("ice");
+    expect(chooseTheme(undefined, "ice")).toBe("ice");
+    expect(chooseTheme(undefined, undefined)).toBeUndefined();
+    expect(chooseTheme(forum(null), undefined)).toBeUndefined();
+  });
+
+  it("skips a club value that isn't one of the brand's themes", () => {
+    expect(chooseTheme(null, "no-such-theme")).toBeUndefined();
+    expect(chooseTheme(null, "")).toBeUndefined();
+    expect(chooseTheme(null, "toString")).toBeUndefined();
   });
 
   it("knows every brand theme", () => {
-    for (const id of themeIds) expect(chooseTheme(id, null)).toBe(id);
+    for (const id of themeIds) expect(chooseTheme(forum(id, "dark"), null)).toBe(id);
+  });
+});
+
+describe("shownTheme and themeColours", () => {
+  it("a built-in id is that theme, whatever the device", () => {
+    expect(shownTheme("synthwave", true)).toEqual({ kind: "builtin", id: "synthwave" });
+    expect(themeColours(shownTheme("ice", false))).toEqual(themes.ice.colours);
+    expect(themeColours(shownTheme("garage", true))).toEqual(themes.garage.colours);
+  });
+
+  it("a light and dark pair follows the device", () => {
+    const pair = { light: "works-blue-light", dark: "works-blue" };
+    expect(shownTheme(pair, true)).toEqual({ kind: "builtin", id: "works-blue-light" });
+    expect(shownTheme(pair, false)).toEqual({ kind: "builtin", id: "works-blue" });
+  });
+
+  it("Match my car is the brand package's own generator, held to its mode or following the device", () => {
+    const colours = ["#E6FF00", "#111111"];
+    expect(shownTheme({ colours, mode: "dark" }, true)).toEqual({ kind: "generated", colours: generateTheme(colours, "dark") });
+    expect(shownTheme({ colours, mode: "light" }, false)).toEqual({ kind: "generated", colours: generateTheme(colours, "light") });
+    expect(shownTheme({ colours }, true)).toEqual({ kind: "generated", colours: generateTheme(colours, "light") });
+    expect(shownTheme({ colours }, false)).toEqual({ kind: "generated", colours: generateTheme(colours, "dark") });
+    expect(themeColours(shownTheme({ colours, mode: "dark" }, true))).toEqual(generateTheme(colours, "dark"));
+  });
+
+  it("colours the generator refuses: Pit Lane by device", () => {
+    expect(shownTheme({ colours: ["not-a-colour"] }, false)).toEqual({ kind: "default" });
+  });
+
+  it("with no theme: Pit Lane, or Pit Lane light when the device asks for light", () => {
+    expect(shownTheme(undefined, true)).toEqual({ kind: "default" });
+    expect(themeColours(shownTheme(undefined, false))).toEqual(themes["pit-lane"].colours);
+    expect(themeColours(shownTheme(undefined, true), true)).toEqual(themes["pit-lane-light"].colours);
   });
 });
 
 describe("applyTheme", () => {
-  const el = () => ({ dataset: {} as Record<string, string | undefined> });
+  function fakeDoc() {
+    const styles = new Map<string, { id: string; textContent: string | null; remove(): void }>();
+    return {
+      styles,
+      documentElement: { dataset: {} as Record<string, string | undefined> },
+      getElementById: (id: string) => styles.get(id) ?? null,
+      createElement: () => {
+        const el = { id: "", textContent: null as string | null, remove: () => styles.delete(el.id) };
+        return el;
+      },
+      head: { appendChild: (el: { id: string; textContent: string | null; remove(): void }) => styles.set(el.id, el) },
+    };
+  }
 
-  it("sets data-theme for a theme, and removes it for none so the CSS default (and the device's light or dark) applies", () => {
-    const root = el();
-    applyTheme("ice", root);
-    expect(root.dataset.theme).toBe("ice");
-    applyTheme(undefined, root);
-    expect("theme" in root.dataset).toBe(false);
+  it("sets data-theme for a built-in theme, and removes it for none so the CSS default (and the device's light or dark) applies", () => {
+    const doc = fakeDoc();
+    applyTheme({ kind: "builtin", id: "ice" }, doc);
+    expect(doc.documentElement.dataset.theme).toBe("ice");
+    applyTheme({ kind: "default" }, doc);
+    expect("theme" in doc.documentElement.dataset).toBe(false);
   });
-});
 
-describe("themeColours", () => {
-  it("is the chosen theme's colours", () => {
-    expect(themeColours("synthwave", false)).toEqual(themes.synthwave.colours);
-    expect(themeColours("ice", false)).toEqual(themes.ice.colours);
-  });
-
-  it("with no theme: Pit Lane, or Pit Lane light when the device asks for light", () => {
-    expect(themeColours(undefined, false)).toEqual(themes["pit-lane"].colours);
-    expect(themeColours(undefined, true)).toEqual(themes["pit-lane-light"].colours);
-    // a chosen theme wins whatever the device asks for
-    expect(themeColours("garage", true)).toEqual(themes.garage.colours);
+  it("a generated theme goes in its own style element, under its own data-theme; taken out again after", () => {
+    const doc = fakeDoc();
+    const colours = generateTheme(["#E6FF00"], "dark");
+    applyTheme({ kind: "generated", colours }, doc);
+    expect(doc.documentElement.dataset.theme).toBe(GENERATED_THEME_ID);
+    const css = doc.getElementById(GENERATED_STYLE_ID)!.textContent!;
+    expect(css).toContain(`[data-theme="${GENERATED_THEME_ID}"]`);
+    expect(css).toContain(`--rm-accent: ${colours.accent}`);
+    expect(css).toContain("color-scheme: dark");
+    applyTheme({ kind: "builtin", id: "garage" }, doc);
+    expect(doc.getElementById(GENERATED_STYLE_ID)).toBeNull();
+    expect(doc.documentElement.dataset.theme).toBe("garage");
   });
 });
 
