@@ -10,6 +10,7 @@ import { ForumEvents } from "./forum-events.js";
 import { ForumReachable } from "./forum-reachable.js";
 import { ForumStats } from "./forum-stats.js";
 import { ForumVenues } from "./forum-venues.js";
+import { MemberThemes } from "./member-theme.js";
 import { previewFontFiles, SERVER_FONTS_DIR } from "./fonts.js";
 import { registerPreviews } from "./previews.js";
 import { registerRoutes } from "./routes.js";
@@ -27,6 +28,8 @@ declare module "fastify" {
     forumVenues: ForumVenues;
     /** is the forum up? asked before a silent sign-in or a sign-out sends a browser there (#132) */
     forumReachable: ForumReachable;
+    /** the signed-in members' own themes, read from the forum with FORUM_THEME_API_KEY (#141) */
+    memberThemes: MemberThemes;
   }
 }
 
@@ -64,6 +67,18 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   app.decorate("forumVenues", new ForumVenues({ forumUrl: config.forumUrl, fetch: opts.forumFetch, log: app.log }));
   const forumReachable = opts.forumReachable ?? new ForumReachable({ forumUrl: config.forumUrl, fetch: opts.forumFetch, log: app.log });
   app.decorate("forumReachable", forumReachable);
+  const memberThemes = new MemberThemes({
+    forumUrl: config.forumUrl,
+    apiKey: config.forumThemeApiKey,
+    fetch: opts.forumFetch,
+    print: (line) => app.log.warn(line),
+  });
+  app.decorate("memberThemes", memberThemes);
+  app.log.info(
+    memberThemes.enabled
+      ? "members' own themes: read from the forum (FORUM_THEME_API_KEY set)"
+      : "members' own themes: not read from the forum (FORUM_THEME_API_KEY not set); club theme, then Pit Lane",
+  );
   // Inter and Oswald for the PNG previews (DejaVu Sans if they're missing)
   if (previewFontFiles().length === 1) app.log.warn({ dir: SERVER_FONTS_DIR }, "preview fonts missing; using DejaVu Sans");
   backfillRevisions(db); // summary columns for revisions saved before migration 003
@@ -99,7 +114,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   app.addHook("onSend", async (req, reply) => {
     if (/^\/(api\/|healthz(\?|$))/.test(req.url)) reply.header("x-app-version", version());
   });
-  registerAuth(app, config, db, forumReachable);
+  registerAuth(app, config, db, forumReachable, memberThemes);
   registerRoutes(app, db, forumEvents, forumStats, app.forumVenues);
   registerPreviews(app, config, db, theme);
   await registerWeb(app, config, db, opts.web ?? { mode: "off", root: "", dist: "" });
