@@ -123,9 +123,11 @@ describe("the member's theme from the forum (#141)", () => {
     const sent: string[] = [];
     const get = async (url: string) => {
       const res = await app.inject({ method: "GET", url, headers: { cookie, accept: "text/html" } });
+      expect(res.statusCode, url).toBe(200);
       sent.push(res.body, JSON.stringify(res.headers));
     };
-    for (const url of ["/api/me", "/api/config", "/api/theme.json", "/", "/tracks"]) await get(url);
+    const track = (app.db.prepare("SELECT id FROM tracks LIMIT 1").get() as { id: string }).id;
+    for (const url of ["/api/me", "/api/config", "/api/theme.json", "/", `/t/${track}`, `/embed/${track}`]) await get(url);
     // and while the forum refuses the key (the error is logged)
     forum.status = 403;
     await login(app, BOB);
