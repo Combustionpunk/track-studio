@@ -38,6 +38,8 @@ describe("light palettes' accents", () => {
     expect(lightIds.length).toBeGreaterThanOrEqual(9);
   });
 
+  // The first two tie what the app shows to the package's own tokens (no copied hex); the third is what makes those
+  // tokens 0.5.0's: before 0.5.0 every light accent was 3.6 to 4.0:1 on `line`.
   describe.each(lightIds)("%s", (id) => {
     const token = tokens.themes[id]!.colours;
 
