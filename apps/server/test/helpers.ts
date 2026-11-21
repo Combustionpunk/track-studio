@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { afterEach } from "vitest";
-import { buildApp } from "../src/app.js";
+import { buildApp, type BuildOptions } from "../src/app.js";
 import { decodePayload, encodePayload, signPayload } from "../src/auth.js";
 import { ROOT_DIR, type Config } from "../src/config.js";
 import type { ForumReachable } from "../src/forum-reachable.js";
@@ -28,6 +28,7 @@ export function testConfig(over: Partial<Config> = {}): Config {
     devLogin: false,
     production: false,
     silentSignin: true,
+    forumThemeApiKey: "",
     ...over,
   };
 }
@@ -51,9 +52,9 @@ export const forumUp: typeof fetch = async (input) => {
 };
 
 /** A fresh app on an empty temp DATA_DIR (closed and deleted after each test). The forum is offline too unless a test passes `forumFetch`. */
-export async function makeApp(opts: { seeded?: boolean; config?: Partial<Config>; web?: WebOptions; themeFetch?: typeof fetch; forumFetch?: typeof fetch; forumReachable?: ForumReachable } = {}) {
+export async function makeApp(opts: { seeded?: boolean; config?: Partial<Config>; web?: WebOptions; themeFetch?: typeof fetch; forumFetch?: typeof fetch; forumReachable?: ForumReachable; logger?: BuildOptions["logger"] } = {}) {
   const config = testConfig(opts.config);
-  const app = await buildApp(config, { web: opts.web, themeFetch: opts.themeFetch ?? offline, forumFetch: opts.forumFetch ?? offline, forumReachable: opts.forumReachable });
+  const app = await buildApp(config, { logger: opts.logger, web: opts.web, themeFetch: opts.themeFetch ?? offline, forumFetch: opts.forumFetch ?? offline, forumReachable: opts.forumReachable });
   open.push({ app, dir: config.dataDir });
   if (opts.seeded) seed(app.db, config, join(ROOT_DIR, "reference"), () => {});
   return { app, config };

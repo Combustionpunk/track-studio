@@ -5,6 +5,7 @@ import type { Config } from "./config.js";
 import type { DB } from "./db.js";
 import { badRequest, forbidden, HttpError, notFound, unauthorized } from "./errors.js";
 import type { ForumReachable } from "./forum-reachable.js";
+import type { MemberThemes } from "./member-theme.js";
 
 export const SESSION_COOKIE = "ts_session";
 export const SESSION_DAYS = 30;
@@ -157,7 +158,7 @@ export function requireOrganiser(req: FastifyRequest): User {
 }
 
 // ------------------------------------------------------------------ plugin
-export function registerAuth(app: FastifyInstance, config: Config, db: DB, forum: ForumReachable): void {
+export function registerAuth(app: FastifyInstance, config: Config, db: DB, forum: ForumReachable, memberThemes: MemberThemes): void {
   const secure = config.baseUrl.startsWith("https:");
 
   function startSession(reply: FastifyReply, userId: number) {
@@ -295,6 +296,8 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB, forum
       admin: p.get("admin") === "true",
       moderator: p.get("moderator") === "true",
     });
+    // their theme, read afresh at every sign-in (#141); not awaited, so the redirect isn't held up: the page's /api/me waits for it
+    void memberThemes.refresh(id);
     startSession(reply, id);
     checkedCookie(reply);
     return back(returnTo);
@@ -315,8 +318,10 @@ export function registerAuth(app: FastifyInstance, config: Config, db: DB, forum
   });
 
   app.get("/api/me", async (req, reply) => {
-    // literally `null` when logged out
-    return reply.type("application/json").send(JSON.stringify(req.user ? publicUser(req.user) : null));
+    // literally `null` when logged out; with the member's own theme from the forum when there is one (#141)
+    if (!req.user) return reply.type("application/json").send("null");
+    const theme = await memberThemes.get(req.user.id);
+    return reply.type("application/json").send(JSON.stringify({ ...publicUser(req.user), ...(theme ? { theme } : {}) }));
   });
 
   if (config.devLogin) {

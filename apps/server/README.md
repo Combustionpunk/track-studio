@@ -33,6 +33,7 @@ Production (tracks.rcmisfits.org: `docker-compose.prod.yml` with Caddy, nightly 
 | `DISCOURSE_CONNECT_SECRET` | same value as the forum's provider secret for this host (optional only with `DEV_LOGIN=1`) |
 | `SESSION_SECRET` | ≥ 32 chars, signs the session cookie (`openssl rand -hex 32`); changing it logs everyone out |
 | `SILENT_SIGNIN` | optional; `off` turns off the silent forum sign-in (#132, below). On by default |
+| `FORUM_THEME_API_KEY` | optional; the forum key that reads signed-in members' own themes (#141; making it: docs/deploy.md). Empty: club theme, then Pit Lane. Never logged or sent to a page |
 | `DATA_DIR` | SQLite file + `previews/` cache; relative paths are from the repo root |
 | `PORT` (3000), `HOST` (0.0.0.0), `ORGANISER_GROUP` (track-admins), `LOG_LEVEL` (info) | optional |
 | `SPACES_ENDPOINT`, `SPACES_BUCKET`, `SPACES_KEY`, `SPACES_SECRET` (`SPACES_REGION`, `BACKUP_PREFIX`, `BACKUP_KEEP`) | backups only (docs/deploy.md) |
