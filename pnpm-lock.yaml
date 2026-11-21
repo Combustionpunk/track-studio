@@ -182,8 +182,8 @@ importers:
         specifier: ^10.1.6
         version: 10.1.6
       '@rcmisfits/brand':
-        specifier: github:Combustionpunk/brand#v0.2.0
-        version: https://codeload.github.com/Combustionpunk/brand/tar.gz/f0be95abf45e72ed7efd9a09e37cf9596164324f
+        specifier: github:Combustionpunk/brand#v0.5.0
+        version: https://codeload.github.com/Combustionpunk/brand/tar.gz/6efbe5e44ee05b2838806258af3ba7cdaabaa164
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -228,8 +228,8 @@ importers:
   apps/web:
     dependencies:
       '@rcmisfits/brand':
-        specifier: github:Combustionpunk/brand#v0.2.0
-        version: https://codeload.github.com/Combustionpunk/brand/tar.gz/f0be95abf45e72ed7efd9a09e37cf9596164324f
+        specifier: github:Combustionpunk/brand#v0.5.0
+        version: https://codeload.github.com/Combustionpunk/brand/tar.gz/6efbe5e44ee05b2838806258af3ba7cdaabaa164
       '@track-studio/engine':
         specifier: workspace:*
         version: link:../../packages/engine
@@ -521,9 +521,9 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  '@rcmisfits/brand@https://codeload.github.com/Combustionpunk/brand/tar.gz/f0be95abf45e72ed7efd9a09e37cf9596164324f':
-    resolution: {gitHosted: true, integrity: sha512-KoOIAfsNY0U8x1k0RrNzeyUwVlYYskdE/gYpVBxGUiYBRljV2uXokn6G9WwVm/peWOMnVkNKEd6w0dYLWNyjSQ==, tarball: https://codeload.github.com/Combustionpunk/brand/tar.gz/f0be95abf45e72ed7efd9a09e37cf9596164324f}
-    version: 0.2.0
+  '@rcmisfits/brand@https://codeload.github.com/Combustionpunk/brand/tar.gz/6efbe5e44ee05b2838806258af3ba7cdaabaa164':
+    resolution: {gitHosted: true, integrity: sha512-zG9j+q8E62MCzftvcmxV2gWTeiaZVnhW7jfSlGi+6I/7lbdhm/TdTADvhudwLyhaQJhSPyBl7cDXQqsUCjcbuA==, tarball: https://codeload.github.com/Combustionpunk/brand/tar.gz/6efbe5e44ee05b2838806258af3ba7cdaabaa164}
+    version: 0.5.0
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
     resolution: {integrity: sha512-FrJibrAk6v29eabIPgcTUMPXiEz8ssrAk7TXxsiZzww9UTQ1Z5KAbFJs+Z0Ez+VZTYgnE5IQJqBcoSiMebtPHA==}
@@ -1603,7 +1603,7 @@ snapshots:
     dependencies:
       playwright: 1.64.1
 
-  '@rcmisfits/brand@https://codeload.github.com/Combustionpunk/brand/tar.gz/f0be95abf45e72ed7efd9a09e37cf9596164324f': {}
+  '@rcmisfits/brand@https://codeload.github.com/Combustionpunk/brand/tar.gz/6efbe5e44ee05b2838806258af3ba7cdaabaa164': {}
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
     optional: true

@@ -685,7 +685,7 @@ describe("track page", () => {
   });
 });
 
-// the shared RC Misfits top bar (#149): <rm-header site="tracks"> from brand v0.2.0, and Track Studio's own pages under it
+// the shared RC Misfits top bar (#149): <rm-header site="tracks"> from the brand package (v0.2.0 on, unchanged in 0.5.0), and Track Studio's own pages under it
 describe("header", () => {
   const bar = (h: string) => h.match(/<rm-header[^>]*>/)?.[0] ?? "";
   const attr = (h: string, name: string) => bar(h).match(new RegExp(` ${name}="([^"]*)"`))?.[1];

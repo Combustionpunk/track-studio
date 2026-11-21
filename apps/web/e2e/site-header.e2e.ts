@@ -1,4 +1,4 @@
-// The shared RC Misfits top bar (#149): <rm-header site="tracks"> from brand v0.2.0 on every page with the site's chrome,
+// The shared RC Misfits top bar (#149): <rm-header site="tracks"> from the brand package (v0.2.0 on) on every page with the site's chrome,
 // Track Studio's own pages in a bar under it. Signed in: the username and Sign out, which POSTs /auth/logout (never a GET
 // link); signed out: Sign in to the forum. Forum, Meetings and Timing come from the server's config. On a phone the
 // bar's menu and the designer's sheets take turns, so their layers never overlap; the designer keeps Save and ⋯, and with
