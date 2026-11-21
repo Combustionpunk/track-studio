@@ -180,6 +180,15 @@ export interface FitAnswer {
   asDrawn: VenueCheck;
 }
 
+/** The forum's member theme (plugin #457): see memberThemePick in lib/theme.tsx. */
+export interface MemberThemeJson {
+  theme: string | null;
+  dark_theme?: string | null;
+  mode?: string;
+  colours?: string[] | null;
+  brand_version?: string;
+}
+
 export interface Me {
   id: number;
   username: string;
@@ -188,8 +197,8 @@ export interface Me {
   organiser: boolean;
   admin: boolean;
   moderator: boolean;
-  /** the member's theme from the forum (a brand theme id), once the forum sends it (discourse-event-system #388) */
-  theme?: string | null;
+  /** the member's own theme as the forum sends it, read by our server (#141); none: the club's theme, then Pit Lane. Read with memberThemePick */
+  theme?: MemberThemeJson;
 }
 
 export interface ServerConfig {

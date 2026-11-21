@@ -23,6 +23,8 @@ export interface Config {
   production: boolean;
   /** silent forum sign-in on a page visit (#132); SILENT_SIGNIN=off is the kill switch */
   silentSignin: boolean;
+  /** the forum key that reads members' themes (#141): an admin's single-user key, scope read_member_themes only. "" = not read. Never logged, never sent to a page */
+  forumThemeApiKey: string;
 }
 
 export class ConfigError extends Error {}
@@ -80,5 +82,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     devLogin,
     production,
     silentSignin,
+    forumThemeApiKey: env.FORUM_THEME_API_KEY?.trim() ?? "",
   };
 }
