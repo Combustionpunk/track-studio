@@ -28,7 +28,8 @@ export type CheckCode =
   | "marshal-on-track" // 1.11 (#151): a cone in a lane or on a pipe (error)
   | "marshal-number-repeated" // 1.11: two or more cones share a number (warning)
   | "marshal-number-gap" // 1.11: a number missing from 1 up to the highest (warning)
-  | "marshal-far"; // 1.11: a cone more than MARSHAL_REACH from every lane edge (info)
+  | "marshal-far" // 1.11: a cone more than MARSHAL_REACH from every lane edge (info)
+  | "timing-loop"; // 1.13 (#173): a venue check, the start/finish isn't over the venue's timing loop (warning)
 
 /** [x, z] in metres */
 export type Point2 = [number, number];

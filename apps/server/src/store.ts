@@ -107,8 +107,6 @@ export function venueSummary(r: VenueListRow) {
   };
 }
 
-export const venuePermissions = (user: User | null) => ({ edit: !!user?.organiser });
-
 export function getVenueRow(db: DB, id: string): VenueListRow {
   const r = db.prepare(`${VENUE_SELECT} WHERE v.id = ?`).get(id) as VenueListRow | undefined;
   if (!r) throw notFound("Venue");

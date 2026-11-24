@@ -12,7 +12,7 @@ const code = (v: RcVenue) => timingLoopCheck(clubA, v)?.message ?? null;
 describe("timing loop", () => {
   it("no loop, or no built start line: no check", () => {
     expect(code(hall())).toBeNull();
-    expect(timingLoopCheck({ design: clubA.design }, loop())).toBeNull();
+    expect(timingLoopCheck({}, loop())).toBeNull();
   });
   it("start/finish over the loop, its way: no check", () => {
     expect(code(loop())).toBeNull();
