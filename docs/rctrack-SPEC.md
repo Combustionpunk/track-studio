@@ -242,7 +242,7 @@ The hall: `{format: "rcvenue", version: 1, id, revision, info: {name, venue: {id
 surface?, area: {length, width}, rostrum: {side, offset}, timingLoop?: {x, z, heading, length}, obstacles: [...]}`. `area` is the usable track area in metres, origin at
 its centre; `rostrum` stands 1.5 m outside the middle of its `side` (north/south/east/west), moved `offset` metres along
 it, eyes 2.8 m up; `obstacles` are fixed items inside the area: `{type: "circle", x, z, radius, label}` or `{type: "rect",
-x, z, length, width, rotation?, label}`, either with an optional `kind` *(rcvenue 1.2)*. Created by a club organiser in Track Studio. `info.venue` links the template to
+x, z, length, width, rotation?, label}`, either with an optional `kind` *(rcvenue 1.2)*. Created and edited in Track Studio by its organisers and *(1.13)* by the committee of the club that runs the forum venue. `info.venue` links the template to
 one forum venue (`id`, `name`) and one of its tracks (`trackId`, `trackName`), since a forum venue can have several (an
 indoor carpet track and an outdoor tarmac one); at most one template per forum track.
 

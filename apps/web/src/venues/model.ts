@@ -135,11 +135,14 @@ export const obstacleName = obstacleLabel;
 /** rcvenue 1.2: what the kind picker offers; "" is a plain obstacle */
 export const KIND_LABEL: Record<"" | ObstacleKind, string> = { "": "Obstacle", pits: "Pit area", rostrum: "Rostrum" };
 
-/** The obstacle as another kind (or a plain obstacle): the label follows when it was the old kind's default. */
+/**
+ * The obstacle as another kind (or a plain obstacle). A label of its own stays; the old kind's default name follows
+ * the new kind (a zone's name), or goes (a plain obstacle, which is drawn unlabelled until it is given one).
+ */
 export function setKind(o: Obstacle, kind: ObstacleKind | undefined): Obstacle {
-  const { kind: _old, ...rest } = o;
-  const next = (kind ? { ...rest, kind } : rest) as Obstacle;
-  return o.label && o.label !== obstacleLabel({ ...o, label: undefined }) ? next : { ...next, label: obstacleLabel({ ...next, label: undefined }) };
+  const { kind: _old, label, ...rest } = o;
+  const own = !!label && label !== obstacleLabel({ ...o, label: undefined });
+  return { ...rest, ...(kind ? { kind } : {}), ...(own ? { label } : kind ? { label: obstacleLabel({ ...rest, kind } as Obstacle) } : {}) } as Obstacle;
 }
 
 /** rcvenue 1.2: a pit area or a rostrum zone, a rectangle in the middle to drag into place. */

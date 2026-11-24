@@ -39,7 +39,7 @@ describe("venue model, rcvenue 1.2", () => {
   it("changing what a zone is renames it only when it had its kind's default name", () => {
     const [pits] = addZone(hall(), "pits").obstacles;
     expect(obstacleName(setKind(pits, "rostrum"))).toBe("Rostrum");
-    expect(obstacleName(setKind(pits, undefined))).toBe("Keep-out area");
+    expect(setKind(pits, undefined).label).toBeUndefined(); // a plain obstacle is unlabelled until given one
     expect(setKind(pits, undefined).kind).toBeUndefined();
     expect(obstacleName(setKind({ ...pits, label: "Pit tables" }, "rostrum"))).toBe("Pit tables");
   });

@@ -92,6 +92,21 @@ describe("a club's committee and its venue templates", () => {
     expect(await clubs(org)).toEqual([]);
   });
 
+  it("matches club groups and short codes whatever their case", async () => {
+    const { committeeClubs } = await import("../src/auth.js");
+    const { parseManagingClub } = await import("../src/forum-venues.js");
+    expect(committeeClubs(["SOAR-Com", "brc-off", "brc-com", "x-mem", "track-admins", "-com"])).toEqual(["brc", "soar"]);
+    expect(parseManagingClub({ venue: { managing_organisation: { short_code: " SOAR " } } })).toBe("soar");
+    expect(parseManagingClub({ venue: { managing_organisation: null } })).toBeNull();
+  });
+
+  it("after the forum fails, waits before asking about that venue again", async () => {
+    const { app, f, carl } = await setup({ down: true });
+    expect((await req(app, "POST", "/api/venues", carl, template(12, 31))).statusCode).toBe(503);
+    expect((await req(app, "POST", "/api/venues", carl, template(12, 31))).statusCode).toBe(503);
+    expect(f.calls.filter((u) => u === `${FORUM_URL}/des/venues/12`)).toHaveLength(1);
+  });
+
   it("asks the forum once per venue in ten minutes", async () => {
     const { app, f, carl } = await setup();
     await req(app, "POST", "/api/venues", carl, template(12, 31));

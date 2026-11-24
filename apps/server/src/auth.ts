@@ -51,7 +51,7 @@ const CLUB_COMMITTEE_GROUP = /^([a-z0-9]+(?:-[a-z0-9]+)*)-(?:com|off)$/;
 
 /** The clubs whose committee (officers included) these forum groups put the member on, sorted, no repeats. */
 export function committeeClubs(groups: string[]): string[] {
-  return [...new Set(groups.flatMap((g) => CLUB_COMMITTEE_GROUP.exec(g)?.[1] ?? []))].sort();
+  return [...new Set(groups.flatMap((g) => CLUB_COMMITTEE_GROUP.exec(g.toLowerCase())?.[1] ?? []))].sort();
 }
 
 declare module "fastify" {

@@ -152,16 +152,24 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
       } else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current?.kind === "obstacle" && !(e.target instanceof Element && e.target.closest("button, a"))) {
         e.preventDefault();
         deleteObstacle(selRef.current.i);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current?.kind === "loop" && !(e.target instanceof Element && e.target.closest("button, a"))) {
+        e.preventDefault();
+        update((d) => {
+          const { timingLoop: _l, ...rest } = d;
+          return rest;
+        });
+        setSel(null);
       } else if (e.key === "Escape") setSel(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hist, deleteObstacle]);
+  }, [hist, deleteObstacle, update]);
 
   // a selection can point past the end after undo
   useEffect(() => {
     if (sel?.kind === "obstacle" && sel.i >= draft.obstacles.length) setSel(null);
-  }, [sel, draft.obstacles.length]);
+    if (sel?.kind === "loop" && !draft.timingLoop) setSel(null);
+  }, [sel, draft.obstacles.length, draft.timingLoop]);
 
   const save = async () => {
     if (blocked || saving) return;
