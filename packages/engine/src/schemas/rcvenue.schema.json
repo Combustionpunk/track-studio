@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forum.rcmisfits.org/schemas/rcvenue-v1.json",
-  "title": "RC venue template (rcvenue v1.1)",
+  "title": "RC venue template (rcvenue v1.2)",
   "type": "object",
   "required": ["format", "version", "id", "revision", "info", "area"],
   "properties": {
@@ -28,6 +28,10 @@
         "notes": { "type": "string" }
       }
     },
+    "surface": {
+      "enum": ["carpet", "astro", "dirt", "clay", "tarmac", "mixed"],
+      "description": "rcvenue 1.2: what the track is laid on"
+    },
     "area": {
       "type": "object",
       "description": "Usable track area in metres. Origin at its centre, +x east (right on the plan), +z north (up on the plan).",
@@ -44,6 +48,17 @@
         "offset": { "type": "number", "description": "Metres along that side from its centre" }
       }
     },
+    "timingLoop": {
+      "type": "object",
+      "description": "rcvenue 1.2: the timing loop the start/finish line must sit over. x, z: its centre; heading: the direction of travel over it (degrees, 0 = +x, counter-clockwise); length: its span across the track (m).",
+      "required": ["x", "z", "heading", "length"],
+      "properties": {
+        "x": { "type": "number" },
+        "z": { "type": "number" },
+        "heading": { "type": "number" },
+        "length": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
     "obstacles": {
       "type": "array",
       "items": {
@@ -51,6 +66,7 @@
         "required": ["type", "x", "z"],
         "properties": {
           "type": { "enum": ["circle", "rect"] },
+          "kind": { "enum": ["pits", "rostrum"], "description": "rcvenue 1.2: the pit area or the rostrum, a fixed zone; absent: an obstacle. All block a layout alike." },
           "x": { "type": "number" },
           "z": { "type": "number" },
           "radius": { "type": "number", "exclusiveMinimum": 0 },

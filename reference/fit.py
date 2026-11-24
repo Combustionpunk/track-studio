@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Reference "will it fit my venue?" search (rctrack v1.7; adapt moves marshal points, v1.11).
+Reference "will it fit my venue?" search (rctrack v1.7; adapt moves marshal points, v1.11; the timing loop, v1.13).
 For a track and a venue template, tries 8 orientations (as designed, mirrored, rotated 90/180/270, and
 mirrored + rotated), slides the track's footprint around the venue's area on a 0.1 m grid, and keeps
 positions where it stays inside the area and clear of every obstacle. Can write the adapted track.
-check() tests a layout where it is drawn against a venue: the venue checks (outside-area, obstacle) and the rostrum.
+check() tests a layout where it is drawn against a venue: the venue checks (outside-area, obstacle, timing-loop) and the rostrum.
+Since 1.13 an obstacle may be the pit area or the rostrum (`kind`): to the fit and the checks it is an obstacle like any other.
 
 usage: python3 fit.py track.rctrack.json venue.rcvenue.json [adapted-out.rctrack.json]
 """
@@ -64,9 +65,29 @@ def rostrum(venue):
     pos = {"north": (off, W / 2 + s), "south": (off, -W / 2 - s), "east": (L / 2 + s, off), "west": (-L / 2 - s, off)}[side]
     return {"side": side, "x": bake.r3(pos[0]), "z": bake.r3(pos[1]), "eyeHeight": EYE_HEIGHT}
 
+LOOP_ALONG = 0.5   # (1.13) the start line counts as over the timing loop this far (m) before or after it...
+LOOP_ANGLE = 30    # ...crossing it no more than this far (degrees) off the loop's direction
+
+def timing_loop(track, venue):
+    """(1.13) The `timing-loop` warning, or None: the venue has a timing loop and the layout's start/finish line
+    (built.startLine) isn't over it, square to it and going its way. Over it: the start line's centre is within
+    LOOP_ALONG of the loop along the loop's direction and within the loop's span across it."""
+    loop = venue.get("timingLoop"); start = (track.get("built") or {}).get("startLine")
+    if not loop or not start: return None
+    a = math.radians(loop["heading"]); dx, dz = start["x"] - loop["x"], start["z"] - loop["z"]
+    along = dx * math.cos(a) + dz * math.sin(a); across = -dx * math.sin(a) + dz * math.cos(a)
+    turn = abs((start["heading"] - loop["heading"] + 180) % 360 - 180)      # 0 = the loop's way, 180 = against it
+    over = abs(along) <= LOOP_ALONG and abs(across) <= loop["length"] / 2
+    if over and turn <= LOOP_ANGLE: return None
+    if not over: msg = "Start/finish isn't over the timing loop"
+    elif turn >= 180 - LOOP_ANGLE: msg = "Start/finish runs the wrong way over the timing loop"
+    else: msg = "Start/finish crosses the timing loop at an angle"
+    return {"level": "warning", "code": "timing-loop", "x": bake.r3(loop["x"]), "z": bake.r3(loop["z"]), "message": msg}
+
 def check(track, venue):
     """The layout where it is drawn (venue coordinates) against the venue: {checks, rostrum}. Checks: the lanes go
-    outside the venue's area (`outside-area`), the lanes + pipe thickness overlap a fixed obstacle (`obstacle`)."""
+    outside the venue's area (`outside-area`), the lanes + pipe thickness overlap a fixed obstacle, the pit area or the
+    rostrum (`obstacle`), the start/finish isn't over the venue's timing loop (`timing-loop`, 1.13)."""
     pts = track["design"]["points"]; L, W = venue["area"]["length"], venue["area"]["width"]
     line, corners = bake.racing_line(pts, track["design"].get("laneWidth", 2.0))
     checks = []
@@ -84,6 +105,8 @@ def check(track, venue):
             r, c = np.argwhere(hit)[0]
             checks.append({"level": "error", "code": "obstacle", "x": bake.r3(origin[0] + (c + 0.5) * bake.FOOT_CELL),
                            "z": bake.r3(origin[1] + (r + 0.5) * bake.FOOT_CELL), "message": "Track overlaps a fixed obstacle"})
+    loop = timing_loop(track, venue)
+    if loop: checks.append(loop)
     return {"checks": checks, "rostrum": rostrum(venue)}
 
 def adapt(track, venue, fit):
@@ -98,6 +121,7 @@ def adapt(track, venue, fit):
     t["area"] = dict(venue["area"])
     t["info"]["drawnFor"] = {"venueTemplate": venue["id"], "name": venue["info"]["name"]}
     t["info"]["venue"] = venue["info"].get("venue")
+    if venue.get("surface"): t["info"]["surface"] = venue["surface"]   # 1.13: the venue's surface, when the template names one
     t["info"]["derivedFrom"] = {"id": track["id"], "revision": track["revision"], "orientation": fit["orientation"]}
     t["info"]["name"] = f'{track["info"]["name"]} @ {venue["info"]["name"]}'
     t["info"]["status"] = "draft"

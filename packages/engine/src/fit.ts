@@ -1,6 +1,6 @@
 // "Will it fit my venue?" search, the venue checks and adapt. A port of reference/fit.py. Pure: no DOM, no Node APIs.
 import { bake, borders, FOOT_CELL, laneMask, obstacleMask, racingLine, rostrumEye, upgradeTrack } from "./bake.js";
-import { pyRound, pyRoundInt, r3, radians } from "./num.js";
+import { pyMod, pyRound, pyRoundInt, r3, radians } from "./num.js";
 import type { PlanScene } from "./plan.js";
 import type { BuiltRostrum, Built, Check, FitResult, ForumVenueRef, Point2, RcTrack, RcVenue, VenueCheck, VenueRef } from "./types.js";
 
@@ -95,12 +95,39 @@ export function venueRostrumOf(venue: Pick<RcVenue, "area" | "rostrum">): BuiltR
   return rostrumEye(venue.area, venue.rostrum?.side ?? "south", venue.rostrum?.offset ?? 0.0);
 }
 
+/** (1.13) The start line counts as over the timing loop this far (m) before or after it... */
+export const LOOP_ALONG = 0.5;
+/** ...crossing it no more than this far (degrees) off the loop's direction. */
+export const LOOP_ANGLE = 30;
+
+/**
+ * (1.13) The `timing-loop` warning, or null: the venue has a timing loop and the layout's start/finish line
+ * (`built.startLine`) isn't over it, square to it and going its way. Over it: the start line's centre is within
+ * LOOP_ALONG of the loop along the loop's direction, and within the loop's span across it. No built: no check.
+ */
+export function timingLoopCheck(track: { built?: Pick<Built, "startLine"> }, venue: Pick<RcVenue, "timingLoop">): Check | null {
+  const loop = venue.timingLoop, start = track.built?.startLine;
+  if (!loop || !start) return null;
+  const a = radians(loop.heading), dx = start.x - loop.x, dz = start.z - loop.z;
+  const along = dx * Math.cos(a) + dz * Math.sin(a), across = -dx * Math.sin(a) + dz * Math.cos(a);
+  const turn = Math.abs(pyMod(start.heading - loop.heading + 180, 360) - 180); // 0 = the loop's way, 180 = against it
+  const over = Math.abs(along) <= LOOP_ALONG && Math.abs(across) <= loop.length / 2;
+  if (over && turn <= LOOP_ANGLE) return null;
+  const message = !over
+    ? "Start/finish isn't over the timing loop"
+    : turn >= 180 - LOOP_ANGLE
+      ? "Start/finish runs the wrong way over the timing loop"
+      : "Start/finish crosses the timing loop at an angle";
+  return { level: "warning", code: "timing-loop", x: r3(loop.x), z: r3(loop.z), message };
+}
+
 /**
  * The layout where it is drawn (venue coordinates) against the venue (v1.7: these were built.checks): the lanes going
- * outside the venue's area (`outside-area`), the lanes + pipe thickness over a fixed obstacle (`obstacle`), and where
- * the venue's rostrum stands. Reads `design` (it's the designer's and the fit's), like fits().
+ * outside the venue's area (`outside-area`), the lanes + pipe thickness over a fixed obstacle, the pit area or the
+ * rostrum (`obstacle`), the start/finish away from the venue's timing loop (`timing-loop`, 1.13; needs `built`), and
+ * where the venue's rostrum stands. Reads `design` (it's the designer's and the fit's), like fits().
  */
-export function venueCheck(track: Pick<RcTrack, "design">, venue: RcVenue): VenueCheck {
+export function venueCheck(track: Pick<RcTrack, "design"> & { built?: Pick<Built, "startLine"> }, venue: RcVenue): VenueCheck {
   const pts = track.design.points;
   const L = venue.area.length, W = venue.area.width;
   const { line, corners } = racingLine(pts, track.design.laneWidth ?? 2.0);
@@ -123,6 +150,8 @@ export function venueCheck(track: Pick<RcTrack, "design">, venue: RcVenue): Venu
       checks.push({ level: "error", code: "obstacle", x: r3(fp.origin[0] + (col + 0.5) * FOOT_CELL), z: r3(fp.origin[1] + (row + 0.5) * FOOT_CELL), message: "Track overlaps a fixed obstacle" });
     }
   }
+  const loop = timingLoopCheck(track, venue);
+  if (loop) checks.push(loop);
   return { checks, rostrum: venueRostrumOf(venue) };
 }
 
@@ -141,7 +170,8 @@ export function trackVenueRef(v: ForumVenueRef | null | undefined): VenueRef | n
 
 /**
  * An adapted copy of the track for the venue, in the chosen fit's orientation and position, re-baked. v1.7: nothing of
- * the venue is copied in but its area (as the drawing area) and the "drawn for" label — no obstacles, no rostrum.
+ * the venue is copied in but its area (as the drawing area), the "drawn for" label and (1.13) its surface — no
+ * obstacles, no rostrum, no timing loop.
  * Marshal points (1.11) move with the layout. Cones are never part of the fit search or the venue checks.
  */
 export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: AdaptOptions = {}): RcTrack {
@@ -160,6 +190,7 @@ export function adapt(track: RcTrack, venue: RcVenue, fit: FitResult, opts: Adap
   t.area = { ...venue.area };
   t.info.drawnFor = { venueTemplate: venue.id, name: venue.info.name };
   t.info.venue = trackVenueRef(venue.info.venue);
+  if (venue.surface) t.info.surface = venue.surface; // 1.13: the venue's surface, when the template names one
   t.info.derivedFrom = { id: track.id, revision: track.revision, orientation: fit.orientation };
   t.info.name = `${track.info.name} @ ${venue.info.name}`;
   t.info.status = "draft";

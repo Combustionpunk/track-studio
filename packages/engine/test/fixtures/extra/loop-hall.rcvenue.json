@@ -1,0 +1,52 @@
+{
+ "format": "rcvenue",
+ "version": 1,
+ "id": "venue-x3",
+ "revision": 1,
+ "info": {
+  "name": "Hall with a timing loop",
+  "venue": {
+   "id": 98,
+   "name": "Loop hall",
+   "trackId": 981,
+   "trackName": "Carpet"
+  },
+  "notes": "fixture"
+ },
+ "surface": "carpet",
+ "area": {
+  "length": 24,
+  "width": 14
+ },
+ "rostrum": {
+  "side": "west",
+  "offset": 0
+ },
+ "timingLoop": {
+  "x": -6.0,
+  "z": -4.9,
+  "heading": 0,
+  "length": 3.0
+ },
+ "obstacles": [
+  {
+   "type": "rect",
+   "kind": "pits",
+   "x": 0.0,
+   "z": 6.6,
+   "length": 4.0,
+   "width": 0.6,
+   "label": "Pits"
+  },
+  {
+   "type": "rect",
+   "kind": "rostrum",
+   "x": -11.7,
+   "z": 0.0,
+   "length": 0.5,
+   "width": 3.0,
+   "rotation": 0,
+   "label": "Rostrum"
+  }
+ ]
+}

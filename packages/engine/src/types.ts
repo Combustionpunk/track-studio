@@ -1,8 +1,12 @@
-// Types for the rctrack (v1.12) and rcvenue (v1.1) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
+// Types for the rctrack (v1.13) and rcvenue (v1.2) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
 // Units: metres. Origin at the centre of the (drawing) area, +x east, +z north. Headings in degrees, 0 = +x, CCW.
 
 export type TrackStatus = "draft" | "submitted" | "approved" | "archived";
-export type Surface = "carpet" | "astro" | "clay" | "other";
+/** What a track is laid on. 1.13 adds dirt, tarmac and mixed (a venue template's surfaces); "other" is a layout's only. */
+export type Surface = "carpet" | "astro" | "dirt" | "clay" | "tarmac" | "mixed" | "other";
+/** rcvenue 1.2: the surfaces a venue template can name, in the editor's order */
+export const VENUE_SURFACES = ["carpet", "astro", "dirt", "clay", "tarmac", "mixed"] as const;
+export type VenueSurface = (typeof VENUE_SURFACES)[number];
 export type Side = "north" | "south" | "east" | "west";
 export type FeatureType = "tabletop" | "double" | "kicker" | "stepup" | "stepdown" | "whoops" | "bump" | "crossover";
 export type CheckLevel = "error" | "warning" | "info";
@@ -81,8 +85,12 @@ export interface Area {
   width: number;
 }
 
+/** rcvenue 1.2: a fixed zone that isn't an obstacle as such. All of them block a layout alike. */
+export type ObstacleKind = "pits" | "rostrum";
+
 export interface CircleObstacle {
   type: "circle";
+  kind?: ObstacleKind;
   x: number;
   z: number;
   radius: number;
@@ -91,6 +99,7 @@ export interface CircleObstacle {
 
 export interface RectObstacle {
   type: "rect";
+  kind?: ObstacleKind;
   x: number;
   z: number;
   length: number;
@@ -310,9 +319,24 @@ export interface RcVenue {
   id: string;
   revision: number;
   info: VenueInfo;
+  /** rcvenue 1.2: what the track is laid on; a layout drawn for or adapted to the template takes it as info.surface */
+  surface?: VenueSurface;
   area: Area;
   rostrum?: RostrumPlacement;
+  /** rcvenue 1.2: the timing loop a layout's start/finish must sit over */
+  timingLoop?: TimingLoop;
   obstacles?: Obstacle[];
+}
+
+/** rcvenue 1.2: the venue's timing loop, fixed in the floor. */
+export interface TimingLoop {
+  /** its centre (m) */
+  x: number;
+  z: number;
+  /** the direction of travel over it, degrees (0 = +x, counter-clockwise) */
+  heading: number;
+  /** its span across the track (m) */
+  length: number;
 }
 
 /** One way a track fits a venue (see fit.ts). */
@@ -330,7 +354,10 @@ export interface FitResult {
 
 /** A layout where it is drawn, checked against a venue (v1.7; see fit.ts venueCheck). */
 export interface VenueCheck {
-  /** `outside-area` (lanes outside the venue's area), `obstacle` (lanes + pipe thickness over a fixed obstacle) */
+  /**
+   * `outside-area` (lanes outside the venue's area), `obstacle` (lanes + pipe thickness over a fixed obstacle, the pit
+   * area or the rostrum), `timing-loop` (1.13: the start/finish isn't over the venue's timing loop)
+   */
   checks: Check[];
   /** where the venue's rostrum stands */
   rostrum: BuiltRostrum;
