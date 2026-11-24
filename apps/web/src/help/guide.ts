@@ -13,7 +13,7 @@ export interface GuideImage {
   height: number;
 }
 
-const urls = import.meta.glob<string>("../../../../docs/guide/img/*.png", { eager: true, query: "?url", import: "default" });
+const urls = import.meta.glob<string>("../../../../docs/guide/img/*.webp", { eager: true, query: "?url", import: "default" });
 
 /** every screenshot the build has, by file name */
 export const guideImages: Record<string, GuideImage> = Object.fromEntries(
@@ -54,7 +54,8 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 /**
  * The guide as HTML: headings with their anchors, screenshots from the build with their sizes, outside links in a new
- * tab. HTML written in the source is shown as text, never run: the page puts this string straight into the document.
+ * tab. HTML written in the source is shown as text, never run (but for <kbd>, a key): the page puts this string
+ * straight into the document.
  */
 export function renderGuide(md: string, images: Record<string, GuideImage>): string {
   const marked = new Marked({
@@ -79,7 +80,9 @@ export function renderGuide(md: string, images: Record<string, GuideImage>): str
         return outside ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${inner}</a>` : `<a href="${esc(href)}">${inner}</a>`;
       },
       html({ text }) {
-        return /^<!--[\s\S]*-->\s*$/.test(text) ? "" : esc(text);
+        if (/^<!--[\s\S]*-->\s*$/.test(text)) return "";
+        // the one tag the guide uses: <kbd> for a key
+        return esc(text).replace(/&lt;(\/?)kbd&gt;/g, "<$1kbd>");
       },
     },
   });

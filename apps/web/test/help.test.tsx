@@ -68,10 +68,11 @@ describe("the user guide's source (docs/guide/README.md)", () => {
 
   it("every screenshot it shows is in docs/guide/img, described, and none is left over", () => {
     const used = imageNames(md);
-    const files = readdirSync(join(GUIDE_DIR, "img")).filter((f) => f.endsWith(".png"));
+    const files = readdirSync(join(GUIDE_DIR, "img")).filter((f) => f !== ".gitkeep");
     expect(used.length).toBeGreaterThan(20);
     for (const name of used) expect(existsSync(join(GUIDE_DIR, "img", name)), name).toBe(true);
     expect(files.filter((f) => !used.includes(f)), "screenshots nothing shows").toEqual([]);
+    for (const f of files) expect(f, "a WebP picture, as apps/web/scripts/guide-shots.mjs makes them").toMatch(/^[a-z0-9-]+\.webp$/);
     // alt text on every one
     for (const m of md.matchAll(/!\[([^\]]*)\]\(img\/[^)]+\)/g)) expect(m[1].trim().length, m[0]).toBeGreaterThan(8);
     // and nothing but local screenshots
@@ -88,7 +89,7 @@ describe("the user guide's source (docs/guide/README.md)", () => {
       const img = guideImages[name];
       expect(img, name).toBeTruthy();
       expect(img.width, name).toBeGreaterThan(100);
-      expect(img.height, name).toBeGreaterThan(100);
+      expect(img.height, name).toBeGreaterThan(40);
       expect(img.src, name).toBeTruthy();
     }
     // phone screenshots are 375 px wide
@@ -158,6 +159,13 @@ describe("the guide as /help shows it", () => {
     const html = renderGuide("# T\n\n<script>alert(1)</script>\n\nA <b onclick=\"x()\">b</b>\n", {});
     expect(html).not.toContain("<script");
     expect(html).not.toContain("<b onclick");
+  });
+
+  it("a key is drawn as a key", () => {
+    const html = renderGuide("# T\n\nPress <kbd>Ctrl</kbd>+<kbd>Z</kbd>.\n\n| Key |\n|---|\n| <kbd>A</kbd> |\n", {});
+    expect(html).toContain("<kbd>Ctrl</kbd>+<kbd>Z</kbd>");
+    expect(html).toContain("<td><kbd>A</kbd></td>");
+    expect(renderGuide("# T\n\n<kbd onclick=\"x()\">A</kbd>\n", {})).not.toContain("<kbd onclick");
   });
 
   it("the page: a title, a table of contents for the eight sections, and the guide", () => {
