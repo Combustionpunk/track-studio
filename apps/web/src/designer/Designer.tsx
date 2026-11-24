@@ -24,6 +24,7 @@ import {
   type Point2,
   type DrawnFor,
   type RcTrack,
+  type Surface,
   type RcVenue,
   type Side,
 } from "@track-studio/engine";
@@ -113,7 +114,8 @@ export const TOUCH_QUERY = "(pointer: coarse)";
 
 /** What the designer edits and saves. Nothing of a venue but its name: the guide (area, obstacles) is loaded live. */
 export interface Draft {
-  info: { name: string; description?: string; drawnFor?: DrawnFor };
+  /** surface (#173): a new layout takes its venue template's; an edited one keeps its own (info is merged on save) */
+  info: { name: string; description?: string; drawnFor?: DrawnFor; surface?: Surface };
   /** the drawing area */
   area: Area;
   design: RcTrack["design"];
@@ -151,12 +153,13 @@ export function toDoc(d: Draft, base?: { id: string; revision: number; doc: RcTr
   else delete (info as RcTrack["info"]).description;
   if (d.info.drawnFor) info.drawnFor = d.info.drawnFor;
   else delete info.drawnFor;
+  if (d.info.surface) info.surface = d.info.surface;
   return { format: "rctrack", version: 1, id: base?.id ?? "new", revision: (base?.revision ?? 0) + 1, info, area: d.area, design: d.design };
 }
 
 /** A new design (from a venue template or a blank area): it opens in step 1 with nothing laid. */
-export function newDraft({ area, name, drawnFor, laneWidth = 2 }: { area: Area; name: string; drawnFor?: DrawnFor; laneWidth?: number }): Draft {
-  return { info: { name, ...(drawnFor ? { drawnFor } : {}) }, area, laying: [], design: { laneWidth, points: [], features: [], start: { distance: 0 } } };
+export function newDraft({ area, name, drawnFor, surface, laneWidth = 2 }: { area: Area; name: string; drawnFor?: DrawnFor; surface?: Surface; laneWidth?: number }): Draft {
+  return { info: { name, ...(drawnFor ? { drawnFor } : {}), ...(surface ? { surface } : {}) }, area, laying: [], design: { laneWidth, points: [], features: [], start: { distance: 0 } } };
 }
 
 export function draftFromDoc(doc: RcTrack): Draft {
@@ -1763,6 +1766,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     <PlanView
       area={area}
       obstacles={guideObstacles}
+      timingLoop={guide?.timingLoop}
       built={laying ? undefined : built}
       checksInOverlay
       designFeatures={draft.design.features}

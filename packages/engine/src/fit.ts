@@ -231,5 +231,5 @@ export function transformBuilt(b: Built, fit: Pick<FitResult, "rotation" | "mirr
 /** The track drawn where a fit puts it in the venue: the venue's area, obstacles and rostrum round the moved `built`. */
 export function fittedScene(track: RcTrack, venue: RcVenue, fit: FitResult): PlanScene {
   if (!track.built) throw new Error("fittedScene: track has no built section");
-  return { area: { ...venue.area }, obstacles: venue.obstacles ?? [], rostrum: venueRostrumOf(venue), built: transformBuilt(track.built, fit) };
+  return { area: { ...venue.area }, obstacles: venue.obstacles ?? [], rostrum: venueRostrumOf(venue), ...(venue.timingLoop ? { timingLoop: venue.timingLoop } : {}), built: transformBuilt(track.built, fit) };
 }

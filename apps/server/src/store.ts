@@ -38,6 +38,8 @@ function checkLimits(doc: RcTrack | RcVenue): void {
     if (o.type === "circle" && !(o.radius > 0)) problems.push("circle obstacles need a radius > 0");
     if (o.type === "rect" && !(o.length > 0 && o.width > 0)) problems.push("rect obstacles need length and width > 0");
   }
+  const loop = doc.format === "rcvenue" ? doc.timingLoop : undefined; // rcvenue 1.2 (#173)
+  if (loop && (Math.abs(loop.x) > LIMITS.coord || Math.abs(loop.z) > LIMITS.coord || loop.length > LIMITS.area)) problems.push(`the timing loop is limited to ±${LIMITS.coord} m and ${LIMITS.area} m long`);
   if (doc.format === "rctrack") {
     const { points, features = [] } = doc.design;
     if (points.length > LIMITS.points) problems.push(`at most ${LIMITS.points} points`);

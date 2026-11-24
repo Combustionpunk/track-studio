@@ -1,9 +1,10 @@
-// Routes into the venue editor: /v/new and /v/:id/edit. Organisers only; everyone else is shown why not.
+// Routes into the venue editor: /v/new and /v/:id/edit. Organisers, and (#173) a club's committee for its own club's
+// venues (the server decides which: can.edit); everyone else is shown why not.
 import { Link, useParams } from "react-router-dom";
 import { Loading, Message } from "../components/bits.js";
 import { ApiError } from "../lib/api.js";
 import { useApi } from "../lib/hooks.js";
-import { useSession } from "../lib/session.js";
+import { mayEditVenues, useSession } from "../lib/session.js";
 import { NotFound } from "../pages/NotFound.js";
 import { blankVenue, draftFromDoc } from "./model.js";
 import { VenueEditor, type VenueBase } from "./VenueEditor.js";
@@ -12,15 +13,16 @@ function NotOrganiser({ back }: { back: string }) {
   const { me, loginUrl } = useSession();
   return (
     <div className="wrap page narrow">
-      <h1>Organisers only</h1>
+      <h1>Organisers and club committees only</h1>
       <Message>
         {me ? (
           <>
-            Venue templates are kept by the club's organisers (the forum's track-admins group). You can still look at every venue. <Link to={back}>Back</Link>
+            A venue template is kept by the committee of the club that runs the venue on the forum, and by Track Studio's organisers (the forum's track-admins group). You can still look at every venue.{" "}
+            <Link to={back}>Back</Link>
           </>
         ) : (
           <>
-            Venue templates are kept by the club's organisers. <a href={loginUrl()}>Log in with the forum</a> if you're one of them.
+            Venue templates are kept by the clubs' committees and Track Studio's organisers. <a href={loginUrl()}>Log in with the forum</a> if you're one of them.
           </>
         )}
       </Message>
@@ -31,7 +33,7 @@ function NotOrganiser({ back }: { back: string }) {
 export function NewVenuePage() {
   const { me, ready } = useSession();
   if (!ready) return <div className="wrap page"><Loading what="Loading" /></div>;
-  if (!me?.organiser) return <NotOrganiser back="/v" />;
+  if (!mayEditVenues(me)) return <NotOrganiser back="/v" />;
   return <VenueEditor initial={blankVenue()} />;
 }
 

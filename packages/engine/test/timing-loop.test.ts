@@ -77,3 +77,28 @@ describe("surface (1.13)", () => {
     for (const surface of ["dirt", "tarmac", "mixed", "other"]) expect(validateTrack({ ...clubA, info: { ...clubA.info, surface } }).valid).toBe(true);
   });
 });
+
+describe("plans (1.13)", () => {
+  it("draw the timing loop across the track with its direction, and the pit area and rostrum as zones", async () => {
+    const { planLayers } = await import("../src/index.js");
+    const scene = {
+      area: { length: 24, width: 14 },
+      timingLoop: { x: -6, z: -4.9, heading: 0, length: 3 },
+      obstacles: [
+        { type: "rect" as const, kind: "pits" as const, x: 0, z: 6.6, length: 4, width: 0.6 },
+        { type: "rect" as const, kind: "rostrum" as const, x: -11.7, z: 0, length: 0.5, width: 3, label: "Stand" },
+        { type: "circle" as const, x: 3, z: 3, radius: 0.3 },
+      ],
+    };
+    const svg = planLayers(scene, { px: 0.05, tips: true });
+    // the loop runs north-south (across a track heading east), from z -6.4 to -3.4 at x -6
+    expect(svg).toMatch(/<g class="p-timing-loop" data-tip="loop"><path d="M-6 6\.4 L-6 3\.4"/);
+    expect(svg).toContain('class="p-zone p-pits"');
+    expect(svg).toContain('class="p-zone p-rostrum-zone"');
+    expect(svg).toContain(">Pits</text>"); // a zone with no label is named for its kind
+    expect(svg).toContain(">Stand</text>");
+    expect(svg.match(/class="p-obstacle"/g)).toHaveLength(1);
+    expect(planLayers(scene, { px: 0.05, layers: { obstacles: false } })).not.toMatch(/p-timing-loop|p-zone/);
+    expect(planLayers(scene, { px: 0.02, palette: "print" })).toContain("p-timing-loop");
+  });
+});

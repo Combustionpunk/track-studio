@@ -8,10 +8,17 @@ import { ApiError, type TrackSummary, type VenueRevision, type VenueSummary } fr
 import * as fmt from "../lib/format.js";
 import { useApi } from "../lib/hooks.js";
 import { rostrumPos } from "../lib/plan.js";
-import { useSession } from "../lib/session.js";
+import { mayEditVenues, useSession } from "../lib/session.js";
 import { forumVenueUrl, linkName } from "../venues/forum.js";
-import { obstacleName, toCorner } from "../venues/model.js";
+import { KIND_LABEL, obstacleName, SURFACE_LABEL, toCorner } from "../venues/model.js";
 import { NotFound } from "./NotFound.js";
+
+/** A heading as a compass word: 0° east, 90° north (+z), counter-clockwise; "east (0°)", "north-east (45°)". */
+export function compass(deg: number): string {
+  const d = ((Math.round(deg) % 360) + 360) % 360;
+  const words = ["east", "north-east", "north", "north-west", "west", "south-west", "south", "south-east"];
+  return `${words[Math.round(d / 45) % 8]} (${d}°)`;
+}
 
 export function Venues() {
   const list = useApi<{ venues: VenueSummary[] }>("/api/venues");
@@ -21,9 +28,9 @@ export function Venues() {
       <div className="page-head track-head">
         <div>
           <h1>Venues</h1>
-          <p className="lede">Venue templates: each hall's usable track area, rostrum and fixed obstacles. New designs start from the latest revision.</p>
+          <p className="lede">Venue templates: each hall's usable track area, surface, rostrum, timing loop, pit area and fixed obstacles. New designs start from the latest revision.</p>
         </div>
-        {me?.organiser && (
+        {mayEditVenues(me) && (
           <Link to="/v/new" className="btn btn-primary ve-edit-btn">
             <Plus size={16} aria-hidden /> New venue
           </Link>
@@ -34,7 +41,7 @@ export function Venues() {
       ) : !list.data ? (
         <Loading what="Loading venues" />
       ) : list.data.venues.length === 0 ? (
-        <Message>No venues yet. {me?.organiser ? <Link to="/v/new">Add the first hall</Link> : "An organiser adds them."}</Message>
+        <Message>No venues yet. {mayEditVenues(me) ? <Link to="/v/new">Add the first hall</Link> : "A club's committee or an organiser adds them."}</Message>
       ) : (
         <div className="cards venue-cards">
           {list.data.venues.map((v) => (
@@ -78,6 +85,12 @@ function VenueCard({ id, name }: { id: string; name: string }) {
               <dt>Area</dt>
               <dd>{fmt.size(doc.area, true)}</dd>
             </div>
+            {doc.surface && (
+              <div>
+                <dt>Surface</dt>
+                <dd>{SURFACE_LABEL[doc.surface]}</dd>
+              </div>
+            )}
             <div>
               <dt>Rostrum</dt>
               <dd>{doc.rostrum?.side ?? "south"}</dd>
@@ -134,7 +147,7 @@ export function VenuePage() {
       )}
       <div className="track-grid">
         <div className="track-main">
-          <PlanView area={doc.area} obstacles={doc.obstacles} rostrum={{ side, x: rx, z: rz }} label={`Plan of ${doc.info.name}`} className="track-plan venue-plan" />
+          <PlanView area={doc.area} obstacles={doc.obstacles} timingLoop={doc.timingLoop} rostrum={{ side, x: rx, z: rz }} label={`Plan of ${doc.info.name}`} className="track-plan venue-plan" />
         </div>
         <aside className="track-side">
           <section className="panel" aria-labelledby="vd-h">
@@ -144,10 +157,23 @@ export function VenuePage() {
               <dd>
                 {doc.area.length} m east–west × {doc.area.width} m north–south
               </dd>
+              <dt>Surface</dt>
+              <dd>{doc.surface ? SURFACE_LABEL[doc.surface] : <span className="muted">Not given</span>}</dd>
               <dt>Rostrum</dt>
               <dd>
                 {side[0].toUpperCase() + side.slice(1)} wall, {fmt.metres(toCorner(doc.area, side, doc.rostrum?.offset ?? 0))} from the {side === "north" || side === "south" ? "west" : "south"} corner
                 {doc.rostrum?.offset ? "" : " (centred)"}
+              </dd>
+              <dt>Timing loop</dt>
+              <dd>
+                {doc.timingLoop ? (
+                  <>
+                    {fmt.metres(doc.timingLoop.length)} across at {fmt.metres(doc.timingLoop.x)}, {fmt.metres(doc.timingLoop.z)}, the track running {compass(doc.timingLoop.heading)} over it. A
+                    layout's start/finish should sit on it.
+                  </>
+                ) : (
+                  <span className="muted">Not given</span>
+                )}
               </dd>
               {doc.info.venue && (
                 <>
@@ -173,7 +199,10 @@ export function VenuePage() {
               <ul className="obstacles">
                 {doc.obstacles.map((o, i) => (
                   <li key={i}>
-                    <strong>{obstacleName(o)}</strong>
+                    <strong>
+                      {obstacleName(o)}
+                      {o.kind && obstacleName(o) !== KIND_LABEL[o.kind] && <span className="muted"> · {KIND_LABEL[o.kind]}</span>}
+                    </strong>
                     <span>
                       {o.type === "circle" ? `${fmt.metres(o.radius * 2)} across` : `${fmt.metres(o.length)} × ${fmt.metres(o.width)}${o.rotation ? `, turned ${o.rotation}°` : ""}`} at{" "}
                       {fmt.metres(o.x)}, {fmt.metres(o.z)}

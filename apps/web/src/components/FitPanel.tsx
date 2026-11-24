@@ -116,6 +116,7 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
             <PlanView
               area={v.area}
               obstacles={v.obstacles}
+              timingLoop={v.timingLoop}
               built={placed}
               rostrum={{ ...xz(rostrumPos(v.area, v.rostrum?.side, v.rostrum?.offset)), side: v.rostrum?.side ?? "south" }}
               layers={{ lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: false, obstacles: true, grid: true, rostrum: true, marshals: true }}

@@ -52,5 +52,5 @@ export function blankDraft(area: Area, name = "New track"): Draft {
  * guide the designer loads from the template while drawing; they're never saved in the track (rctrack 1.7).
  */
 export function venueDraft(v: RcVenue, name?: string): Draft {
-  return newDraft({ name: name || `New track at ${v.info.name}`, area: v.area, drawnFor: { venueTemplate: v.id, name: v.info.name } });
+  return newDraft({ name: name || `New track at ${v.info.name}`, area: v.area, drawnFor: { venueTemplate: v.id, name: v.info.name }, ...(v.surface ? { surface: v.surface } : {}) });
 }

@@ -19,6 +19,10 @@ export async function signOut(postFn: (path: string) => Promise<{ redirect?: str
 }
 
 /** The server's note on the page address that this browser keeps no cookies, so it isn't sent round the forum again (#132). */
+/** #173: may this member create and edit venue templates? Organisers may edit any; a club's committee (`clubs`) its own
+ * club's (the server checks which). Older servers send no `clubs`. */
+export const mayEditVenues = (me: { organiser: boolean; clubs?: string[] } | null | undefined): boolean => !!me && (me.organiser || (me.clubs?.length ?? 0) > 0);
+
 export const NO_SIGNIN_PARAM = "nosignin";
 
 /** The query string without the server's `?nosignin=1` marker, so it isn't bookmarked or shared; unchanged otherwise. */

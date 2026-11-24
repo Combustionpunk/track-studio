@@ -1,15 +1,22 @@
 // The venue editor's document and the edits it makes, kept pure so they can be tested without a browser. A draft is
 // an rcvenue file without format/version/id/revision (the server sets those). Metres, origin at the centre of the
 // track area, +x east, +z north; rotations in degrees counter-clockwise (docs/rctrack-SPEC.md).
-import type { Area, ForumVenueRef, Obstacle, Point2, RcVenue, Side } from "@track-studio/engine";
+import { obstacleLabel, type Area, type ForumVenueRef, type Obstacle, type ObstacleKind, type Point2, type RcVenue, type Side, type TimingLoop, type VenueSurface } from "@track-studio/engine";
 
 export interface VenueDraft {
   /** venue: the forum venue and track this template is for (venues/forum.ts) */
   info: { name: string; venue?: ForumVenueRef | null; notes?: string };
+  /** rcvenue 1.2 (#173): what the track is laid on; undefined: not said */
+  surface?: VenueSurface;
   area: Area;
   rostrum: { side: Side; offset: number };
+  /** rcvenue 1.2: the timing loop; undefined: none */
+  timingLoop?: TimingLoop;
+  /** obstacles, and (rcvenue 1.2) the pit area and rostrum zones, told apart by `kind` */
   obstacles: Obstacle[];
 }
+
+export const SURFACE_LABEL: Record<VenueSurface, string> = { carpet: "Carpet", astro: "Astro", dirt: "Dirt", clay: "Clay", tarmac: "Tarmac", mixed: "Mixed" };
 
 /** The server's input limits (apps/server/src/store.ts LIMITS). */
 export const MAX_AREA = 100;
@@ -31,7 +38,9 @@ export function draftFromDoc(doc: RcVenue): VenueDraft {
   return {
     info: { ...doc.info, venue: doc.info.venue ?? null },
     area: { ...doc.area },
+    ...(doc.surface ? { surface: doc.surface } : {}),
     rostrum: { side: doc.rostrum?.side ?? "south", offset: doc.rostrum?.offset ?? 0 },
+    ...(doc.timingLoop ? { timingLoop: { ...doc.timingLoop } } : {}),
     obstacles: (doc.obstacles ?? []).map((o) => ({ ...o })),
   };
 }
@@ -41,8 +50,10 @@ export function venueBody(d: VenueDraft) {
   const notes = d.info.notes?.trim();
   return {
     info: { name: d.info.name.trim(), venue: d.info.venue ?? null, ...(notes ? { notes: d.info.notes } : {}) },
+    ...(d.surface ? { surface: d.surface } : {}),
     area: d.area,
     rostrum: d.rostrum,
+    ...(d.timingLoop ? { timingLoop: d.timingLoop } : {}),
     obstacles: d.obstacles,
   };
 }
@@ -50,7 +61,7 @@ export function venueBody(d: VenueDraft) {
 export type Problems = Record<string, string>;
 
 /**
- * Problems that would stop a save, keyed by field: name, length, width, forumTrack, rostrum, obstacle-<i>. A forum
+ * Problems that would stop a save, keyed by field: name, length, width, forumTrack, rostrum, timingLoop, obstacle-<i>. A forum
  * link must name the track, except on a template saved before rcvenue 1.1 that keeps its forum venue
  * (`legacyVenueId`: that venue's id, when the saved revision has no track).
  */
@@ -68,6 +79,12 @@ export function draftProblems(d: VenueDraft, opts: { legacyVenueId?: number } = 
   if (!Number.isFinite(offset)) p.rostrum = "Rostrum position must be a number.";
   else if (!p.length && !p.width && Math.abs(offset) > wallHalf(d.area, side) + 1e-9) {
     p.rostrum = `The rostrum must be on its wall: 0 to ${fmtM(2 * wallHalf(d.area, side))} m from the ${cornerWord(side)} corner.`;
+  }
+  const loop = d.timingLoop;
+  if (loop) {
+    if (![loop.x, loop.z, loop.heading, loop.length].every(Number.isFinite)) p.timingLoop = "Timing loop: every field must be a number.";
+    else if (!(loop.length > 0)) p.timingLoop = "Timing loop: its length must be more than 0 m.";
+    else if (Math.abs(loop.x) > MAX_COORD || Math.abs(loop.z) > MAX_COORD || loop.length > MAX_AREA) p.timingLoop = `Timing loop: keep it within ${MAX_COORD} m of the centre.`;
   }
   if (d.obstacles.length > MAX_OBSTACLES) p.obstacles = `At most ${MAX_OBSTACLES} obstacles.`;
   d.obstacles.forEach((o, i) => {
@@ -113,7 +130,49 @@ export function setRostrumSide(area: Area, r: VenueDraft["rostrum"], side: Side)
 }
 
 // ------------------------------------------------------------------ obstacles
-export const obstacleName = (o: Obstacle) => o.label || (o.type === "circle" ? "Obstacle" : "Keep-out area");
+export const obstacleName = obstacleLabel;
+
+/** rcvenue 1.2: what the kind picker offers; "" is a plain obstacle */
+export const KIND_LABEL: Record<"" | ObstacleKind, string> = { "": "Obstacle", pits: "Pit area", rostrum: "Rostrum" };
+
+/** The obstacle as another kind (or a plain obstacle): the label follows when it was the old kind's default. */
+export function setKind(o: Obstacle, kind: ObstacleKind | undefined): Obstacle {
+  const { kind: _old, ...rest } = o;
+  const next = (kind ? { ...rest, kind } : rest) as Obstacle;
+  return o.label && o.label !== obstacleLabel({ ...o, label: undefined }) ? next : { ...next, label: obstacleLabel({ ...next, label: undefined }) };
+}
+
+/** rcvenue 1.2: a pit area or a rostrum zone, a rectangle in the middle to drag into place. */
+export function addZone(d: VenueDraft, kind: ObstacleKind): VenueDraft {
+  const o: Obstacle = kind === "pits" ? { type: "rect", kind, x: 0, z: 0, length: 4, width: 1, rotation: 0, label: "Pits" } : { type: "rect", kind, x: 0, z: 0, length: 3, width: 0.8, rotation: 0, label: "Rostrum" };
+  return { ...d, obstacles: [...d.obstacles, o] };
+}
+
+// ------------------------------------------------------------------ timing loop (rcvenue 1.2)
+/** A timing loop 1 m in from the south wall, 3 m long, the track running east over it: a start to drag into place. */
+export function addTimingLoop(d: VenueDraft): VenueDraft {
+  return { ...d, timingLoop: { x: 0, z: tenth(-d.area.width / 2 + 1), heading: 0, length: 3 } };
+}
+
+export const moveTimingLoop = (l: TimingLoop, p: Point2): TimingLoop => ({ ...l, x: tenth(p[0]), z: tenth(p[1]) });
+
+/** The loop turned so the track runs from its centre towards `p`, in 15° steps. */
+export function turnTimingLoop(l: TimingLoop, p: Point2): TimingLoop {
+  const deg = (Math.atan2(p[1] - l.z, p[0] - l.x) * 180) / Math.PI;
+  return { ...l, heading: ((Math.round(deg / 15) * 15) % 360 + 360) % 360 };
+}
+
+/** Where the loop's turn handle sits: 1 m ahead of its centre, the way the track runs. */
+export function loopHandle(l: TimingLoop): Point2 {
+  const a = (l.heading * Math.PI) / 180;
+  return [l.x + Math.cos(a), l.z + Math.sin(a)];
+}
+
+/** The loop's ends, square to its heading. */
+export function loopEnds(l: TimingLoop): [Point2, Point2] {
+  const a = (l.heading * Math.PI) / 180, h = l.length / 2;
+  return [[l.x + Math.sin(a) * h, l.z - Math.cos(a) * h], [l.x - Math.sin(a) * h, l.z + Math.cos(a) * h]];
+}
 
 export function addObstacle(d: VenueDraft, type: Obstacle["type"]): VenueDraft {
   const n = d.obstacles.length + 1;

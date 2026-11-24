@@ -5,7 +5,7 @@
 // Units are metres, SVG y = -z (north up). Lines that should look the same at any zoom (grid, racing line, outlines)
 // are sized in screen pixels via `px`, the size of one output pixel in metres.
 import { drawingArea, FEATURE_INSET, PIPE_SIZE, rostrumPosition } from "./bake.js";
-import type { Area, Built, BuiltFeature, Crossing, Obstacle, Point2, RcTrack, Side } from "./types.js";
+import type { Area, Built, BuiltFeature, Crossing, Obstacle, Point2, RcTrack, Side, TimingLoop } from "./types.js";
 
 /** The fixed plan palette: tokens.json's plan-* colours (a test keeps them equal). */
 export const PLAN_PALETTE = {
@@ -76,7 +76,12 @@ export interface PlanScene {
   obstacles?: Obstacle[];
   built?: Built;
   rostrum?: { side: Side; x: number; z: number };
+  /** rcvenue 1.2: the venue's timing loop, drawn with the obstacles layer */
+  timingLoop?: TimingLoop;
 }
+
+/** A venue zone's name when it has no label (rcvenue 1.2 kinds), else an obstacle's by shape. */
+export const obstacleLabel = (o: Obstacle): string => o.label || (o.kind === "pits" ? "Pits" : o.kind === "rostrum" ? "Rostrum" : o.type === "circle" ? "Obstacle" : "Keep-out area");
 
 export interface PlanDrawOptions {
   /** one output pixel in metres */
@@ -411,7 +416,16 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
 
   if (layers.obstacles)
     obstacles.forEach((ob, i) => {
-      if (ob.type === "circle" && print) {
+      if (ob.kind) {
+        // rcvenue 1.2: the pit area or the rostrum, a zone the layout keeps off: the rostrum's colour, solid edge
+        const cls = `p-zone ${ob.kind === "pits" ? "p-pits" : "p-rostrum-zone"}`;
+        const edge = `stroke="${print ? P["plan-pipe"] : P["plan-rostrum"]}" stroke-width="${n(1.5 * px)}"`;
+        o.push(
+          ob.type === "circle"
+            ? `<circle class="${cls}" cx="${n(ob.x)}" cy="${n(-ob.z)}" r="${n(ob.radius)}" fill="${P["plan-rostrum"]}" fill-opacity="0.55" ${edge}${tip(`o${i}`)}/>`
+            : `<rect class="${cls}" x="${n(ob.x - ob.length / 2)}" y="${n(-ob.z - ob.width / 2)}" width="${n(ob.length)}" height="${n(ob.width)}" transform="rotate(${n(-(ob.rotation ?? 0))} ${n(ob.x)} ${n(-ob.z)})" fill="${P["plan-rostrum"]}" fill-opacity="0.55" ${edge}${tip(`o${i}`)}/>`,
+        );
+      } else if (ob.type === "circle" && print) {
         const k = ob.radius * Math.SQRT1_2;
         o.push(
           `<g class="p-obstacle"${tip(`o${i}`)}><circle cx="${n(ob.x)}" cy="${n(-ob.z)}" r="${n(ob.radius)}" fill="${P["plan-obstacle"]}" stroke="${P["plan-pipe"]}" stroke-width="${n(1.5 * px)}"/>` +
@@ -490,6 +504,7 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
     }
   }
 
+  if (layers.obstacles && scene.timingLoop) o.push(drawTimingLoop(scene.timingLoop, px, tip("loop"), P, print));
   if (layers.start && built?.startLine) o.push(drawStart(built, px, tip("start"), P)); // a stored file may lack it (#90)
   // a feature that bridges a crossing is drawn with it, over the pipes
   if (layers.features && built) built.features.forEach((f, i) => bridges.has(i) || o.push(drawJump(f, i, px, tips, P, print, id)));
@@ -522,8 +537,9 @@ export function planLayers(scene: PlanScene, opts: PlanDrawOptions): string {
 
   if (layers.obstacles)
     obstacles.forEach((ob) => {
-      if (ob.label)
-        o.push(`<text class="p-label" x="${n(ob.x)}" y="${n(-ob.z)}" dy="0.35em" text-anchor="middle" font-size="${n(Math.max(0.35, 11 * px))}" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-pipe"]}">${escapeXml(ob.label)}</text>`);
+      const label = ob.kind ? obstacleLabel(ob) : ob.label; // zones are always named
+      if (label)
+        o.push(`<text class="p-label" x="${n(ob.x)}" y="${n(-ob.z)}" dy="0.35em" text-anchor="middle" font-size="${n(Math.max(0.35, 11 * px))}" font-family="Inter, 'DejaVu Sans', sans-serif" fill="${P["plan-pipe"]}">${escapeXml(label)}</text>`);
     });
 
   // marshal points (1.11): a numbered cone each, at least 8 px across so the number reads at phone size
@@ -616,6 +632,21 @@ export function planInBox(scene: PlanScene, box: { x: number; y: number; w: numb
   const b = planBounds(scene.area, planMargin(scene));
   const px = Math.max(b.w / box.w, b.h / box.h) * (opts.pixelRatio ?? 1);
   return `<svg x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" viewBox="${n(b.x0)} ${n(b.y0)} ${n(b.w)} ${n(b.h)}">${planLayers(scene, { px, layers: opts.layers, id: opts.id })}${opts.scaleBar === false ? "" : scaleBar(scene, px)}</svg>`;
+}
+
+/**
+ * rcvenue 1.2: the venue's timing loop, a line across the track (its `length`, square to its heading) with a chevron
+ * at its middle pointing the way the track runs over it. Drawn in the cone's colour (ink in print), at least 2 px.
+ */
+function drawTimingLoop(loop: TimingLoop, px: number, tipAttr: string, P: Palette, print: boolean): string {
+  const a = (loop.heading * Math.PI) / 180, ux = Math.cos(a), uz = Math.sin(a); // along the heading
+  const h = loop.length / 2, c = Math.min(0.35, loop.length / 4); // half the span; the chevron's size
+  const col = print ? P["plan-pipe"] : P["plan-cone"];
+  const w = n(Math.max(0.05, 2 * px));
+  return (
+    `<g class="p-timing-loop"${tipAttr}><path d="M${pt(loop.x + uz * h, loop.z - ux * h)} L${pt(loop.x - uz * h, loop.z + ux * h)}" stroke="${col}" stroke-width="${w}" stroke-dasharray="${n(8 * px)} ${n(4 * px)}" fill="none"/>` +
+    `<path d="M${pt(loop.x - ux * c + uz * c, loop.z - uz * c - ux * c)} L${pt(loop.x, loop.z)} L${pt(loop.x - ux * c - uz * c, loop.z - uz * c + ux * c)}" stroke="${col}" stroke-width="${w}" fill="none" stroke-linejoin="round"/></g>`
+  );
 }
 
 /** Scale bar in the margin on the side away from the rostrum. */
