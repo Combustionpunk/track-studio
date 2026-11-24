@@ -2,6 +2,7 @@
 // snapping). The tablet's dock shows the same tools, so they share ToolsProps.
 import type { FeatureType } from "@track-studio/engine";
 import { Plus } from "lucide-react";
+import { HelpLink } from "../help/HelpLink.js";
 import * as fmt from "../lib/format.js";
 import type { Tool } from "./Designer.js";
 import { ConeButton, JumpPalette } from "./JumpPalette.js";
@@ -48,7 +49,10 @@ export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, o
   if (laying)
     return (
       <aside className="designer-palette" aria-label="Lay the lanes">
-        <span className="label">1 · Lay the lanes</span>
+        <div className="palette-head">
+          <span className="label">1 · Lay the lanes</span>
+          <HelpLink topic="palette" />
+        </div>
         <p className="lay-help">Press on a square and drag through the squares in driving order, straight or corner to corner for a diagonal. Drag back to take squares up.</p>
         <p className="lay-help">To cross the lane (a figure of eight), go straight across it at right angles. Add a crossover there once the loop is closed.</p>
         <p className="lay-help">Come back to the first square (the ring) to close the loop.</p>
@@ -61,7 +65,10 @@ export function ToolPalette({ view, laying, canStartAgain, onStartAgain, tool, o
     );
   return (
     <aside className="designer-palette" aria-label="Add to the track">
-      <span className="label">Jumps</span>
+      <div className="palette-head">
+        <span className="label">Jumps</span>
+        <HelpLink topic="palette" />
+      </div>
       <JumpPalette jumps={paletteJumps(view)} armed={tool.kind === "feature" ? tool.type : null} onPick={onJump} onDrop={onDropJump} onDrag={onDragJump} />
       <span className="label label-gap">Marshals</span>
       <ConeButton armed={tool.kind === "marshal"} onPick={onCone} onDrop={onDropCone} onDrag={onDragCone} />

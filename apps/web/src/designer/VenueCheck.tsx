@@ -1,6 +1,7 @@
 // "Check against venue" (#63): the fit check while drawing. A layout belongs to no venue (rctrack 1.7), so this tests
 // the design as it stands against a venue template, in the browser: where it is drawn (obstacles hit, area left) and
 // in which orientations it fits. Nothing of the venue goes into the design.
+import { HelpLink } from "../help/HelpLink.js";
 import { fits, venueCheck, type Check, type RcTrack, type RcVenue, type VenueCheck } from "@track-studio/engine";
 import { CircleCheck, CircleX } from "lucide-react";
 import { useEffect, useId, useState } from "react";
@@ -59,7 +60,10 @@ export function VenueCheckPanel({ design, drawnFor, onShow }: { design: RcTrack[
   if (venues.error || (venues.data && !list.length)) return null;
   return (
     <section className="checks-panel venue-check" aria-labelledby={`${id}-h`}>
-      <h2 id={`${id}-h`}>Check against a venue</h2>
+      <div className="help-head">
+        <h2 id={`${id}-h`}>Check against a venue</h2>
+        <HelpLink topic="fit" />
+      </div>
       <div className="venue-check-row">
         <label className="nfield">
           <span>Venue</span>

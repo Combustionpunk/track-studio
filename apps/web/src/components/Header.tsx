@@ -4,6 +4,7 @@
 import "@rcmisfits/brand/header.js";
 import { useEffect, useRef, useState, type DetailedHTMLProps, type FormEvent, type HTMLAttributes } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import { HELP_PATH } from "../help/topics.js";
 import type { ServerConfig } from "../lib/api.js";
 import { useSession } from "../lib/session.js";
 import { closeSiteMenuOnPressOutside, SITE_MENU_OPENED, watchSiteMenu } from "../lib/siteMenu.js";
@@ -103,6 +104,8 @@ export function Header() {
           <NavLink to="/new">New track</NavLink>
           {/* the class speeds behind the lap time estimates (#76) */}
           {me?.organiser && <NavLink to="/lap-speeds">Lap speeds</NavLink>}
+          {/* the user guide (#171), signed in or not */}
+          <NavLink to={HELP_PATH}>Help</NavLink>
         </div>
         {ready && !me && config?.devLogin && <DevLogin returnPath={here} />}
       </nav>

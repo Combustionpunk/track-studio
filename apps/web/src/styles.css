@@ -1036,3 +1036,66 @@ select.ts-input { padding: 0 var(--space-2); }
 .phone-banner .linkish { display: inline-flex; align-items: center; min-height: var(--touch-target); font-weight: 600; }
 .phone-banner-x { flex: none; display: grid; place-items: center; width: var(--touch-target); height: var(--touch-target); margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-3)) calc(-1 * var(--space-2)) 0; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; cursor: pointer; }
 .phone-banner-x:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   The user guide (#171): the "?" links into it, and /help. */
+.help-link { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); min-width: 24px; min-height: 24px; border-radius: var(--radius-sm); color: var(--text-muted); font-weight: 600; text-decoration: none; }
+.help-link:hover { color: var(--text); background: var(--bg-hover); }
+.help-link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.help-link svg { flex: none; }
+@media (pointer: coarse) { .help-link { min-width: var(--touch-target); min-height: var(--touch-target); } }
+/* a heading with its "?" at the end of the row */
+.help-head, .palette-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.help-head h2 { margin: 0; }
+.venue-check .help-head { margin-bottom: var(--space-2); }
+.howto-guide { margin: var(--space-3) 0 0; }
+.howto-guide .help-link { justify-content: flex-start; color: var(--link); font-size: 14px; }
+.sheet-toolbar .help-link.btn { color: var(--text); padding: 7px 12px; }
+
+.help-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); align-items: start; }
+.help-contents { padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg-raised); }
+.help-contents__h { font-size: 1.1rem; margin: 0 0 var(--space-2); }
+.help-contents ol { margin: 0; padding: 0; list-style: none; }
+.help-contents > ol { counter-reset: help-section; }
+.help-contents > ol > li { counter-increment: help-section; }
+.help-contents > ol > li > a::before { content: counter(help-section) ". "; color: var(--text-muted); }
+.help-contents a { display: flex; align-items: center; min-height: 32px; padding: 2px var(--space-2); border-radius: var(--radius-sm); color: var(--text); text-decoration: none; font: 600 14px/20px var(--font-sans); }
+.help-contents ol ol a { padding-left: var(--space-6); color: var(--text-muted); font-weight: 400; }
+.help-contents a:hover { background: var(--bg-hover); color: var(--text); }
+.help-contents a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.help-contents a[aria-current] { color: var(--accent); }
+@media (pointer: coarse) { .help-contents a { min-height: var(--touch-target); } }
+/* a narrow screen lists the eight sections only */
+@media (max-width: 899px) { .help-contents ol ol { display: none; } }
+@media (min-width: 900px) {
+  .help-page { grid-template-columns: 260px minmax(0, 1fr); }
+  .help-contents { position: sticky; top: calc(var(--site-chrome) + var(--space-4)); max-height: calc(100vh - var(--site-chrome) - var(--space-8)); overflow-y: auto; }
+}
+
+.guide { min-width: 0; max-width: 860px; font: 400 16px/26px var(--font-sans); overflow-wrap: break-word; }
+.guide h1 { font-size: 2rem; margin: 0 0 var(--space-3); }
+.guide h2 { font-size: 1.6rem; margin: var(--space-12) 0 var(--space-3); padding-top: var(--space-6); border-top: 1px solid var(--line); }
+.guide h3 { font-size: 1.25rem; margin: var(--space-8) 0 var(--space-2); }
+.guide h4 { font: 600 16px/24px var(--font-sans); margin: var(--space-6) 0 var(--space-1); }
+/* a section a link has opened sits under the site's bar, which stays at the top */
+.guide h2, .guide h3, .guide h4 { scroll-margin-top: calc(var(--site-chrome) + var(--space-3)); }
+.guide p { margin: 0 0 var(--space-3); }
+.guide ul, .guide ol { margin: 0 0 var(--space-4); padding-left: var(--space-6); }
+.guide li { margin-bottom: var(--space-2); }
+.guide li > p { margin-bottom: var(--space-2); }
+.guide a { color: var(--link); }
+.guide a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+.guide blockquote { margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); background: var(--bg-raised); }
+.guide blockquote p:last-child { margin-bottom: 0; }
+.guide code { font: 0.9em var(--font-mono); padding: 1px 4px; border-radius: var(--radius-sm); background: var(--bg-raised); }
+.guide hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-8) 0; }
+.guide table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin: 0 0 var(--space-4); font-size: 15px; }
+.guide th, .guide td { padding: var(--space-2) var(--space-3); border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.guide th { background: var(--bg-raised); font-weight: 600; }
+.guide-shot { display: block; max-width: 100%; height: auto; margin: var(--space-3) 0 var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.guide-shot--phone { max-width: min(100%, 300px); }
+.guide-missing { color: var(--text-muted); }
+@media print {
+  .help-contents { display: none; }
+  .help-page { display: block; }
+}

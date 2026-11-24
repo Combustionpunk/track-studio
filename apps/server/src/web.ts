@@ -107,6 +107,22 @@ function venuePage(db: DB, config: Config, id: string): Page {
 
 const plain = (title: string, status = 200): Page => ({ title, head: "", body: "", status });
 
+/** /help (#171): the user guide. The app draws it from docs/guide (built in); this is its title and link preview. */
+function helpPage(config: Config): Page {
+  const title = "Track Studio user guide";
+  const description = "How to design a track in Track Studio: start from a venue template or blank, draw the lanes, add jumps and marshal points, check the fit, print the build sheet and share the layout.";
+  const head = [
+    `<meta name="description" content="${esc(description)}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="RC Misfits Track Studio">`,
+    `<meta property="og:title" content="${esc(title)}">`,
+    `<meta property="og:description" content="${esc(description)}">`,
+    `<meta property="og:url" content="${esc(`${config.baseUrl}/help`)}">`,
+    `<link rel="canonical" href="${esc(`${config.baseUrl}/help`)}">`,
+  ].join("\n");
+  return { title: "Help · Track Studio", head, body: `<h1>${esc(title)}</h1><p>${esc(description)}</p>`, status: 200 };
+}
+
 /** Which page a path is, with its head. Unknown ids give the app's page with a 404 status. */
 function pageFor(db: DB, config: Config, theme: ThemeSync, path: string, query: Record<string, string | undefined>): Page {
   const notFound = (): Page => ({ ...plain("Not found · Track Studio", 404), body: "<h1>Not found</h1>" });
@@ -115,6 +131,7 @@ function pageFor(db: DB, config: Config, theme: ThemeSync, path: string, query: 
     if (path === "/" ) return plain("Track Studio");
     if (path === "/v" || path === "/v/") return plain("Venues · Track Studio");
     if (path === "/lap-speeds" || path === "/lap-speeds/") return plain("Lap speeds · Track Studio");
+    if (path === "/help" || path === "/help/") return helpPage(config);
     if (path === "/new" || path === "/new/" || path === "/new/design") return plain("New track · Track Studio");
     if ((m = /^\/t\/([\w-]{1,64})\/edit\/?$/.exec(path))) {
       const row = getTrackRow(db, m[1]);
@@ -250,7 +267,7 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
     const themed = { ...page, head: `${BRAND_HEAD}\n${page.head}` };
     return reply.code(page.status).type("text/html; charset=utf-8").send(fillTemplate(await template(req.url), themed));
   };
-  for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/new", "/v/:id", "/v/:id/edit", "/lap-speeds"]) app.get(route, serve);
+  for (const route of ["/", "/t/:id", "/t/:id/edit", "/t/:id/build", "/new", "/new/design", "/embed/:id", "/v", "/v/new", "/v/:id", "/v/:id/edit", "/lap-speeds", "/help"]) app.get(route, serve);
   app.decorate("servePage", serve);
   app.decorate("appVersion", version);
 }
