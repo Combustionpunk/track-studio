@@ -107,7 +107,7 @@ The designer opens on step 1, **Lay the lanes**.
 
 - **North is up**, east is to the right. Everything is in metres.
 - **The grid squares are one lane wide.** A lane is 2 m wide unless you change it, so each square is 2 m.
-- **The scale bar**, bottom left, shows how long 5 m is at the current zoom.
+- **The scale bar**, bottom left, shows a round length, such as 2 m or 5 m, at the current zoom. On a tablet it is top left.
 - **Hatched squares** are too close to an obstacle to lay a lane through.
 - Once the lanes are laid, the plan shows fine lines every 1 m and bolder lines every 5 m.
 
@@ -148,7 +148,7 @@ What you see now:
 
 To take the whole lane up and begin again, use **Start again** in step 1.
 
-You can go back from step 2 by selecting **1 · Lay the lanes**, but the shaping you have done is thrown away. **Undo** brings it back.
+In Quick mode, you can go back from step 2 while you are still on the loop you have just laid. Select **1 · Lay the lanes**, then select it again to confirm. The shaping you have done is thrown away. **Undo** brings it back.
 
 You can also lay the lanes from the keyboard. Press <kbd>Tab</kbd> until the grid is selected. The arrow keys move the cursor, and <kbd>Enter</kbd> or <kbd>Space</kbd> starts the lane there. Then the arrow keys lay a square at a time, <kbd>Shift</kbd> with two arrows in turn lays a diagonal, and <kbd>Backspace</kbd> takes back the last square.
 
@@ -178,7 +178,7 @@ A hairpin is a U-turn: the track comes back alongside itself, one lane over.
 
 ![After Make hairpin: the corner is now two points a lane apart](img/hairpin.webp)
 
-Make hairpin is not offered on a point that is on a straight, or where there is no room for a second point.
+Make hairpin does nothing, and says why, on a point that is on a straight, or where there is no room for a second point.
 
 ### Straights
 
@@ -190,7 +190,7 @@ A straight is the run between two corners. There is no separate straight tool.
 ### Add a corner
 
 1. Select **Add point** in the tools column, or press <kbd>A</kbd>.
-2. Click the track where you want the new corner, or click the floor to add one after the selected corner.
+2. Click the track where you want the new corner, or click the floor to add one after the selected corner. In Advanced mode, click a straight.
 3. Add point stays on, so you can add several. Press <kbd>A</kbd> or <kbd>Esc</kbd> to stop.
 
 ![Add point switched on: a new corner 9 has been added on the left-hand straight, and its panel says it is on a straight line](img/add-point.webp)
@@ -266,7 +266,7 @@ Every layout has one start line. It is the start and the finish.
 
 Select **Fit to view** to see the whole plan again.
 
-There is no separate timing loop to place. The start line is where a lap begins and ends, and the sim times laps there. Put the start line where your club's timing loop goes.
+There is no separate timing loop to place. The start line is where a lap begins and ends, and it is the timing line in the sim. Put the start line where your club's timing loop goes.
 
 ### The rostrum
 
@@ -286,7 +286,7 @@ To move a hall's rostrum, an organiser edits the venue template.
 
 ### Select
 
-Click a corner, a jump, a cone or the start line to select it. Its panel opens on the right, with its settings and a Delete button.
+Click a corner, a jump, a cone or the start line to select it. Its panel opens on the right, with its settings and a Delete button. The start line has no Delete: a track always has one.
 
 Press <kbd>Esc</kbd> to select nothing.
 
@@ -317,7 +317,7 @@ The two arrow buttons at the top are **Undo** and **Redo**. From the keyboard, u
 
 ![The designer's top bar: the layout's name, the two steps, Quick and Advanced, Undo and Redo, Reverse direction, and Save track](img/undo-redo.webp)
 
-Until you save, the bar says **Unsaved changes · kept on this device**. If you close the page by accident, your drawing is still there when you come back on the same device.
+Until you save, the bar says **Unsaved changes · kept on this device**. If you close the page by accident, open the layout again on the same device. The designer says you have unsaved changes: select **Restore them** to carry on, or **Discard** to drop them.
 
 ### Quick and Advanced
 
@@ -397,7 +397,8 @@ These work in the designer on a computer.
 Track Studio checks the layout as you draw.
 
 - In **Quick** mode, an error stops you submitting, and the bar says what to fix.
-- In **Advanced** mode, the **Checks** panel on the right lists everything. On a tablet or phone, select the checks pill, top right of the plan.
+- In **Advanced** mode, the **Checks** panel on the right lists everything.
+- On a phone, or a tablet in Quick mode, select the checks pill, top right of the plan.
 
 Select **Show** beside a check to zoom to the spot.
 
@@ -420,7 +421,7 @@ What the common ones mean:
 | Corner radius … is tighter than a buggy can turn | Warning | Cars cannot get round without stopping | Give the corner a bigger radius, or more room |
 | Start line is on a ramp | Warning | The start line is on a jump | Slide the start line or the jump along |
 | Two cones are numbered … / No cone … | Warning | The cone numbers repeat or skip | Renumber the cones |
-| … is on or lands into a corner | Note | A jump is in a corner: a technical section | Nothing, if you meant it |
+| … is on or lands into a corner | Note, or a warning for a crossover | A jump is in a corner: a technical section | Nothing, if you meant it. Move a crossover clear of the corner |
 | Corner radius reduced to … | Note | The radius you asked for did not fit between the straights | Nothing, or move the corners apart |
 
 ### The fit check
@@ -472,7 +473,7 @@ If no way round fits, the panel says so.
 
 ![Fit to a venue when it does not fit: "Doesn't fit Small hall. No way round fits this hall, in any orientation"](img/fit-does-not-fit.webp)
 
-In the library, the **Fits my venue** filter runs the same check across every layout.
+In the library, the **Fits my venue** filter runs the same check across every approved layout.
 
 ### Lap length and estimated lap time
 
@@ -527,7 +528,7 @@ The **Help** button on the build sheet opens this part of the guide.
 What is on it:
 
 - **The plan**, on a grid of 1 m squares with a bold line every 5 m, and every corner point numbered.
-- **Corner points**: how far each one is from the west wall and from the south wall, and which way it turns. Measure from the south-west corner of the track area. The points of one corner share its number, such as 5a and 5b.
+- **Corner points**: how far each one is from the west wall and from the south wall, and which way it turns. Measure from the south-west corner of the track area. The points of one corner share its number, such as 5a and 5b. So the sheet's numbers can differ from the dots in the designer: a hairpin drawn as corners 5 and 6 there is 5a and 5b on the sheet.
 - **Jumps**: the type, where it goes, and its length and height.
 - **Marshal points** and the **start line**, with their positions.
 - **The figures**: lap length, corners, track size, track area, how much pipe in how many runs, and the lane width.
@@ -571,7 +572,7 @@ A layout moves through four stages. Its badge shows which one it is at.
 | **Draft** | Work in progress | You, with Submit |
 | **Submitted** | Waiting for an organiser to look at it | An organiser, with Approve |
 | **Approved** | In the library for clubs to use | |
-| **Archived** | Retired. It no longer shows in the library | An organiser, with Archive |
+| **Archived** | Retired. It is hidden from the library unless you select **Archived** under Status | An organiser, with Archive |
 
 **To submit a layout:**
 
@@ -584,7 +585,7 @@ The badge changes to **Submitted**.
 
 ![The same page after submitting: the badge says Submitted](img/track-submitted.webp)
 
-**Organisers** see two more buttons on a submitted layout: **Approve revision …** and **Archive**.
+**Organisers** see two more buttons: **Approve revision …** on any layout whose newest revision is not approved yet, and **Archive** on every layout.
 
 ![A submitted layout as an organiser sees it: Approve revision 2 and Archive beside the other buttons](img/organiser-approve.webp)
 
@@ -598,7 +599,7 @@ To change an approved layout, select **Copy and edit**. You get your own draft c
 
 There are no private layouts. Every saved layout can be seen by anyone, signed in or not, and that includes drafts. In the library, the **Status** buttons show layouts at one stage only.
 
-What is protected is changing them: only the author and organisers can edit a layout. Anyone else is offered **Make my own copy**.
+What is protected is changing them: only the author and organisers can edit a layout. Any other signed-in member is offered **Make my own copy**.
 
 If you are not ready for others to see a layout, keep drawing without saving. Unsaved work stays on your device.
 
@@ -661,11 +662,11 @@ These three things work the same on a tablet and a phone.
 
 - **Pinch** with two fingers to zoom in and out.
 - **Pan** by dragging an empty part of the plan with one finger. Two fingers on the plan always pan and zoom, and never draw.
-- **Armed tools.** Tap a tool, such as a jump, a cone or **Add point**. It lights up: it is armed. Then tap the plan where it should go. Tap the tool again, or **Select**, to put it down.
+- **Armed tools.** Tap a tool, such as a jump, a cone or **Add point**. It lights up: it is armed. Then tap the plan where it should go. Tap the tool again to put it down. On a phone you can also tap **Select**.
 
 ### On a tablet
 
-The tools are on a **dock** along the bottom, and the checks are behind a pill, top right of the plan.
+In Quick mode, the tools are on a **dock** along the bottom, and the checks are behind a pill, top right of the plan. Switch to **Advanced** and a tablet shows the same layout as a computer, with the tools on the left and the panels on the right.
 
 **Lay the lanes** with one finger: press on the first square and drag through the others, as with a mouse.
 
@@ -736,7 +737,7 @@ The library and a layout's page are a single column.
 
 ![The More menu on a phone: Save revision, Submit track, Mode, Reverse direction, Zoom to fit, Layout details, How to draw and Back to track](img/phone-more.webp)
 
-**How to draw**, in the designer on any device, has a link to this guide.
+**How to draw**, on a computer and on a phone, has a link to this guide. A tablet in Quick mode has no link in the designer yet: open **Help** from the menu on any other page.
 
 ### What is coming on phones
 
@@ -806,7 +807,7 @@ Select **Reverse direction**. See [Rotate and headings](#rotate-and-headings).
 
 ### Is my work saved if I close the page?
 
-Changes you have not saved are kept on that device, in that browser, and are there when you come back. They are not on your other devices until you select **Save**.
+Changes you have not saved are kept on that device, in that browser. When you open the layout again, the designer offers them back: select **Restore them**. They are not on your other devices until you select **Save**.
 
 ### How do I print the layout?
 

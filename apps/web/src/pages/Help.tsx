@@ -1,7 +1,7 @@
 // /help (#171): the user guide, from docs/guide (help/guide.ts). Anyone can read it, signed in or not. The contents
 // list and the section anchors come from the guide's own headings; Help in the menu and the app's "?" links land here.
-import { useEffect, useMemo, type MouseEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { guideImages, guideSource, headings, renderGuide, withoutContents } from "../help/guide.js";
 
 /** Bring a section to the top, under the site's bar. */
@@ -12,12 +12,15 @@ function showSection(hash: string) {
   } catch {
     // a hash that isn't valid percent-encoding: use it as it is
   }
-  if (id) document.getElementById(id)?.scrollIntoView();
+  const section = id ? document.getElementById(id) : null;
+  if (!section) return;
+  section.scrollIntoView();
+  // the keyboard and a screen reader carry on from the section, not from the top of the page
+  section.focus({ preventScroll: true });
 }
 
 export function Help() {
   const { hash } = useLocation();
-  const navigate = useNavigate();
   const html = useMemo(() => renderGuide(withoutContents(guideSource), guideImages), []);
   const contents = useMemo(() => headings(guideSource).filter((h) => h.level === 2 || h.level === 3), []);
 
@@ -25,25 +28,18 @@ export function Help() {
     document.title = "Help · Track Studio";
   }, []);
   // after the page's own scroll to the top on arrival (routes.tsx, Layout), which runs after this effect
+  // (Help in the menu, from a section: back to the top)
   useEffect(() => {
-    if (!hash) return;
-    const frame = requestAnimationFrame(() => showSection(hash));
+    const frame = requestAnimationFrame(() => (hash ? showSection(hash) : window.scrollTo(0, 0)));
     return () => cancelAnimationFrame(frame);
   }, [hash]);
 
-  // links to the app's own pages (/new, /v) change page without a reload; anchors and outside links are the browser's
-  const onClick = (e: MouseEvent<HTMLElement>) => {
-    const a = (e.target as HTMLElement).closest("a");
-    const href = a?.getAttribute("href");
-    if (!a || !href || !href.startsWith("/") || a.target || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    e.preventDefault();
-    navigate(href);
-  };
-
   return (
     <div className="wrap page help-page">
-      <nav className="help-contents" aria-label="Contents">
-        <h2 className="help-contents__h">Contents</h2>
+      <nav className="help-contents" aria-labelledby="help-contents-h">
+        <p className="help-contents__h" id="help-contents-h">
+          Contents
+        </p>
         <ol>
           {contents
             .filter((h) => h.level === 2)
@@ -58,7 +54,7 @@ export function Help() {
         </ol>
       </nav>
       {/* the guide is the repo's own Markdown, rendered with raw HTML escaped (help/guide.ts) */}
-      <article className="guide" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} />
+      <article className="guide" dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }

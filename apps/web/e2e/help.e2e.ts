@@ -47,6 +47,8 @@ test.describe("the user guide at /help", () => {
     await expect(page.getByRole("navigation", { name: "Track Studio" }).getByRole("link", { name: "Help" })).toHaveAttribute("aria-current", "page");
 
     const contents = page.getByRole("navigation", { name: "Contents" });
+    // the guide's title is the page's first heading
+    expect(await page.locator("main :is(h1, h2, h3)").first().textContent()).toBe("Track Studio user guide");
     const hrefs = await contents.locator(":scope > ol > li > a").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
     expect(hrefs).toEqual(SECTIONS.map((s) => `#${s}`));
 
@@ -56,6 +58,15 @@ test.describe("the user guide at /help", () => {
     await expect.poll(() => belowBar(page, "check-and-finish")).toBeGreaterThanOrEqual(0);
     expect(await belowBar(page, "check-and-finish")).toBeLessThan(60);
     await expect(page.locator("#check-and-finish")).toBeInViewport();
+    // the contents list marks where you are, and the keyboard carries on from the section
+    await expect(contents.getByRole("link", { name: "Check and finish" })).toHaveAttribute("aria-current", "location");
+    await expect(contents.locator("a[aria-current]")).toHaveCount(1);
+    await expect(page.locator("#check-and-finish")).toBeFocused();
+    // Help in the menu, from a section: back to the top of the guide
+    await page.getByRole("navigation", { name: "Track Studio" }).getByRole("link", { name: "Help" }).click();
+    await expect(page).toHaveURL(/\/help$/);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(contents.locator("a[aria-current]")).toHaveCount(0);
 
     // every link inside the guide has somewhere to go
     const dead = await page.locator(".guide a[href^='#'], .help-contents a[href^='#']").evaluateAll((as) => as.map((a) => a.getAttribute("href")!.slice(1)).filter((id) => !document.getElementById(id)));

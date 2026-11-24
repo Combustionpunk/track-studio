@@ -24,7 +24,7 @@ export const guideImages: Record<string, GuideImage> = Object.fromEntries(
 );
 
 /** a heading's text without its Markdown marks */
-const plain = (text: string) => text.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`]/g, "").trim();
+const plain = (text: string) => text.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*`]/g, "").trim();
 
 /** A heading's anchor, as GitHub makes it: lower case, punctuation dropped, each space a hyphen. */
 export function slug(heading: string): string {
@@ -63,7 +63,8 @@ export function renderGuide(md: string, images: Record<string, GuideImage>): str
     renderer: {
       heading({ tokens, depth, text }) {
         const inner = this.parser.parseInline(tokens);
-        return depth === 1 ? `<h1>${inner}</h1>\n` : `<h${depth} id="${esc(slug(text))}">${inner}</h${depth}>\n`;
+        // tabindex: a link to a section moves the keyboard there too (pages/Help.tsx)
+        return depth === 1 ? `<h1>${inner}</h1>\n` : `<h${depth} id="${esc(slug(text))}" tabindex="-1">${inner}</h${depth}>\n`;
       },
       image({ href, text }) {
         const name = href.startsWith("img/") ? href.slice(4) : "";
@@ -74,15 +75,15 @@ export function renderGuide(md: string, images: Record<string, GuideImage>): str
       },
       link({ href, tokens }) {
         const inner = this.parser.parseInline(tokens);
+        // the guide links to its own sections and to outside pages; anything else (a path only this site has would be
+        // a dead link on GitHub) is shown as plain text
         const outside = /^https?:\/\//i.test(href);
-        const safe = outside || href.startsWith("#") || (href.startsWith("/") && !href.startsWith("//"));
-        if (!safe) return inner;
+        if (!outside && !href.startsWith("#")) return inner;
         return outside ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${inner}</a>` : `<a href="${esc(href)}">${inner}</a>`;
       },
       html({ text }) {
-        if (/^<!--[\s\S]*-->\s*$/.test(text)) return "";
-        // the one tag the guide uses: <kbd> for a key
-        return esc(text).replace(/&lt;(\/?)kbd&gt;/g, "<$1kbd>");
+        // comments are dropped; the one tag the guide uses is <kbd>, for a key
+        return esc(text.replace(/<!--[\s\S]*?-->/g, "")).replace(/&lt;(\/?)kbd&gt;/g, "<$1kbd>");
       },
     },
   });

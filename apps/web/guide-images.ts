@@ -10,13 +10,13 @@ export const GUIDE_IMG_DIR = fileURLToPath(new URL("../../docs/guide/img/", impo
 const ID = "virtual:guide-image-sizes";
 
 /**
- * Width and height of a WebP picture, from its first chunk: lossy (VP8), lossless (VP8L) or extended (VP8X).
- * apps/web/scripts/guide-shots.mjs writes lossy ones.
+ * Width and height of a WebP picture, from its first chunk: lossy (VP8), lossless (VP8L) or extended (VP8X, which
+ * is what the browser writes for apps/web/scripts/guide-shots.mjs).
  */
 export function webpSize(bytes: Uint8Array): { width: number; height: number } {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const tag = (at: number) => String.fromCharCode(...bytes.subarray(at, at + 4));
-  if (bytes.length < 30 || tag(0) !== "RIFF" || tag(8) !== "WEBP") throw new Error("not a WebP picture");
+  if (bytes.length < 31 || tag(0) !== "RIFF" || tag(8) !== "WEBP") throw new Error("not a WebP picture");
   const chunk = tag(12);
   if (chunk === "VP8 ") return { width: view.getUint16(26, true) & 0x3fff, height: view.getUint16(28, true) & 0x3fff };
   if (chunk === "VP8L") {

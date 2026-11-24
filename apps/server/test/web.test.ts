@@ -99,6 +99,10 @@ describe("web app pages", () => {
     expect(res.body).toContain('<meta property="og:title" content="Track Studio user guide">');
     expect(res.body).toContain('<script type="module" src="/assets/app-abc123.js">'); // the app draws the guide
     expect(res.body).toMatch(/<div id="root"><h1>Track Studio user guide<\/h1>/); // until it starts
+    // the built app's policy: the guide's screenshots are the site's own files, and nothing else may frame the page
+    expect(res.headers["content-security-policy"]).toContain("img-src 'self'");
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
+    expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
     expect((await app.inject({ method: "GET", url: "/help/", headers: html })).statusCode).toBe(200);
   });
 

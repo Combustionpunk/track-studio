@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { HelpLink } from "../src/help/HelpLink.js";
 import { guideImages, guideSource, headings, imageNames, renderGuide, slug } from "../src/help/guide.js";
 import { HELP_TOPICS, helpHref, type HelpTopic } from "../src/help/topics.js";
+import { guideImageSizes, webpSize } from "../guide-images.js";
 import { Help } from "../src/pages/Help.js";
 
 const GUIDE_DIR = join(__dirname, "../../../docs/guide");
@@ -53,6 +54,8 @@ describe("the user guide's source (docs/guide/README.md)", () => {
     expect(slug("How do I… undo?")).toBe("how-do-i-undo");
     expect(slug("Pinch, pan and **armed** tools")).toBe("pinch-pan-and-armed-tools");
     expect(slug("2D & 3D")).toBe("2d--3d");
+    expect(slug("The \"latest\" link")).toBe("the-latest-link");
+    expect(slug("Lap_speeds page")).toBe("lap_speeds-page"); // GitHub keeps an underscore
   });
 
   it("every link inside the guide goes to a heading that exists", () => {
@@ -132,7 +135,8 @@ describe("the guide as /help shows it", () => {
   const html = renderGuide(md, guideImages);
 
   it("gives every heading its anchor", () => {
-    for (const h of heads.filter((x) => x.level > 1)) expect(html, h.id).toContain(`<h${h.level} id="${h.id}"`);
+    // (and can take the focus, so a link to a section moves the keyboard there)
+    for (const h of heads.filter((x) => x.level > 1)) expect(html, h.id).toContain(`<h${h.level} id="${h.id}" tabindex="-1">`);
   });
 
   it("shows each screenshot from the build, with its size and alt text, loaded as it's reached", () => {
@@ -149,16 +153,30 @@ describe("the guide as /help shows it", () => {
   });
 
   it("links out of the guide open safely; links inside it stay on the page", () => {
-    const html = renderGuide("# T\n\n[forum](https://forum.rcmisfits.org/) [here](#faq) [new](/new)\n\n## FAQ\n", {});
+    const html = renderGuide("# T\n\n[forum](https://forum.rcmisfits.org/) [here](#faq)\n\n## FAQ\n", {});
     expect(html).toContain('<a href="https://forum.rcmisfits.org/" target="_blank" rel="noopener noreferrer">forum</a>');
     expect(html).toContain('<a href="#faq">here</a>');
-    expect(html).toContain('<a href="/new">new</a>');
+  });
+
+  it("any other kind of link is shown as its text: a path would be dead on GitHub, and a script must never run", () => {
+    const html = renderGuide("# T\n\n[new](/new) [away](//example.com) [slash](/\\example.com) [js](javascript:alert(1)) [file](other.md)\n", {});
+    expect(html).not.toContain("<a ");
+    expect(html).toContain("new away slash js file");
+  });
+
+  it("the guide itself links only to its own sections and to the forum", () => {
+    const links = [...md.matchAll(/(?<!!)\[[^\]]*\]\(([^)\s]+)\)/g)].map((m) => m[1]);
+    for (const l of links) expect(l, l).toMatch(/^(#[a-z0-9-]+|https:\/\/forum\.rcmisfits\.org\/.*)$/);
   });
 
   it("raw HTML in the source is shown as text, never run", () => {
     const html = renderGuide("# T\n\n<script>alert(1)</script>\n\nA <b onclick=\"x()\">b</b>\n", {});
     expect(html).not.toContain("<script");
     expect(html).not.toContain("<b onclick");
+    // a comment is dropped, and what stands beside it is still text
+    const beside = renderGuide("# T\n\n<!-- a --><b>kept</b><!-- b -->\n", {});
+    expect(beside).toContain("&lt;b&gt;kept&lt;/b&gt;");
+    expect(beside).not.toContain("<!--");
   });
 
   it("a key is drawn as a key", () => {
@@ -175,8 +193,44 @@ describe("the guide as /help shows it", () => {
       </MemoryRouter>,
     );
     expect(page).toMatch(/<h1[^>]*>[^<]*Track Studio[^<]*<\/h1>/);
-    const nav = /<nav[^>]*aria-label="Contents"[^>]*>(.*?)<\/nav>/s.exec(page)?.[1] ?? "";
+    const nav = /<nav[^>]*aria-labelledby="help-contents-h"[^>]*>(.*?)<\/nav>/s.exec(page)?.[1] ?? "";
+    expect(nav).toMatch(/<p[^>]*id="help-contents-h"[^>]*>Contents<\/p>/);
+    // the guide's own title is the page's first heading
+    expect(page.indexOf("<h1")).toBeLessThan(page.search(/<h[2-6]/));
     for (const id of SECTIONS) expect(nav, id).toContain(`href="#${id}"`);
     for (const id of SECTIONS) expect(page, id).toContain(`<h2 id="${id}"`);
+  });
+});
+
+describe("the screenshots' sizes, read from their WebP headers (guide-images.ts)", () => {
+  /** a WebP file's first 32 bytes: RIFF, WEBP, then the chunk named, with `at` filled in */
+  const header = (chunk: string, fill: (view: DataView) => void) => {
+    const bytes = new Uint8Array(32);
+    [..."RIFF"].forEach((c, i) => (bytes[i] = c.charCodeAt(0)));
+    [..."WEBP"].forEach((c, i) => (bytes[8 + i] = c.charCodeAt(0)));
+    [...chunk].forEach((c, i) => (bytes[12 + i] = c.charCodeAt(0)));
+    fill(new DataView(bytes.buffer));
+    return bytes;
+  };
+
+  it("reads each kind of WebP: lossy, lossless and extended", () => {
+    expect(webpSize(header("VP8 ", (v) => (v.setUint16(26, 1200, true), v.setUint16(28, 800, true))))).toEqual({ width: 1200, height: 800 });
+    // lossless: 14 bits of width - 1, then 14 bits of height - 1, after the 0x2f signature byte
+    expect(webpSize(header("VP8L", (v) => (v.setUint8(20, 0x2f), v.setUint32(21, (375 - 1) | ((812 - 1) << 14), true))))).toEqual({ width: 375, height: 812 });
+    // extended: 24 bits of width - 1 at 24, 24 bits of height - 1 at 27
+    expect(webpSize(header("VP8X", (v) => (v.setUint16(24, 1024 - 1, true), v.setUint16(27, 768 - 1, true))))).toEqual({ width: 1024, height: 768 });
+  });
+
+  it("says so when a file isn't a WebP picture it can read", () => {
+    expect(() => webpSize(new Uint8Array(30))).toThrow("not a WebP picture");
+    expect(() => webpSize(new TextEncoder().encode("\x89PNG\r\n\x1a\n".padEnd(40, "x")))).toThrow("not a WebP picture");
+    expect(() => webpSize(header("ALPH", () => {}))).toThrow(/doesn't read/);
+  });
+
+  it("the guide's own screenshots: desktop 1200 px, tablet 1024 px and phone 375 px wide", () => {
+    const sizes = guideImageSizes();
+    expect(sizes["library.webp"]).toEqual({ width: 1200, height: 800 });
+    expect(sizes["tablet-designer.webp"]).toEqual({ width: 1024, height: 768 });
+    expect(sizes["phone-designer.webp"]).toEqual({ width: 375, height: 812 });
   });
 });
