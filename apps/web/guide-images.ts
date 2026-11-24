@@ -39,7 +39,7 @@ export function guideImages(): Plugin {
     resolveId: (id) => (id === ID ? `\0${ID}` : undefined),
     load(id) {
       if (id !== `\0${ID}`) return;
-      this.addWatchFile(GUIDE_IMG_DIR);
+      // read once per build or dev-server start: restart `pnpm dev` after adding a screenshot
       return `export default ${JSON.stringify(guideImageSizes())};`;
     },
   };
