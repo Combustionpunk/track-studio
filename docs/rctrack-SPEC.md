@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.12)
+# rctrack — shared track format (v1.13)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -25,7 +25,7 @@ the layout) and to check a layout against a venue (the fit search, which says wh
 |---|---|
 | `format`, `version` | `"rctrack"`, `1` |
 | `id`, `revision` | UUID stable across edits; revision increments on every saved change. Meetings pin a revision. |
-| `info` | name, author (forum username), dates, description, venue `{id, name}`, status `draft / submitted / approved / archived`, surface, classes, tags, `derivedFrom` (below), `drawnFor` *(v1.7)*: `{venueTemplate, name}`, the venue template the layout was drawn for — a label for people browsing ("drawn for …"); nothing checks it |
+| `info` | name, author (forum username), dates, description, venue `{id, name}`, status `draft / submitted / approved / archived`, surface (`carpet / astro / dirt / clay / tarmac / mixed / other`; *1.13*: a layout drawn for or adapted to a venue template takes the template's), classes, tags, `derivedFrom` (below), `drawnFor` *(v1.7)*: `{venueTemplate, name}`, the venue template the layout was drawn for — a label for people browsing ("drawn for …"); nothing checks it |
 | `area` | optional *(v1.7)*: `{length, width}` in metres, the drawing area the designer used (a venue template's, or set for a blank design). No check depends on it. Without it, draw the layout on the smallest box centred on the origin, in whole metres, that holds `built.size` with 0.5 m to spare (`drawingArea` in the engine) |
 | `design` | editable inputs, below |
 | `built` | derived geometry, below |
@@ -239,10 +239,10 @@ engine); changing it means changing both and re-baking stored tracks.
 
 ## Venue templates (`.rcvenue.json`)
 The hall: `{format: "rcvenue", version: 1, id, revision, info: {name, venue: {id, name, trackId, trackName}, notes},
-area: {length, width}, rostrum: {side, offset}, obstacles: [...]}`. `area` is the usable track area in metres, origin at
+surface?, area: {length, width}, rostrum: {side, offset}, timingLoop?: {x, z, heading, length}, obstacles: [...]}`. `area` is the usable track area in metres, origin at
 its centre; `rostrum` stands 1.5 m outside the middle of its `side` (north/south/east/west), moved `offset` metres along
 it, eyes 2.8 m up; `obstacles` are fixed items inside the area: `{type: "circle", x, z, radius, label}` or `{type: "rect",
-x, z, length, width, rotation?, label}`. Created by a club organiser in Track Studio. `info.venue` links the template to
+x, z, length, width, rotation?, label}`, either with an optional `kind` *(rcvenue 1.2)*. Created by a club organiser in Track Studio. `info.venue` links the template to
 one forum venue (`id`, `name`) and one of its tracks (`trackId`, `trackName`), since a forum venue can have several (an
 indoor carpet track and an outdoor tarmac one); at most one template per forum track.
 
@@ -251,7 +251,24 @@ A template is used for two things only *(v1.7)*:
    not saved into the layout; the layout keeps the area as its drawing `area` and the template as `info.drawnFor`.
 2. **Checking a layout against the venue:** the fit search and venue checks below.
 
+**Surface, timing loop, pit area and rostrum** *(rcvenue 1.2, rctrack 1.13)*, all optional:
+- `surface`: `carpet`, `astro`, `dirt`, `clay`, `tarmac` or `mixed`, what the track is laid on. Starting a layout from the
+  template, or adapting one to it, sets the layout's `info.surface` to it, so a reader of the layout (the sim) has it
+  without the template.
+- `timingLoop: {x, z, heading, length}`: the timing loop fixed in the floor, the one track feature every layout must
+  respect. `x, z` its centre; `heading` the direction the track runs over it (degrees, 0 = +x, counter-clockwise);
+  `length` its span across the track (m). The venue checks warn (`timing-loop`) when a layout's start/finish isn't over
+  it (*Fit search*). It never changes the fit search.
+- `obstacles[].kind`: `pits` (the pit area) or `rostrum` (a rostrum standing inside the area); absent, an obstacle as
+  before. A zone is a circle or rectangle like any obstacle, and the fit search and the `obstacle` check treat all three
+  alike: a layout can't go over them. Readers draw zones apart from obstacles and name an unlabelled one for its kind
+  ("Pits", "Rostrum"). `rostrum: {side, offset}` still says where the drivers stand to look at the track (outside the
+  area); a rostrum zone is only floor the track can't use.
+
 rcvenue changes:
+- **1.2** — `surface`, `timingLoop` and `obstacles[].kind` (above). `version` stays `1`; 1.1 files have none of them
+  and load and check exactly as before. Older readers ignore the keys and treat zones as obstacles, which is right
+  for the fit.
 - **1.1** — `info.venue` gains `trackId` and `trackName`: the forum track the template is for. `version` stays `1`;
   1.0 files (`{id, name}` only) still load, and Track Studio asks for the track the next time one is edited. New
   templates linked to a forum venue must name the track.
@@ -265,12 +282,17 @@ rostrum view.
 **Venue checks** *(v1.7; `check` in `fit.py`, `venueCheck` in the engine)* test the layout where it is drawn (its
 coordinates taken as the venue's) and report where the venue's rostrum stands, `{checks, rostrum: {side, x, z,
 eyeHeight}}`. Check codes: `outside-area` (error: a lane edge leaves the venue's area) and `obstacle` (error: lanes +
-half the pipe's width overlap a fixed obstacle). These were in `built.checks` before 1.7; they belong to the fit, which has the
+half the pipe's width overlap a fixed obstacle, the pit area or a rostrum zone) and, *1.13*, `timing-loop` (warning: the
+venue has a timing loop and the layout's start/finish isn't over it, read from `built.startLine`; no `built`, no check).
+Over it means the start line's centre is within 0.5 m of the loop along the loop's heading (`LOOP_ALONG`) and within
+its span across it, and the start runs no more than 30° (`LOOP_ANGLE`) off the loop's heading. Its position is the
+loop's centre; its message is "Start/finish isn't over the timing loop", "Start/finish runs the wrong way over the
+timing loop" (over it, 150° or more off) or "Start/finish crosses the timing loop at an angle". The first two were in `built.checks` before 1.7; they belong to the fit, which has the
 venue's area, obstacles and rostrum.
 
 Choosing a result creates an adapted copy for that venue (new id, `info.derivedFrom` = original id, revision and
 orientation), rotated or mirrored and moved to the chosen fit, and re-bakes it; its marshal points *(v1.11)* move with it. Nothing of the venue is copied in but its
-area (as the drawing area) and `info.drawnFor`: no obstacles, no rostrum. Features (crossovers included) are placed by distance along the racing line, so they move
+area (as the drawing area), `info.drawnFor` and *(1.13)* its `surface` as `info.surface`, when it has one: no obstacles, no rostrum, no timing loop. Features (crossovers included) are placed by distance along the racing line, so they move
 with the track; mirroring and rotating keep the driving order, so each crossing keeps its over pass.
 
 ## Forum integration (plan)
@@ -351,6 +373,13 @@ venue). `figure-eight-crossover` has no cones and no `built.marshals` key. Each 
 (`*.preview.svg`) to compare against.
 
 ## Changes
+- **1.13** — venue templates gain a surface, a timing loop and pit area / rostrum zones (rcvenue 1.2, *Venue
+  templates*), and the venue checks a warning, `timing-loop`, when a layout's start/finish isn't over the venue's loop.
+  In the layout: `info.surface` may also be `dirt`, `tarmac` or `mixed` (it was `carpet`, `astro`, `clay` or `other`),
+  and a layout drawn for or adapted to a template with a surface takes it. `version` stays `1`. **Nothing re-bakes:**
+  `built` is unchanged and the generator strings stay at 1.12. Fit results only change for templates that add a pit
+  area or rostrum zone (they are obstacles to the fit). Older readers that list surfaces must show an unknown one as
+  text, and show the new check code at its level, like any unknown code.
 - **1.12** — the divider pipe is **0.065 m square** in section (club pipe is 65 mm square). Earlier versions gave no pipe size;
   the footprint padded the lanes by 0.04 m before 1.12. No key is
   added, removed or changed, and `version` stays `1`; the size is a fixed value (*Compatibility for consumers*), one

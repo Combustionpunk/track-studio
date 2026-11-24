@@ -4,6 +4,8 @@
 - **Designers** (any forum member): draw tracks from a venue template or from blank, save revisions, submit them.
 - **Organisers / venue admins** (forum group `track-admins`): create venue templates, approve tracks, find layouts that
   fit their venue, link a track to a meeting.
+- **Club committees** (a club's officers and committee, forum groups `<short code>-off` / `<short code>-com`): create and
+  edit the venue templates of the venues the forum says their club runs (#173).
 - **Everyone**: browse the library, view 2D/3D, download for the sim. Forum readers see previews inline.
 
 ## Architecture
@@ -41,7 +43,8 @@ Sign out also signs out of the forum (DiscourseConnect `logout=true`). Details i
 - `POST /api/tracks/:id/submit` · `/approve` · `/archive` (approve/archive: organisers)
 - `GET /api/tracks/:id/fit/:venueId` -> fit results · `POST /api/tracks/:id/adapt/:venueId` -> new adapted track
 - `POST /api/tracks/:id/copy` -> a new draft for the caller, credited with `info.derivedFrom` (how a locked track is changed)
-- `GET /api/venues` · `GET /api/venues?forumTrack=<id>` · `GET /api/venues/:id` · `POST/PUT /api/venues` (organisers)
+- `GET /api/venues` · `GET /api/venues?forumTrack=<id>` · `GET /api/venues/:id` · `POST/PUT /api/venues` (organisers;
+  a club's committee for the venues the forum says that club runs, #173)
 - `GET /api/class-speeds` · `PUT /api/class-speeds` `{classes: [{class, speed}]}` (organisers; replaces the list, in order)
 - `GET /api/forum-venues?q=` (the forum's venues and their tracks, cached 10 min, for the venue editor's picker)
 - `GET /p/:id/:rev.png` — preview image (cached, rendered from the engine's SVG with resvg)
