@@ -101,7 +101,7 @@ export async function middleCorner(page: Page): Promise<{ i: number; at: XY }> {
 }
 
 /**
- * A corner in the upper half of the plan, where the selection sheet never reaches: the one to use when a test taps a
+ * A corner in the upper half of the plan, clear of the selection sheet at peek: the one to use when a test taps a
  * corner and then puts a finger on it again. The middle corner ends up under the sheet's grab bar once the sheet has
  * slid in (200 ms), so a second touch there only reaches the corner on a fast machine (#156, #185).
  */
