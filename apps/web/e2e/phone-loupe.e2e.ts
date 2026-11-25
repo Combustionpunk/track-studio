@@ -3,7 +3,7 @@
 // it stays on screen, clear of the header and the toolbar, at the plan's edges; a mouse drag shows none, and neither
 // does a tablet. SHOTS=<dir> saves screenshots for the PR.
 import { expect, test, type Page } from "@playwright/test";
-import { corners, emptyFloor, middleCorner, open, pinchIn, planBox, serve, shot, toolbar } from "./phone-helper.js";
+import { corners, emptyFloor, middleCorner, open, pinchIn, planBox, serve, sheetClearOf, shot, toolbar, upperCorner } from "./phone-helper.js";
 import { screen, Touch, type XY } from "./touch-helper.js";
 
 const loupe = (page: Page) => page.locator(".plan-loupe");
@@ -64,11 +64,13 @@ test.describe("phone loupe", () => {
     await open(page);
     const t = await Touch.on(page);
     await pinchIn(page, t);
-    const { i, at } = await middleCorner(page);
+    // a corner the sheet doesn't cover: the finger has to land on the corner again once the sheet is up (#185)
+    const { i, at } = await upperCorner(page);
     // with its sheet open: the sheet tucks away for the drag, and the loupe shows over the plan
     await t.tap(at);
     const s = page.getByRole("dialog", { name: `Corner ${i + 1}` });
     await expect(s).toHaveClass(/bottom-sheet--peek/);
+    await sheetClearOf(page, at, 50);
     await t.down(at);
     await rest();
     await expect(loupe(page)).toHaveCount(0); // not on a press: only once the finger is dragging
@@ -97,8 +99,8 @@ test.describe("phone loupe", () => {
     await onScreen(page);
     await clearOf(page, to);
     await shot(page, "375-loupe-middle");
-    // it follows the finger
-    const to2: XY = [to[0] - 30, to[1] + 20];
+    // it follows the finger (to the right: the upper corner is near the left edge, where the loupe would stop short)
+    const to2: XY = [to[0] + 30, to[1] + 20];
     await t.move([to2], 6);
     await expect.poll(async () => { const b = (await loupe(page).boundingBox())!; return Math.abs(b.x + b.width / 2 - to2[0]); }).toBeLessThan(2);
     await expect.poll(async () => (await readout(page).textContent()) === pos((await corners(page))[i])).toBe(true);
