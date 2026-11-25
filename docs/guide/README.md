@@ -264,7 +264,7 @@ Every layout has one start line. It is the start and the finish.
 
 ![The start line selected and zoomed in: the chequered line across the lane, grid boxes behind it and arrows showing the direction](img/start-line.webp)
 
-Select **Fit to view** to see the whole plan again.
+When you let the start line go (press Escape, click the floor, or on a phone close its sheet), the plan zooms back to where it was. If you zoomed or moved the plan yourself meanwhile, it stays where you put it.
 
 The start line is where a lap begins and ends, and it is the timing line in the sim. Put the start line where your club's timing loop goes.
 

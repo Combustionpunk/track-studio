@@ -2,7 +2,7 @@
 // back as it was once the start line is let go. A trip to 3D or a change of mode doesn't carry the zoom along.
 // The laptop (mouse, 1200 px) and the phone (375 px, touch).
 import { expect, test, type Page } from "@playwright/test";
-import { open, serve, toolBtn, viewBox } from "./phone-helper.js";
+import { open, serve, shot, toolBtn, viewBox } from "./phone-helper.js";
 
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 0) < 640;
 
@@ -63,11 +63,14 @@ test("Start line zooms in on it; letting it go puts the plan back at the zoom it
   const errors = await serve(page);
   await open(page);
   const before = await viewBox(page);
+  const px = page.viewportSize()!.width;
   await pickStart(page);
   // it shows where the start line is: closer in
   await expect.poll(async () => (await viewBox(page))[2]).toBeLessThan(before[2]);
+  await shot(page, `${px}-1-start-line-picked`);
   await letGo(page);
   await expect.poll(() => viewBox(page)).toEqual(before);
+  await shot(page, `${px}-2-let-go`);
   expect(errors).toEqual([]);
 });
 
