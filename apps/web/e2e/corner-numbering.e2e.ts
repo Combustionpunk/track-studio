@@ -1,10 +1,11 @@
 // One corner numbering everywhere (#176): the designer and the build sheet name the same corner points the same way,
 // and count the same corners, for a layout with hairpins (club-a: 5a/5b, 6a/6b, … — 18 points, 12 corners). The API is
-// answered from the fixture (phone-helper's serve), so only Vite is needed. Desktop project only: the numbering
-// doesn't depend on touch.
+// answered from the fixture (phone-helper's serve), so only Vite is needed. The desktop project, and the phone's own
+// layout.
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { open, REF, serve, ID } from "./phone-helper.js";
+import { ID, middleCorner, open, pinchIn, REF, serve, shot } from "./phone-helper.js";
+import { Touch } from "./touch-helper.js";
 
 const clubA = JSON.parse(readFileSync(`${REF}examples/club-a.rctrack.json`, "utf8"));
 
@@ -28,6 +29,7 @@ test("club-a: the designer's corner dots and the build sheet's corner points car
   await expect(five.locator("title")).toHaveText(/^Corner 5a: /);
   await five.locator(".ed-corner-dot").click();
   await expect(page.locator("section.sel-panel h2")).toHaveText("Corner 5a");
+  await shot(page, "designer-1200");
 
   // the build sheet: the same labels, each measured from the south-west corner of the same spot
   await page.goto(`/t/${ID}/build`);
@@ -46,5 +48,22 @@ test("club-a: the designer's corner dots and the build sheet's corner points car
     expect(Math.abs(os - offsets[0][1])).toBeLessThan(0.06);
   }
   await expect(page.locator(".sheet-figures")).toContainText("12Corners");
+  await shot(page, "build-sheet-1200");
+  expect(errors).toEqual([]);
+});
+
+test("club-a on a phone: the dots and a corner's sheet use the same labels", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "phone layout");
+  const errors = await serve(page, clubA);
+  await open(page);
+  const labels = await page.locator("g.ed-corner .ed-corner-n").allTextContents();
+  expect(labels).toEqual(["1", "2", "3", "4", "5a", "5b", "6a", "6b", "7", "8", "9a", "9b", "10a", "10b", "10c", "11", "12a", "12b"]);
+  const t = await Touch.on(page);
+  await pinchIn(page, t);
+  // the corner nearest the middle of the plan (zoomed in, where a finger can pick it): its sheet is named by its label
+  const { i, at } = await middleCorner(page);
+  await t.tap(at);
+  await expect(page.getByRole("dialog", { name: `Corner ${labels[i]}`, exact: true })).toBeVisible();
+  await shot(page, "designer-375");
   expect(errors).toEqual([]);
 });
