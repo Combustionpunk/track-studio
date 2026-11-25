@@ -169,12 +169,20 @@ describe("the guide as /help shows it", () => {
     for (const l of links) expect(l, l).toMatch(/^(#[a-z0-9-]+|https:\/\/forum\.rcmisfits\.org\/.*)$/);
   });
 
-  it("voting is sent to the forum: the Vote for the track panel, and the club guide for the steps", () => {
+  it("voting is sent to the forum: the Vote for the track panel, the most votes win at the closing time, and the club guide for the steps", () => {
     const voting = md.slice(md.indexOf("\n### Voting\n"), md.indexOf("\n### Put a layout on the forum\n"));
     expect(voting).toContain("Track Studio itself has no voting");
     expect(voting).toContain("**Vote for the track**");
     expect(voting).toContain("](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template)");
     expect(md).not.toMatch(/organisers decide|post its link on the forum/i);
+    // how the forum's vote runs: the most votes win at the closing time; the organiser picks only on a tie,
+    // no votes, or to end it early
+    expect(voting).toContain("up to 4 layouts");
+    expect(voting).toContain("closing time");
+    expect(voting).toMatch(/At the closing time, the layout with the most votes becomes the meeting's layout/);
+    expect(voting).toMatch(/can change their vote until the closing time/);
+    expect(voting).toMatch(/organiser picks the layout only if the vote is tied or nobody voted, or to end the vote early/);
+    expect(voting).not.toMatch(/^\d\. The organiser picks the layout for the meeting\.$/m);
   });
 
   it("raw HTML in the source is shown as text, never run", () => {
