@@ -166,3 +166,33 @@ describe("venue editor pages", () => {
     expect((await app.inject({ method: "GET", url: "/v/nope/edit", headers: html })).statusCode).toBe(404);
   });
 });
+
+describe("rcvenue 1.2 fields (#173)", () => {
+  const withNew = () => ({
+    ...newVenue(),
+    surface: "astro",
+    timingLoop: { x: -4, z: -5, heading: 0, length: 3 },
+    obstacles: [...newVenue().obstacles, { type: "rect", kind: "pits", x: 0, z: 5.5, length: 6, width: 1, label: "Pits" }, { type: "rect", kind: "rostrum", x: 0, z: -5.7, length: 4, width: 0.6 }],
+  });
+
+  it("surface, timing loop and pit area / rostrum zones are saved and served", async () => {
+    const { app, org } = await setup();
+    const { venue } = (await req(app, "POST", "/api/venues", org, withNew())).json() as { venue: { id: string } };
+    const stored = (await req(app, "GET", `/api/venues/${venue.id}`)).json().doc as RcVenue;
+    expect(stored).toEqual({ format: "rcvenue", version: 1, id: venue.id, revision: 1, ...withNew() });
+    expect(validateVenue(stored).valid).toBe(true);
+  });
+
+  it("refuse an unknown surface and a timing loop far outside", async () => {
+    const { app, org } = await setup();
+    expect((await req(app, "POST", "/api/venues", org, { ...withNew(), surface: "grass" })).statusCode).toBe(400);
+    expect((await req(app, "POST", "/api/venues", org, { ...withNew(), timingLoop: { x: 500, z: 0, heading: 0, length: 3 } })).statusCode).toBe(400);
+  });
+
+  it("a 1.1 template still loads and saves", async () => {
+    const { app, org } = await setup();
+    const doc = (await req(app, "GET", "/api/venues/venue-1")).json().doc as RcVenue;
+    expect(doc.surface).toBeUndefined();
+    expect((await req(app, "PUT", "/api/venues/venue-1", org, { ...doc, info: { ...doc.info, venue: { ...doc.info.venue, trackId: 7, trackName: "Carpet" } } })).statusCode).toBe(200);
+  });
+});

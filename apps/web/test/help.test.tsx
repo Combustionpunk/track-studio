@@ -1,6 +1,6 @@
 // The user guide (#171): docs/guide/README.md is the source, /help shows it, and the app's Help and "?" links open its
 // sections. These tests keep the three in step: the eight sections, every anchor a link uses, every screenshot.
-import { GENERATOR } from "@track-studio/engine";
+import { GENERATOR, timingLoopCheck, type Built } from "@track-studio/engine";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -183,6 +183,24 @@ describe("the guide as /help shows it", () => {
     expect(voting).toMatch(/can change their vote until the closing time/);
     expect(voting).toMatch(/organiser picks the layout only if the vote is tied or nobody voted, or to end the vote early/);
     expect(voting).not.toMatch(/^\d\. The organiser picks the layout for the meeting\.$/m);
+  });
+
+  it("the timing loop and the venue's zones (#173): what the plan shows, the fit check's three warnings in the engine's own words, and who edits templates", () => {
+    const loop = { x: 0, z: 0, heading: 0, length: 3 };
+    const start = (x: number, heading: number) => ({ built: { startLine: { x, z: 0, heading } as Built["startLine"] } });
+    // off the loop, against it, across it: the three messages, as "Check against a venue" words them
+    const messages = [start(5, 0), start(0, 180), start(0, 90)].map((t) => timingLoopCheck(t, { timingLoop: loop })!.message);
+    expect(new Set(messages).size).toBe(3);
+    const fit = md.slice(md.indexOf("\n### The fit check\n"), md.indexOf("\n#### On a layout's page: Fit to a venue\n"));
+    for (const m of messages) expect(fit, m).toContain(`| **Where it's drawn: ${m.toLowerCase()}.** | A warning.`);
+    expect(fit).toMatch(/pit area or a rostrum marked inside the hall counts as a fixed obstacle/);
+    const startLine = md.slice(md.indexOf("\n### The start line and the timing loop\n"), md.indexOf("\n### The rostrum\n"));
+    expect(startLine).toContain("dashed orange line with an arrow");
+    expect(startLine).toContain("Put the start line over it, running the arrow's way");
+    expect(startLine).not.toContain("There is no separate timing loop");
+    const venues = md.slice(md.indexOf("\n### The venue library\n"), md.indexOf("\n### Themes\n"));
+    expect(venues).toContain("its surface, its rostrum side, its timing loop, its pit area and its fixed obstacles");
+    expect(venues).toContain("The committee of the club that runs the venue on the forum, and Track Studio's organisers, add and edit venue templates");
   });
 
   it("raw HTML in the source is shown as text, never run", () => {

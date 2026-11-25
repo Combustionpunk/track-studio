@@ -1,7 +1,7 @@
 // Interactive 2D plan drawn from `built` (+ area, obstacles). Pan by dragging, zoom with the wheel / pinch /
 // double-click / buttons, toggle layers, hover jumps, checks and obstacles for details. Two fingers pinch and pan
 // wherever they land, handles included, and nothing under them gets the touch (#16).
-import { niceLength, planLayers, planMargin, type Area, type Built, type Check, type DesignFeature, type Obstacle, type PlanLayer, type Point2, type Side } from "@track-studio/engine";
+import { niceLength, planLayers, planMargin, type Area, type Built, type Check, type DesignFeature, type Obstacle, type PlanLayer, type Point2, type Side, type TimingLoop, obstacleLabel } from "@track-studio/engine";
 import { usePlanPalette } from "../lib/theme.js";
 import { Layers as LayersIcon, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
@@ -35,6 +35,8 @@ export interface PlanViewProps {
   built?: Built;
   /** used when there's no built (venue plans) */
   rostrum?: { side: Side; x: number; z: number };
+  /** rcvenue 1.2 (#173): the venue's timing loop, drawn with the obstacles */
+  timingLoop?: TimingLoop;
   /** to show each jump's distance along the line */
   designFeatures?: DesignFeature[];
   layers?: Layers;
@@ -338,11 +340,19 @@ export function PlanView(props: PlanViewProps) {
       t.set(
         `o${i}`,
         <>
-          <strong>{o.label || (o.type === "circle" ? "Obstacle" : "Keep-out area")}</strong>
+          <strong>{obstacleLabel(o)}</strong>
           <span>{o.type === "circle" ? `${metres(o.radius * 2)} across` : `${metres(o.length)} × ${metres(o.width)}`}</span>
         </>,
       ),
     );
+    if (props.timingLoop)
+      t.set(
+        "loop",
+        <>
+          <strong>Timing loop</strong>
+          <span>{metres(props.timingLoop.length)} across · the start/finish goes over it</span>
+        </>,
+      );
     if (built?.startLine)
       t.set(
         "start",
@@ -361,7 +371,7 @@ export function PlanView(props: PlanViewProps) {
         </>,
       );
     return t;
-  }, [built, obstacles, props.designFeatures, props.rostrum]);
+  }, [built, obstacles, props.designFeatures, props.rostrum, props.timingLoop]);
 
   // ---------------------------------------------------------------- drawing
   // The plan itself comes from the engine's shared renderer (the same drawing as the PNG previews and the embed);
@@ -369,7 +379,7 @@ export function PlanView(props: PlanViewProps) {
   const px = v ? 1 / v.s : 0.05; // one screen pixel in metres
   const pxStep = 2 ** (Math.round(Math.log2(px) * 4) / 4); // redraw hairlines in ~19% zoom steps, not on every wheel tick
   const uid = useId().replace(/[^\w-]/g, "");
-  const scene = useMemo(() => ({ area, obstacles, built, rostrum: props.rostrum }), [area, obstacles, built, props.rostrum]);
+  const scene = useMemo(() => ({ area, obstacles, built, rostrum: props.rostrum, timingLoop: props.timingLoop }), [area, obstacles, built, props.rostrum, props.timingLoop]);
   const drawn = useMemo(() => (props.checksInOverlay ? { ...layers, checks: false } : layers), [layers, props.checksInOverlay]);
   const palette = usePlanPalette(); // the theme's colours (#135)
   const drawing = useMemo(() => planLayers(scene, { px: pxStep, layers: drawn, tips: interactive, id: `plan${uid}`, palette }), [scene, pxStep, drawn, interactive, uid, palette]);

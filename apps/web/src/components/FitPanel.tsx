@@ -1,6 +1,6 @@
 // "Fit to a venue": pick a venue, see every orientation the track fits in, preview it in the hall, make a copy.
 import { HelpLink } from "../help/HelpLink.js";
-import type { Built, RcVenue } from "@track-studio/engine";
+import { timingLoopCheck, type Built, type RcVenue } from "@track-studio/engine";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { post, type FitAnswer, type TrackResponse, type VenueSummary } from "../lib/api.js";
@@ -31,6 +31,8 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
 
   const placed = useMemo(() => (chosen && venue.data ? transformBuilt(built, chosen) : undefined), [built, chosen, venue.data]);
   const v = venue.data?.doc;
+  // #173: where this fit puts the start/finish against the venue's timing loop (the fit search doesn't move it there)
+  const loopWarning = placed && v ? timingLoopCheck({ built: placed }, v) : null;
 
   const makeCopy = async () => {
     if (!chosen || !v) return;
@@ -120,12 +122,18 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
             <PlanView
               area={v.area}
               obstacles={v.obstacles}
+              timingLoop={v.timingLoop}
               built={placed}
               rostrum={{ ...xz(rostrumPos(v.area, v.rostrum?.side, v.rostrum?.offset)), side: v.rostrum?.side ?? "south" }}
               layers={{ lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: false, obstacles: true, grid: true, rostrum: true, marshals: true }}
               label={`${chosen.orientation} in ${v.info.name}`}
               className="ts-plan-well fit-plan"
             />
+          )}
+          {loopWarning && (
+            <p className="ts-help" role="status">
+              <strong className="lvl-warning">Timing loop:</strong> {loopWarning.message.toLowerCase().replace(/^start/, "the start")} here. Move the start line in the copy, or pick another orientation.
+            </p>
           )}
           <p className="ts-help">
             Preview: the track placed in {v.info.name} ({fmt.size(v.area)} area), with its obstacles and rostrum. The copy keeps only the track, turned to fit.
