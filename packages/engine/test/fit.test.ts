@@ -21,6 +21,7 @@ describe("fit", () => {
     // the venue checks of the layout where it is drawn: same codes, positions within a cell, same rostrum
     const check = venueCheck(t, v);
     expect(check.checks.map((c) => c.code)).toEqual(want.check.checks.map((c) => c.code));
+    expect(check.checks.map((c) => [c.level, c.message])).toEqual(want.check.checks.map((c) => [c.level, c.message]));
     check.checks.forEach((c, i) => expect(Math.hypot(c.x! - want.check.checks[i].x!, c.z! - want.check.checks[i].z!)).toBeLessThanOrEqual(0.1 + 1e-9));
     expect(check.rostrum).toEqual(want.check.rostrum);
   });

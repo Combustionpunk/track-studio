@@ -47,7 +47,7 @@ export function VenueThumb({ venue }: { venue: RcVenue }) {
   const uid = useId().replace(/[^\w-]/g, "");
   // drawn for a ~300 px wide card
   const palette = usePlanPalette();
-  const drawing = planLayers({ area: venue.area, obstacles: venue.obstacles, rostrum }, { px: (b.x1 - b.x0) / 300, layers: { grid: false }, id: `venue${uid}`, palette });
+  const drawing = planLayers({ area: venue.area, obstacles: venue.obstacles, rostrum, timingLoop: venue.timingLoop }, { px: (b.x1 - b.x0) / 300, layers: { grid: false }, id: `venue${uid}`, palette });
   return (
     <svg className="venue-thumb" viewBox={`${b.x0} ${b.y0} ${b.x1 - b.x0} ${b.y1 - b.y0}`} role="img" aria-label={`${venue.info.name} outline`}>
       <g dangerouslySetInnerHTML={{ __html: drawing }} />

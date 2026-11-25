@@ -106,8 +106,20 @@ export async function assertTrackAtVenue(forumVenues: ForumVenues, link: { id?: 
   if (!venue.tracks.some((t) => t.id === link.trackId)) throw new HttpError(400, "invalid-venue", `Forum track ${String(link.trackId)} isn't one of ${venue.name}'s tracks.`);
 }
 
+/** The managing club's short code in the forum's single-venue answer (GET /des/venues/:id), or null when it has none. */
+export function parseManagingClub(body: unknown): string | null {
+  const venue = isObject(body) && isObject(body.venue) ? body.venue : null;
+  if (!venue) throw new Error("not a venue");
+  const club = venue.managing_organisation;
+  return isObject(club) && typeof club.short_code === "string" && club.short_code.trim() ? club.short_code.trim().toLowerCase() : null;
+}
+
 export class ForumVenues {
   private cache: { venues: ForumVenue[]; at: number; fetchedAt: string } | null = null;
+  /** forum venue id -> the club that manages it (#173), as the forum said at `at` */
+  private clubs = new Map<number, { club: string | null; at: number }>();
+  /** forum venue id -> when asking the forum about it last failed (wait RETRY_MS before asking again) */
+  private clubsFailedAt = new Map<number, number>();
   private failedAt: number | null = null;
   private failing = false;
   private inflight: Promise<void> | null = null;
@@ -129,6 +141,36 @@ export class ForumVenues {
     }
     if (!this.cache) throw new HttpError(503, "forum-unavailable", "Forum unavailable: it didn't answer, so its venues can't be listed right now.");
     return { venues: this.cache.venues, fetchedAt: this.cache.fetchedAt, stale: this.now() - this.cache.at >= FORUM_VENUES_TTL_MS };
+  }
+
+  /**
+   * #173: the short code of the club that manages a forum venue (its committee may edit the venue's templates), or null
+   * when no club does or the forum doesn't know the venue. Cached for 10 minutes per venue; when the forum doesn't answer
+   * the last answer is used, and with none the caller gets a 503.
+   */
+  async managingClub(venueId: number): Promise<string | null> {
+    const cached = this.clubs.get(venueId);
+    if (cached && this.now() - cached.at < FORUM_VENUES_TTL_MS) return cached.club;
+    const failed = this.clubsFailedAt.get(venueId);
+    if (failed !== undefined && this.now() - failed < RETRY_MS) {
+      if (cached) return cached.club;
+      throw new HttpError(503, "forum-unavailable", "Forum unavailable: it didn't answer, so which club runs this venue can't be checked right now. Try again in a minute.");
+    }
+    try {
+      const res = await this.fetch(`${this.opts.forumUrl}/des/venues/${venueId}`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(this.opts.timeoutMs ?? 5_000) });
+      if (!res.ok && res.status !== 404) throw new Error(`forum answered HTTP ${res.status}`);
+      const club = res.status === 404 ? null : parseManagingClub(await res.json());
+      if (this.clubs.size >= 2000) this.clubs.clear(); // venue ids come from request bodies: keep the map bounded
+      this.clubs.set(venueId, { club, at: this.now() });
+      this.clubsFailedAt.delete(venueId);
+      return club;
+    } catch (e) {
+      if (this.clubsFailedAt.size >= 2000) this.clubsFailedAt.clear();
+      this.clubsFailedAt.set(venueId, this.now());
+      this.opts.log.warn(`forum venues: can't read ${this.opts.forumUrl}/des/venues/${venueId} (${e instanceof Error ? e.message : String(e)})${cached ? "; using the last answer" : ""}`);
+      if (cached) return cached.club;
+      throw new HttpError(503, "forum-unavailable", "Forum unavailable: it didn't answer, so which club runs this venue can't be checked right now. Try again in a minute.");
+    }
   }
 
   private async fetchNow(): Promise<void> {

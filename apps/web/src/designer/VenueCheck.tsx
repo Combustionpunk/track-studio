@@ -2,8 +2,8 @@
 // the design as it stands against a venue template, in the browser: where it is drawn (obstacles hit, area left) and
 // in which orientations it fits. Nothing of the venue goes into the design.
 import { HelpLink } from "../help/HelpLink.js";
-import { fits, venueCheck, type Check, type RcTrack, type RcVenue, type VenueCheck } from "@track-studio/engine";
-import { CircleCheck, CircleX } from "lucide-react";
+import { bakeBuilt, fits, venueCheck, type Check, type RcTrack, type RcVenue, type VenueCheck } from "@track-studio/engine";
+import { CircleAlert, CircleCheck, CircleX } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { api, type VenueSummary } from "../lib/api.js";
 import { useApi } from "../lib/hooks.js";
@@ -19,16 +19,20 @@ export interface VenueCheckResult {
 /** Both checks for a design against a venue (the engine's fits and venueCheck; pure). */
 export function checkAgainstVenue(design: RcTrack["design"], venue: RcVenue): VenueCheckResult {
   const track: RcTrack = { format: "rctrack", version: 1, id: "check", revision: 1, info: { name: "check" }, design };
-  return { venue: { id: venue.id, name: venue.info.name }, fits: fits(track, venue).map((f) => f.orientation), asDrawn: venueCheck(track, venue) };
+  // the timing loop check (#173) reads the start line from `built`: bake only for a venue that has a loop
+  const asDrawn = venueCheck(venue.timingLoop ? { ...track, built: bakeBuilt(track) } : track, venue);
+  return { venue: { id: venue.id, name: venue.info.name }, fits: fits(track, venue).map((f) => f.orientation), asDrawn };
 }
 
 /** One line on whether it fits: "Fits Sports hall B where it's drawn.", "Fits Club hall once moved: as designed or mirrored." … */
 export function fitSummary(r: VenueCheckResult): string {
   if (!r.fits.length) return `Doesn't fit ${r.venue.name} in any orientation.`;
-  if (r.fits.includes("as designed") && !r.asDrawn.checks.length) return `Fits ${r.venue.name} where it's drawn.`;
+  // only errors (area, obstacles) mean moving it; a warning (the timing loop, #173) is listed below
+  const misplaced = r.asDrawn.checks.some((c) => c.level === "error");
+  if (r.fits.includes("as designed") && !misplaced) return `Fits ${r.venue.name} where it's drawn.`;
   const list = r.fits.length > 2 ? `${r.fits.slice(0, -1).join(", ")} or ${r.fits[r.fits.length - 1]}` : r.fits.join(" or ");
   // fits() slides the track to the best place: when it doesn't fit where it's drawn, say it has to move
-  return `Fits ${r.venue.name}${r.asDrawn.checks.length ? " once moved" : ""}: ${list}.`;
+  return `Fits ${r.venue.name}${misplaced ? " once moved" : ""}: ${list}.`;
 }
 
 export function VenueCheckPanel({ design, drawnFor, onShow }: { design: RcTrack["design"]; drawnFor?: { venueTemplate: string }; onShow: (x: number, z: number) => void }) {
@@ -89,7 +93,7 @@ export function VenueCheckPanel({ design, drawnFor, onShow }: { design: RcTrack[
             </li>
             {result.asDrawn.checks.map((c: Check, i) => (
               <li key={i} className={`check check-${c.level}`}>
-                <CircleX size={16} aria-label="Error" />
+                {c.level === "error" ? <CircleX size={16} aria-label="Error" /> : <CircleAlert size={16} aria-label={c.level === "warning" ? "Warning" : "Note"} />}
                 <span>Where it's drawn: {c.message.toLowerCase().replace(/^track/, "the track")}.</span>
                 {c.x !== undefined && c.z !== undefined && (
                   <button type="button" className="check-show" onClick={() => onShow(c.x!, c.z!)}>
