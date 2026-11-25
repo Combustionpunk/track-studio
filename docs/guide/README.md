@@ -59,9 +59,9 @@ Select a layout to open its page. The page shows the plan, the lap length, the c
 
 ### The venue library
 
-**Venues** lists the club's venue templates. A venue template is a hall's usable track area, its rostrum side and its fixed obstacles, such as pillars and fire exits. New layouts can start from one, and any layout can be checked against one.
+**Venues** lists the club's venue templates. A venue template is a hall's usable track area, its surface, its rostrum side, its timing loop, its pit area and its fixed obstacles, such as pillars and fire exits. New layouts can start from one, and any layout can be checked against one.
 
-Organisers add and edit venue templates. The committee's guide to setting up a venue is with the club guides on the [forum](https://forum.rcmisfits.org/).
+The committee of the club that runs the venue on the forum, and Track Studio's organisers, add and edit venue templates. The committee's guide to setting up a venue is with the club guides on the [forum](https://forum.rcmisfits.org/).
 
 ![The Venues page: a card for each hall with its area, rostrum side and number of obstacles](img/venues.webp)
 
@@ -87,7 +87,7 @@ You have two ways to start.
 
 Select **Start here** on the hall's card.
 
-The designer opens with the hall's track area and its obstacles drawn in. They are a guide while you draw. They are not saved with the layout, so the same layout can be used in other halls later.
+The designer opens with the hall's track area, its obstacles, its pit area and its timing loop drawn in. They are a guide while you draw. They are not saved with the layout, so the same layout can be used in other halls later. The layout does take the hall's surface, such as carpet or astro, when the template gives one.
 
 ### Start blank
 
@@ -266,7 +266,9 @@ Every layout has one start line. It is the start and the finish.
 
 Select **Fit to view** to see the whole plan again.
 
-There is no separate timing loop to place. The start line is where a lap begins and ends, and it is the timing line in the sim. Put the start line where your club's timing loop goes.
+The start line is where a lap begins and ends, and it is the timing line in the sim. Put the start line where your club's timing loop goes.
+
+If the venue template has a timing loop, the plan shows it as a dashed orange line with an arrow for the way the track runs. Put the start line over it, running the arrow's way. The fit check warns when it isn't. See [The fit check](#the-fit-check).
 
 ### The rostrum
 
@@ -280,7 +282,7 @@ You see the rostrum in three places:
 
 ![The 3D view from the rostrum on the south side: the track seen from driver height, with the Rostrum buttons bottom left](img/rostrum-view.webp)
 
-To move a hall's rostrum, an organiser edits the venue template.
+To move a hall's rostrum, the club's committee or an organiser edits the venue template.
 
 ## Edit
 
@@ -426,7 +428,7 @@ What the common ones mean:
 
 ### The fit check
 
-The fit check answers one question: does this layout fit that hall? It compares the layout with a venue template: the hall's track area and its fixed obstacles.
+The fit check answers one question: does this layout fit that hall? It compares the layout with a venue template: the hall's track area, its fixed obstacles and its timing loop. A pit area or a rostrum marked inside the hall counts as a fixed obstacle: the layout has to keep off it.
 
 The **?** beside the heading opens this part of the guide.
 
@@ -446,6 +448,9 @@ The answers, and what they mean:
 | **Fits … once moved: as designed, mirrored, rotated 180 …** | It does fit the hall, but not where it is drawn now. The list says which ways round it fits. |
 | **Where it's drawn: the track overlaps a fixed obstacle.** | A lane runs over a pillar or another obstacle. Select **Show** to see where. |
 | **Where it's drawn: the track goes outside the venue's track area.** | Part of the layout is beyond the edge of the usable area. Select **Show** to see where. |
+| **Where it's drawn: start/finish isn't over the timing loop.** | A warning. The start line is not on the hall's timing loop. Move the start line onto the loop, running the arrow's way. Select **Show** to see the loop. |
+| **Where it's drawn: start/finish runs the wrong way over the timing loop.** | A warning. The start line is on the loop, but cars would cross it against the arrow. Move the start line to a lane that runs the arrow's way, or use **Reverse direction**. |
+| **Where it's drawn: start/finish crosses the timing loop at an angle.** | A warning. The start line is on the loop but more than 30° off its direction. Move it to a straight that runs the arrow's way. |
 | **Doesn't fit … in any orientation.** | It is too big for this hall, or cannot avoid the obstacles, whichever way round it goes. Make it smaller or pick another hall. |
 | **Rostrum on the … side.** | Where this hall's rostrum is, for the layout as drawn. |
 | **The track has changed since: check again.** | You have edited the layout since the last check. Select **Check** again. |
@@ -463,7 +468,7 @@ Use this to take a finished layout to a different hall.
 1. Open the layout's page and select **Fit to a venue**.
 2. Choose the **Venue**.
 3. Under **Fits as**, choose a way round. Each one says how much room is spare.
-4. The preview shows the layout placed in the hall, with the hall's obstacles and rostrum.
+4. The preview shows the layout placed in the hall, with the hall's obstacles, rostrum and timing loop. If that way round leaves the start line off the loop, a **Timing loop** warning under the preview says so: pick another way round, or move the start line in your copy.
 
 ![Fit to a venue on a layout's page: Sports hall B chosen, "rotated 180" with 3.1 × 2.1 m spare, and a preview of the layout in the hall between the pillars](img/fit-to-venue.webp)
 
@@ -771,7 +776,7 @@ Not to look. You can browse the library, open any layout, print its build sheet 
 
 ### How do I get my hall added?
 
-Ask one of your club's organisers. Organisers add venue templates on the **Venues** page. Until your hall is there, use **Start blank** and type its size. See [Start blank](#start-blank).
+Ask your club's committee or one of Track Studio's organisers. They add venue templates on the **Venues** page. Until your hall is there, use **Start blank** and type its size. See [Start blank](#start-blank).
 
 ### Can I draw before the venue template exists?
 
