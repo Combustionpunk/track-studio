@@ -59,9 +59,11 @@ describe("permissions", () => {
     }
   });
 
-  it("non-author update -> 403; organiser may", async () => {
+  it("non-author update -> 403 (404 while it's a draft the member can't see, #175); organiser may", async () => {
     const { app, alice, bob, org } = await setup();
     const { track } = await createAs(app, alice);
+    expect((await req(app, "PUT", `/api/tracks/${track.id}`, bob, { track: freeform() })).statusCode).toBe(404);
+    expect((await req(app, "POST", `/api/tracks/${track.id}/submit`, alice)).statusCode).toBe(200);
     const res = await req(app, "PUT", `/api/tracks/${track.id}`, bob, { track: freeform() });
     expect(res.statusCode).toBe(403);
     expect(res.json().error).toBe("forbidden");
@@ -73,7 +75,8 @@ describe("permissions", () => {
     const { track } = await createAs(app, alice);
     expect((await req(app, "POST", `/api/tracks/${track.id}/approve`, alice)).statusCode).toBe(403);
     expect((await req(app, "POST", `/api/tracks/${track.id}/archive`, alice)).statusCode).toBe(403);
-    expect((await req(app, "POST", `/api/tracks/${track.id}/submit`, bob)).statusCode).toBe(403);
+    // someone else's draft isn't there for bob (#175); an organiser sees it but only the author submits
+    expect((await req(app, "POST", `/api/tracks/${track.id}/submit`, bob)).statusCode).toBe(404);
     expect((await req(app, "POST", `/api/tracks/${track.id}/submit`, org)).statusCode).toBe(403);
   });
 
@@ -134,15 +137,15 @@ describe("saving tracks", () => {
       const res = await req(app, "PUT", `/api/tracks/${track.id}`, alice, { track: doc, note: `lane ${lane}` });
       expect(res.statusCode).toBe(200);
     }
-    const got = (await req(app, "GET", `/api/tracks/${track.id}`)).json();
+    const got = (await req(app, "GET", `/api/tracks/${track.id}`, alice)).json();
     expect(got.track.revision).toBe(3);
     expect(got.track.name).toBe("Lane 1.8");
     expect(got.doc.revision).toBe(3);
     expect(got.doc.info.created).toBeDefined();
-    const revs = (await req(app, "GET", `/api/tracks/${track.id}/revisions`)).json().revisions;
+    const revs = (await req(app, "GET", `/api/tracks/${track.id}/revisions`, alice)).json().revisions;
     expect(revs.map((r: { revision: number }) => r.revision)).toEqual([3, 2, 1]);
     expect(revs.map((r: { note: string }) => r.note)).toEqual(["lane 1.8", "lane 2.2", "first"]);
-    const r1 = (await req(app, "GET", `/api/tracks/${track.id}/r/1.rctrack.json`)).json() as RcTrack;
+    const r1 = (await req(app, "GET", `/api/tracks/${track.id}/r/1.rctrack.json`, alice)).json() as RcTrack;
     expect(r1.revision).toBe(1);
     expect(r1.info.name).toBe("Freeform example");
   });
@@ -155,14 +158,14 @@ describe("saving tracks", () => {
     app.db.prepare("UPDATE track_revisions SET created_by = 999999 WHERE track_id = ? AND revision = 2").run(track.id);
     app.db.pragma("foreign_keys = ON");
 
-    const revs = (await req(app, "GET", `/api/tracks/${track.id}/revisions`)).json().revisions;
+    const revs = (await req(app, "GET", `/api/tracks/${track.id}/revisions`, alice)).json().revisions;
     expect(revs.map((r: { revision: number }) => r.revision)).toEqual([3, 2, 1]);
     expect(revs.map((r: { createdBy: unknown }) => r.createdBy)).toEqual([
       { id: ALICE.id, username: "alice" },
       { id: 999999, username: null },
       { id: ALICE.id, username: "alice" },
     ]);
-    const dl = await req(app, "GET", revs[1].downloadUrl);
+    const dl = await req(app, "GET", revs[1].downloadUrl, alice);
     expect(dl.statusCode).toBe(200);
     expect((dl.json() as RcTrack).revision).toBe(2);
   });
@@ -170,7 +173,9 @@ describe("saving tracks", () => {
   it("the latest link serves the public revision as a download and follows approval (#155)", async () => {
     const { app, alice, org } = await setup();
     const { track } = await createAs(app, alice);
-    const latest = () => req(app, "GET", `/api/tracks/${track.id}/latest.rctrack.json`);
+    // a draft is its author's (#175); once it has an approved revision the link is public
+    let reader: string | undefined = alice;
+    const latest = () => req(app, "GET", `/api/tracks/${track.id}/latest.rctrack.json`, reader);
     const served = async () => {
       const res = await latest();
       expect(res.statusCode, res.body).toBe(200);
@@ -183,6 +188,7 @@ describe("saving tracks", () => {
     expect(await served()).toEqual({ rev: 2, file: 'attachment; filename="renamed-r2.rctrack.json"' });
     // approved before the lock (#64) with a newer draft on top: the approved one, named as it was then
     app.db.prepare("UPDATE tracks SET approved_revision = 1 WHERE id = ?").run(track.id);
+    reader = undefined;
     expect(await served()).toEqual({ rev: 1, file: 'attachment; filename="freeform-example-r1.rctrack.json"' });
     expect((await latest()).json().info.status).toBe("approved");
     // approving the newer revision changes what it serves
@@ -190,7 +196,7 @@ describe("saving tracks", () => {
     expect(await served()).toEqual({ rev: 2, file: 'attachment; filename="renamed-r2.rctrack.json"' });
     // the same bytes as the pinned link
     expect((await latest()).body).toBe((await req(app, "GET", `/api/tracks/${track.id}/r/2.rctrack.json`)).body);
-    // public: no session needed (above); unknown ids 404
+    // public once approved: no session needed (above); unknown ids 404
     const missing = await req(app, "GET", "/api/tracks/00000000-0000-4000-8000-000000000000/latest.rctrack.json");
     expect(missing.statusCode).toBe(404);
     expect(missing.json().error).toBe("not-found");
@@ -257,7 +263,7 @@ describe("saving tracks", () => {
     const after = (await req(app, "GET", `/api/tracks/${track.id}`)).json();
     // a long name keeps its "(copy)"
     const long = await createAs(app, alice, { track: { ...freeform(), info: { ...freeform().info, name: "L".repeat(80) } } });
-    expect((await req(app, "POST", `/api/tracks/${long.track.id}/copy`, bob)).json().doc.info.name).toBe(`${"L".repeat(73)} (copy)`);
+    expect((await req(app, "POST", `/api/tracks/${long.track.id}/copy`, alice)).json().doc.info.name).toBe(`${"L".repeat(73)} (copy)`);
     expect(after.track).toEqual(before.track);
     expect(after.doc).toEqual(before.doc);
   });
@@ -373,7 +379,8 @@ describe("saving tracks", () => {
     };
     expect(await ids("?author=me", alice)).toEqual([{ id: a.track.id, author: "alice" }]);
     expect((await ids("?author=me", bob)).map((t) => t.author)).toEqual(["bob"]);
-    expect((await ids("", alice)).length).toBe(6);
+    // the library plus her own draft; bob's draft is his (#175)
+    expect((await ids("", alice)).length).toBe(5);
   });
 
   it("author=me combines with the other filters", async () => {

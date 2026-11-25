@@ -104,6 +104,40 @@ export async function middleCorner(page: Page): Promise<{ i: number; at: XY }> {
   return best;
 }
 
+/**
+ * A corner in the upper half of the plan, clear of the selection sheet at peek: the one to use when a test taps a
+ * corner and then puts a finger on it again. The middle corner ends up under the sheet's grab bar once the sheet has
+ * slid in (200 ms), so a second touch there only reaches the corner on a fast machine (#156, #185).
+ */
+export async function upperCorner(page: Page): Promise<{ i: number; at: XY }> {
+  const b = await planBox(page);
+  const want: XY = [b.x + b.width / 2, b.y + b.height * 0.3];
+  let best = { i: -1, at: [0, 0] as XY, d: Infinity };
+  const pts = await corners(page);
+  for (let i = 0; i < pts.length; i++) {
+    const at = await screen(page, pts[i][0], pts[i][1]);
+    const d = Math.hypot(at[0] - want[0], at[1] - want[1]);
+    // the corner's own dot is what a finger gets there (not an apex handle on top of it), with room to drag
+    const own = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-handle]")?.getAttribute("data-handle") === "point", at);
+    const room = at[0] > b.x + 30 && at[0] < b.x + b.width - 50 && at[1] > b.y + 30 && at[1] + 60 < b.y + b.height / 2;
+    if (own && room && d < best.d) best = { i, at, d };
+  }
+  expect(best.i, "a corner in the upper half of the plan").toBeGreaterThanOrEqual(0);
+  return best;
+}
+
+/**
+ * The open sheet has finished sliding in, and it leaves `at` and a drag of `reach` px down from it clear (with a
+ * finger's 22 px to spare). Call it between opening a sheet and touching the plan again, so the touch meets the same
+ * screen on a slow machine as on a fast one.
+ */
+export async function sheetClearOf(page: Page, at: XY, reach = 0) {
+  const sheet = page.locator("section.bottom-sheet");
+  // a trial click waits until the button has stopped moving
+  await sheet.getByRole("button", { name: "Close" }).click({ trial: true });
+  expect((await sheet.boundingBox())!.y, "the top of the sheet").toBeGreaterThan(at[1] + reach + 22);
+}
+
 /** zoom in round the middle of the plan with two fingers, so the handles are well apart */
 export async function pinchIn(page: Page, t: Touch) {
   const b = await planBox(page);

@@ -1,5 +1,5 @@
-// JSON API. Reads are public; writes need a session (see auth.ts guards).
-import type { FastifyInstance, FastifyReply } from "fastify";
+// JSON API. Reads are public, except drafts (visibility.ts, #175); writes need a session (see auth.ts guards).
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { rctrackFileName, rcvenueFileName, type RcTrack } from "@track-studio/engine";
 import type { DB } from "./db.js";
 import { requireOrganiser, requireUser } from "./auth.js";
@@ -18,7 +18,6 @@ import {
   createVenue,
   fitTrack,
   getTrackDoc,
-  getTrackRow,
   getVenueDoc,
   getVenueRow,
   getVenueRowByForumTrack,
@@ -37,7 +36,9 @@ import {
   venueSummary,
   type ListQuery,
   type StatusAction,
+  type TrackRow,
 } from "./store.js";
+import { cacheControl, changeableTrackRow, visibleRows, visibleTrackRow } from "./visibility.js";
 
 const STATUSES = ["draft", "submitted", "approved", "archived"];
 
@@ -62,6 +63,8 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
    * are locked anyway).
    */
   const usedByEvent = async (id: string) => ((await forumEvents.forLayout(id, { fresh: true }))?.length ?? 0) > 0;
+  /** the track for this reader; someone else's draft is a 404, like an id that isn't there (#175) */
+  const trackFor = (req: FastifyRequest, id: string) => visibleTrackRow(db, forumEvents, req.user, id);
   // ---------------------------------------------------------------- tracks
   app.get("/api/tracks", async (req) => {
     const q = req.query as Record<string, string | undefined>;
@@ -90,9 +93,10 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
       q: q.q || undefined,
       authorId,
     };
+    // approved layouts fit a venue; the plain list leaves out other members' drafts (#175)
     const tracks = q.fits
       ? tracksFitting(db, q.fits, (({ status: _ignored, ...rest }) => rest)(filter))
-      : listTracks(db, filter).map(trackSummary);
+      : (await visibleRows(forumEvents, req.user, listTracks(db, filter))).map(trackSummary);
     // both asked at once (each cached; a slow forum costs one timeout, not two)
     const ids = tracks.map((t) => t.id);
     const [events, stats] = await Promise.all([racedAt !== undefined ? forumEvents.forLayouts(ids) : null, lapClass ? forumStats.forLayouts(ids) : null]);
@@ -118,7 +122,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
   // usedAt: where the forum says the layout was raced (#66); lapStats: its lap times per class (#76); each null when
   // the forum can't be reached
   app.get("/api/tracks/:id", async (req) => {
-    const row = getTrackRow(db, (req.params as { id: string }).id);
+    const row = await trackFor(req, (req.params as { id: string }).id);
     const [events, lapStats] = await Promise.all([forumEvents.forLayout(row.id), forumStats.forLayout(row.id)]);
     const used = !!events?.length;
     return {
@@ -134,20 +138,20 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const user = requireUser(req);
     const { id } = req.params as { id: string };
     // 404, 403 and archived before asking the forum: only someone who may edit it triggers a forum call
-    const row = getTrackRow(db, id);
+    const row = changeableTrackRow(db, user, id);
     assertCanChange(user, row);
     return updateTrack(db, user, id, req.body, await usedByEvent(id));
   });
 
   app.get("/api/tracks/:id/revisions", async (req) => {
-    const row = getTrackRow(db, (req.params as { id: string }).id);
+    const row = await trackFor(req, (req.params as { id: string }).id);
     return { revisions: listRevisions(db, row) };
   });
 
-  const sendTrackFile = (reply: FastifyReply, doc: RcTrack, maxAge: number) =>
+  const sendTrackFile = (reply: FastifyReply, row: TrackRow, doc: RcTrack, maxAge: number) =>
     reply
       .header("content-disposition", `attachment; filename="${rctrackFileName(doc.info.name, doc.revision)}"`)
-      .header("cache-control", `public, max-age=${maxAge}`)
+      .header("cache-control", cacheControl(row, `max-age=${maxAge}`))
       .type("application/json; charset=utf-8")
       .send(JSON.stringify(doc, null, 1));
 
@@ -156,28 +160,33 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const { id, file } = req.params as { id: string; file: string };
     const m = /^(\d+)(\.rctrack\.json)?$/.exec(file);
     if (!m) throw notFound("Track revision");
-    const row = getTrackRow(db, id);
+    const row = await trackFor(req, id);
     const doc = getTrackDoc(db, row, revisionParam(m[1]));
-    if (m[2]) return sendTrackFile(reply, doc, 300);
+    if (m[2]) return sendTrackFile(reply, row, doc, 300);
     return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 1));
   });
 
   // the public revision (approved ?? latest) as a download, for links that shouldn't know revision numbers: the forum's
   // "practise in the sim" link, the sim's library (#155). Follows approval, so it is cached briefly.
   app.get("/api/tracks/:id/latest.rctrack.json", async (req, reply) => {
-    const row = getTrackRow(db, (req.params as { id: string }).id);
-    return sendTrackFile(reply, getTrackDoc(db, row, publicRevision(row)), 60);
+    const row = await trackFor(req, (req.params as { id: string }).id);
+    return sendTrackFile(reply, row, getTrackDoc(db, row, publicRevision(row)), 60);
   });
 
   for (const action of ["submit", "approve", "archive"] as StatusAction[]) {
-    app.post(`/api/tracks/:id/${action}`, async (req) => ({ track: changeStatus(db, requireUser(req), (req.params as { id: string }).id, action) }));
+    app.post(`/api/tracks/:id/${action}`, async (req) => {
+      const user = requireUser(req);
+      const { id } = req.params as { id: string };
+      changeableTrackRow(db, user, id);
+      return { track: changeStatus(db, user, id, action) };
+    });
   }
 
   // ?r=<revision>, default the public one
   app.get("/api/tracks/:id/fit/:venueId", async (req) => {
     const { id, venueId } = req.params as { id: string; venueId: string };
     const { r } = req.query as { r?: string };
-    return fitTrack(db, getTrackRow(db, id), venueId, r ? revisionParam(r) : undefined);
+    return fitTrack(db, await trackFor(req, id), venueId, r ? revisionParam(r) : undefined);
   });
 
   app.post("/api/tracks/:id/adapt/:venueId", async (req, reply) => {
@@ -186,6 +195,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const body = (req.body ?? {}) as { orientation?: unknown; revision?: unknown };
     const orientation = typeof body.orientation === "string" ? body.orientation : undefined;
     const revision = typeof body.revision === "number" ? body.revision : undefined;
+    await trackFor(req, id);
     return reply.code(201).send(adaptTrack(db, user, id, venueId, orientation, revision));
   });
 
@@ -193,6 +203,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
   app.post("/api/tracks/:id/copy", async (req, reply) => {
     const user = requireUser(req);
     const body = (req.body ?? {}) as { revision?: unknown };
+    await trackFor(req, (req.params as { id: string }).id);
     return reply.code(201).send(copyTrack(db, user, (req.params as { id: string }).id, typeof body.revision === "number" ? body.revision : undefined));
   });
 

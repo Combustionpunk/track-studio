@@ -33,6 +33,7 @@ Sign out also signs out of the forum (DiscourseConnect `logout=true`). Details i
 - `class_speeds` (class (unique, case-insensitive), speed m/s, position): the lap time estimate per race class (#76).
   Seeded with 2WD Buggy 6.5, 4WD Buggy 7.0, Stadium Truck 6.0, Short Course 5.5; track-admins edit them on `/lap-speeds`.
 - Status: `draft` -> `submitted` -> `approved` -> `archived`. An approved track is locked (`PUT` → `409 layout-locked`); changes are made on a copy (`POST /api/tracks/:id/copy`). So is a track a forum event uses (reason `event`, from the forum's `GET /des/layouts/:id/events`; #66).
+- Who sees a layout (#175): a `draft` with no approved revision is its author's and the organisers' (site admins included). For anyone else it isn't in any list, and its API, downloads, pages (`/t`, `/embed`) and pictures (`/p`) answer `404` exactly as a missing id does, never `403`. `submitted` layouts and any layout with an approved revision are public (archived ones too, by their link), and so is a draft a forum event uses (unknown while the forum is down = hidden). Archiving a draft that was never approved doesn't publish it. A venue's track count and a copy's "based on" name leave private layouts out. The rule lives in `apps/server/src/visibility.ts`.
 
 ## API (JSON)
 - `GET /api/tracks?status=&venue=&fits=<venueId>&minLap=&maxLap=&q=` — list (fits= runs the fit search)
