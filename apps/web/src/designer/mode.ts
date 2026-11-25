@@ -128,18 +128,20 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * A design point's name as a heading or title, by the engine's one corner numbering (the build sheet's): "Corner 5a"
- * ("Corner point 5a" in Advanced, where the points are the thing being edited), or "Bend after corner 4" for a point
- * that turns too little to be a corner.
+ * ("Corner point 5a" in Advanced, where the points are the thing being edited), or just "Point" for a point that turns
+ * too little to be a corner: it has no number and no name.
  */
 export const pointHeading = (n: CornerNumbering, i: number, view: DesignerMode = "quick"): string => cap(pointName(n, i, view === "quick" ? "corner" : "corner point"));
 
-/** A design point's name inside a sentence: "corner 5a", or "the bend after corner 4". */
+/** A design point's name inside a sentence: "corner 5a", or "the point" for one that isn't a corner. */
 export const pointRef = (n: CornerNumbering, i: number): string => (n.labels[i] ? "" : "the ") + pointName(n, i);
 
 /** What to do about an error, as a sentence. */
 export function fixFor(c: Check, points: DesignPoint[], laneWidth = 2.0): string {
   const i = pointOf(c, points);
-  const name = i === null ? null : pointRef(cornerNumbering(points, laneWidth), i);
+  // a point that isn't a corner has no name to give: the sentence is then about the track
+  const names = i === null ? null : cornerNumbering(points, laneWidth);
+  const name = i !== null && names!.labels[i] ? pointRef(names!, i) : null;
   switch (c.code) {
     case "outside-area":
       return `Move ${name ?? "the track"} back inside the track area to fix it.`;

@@ -1,6 +1,6 @@
 // One corner numbering everywhere (#176): the designer's dots, titles, panels and messages name corners as the build
 // sheet and the Corners figure count them (the engine's cornerNumbering): a hairpin drawn as two points is 5a and 5b,
-// one corner; a point that turns too little to be a corner has no number and is a bend after the corner before it.
+// one corner; a point that turns too little to be a corner has no number and no name: it is just a point.
 import { bakeBuilt, buildSheet, type DesignPoint, type RcTrack } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -12,7 +12,7 @@ import type { Loadable } from "../src/lib/hooks.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
 const clubA = () => ref<RcTrack>("examples/club-a.rctrack.json");
-// a loop with a hairpin drawn as two 90° points (3a, 3b) and a 9° kink on the north straight (a bend after corner 4)
+// a loop with a hairpin drawn as two 90° points (3a, 3b) and a 9° kink on the north straight (not a corner)
 const HAIRPIN: DesignPoint[] = [{ x: -14, z: -8 }, { x: 4, z: -8 }, { x: 12, z: 0 }, { x: 12, z: 2 }, { x: 4, z: 8 }, { x: -5, z: 8.7 }, { x: -14, z: 8 }];
 const hairpin = (): RcTrack => {
   const doc: RcTrack = { format: "rctrack", version: 1, id: "h", revision: 1, info: { name: "Hairpin" }, area: { length: 40, width: 30 }, design: { laneWidth: 2, points: HAIRPIN } };
@@ -69,7 +69,7 @@ beforeEach(() => (plans.length = 0));
 afterEach(() => (vi.unstubAllGlobals(), (baked = undefined)));
 
 describe("the designer numbers corners as the build sheet and the Corners figure do (#176)", () => {
-  it.each([["club-a", clubA], ["a hairpin and a bend", hairpin]] as const)("%s: Quick mode's dots carry the build sheet's labels", (_, doc) => {
+  it.each([["club-a", clubA], ["a hairpin and a point that isn't a corner", hairpin]] as const)("%s: Quick mode's dots carry the build sheet's labels", (_, doc) => {
     const d = doc();
     const { overlay } = open(d, "quick");
     expect(dots(overlay)).toEqual(sheetLabels(d));
@@ -86,29 +86,31 @@ describe("the designer numbers corners as the build sheet and the Corners figure
     expect(html).toContain("<dd>12</dd><dt>Corners</dt>");
   });
 
-  it("a point that isn't a corner has no number, and is named a bend after the corner before it", () => {
+  it("a point that isn't a corner has no number and no name: it is just Point", () => {
     const { overlay } = open(hairpin(), "quick");
     expect(dots(overlay)).toEqual(["1", "2", "3a", "3b", "4", "", "5"]);
-    expect(titles(overlay, "ed-corner")).toEqual(["Corner 1", "Corner 2", "Corner 3a", "Corner 3b", "Corner 4", "Bend after corner 4", "Corner 5"]);
+    expect(titles(overlay, "ed-corner")).toEqual(["Corner 1", "Corner 2", "Corner 3a", "Corner 3b", "Corner 4", "Point", "Corner 5"]);
   });
 
   it("Advanced mode's corner points carry the same names", () => {
     const { overlay } = open(hairpin(), "advanced");
-    expect(titles(overlay, "ed-point")).toEqual(["Corner point 1", "Corner point 2", "Corner point 3a", "Corner point 3b", "Corner point 4", "Bend after corner 4", "Corner point 5"]);
+    expect(titles(overlay, "ed-point")).toEqual(["Corner point 1", "Corner point 2", "Corner point 3a", "Corner point 3b", "Corner point 4", "Point", "Corner point 5"]);
   });
 
   it("the selection panel and the phone's sheet are named the same way", () => {
     const d = draftFromDoc(clubA());
     expect(sheetLabel({ kind: "point", i: 4 }, "quick", d)).toBe("Corner 5a");
     expect(sheetLabel({ kind: "point", i: 5 }, "advanced", d)).toBe("Corner point 5b");
-    expect(sheetLabel({ kind: "point", i: 5 }, "quick", draftFromDoc(hairpin()))).toBe("Bend after corner 4");
+    expect(sheetLabel({ kind: "point", i: 5 }, "quick", draftFromDoc(hairpin()))).toBe("Point");
+    expect(sheetLabel({ kind: "point", i: 5 }, "advanced", draftFromDoc(hairpin()))).toBe("Point");
   });
 
   it("what to fix names the corner by its label", () => {
     const msg = submitBlock({ dirty: false, pending: false, points: HAIRPIN, laneWidth: 2, checks: [{ level: "error", code: "outside-area", x: 12.2, z: 2.1, message: "x" }] });
     expect(msg).toBe("Submit is waiting on 1 error. Move corner 3b back inside the track area to fix it.");
+    // a point that isn't a corner has no name, so the sentence is about the track
     const bend = submitBlock({ dirty: false, pending: false, points: HAIRPIN, checks: [{ level: "error", code: "obstacle", x: -5, z: 8.7, message: "x" }] });
-    expect(bend).toBe("Submit is waiting on 1 error. Move the bend after corner 4 so the track clears the fixed obstacle to fix it.");
+    expect(bend).toBe("Submit is waiting on 1 error. Move the track off the fixed obstacle to fix it.");
   });
 
   it("the add-point hint names the selected corner", () => {

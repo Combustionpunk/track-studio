@@ -329,7 +329,7 @@ test.describe("phone context sheet", () => {
       const n = await pointCount(page);
       await t.tap(await grab(page, `circle.ed-point[data-index="${pts.length}"]`, "point"));
       await expect(sheet(page)).toHaveCount(1);
-      await expect(sheet(page).locator("h2")).toHaveText(/^Bend after corner \d+$/); // #176: a point on a straight isn't a corner
+      await expect(sheet(page).locator("h2")).toHaveText("Point"); // #176: a point on a straight isn't a corner, so it has no number and no name
       await expect(hairpin(page)).toBeDisabled();
       await expect(hairpin(page)).toHaveAccessibleDescription("On a straight: there's no turn to make a hairpin of.");
       await expect(sheet(page)).toContainText("On a straight: there's no turn to make a hairpin of.");

@@ -83,8 +83,8 @@ export const corners = (page: Page) =>
   page.locator("g.ed-corner .ed-corner-dot").evaluateAll((els) => els.map((e) => [+e.getAttribute("cx")!, -e.getAttribute("cy")!] as XY));
 /** corner i's name, as its dot's title and its panel give it (#176: the build sheet's numbering, "Corner 5a") */
 export const cornerName = async (page: Page, i: number) => (await page.locator("g.ed-corner").nth(i).locator("title").textContent())!.split(":")[0];
-/** corner i's name inside a sentence: "corner 5a", "the bend after corner 4" */
-export const cornerRef = async (page: Page, i: number) => ((n) => (n.startsWith("Bend") ? "the b" : "c") + n.slice(1))(await cornerName(page, i));
+/** corner i's name inside a sentence: "corner 5a", or, in the add-point hint, "the selected point" for a point that isn't a corner */
+export const cornerRef = async (page: Page, i: number) => ((n) => (n === "Point" ? "the selected point" : "c" + n.slice(1)))(await cornerName(page, i));
 export const toolbar = (page: Page) => page.getByRole("toolbar", { name: "Designer tools" });
 export const toolBtn = (page: Page, name: string) => toolbar(page).getByRole("button", { name, exact: true });
 /** the plan's box on the screen */

@@ -628,7 +628,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         hist.set(draftRef.current, `insert:${Date.now()}`);
         setSel((selRef.current = { kind: "point", i: r.index }));
         setMessage(null);
-        say(`Added a point after ${pointRef(liveRef.current.numbering, after!)}, halfway to the next one.`);
+        const from = liveRef.current.numbering;
+        say(from.labels[after!] ? `Added a point after ${pointRef(from, after!)}, halfway to the next one.` : "Added a point, halfway to the next one.");
       } else if (e.key === "Delete" || e.key === "Backspace") {
         if (selRef.current) {
           e.preventDefault();
@@ -1992,7 +1993,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         grid,
         onGridKey,
         onGridFocus: setGridFocus,
-        hint: { snapInfo, viewing3d, synced3d, tablet: phoneEdit ? touch : tablet, phone: phoneEdit, laying, layNote, gridFocus, cells: draft.laying, layKeys, grid, tool, advanced, selName: sel?.kind === "point" ? pointRef(names, sel.i) : null },
+        hint: { snapInfo, viewing3d, synced3d, tablet: phoneEdit ? touch : tablet, phone: phoneEdit, laying, layNote, gridFocus, cells: draft.laying, layKeys, grid, tool, advanced, selName: sel?.kind === "point" ? (names.labels[sel.i] ? pointRef(names, sel.i) : "the selected point") : null },
         adding: tool.kind === "add" && !laying && view === "quick",
         plan,
         shown3d,

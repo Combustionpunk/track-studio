@@ -2,8 +2,8 @@
 // sheet, its marshal-point wording and the Corners figure. Design points are grouped into corners the way countCorners
 // (bake.ts) counts them (built.stats.corners): every turn of more than CORNER_MIN_TURN is a corner point, and turns the
 // same way joined by less than CORNER_JOIN_GAP of racing line (a hairpin drawn as two points) make one corner, whose
-// points are lettered: 5a, 5b. A point that turns CORNER_MIN_TURN or less isn't a corner: it has no number, and is
-// named as a bend after the corner before it.
+// points are lettered: 5a, 5b. A point that turns CORNER_MIN_TURN or less isn't a corner: it has no number and no
+// name of its own, only the designer's plain word for a point.
 import { CORNER_JOIN_GAP, CORNER_MIN_TURN, racingLine, type Corner } from "./bake.js";
 import type { DesignPoint } from "./types.js";
 
@@ -68,16 +68,10 @@ export function cornerNumbering(points: DesignPoint[], laneWidth = 2.0): CornerN
 }
 
 /**
- * A design point's name in a sentence, lower case: "corner 5a" (noun "corner point": "corner point 5a"), or for a point
- * that isn't a corner "bend after corner 3" (the nearest corner before it along the lap), or "bend" when there are none.
+ * A design point's name in a sentence, lower case: "corner 5a" (noun "corner point": "corner point 5a"). A point that
+ * isn't a corner has no name: it is just "point".
  */
 export function pointName(numbering: CornerNumbering, i: number, noun = "corner"): string {
   const label = numbering.labels[i];
-  if (label !== null && label !== undefined) return `${noun} ${label}`;
-  const n = numbering.numbers.length;
-  for (let k = 1; k < n; k++) {
-    const before = numbering.numbers[(i - k + n) % n];
-    if (before !== null) return `bend after corner ${before}`;
-  }
-  return "bend";
+  return label !== null && label !== undefined ? `${noun} ${label}` : "point";
 }

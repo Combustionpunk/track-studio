@@ -46,15 +46,15 @@ describe("cornerNumbering", () => {
     expect(sheet.cornerPoints.map((c) => [c.index, c.label])).toEqual(n.groups.flat().map((i) => [i, n.labels[i]]));
   });
 
-  it("names points for sentences: corners by label, bends after the corner before them", () => {
+  it("names points for sentences: corners by label; a point that isn't a corner has no name, only the word point", () => {
     const n = cornerNumbering(HAIRPIN);
     expect(pointName(n, 2)).toBe("corner 3a");
     expect(pointName(n, 3, "corner point")).toBe("corner point 3b");
-    expect(pointName(n, 5)).toBe("bend after corner 4");
-    expect(pointName(n, 5, "corner point")).toBe("bend after corner 4");
+    expect(pointName(n, 5)).toBe("point");
+    expect(pointName(n, 5, "corner point")).toBe("point");
   });
 
-  it("renumbers as points come and go: a point added on the straight is a bend, one dragged out is a corner", () => {
+  it("renumbers as points come and go: a point added on the straight has no number, one dragged out is a corner", () => {
     const mid = { x: -5, z: -8 }; // halfway along the south straight, after corner 1
     expect(cornerNumbering([HAIRPIN[0], mid, ...HAIRPIN.slice(1)]).labels).toEqual(["1", null, "2", "3a", "3b", "4", null, "5"]);
     expect(cornerNumbering([HAIRPIN[0], { x: -5, z: -2 }, ...HAIRPIN.slice(1)]).labels).toEqual(["1", "2", "3", "4a", "4b", "5", null, "6"]);
@@ -62,11 +62,11 @@ describe("cornerNumbering", () => {
     expect(cornerNumbering(HAIRPIN.filter((_, i) => i !== 3)).labels).toEqual(["1", "2", "3", "4", null, "5"]);
   });
 
-  it("a bend at point 0 is after the last corner; fewer than 3 points have no corners", () => {
+  it("a point that isn't a corner at point 0 leaves corner 1 to the next point; fewer than 3 points have no corners", () => {
     // point 0 a 10° kink on the south straight
     const n = cornerNumbering([{ x: -5, z: -8.7 }, { x: 4, z: -8 }, { x: 12, z: 0 }, { x: 12, z: 2 }, { x: 4, z: 8 }, { x: -14, z: 8 }, { x: -14, z: -8 }]);
     expect(n.labels).toEqual([null, "1", "2a", "2b", "3", "4", "5"]);
-    expect(pointName(n, 0)).toBe("bend after corner 5");
+    expect(pointName(n, 0)).toBe("point");
     expect(cornerNumbering([{ x: 0, z: 0 }, { x: 1, z: 0 }])).toEqual({ labels: [null, null], numbers: [null, null], groups: [] });
   });
 });
