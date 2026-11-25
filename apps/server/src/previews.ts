@@ -13,12 +13,14 @@ import type { DB } from "./db.js";
 import { drawPreview, PREVIEW_PIXEL_RATIO, PREVIEW_WIDTH } from "./drawing.js";
 import { notFound } from "./errors.js";
 import { fontsKey, previewFontFiles } from "./fonts.js";
-import { fitTrack, getTrackDoc, getTrackRow, getVenueDoc, type TrackRow } from "./store.js";
+import type { ForumEvents } from "./forum-events.js";
+import { fitTrack, getTrackDoc, getVenueDoc, type TrackRow } from "./store.js";
+import { cacheControl, visibleTrackRow } from "./visibility.js";
 import type { ThemeSync } from "./theme.js";
 
 export { PREVIEW_WIDTH } from "./drawing.js";
-const IMMUTABLE = "public, max-age=31536000, immutable";
-const SHORT = "public, max-age=300";
+const IMMUTABLE = "max-age=31536000, immutable";
+const SHORT = "max-age=300";
 
 /** Same proportions as the plan picture: area plus a 2.5 m margin on every side. */
 export const previewHeight = (area: { length: number; width: number }) => planHeight(area, PREVIEW_WIDTH);
@@ -47,8 +49,11 @@ export function describeTrack(row: TrackRow): string {
   return [`${Math.round(row.d_lap)} m lap`, `${row.d_corners} corners`, size, row.venue_name ?? "no venue", status].filter(Boolean).join(" · ");
 }
 
-/** Serve a cached PNG (rendering it on first use). Exact version → cache for a year; anything else → briefly. */
-function sendPng(reply: FastifyReply, file: string, version: string, requested: unknown, render: () => string): FastifyReply {
+/**
+ * Serve a cached PNG (rendering it on first use). Exact version → cache for a year; anything else → briefly. A draft's
+ * picture is for its author and organisers (#175): kept out of shared caches, and asked for again each time.
+ */
+function sendPng(reply: FastifyReply, row: TrackRow, file: string, version: string, requested: unknown, render: () => string): FastifyReply {
   let png: Buffer;
   if (existsSync(file)) {
     png = readFileSync(file);
@@ -62,7 +67,7 @@ function sendPng(reply: FastifyReply, file: string, version: string, requested: 
     reply.header("x-preview-cache", "miss");
   }
   reply.header("etag", `"${version}"`);
-  return reply.type("image/png").header("cache-control", requested === version ? IMMUTABLE : SHORT).send(png);
+  return reply.type("image/png").header("cache-control", cacheControl(row, requested === version ? IMMUTABLE : SHORT)).send(png);
 }
 
 /** Drop cached pictures of a track that no current revision hash refers to (after a re-bake). */
@@ -81,7 +86,7 @@ export function sweepPreviews(db: DB, dataDir: string, trackId: string): number 
   return removed;
 }
 
-export function registerPreviews(app: FastifyInstance, config: Config, db: DB, theme: ThemeSync): void {
+export function registerPreviews(app: FastifyInstance, config: Config, db: DB, theme: ThemeSync, forumEvents: ForumEvents): void {
   const cacheDir = join(config.dataDir, "previews");
   const revisionHash = (row: TrackRow, revision: number) => {
     const h = db.prepare("SELECT preview_hash FROM track_revisions WHERE track_id = ? AND revision = ?").pluck().get(row.id, revision) as string | undefined;
@@ -95,9 +100,9 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB, t
     const m = /^(\d{1,9})\.png$/.exec(file);
     if (!m || !/^[\w-]{1,64}$/.test(id)) throw notFound("Preview");
     const revision = Number(m[1]);
-    const row = getTrackRow(db, id);
+    const row = await visibleTrackRow(db, forumEvents, req.user, id);
     const hash = revisionHash(row, revision);
-    return sendPng(reply, join(cacheDir, id, `${revision}-${hash}.png`), hash, (req.query as { v?: string }).v, () => drawPreview(getTrackDoc(db, row, revision)));
+    return sendPng(reply, row, join(cacheDir, id, `${revision}-${hash}.png`), hash, (req.query as { v?: string }).v, () => drawPreview(getTrackDoc(db, row, revision)));
   });
 
   // /p/:id/:rev/fit/:venueId/:k.png?v=<hash>.<venue revision> — the track placed as it fits the venue
@@ -106,7 +111,7 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB, t
     const m = /^(\d)\.png$/.exec(file);
     if (!m || !/^\d{1,9}$/.test(rev) || !/^[\w-]{1,64}$/.test(id) || !/^[\w-]{1,64}$/.test(venueId)) throw notFound("Preview");
     const k = Number(m[1]);
-    const row = getTrackRow(db, id);
+    const row = await visibleTrackRow(db, forumEvents, req.user, id);
     const revision = Number(rev);
     const hash = revisionHash(row, revision);
     const answer = fitTrack(db, row, venueId, revision);
@@ -114,7 +119,7 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB, t
     if (!fit) throw notFound("Fit");
     const version = `${hash}.${answer.venue.revision}`;
     const out = join(cacheDir, id, `fit-${revision}-${venueId}-${answer.venue.revision}-${k}-${hash}.png`);
-    return sendPng(reply, out, version, (req.query as { v?: string }).v, () => {
+    return sendPng(reply, row, out, version, (req.query as { v?: string }).v, () => {
       const track: RcTrack = getTrackDoc(db, row, revision);
       return planSvg(fittedScene(track, getVenueDoc(db, venueId, answer.venue.revision), fit), { width: PREVIEW_WIDTH, pixelRatio: PREVIEW_PIXEL_RATIO });
     });
@@ -124,14 +129,14 @@ export function registerPreviews(app: FastifyInstance, config: Config, db: DB, t
   app.get("/p/:id/:rev/card.png", async (req, reply) => {
     const { id, rev } = req.params as { id: string; rev: string };
     if (!/^\d{1,9}$/.test(rev) || !/^[\w-]{1,64}$/.test(id)) throw notFound("Preview");
-    const row = getTrackRow(db, id);
+    const row = await visibleTrackRow(db, forumEvents, req.user, id);
     const revision = Number(rev);
     revisionHash(row, revision); // 404 for a revision that doesn't exist
     const card = trackCard(db, theme, row, revision);
     const version = card.url.split("?v=")[1];
     const file = join(cacheDir, id, `card-${revision}-${version}.png`);
     const fresh = !existsSync(file);
-    const res = sendPng(reply, file, version, (req.query as { v?: string }).v, () => card.svg);
+    const res = sendPng(reply, row, file, version, (req.query as { v?: string }).v, () => card.svg);
     // a new card (status, name or theme changed): drop this revision's older ones
     if (fresh) for (const f of readdirSync(dirname(file))) if (f.startsWith(`card-${revision}-`) && f !== `card-${revision}-${version}.png`) rmSync(join(dirname(file), f), { force: true });
     return res;

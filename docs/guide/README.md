@@ -552,7 +552,7 @@ The sheet is laid out for A3. Print it from a computer, or save it as a PDF and 
 
 ![Saving for the first time: the note box says "First version", with Save track and Cancel underneath](img/save.webp)
 
-The layout is now in the library as a **draft**. The bar shows **Saved · revision 1**.
+The layout is now in the library as a **draft**, where only you and the organisers can see it. The bar shows **Saved · revision 1**.
 
 ![The designer's bar after saving: a Draft badge, "Saved · revision 1", and a Submit track button](img/saved.webp)
 
@@ -602,11 +602,9 @@ To change an approved layout, select **Copy and edit**. You get your own draft c
 
 ### Public and private layouts
 
-There are no private layouts. Every saved layout can be seen by anyone, signed in or not, and that includes drafts. In the library, the **Status** buttons show layouts at one stage only.
+A **draft** is private: only you and the organisers can see it. It isn't in the library for anyone else, and its link shows "Not found" to them. When you **Submit** it, it becomes public; submitted and approved layouts can be seen by anyone, signed in or not. If you edit a submitted layout it is a draft, and private, again until you submit it. A layout a meeting uses is always public. An archived layout that was never approved stays private.
 
-What is protected is changing them: only the author and organisers can edit a layout. Any other signed-in member is offered **Make my own copy**.
-
-If you are not ready for others to see a layout, keep drawing without saving. Unsaved work stays on your device.
+Only the author and organisers can edit a layout. Any other signed-in member is offered **Make my own copy** of a public one.
 
 ### Voting
 
@@ -654,7 +652,7 @@ The download is the revision you are looking at. For an approved layout, that is
 
 ### The "latest" link
 
-There is also an address that always gives the current public revision of a layout: the approved one, or the newest if none is approved yet. It is useful for a link that should keep working after the layout is revised.
+There is also an address that always gives the current public revision of a layout: the approved one, or the newest if none is approved yet. For a draft it works only for its author and the organisers. It is useful for a link that should keep working after the layout is revised.
 
 Take the layout's page address, for example `https://tracks.rcmisfits.org/t/1234abcd`. The part after `/t/` is the layout's id. The latest link is:
 
@@ -772,7 +770,7 @@ The 3D view in the phone's designer is also still being finished. 3D on a layout
 
 ### Do I need an account?
 
-Not to look. You can browse the library, open any layout, print its build sheet and read this guide without signing in. To save a layout you need to sign in with your RC Misfits forum account.
+Not to look. You can browse the library, open any public layout, print its build sheet and read this guide without signing in. To save a layout you need to sign in with your RC Misfits forum account.
 
 ### How do I get my hall added?
 

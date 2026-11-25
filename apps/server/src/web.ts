@@ -14,6 +14,7 @@ import { themes } from "@rcmisfits/brand";
 import type { ThemeSync } from "./theme.js";
 import { describeTrack, PREVIEW_WIDTH, previewHeight, trackCard } from "./previews.js";
 import { getTrackDoc, getTrackRow, getVenueDoc, getVenueRow, previewUrl, publicRevision, type TrackRow } from "./store.js";
+import { visibleTrackRow } from "./visibility.js";
 
 export type WebMode = "dev" | "static" | "off";
 
@@ -107,6 +108,11 @@ function venuePage(db: DB, config: Config, id: string): Page {
 
 const plain = (title: string, status = 200): Page => ({ title, head: "", body: "", status });
 
+/** A track's pages: its own, the designer, the build sheet and the forum embed. */
+const TRACK_PATH = /^\/(?:t|embed)\/([\w-]{1,64})(?:\/(?:edit|build))?\/?$/;
+
+const notFoundPage = (path: string): Page => ({ ...plain("Not found · Track Studio", 404), body: "<h1>Not found</h1>", embed: path.startsWith("/embed/") });
+
 /** /help (#171): the user guide. The app draws it from docs/guide (built in); this is its title and link preview. */
 function helpPage(config: Config): Page {
   const title = "Track Studio user guide";
@@ -125,7 +131,7 @@ function helpPage(config: Config): Page {
 
 /** Which page a path is, with its head. Unknown ids give the app's page with a 404 status. */
 function pageFor(db: DB, config: Config, theme: ThemeSync, path: string, query: Record<string, string | undefined>): Page {
-  const notFound = (): Page => ({ ...plain("Not found · Track Studio", 404), body: "<h1>Not found</h1>" });
+  const notFound = (): Page => ({ ...notFoundPage(path), embed: undefined });
   try {
     let m: RegExpExecArray | null;
     if (path === "/" ) return plain("Track Studio");
@@ -258,9 +264,23 @@ export async function registerWeb(app: FastifyInstance, config: Config, db: DB, 
   const serve = async (req: FastifyRequest, reply: FastifyReply) => {
     const [path, qs] = req.url.split("?");
     const query = Object.fromEntries(new URLSearchParams(qs ?? "")) as Record<string, string | undefined>;
-    const page = pageFor(db, config, app.theme, path, query);
-    // signed into the forum = signed in here (#132); not worth a round trip for a page that isn't there
-    const silent = page.status === 200 ? await app.silentLogin(req, reply) : null;
+    // someone else's draft is the same 404 page as a track that isn't there (#175)
+    const trackId = TRACK_PATH.exec(path)?.[1];
+    const hidden =
+      trackId !== undefined &&
+      (await visibleTrackRow(db, app.forumEvents, req.user, trackId).then(
+        () => false,
+        (e) => {
+          if (e instanceof HttpError && e.statusCode === 404) return true;
+          throw e;
+        },
+      ));
+    const page = hidden ? notFoundPage(path) : pageFor(db, config, app.theme, path, query);
+    // signed into the forum = signed in here (#132); not worth a round trip for a page that isn't there. Except a
+    // track's: it may be the visitor's own draft, which only shows once they're signed in. Missing and hidden tracks
+    // are checked alike, so the redirect doesn't say which it is.
+    const worthIt = page.status === 200 || (hidden && !req.user);
+    const silent = worthIt ? await app.silentLogin(req, reply) : null;
     if (silent) return reply.header("cache-control", "no-store").redirect(silent);
     pageHeaders(reply, config, { embed: !!page.embed, strict: web.mode === "static" });
     reply.header("cache-control", "no-cache");

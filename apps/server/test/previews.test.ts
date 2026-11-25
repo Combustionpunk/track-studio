@@ -55,8 +55,9 @@ describe("PNG previews", () => {
     doc.design.points[1].x -= 1;
     const upd = (await app.inject({ method: "PUT", url: `/api/tracks/${id}`, headers: { cookie }, payload: { track: doc } })).json();
     expect(upd.track.previewUrl).not.toBe(created.track.previewUrl);
-    const a = await app.inject({ method: "GET", url: created.track.previewUrl });
-    const b = await app.inject({ method: "GET", url: upd.track.previewUrl });
+    // a draft's pictures are its author's (#175)
+    const a = await app.inject({ method: "GET", url: created.track.previewUrl, headers: { cookie } });
+    const b = await app.inject({ method: "GET", url: upd.track.previewUrl, headers: { cookie } });
     expect(a.statusCode).toBe(200);
     expect(b.statusCode).toBe(200);
     expect(a.rawPayload.equals(b.rawPayload)).toBe(false);
@@ -126,7 +127,7 @@ describe("track page (Open Graph)", () => {
     doc.info.name = `Tom & "Jerry" <b>`;
     const created = (await app.inject({ method: "POST", url: "/api/tracks", headers: { cookie }, payload: doc })).json();
     await app.inject({ method: "PUT", url: `/api/tracks/${created.track.id}`, headers: { cookie }, payload: doc });
-    const html = (await app.inject({ method: "GET", url: `/t/${created.track.id}` })).body;
+    const html = (await app.inject({ method: "GET", url: `/t/${created.track.id}`, headers: { cookie } })).body; // a draft: its author's page (#175)
     expect(meta(html, "og:title")).toBe("Tom &amp; &quot;Jerry&quot; &lt;b&gt;");
     expect(html).not.toContain("<b>");
     expect(meta(html, "og:description")).toBe("94 m lap · 9 corners · 22 × 12 m · no venue · draft");
