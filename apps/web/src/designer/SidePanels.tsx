@@ -24,7 +24,7 @@ import { bridgeAt, crossingHint, makeCrossover, moveStart, overText, swapOver } 
 import type { Draft, Selection } from "./Designer.js";
 import { wrapDistance, type Live } from "./geometry.js";
 import { TURNS_HINT, type LaneGrid } from "./lanes.js";
-import { checkCounts, FEATURE_TYPES, visibleChecks, type DesignerMode } from "./mode.js";
+import { checkCounts, FEATURE_TYPES, pointHeading, pointRef, visibleChecks, type DesignerMode } from "./mode.js";
 import { findNests, followNest, follows, innerOf, matchNest, outerOf } from "./nest.js";
 import { apexFromField, apexOf, apexRadius, APEX_MAX, isReduced, MIN_CORNERS, QUICK_SIZES, setApex, turnLabel, widthAt } from "./shape.js";
 import { hairpinWhy } from "./snap.js";
@@ -137,19 +137,19 @@ function OuterSeg({ p, c, onPick }: { p: DesignPoint; c: Corner | undefined; onP
  * Nested corners (#106): what shaping this corner also shapes (the corner inside it, round the same pipe), and what it
  * follows (the corner outside it) or, shaped on its own, the offer to match it again.
  */
-function NestNotes({ inner, outer, following, onMatch }: { inner: number | null; outer: number | null; following: boolean; onMatch: () => void }) {
+function NestNotes({ inner, outer, following, onMatch }: { /** the corners' names in a sentence (pointRef), not indices (#176) */ inner: string | null; outer: string | null; following: boolean; onMatch: () => void }) {
   if (inner === null && outer === null) return null;
   return (
     <div className="nest-notes">
-      {inner !== null && <p className="hint">Also shapes corner {inner + 1} (inside).</p>}
+      {inner !== null && <p className="hint">Also shapes {inner} (inside).</p>}
       {outer !== null &&
         (following ? (
-          <p className="hint">Follows corner {outer + 1} (outside).</p>
+          <p className="hint">Follows {outer} (outside).</p>
         ) : (
           <p className="hint">
             Shaped on its own.{" "}
-            <button type="button" className="link-btn" onClick={onMatch} title={`Shape it to run round the same pipe as corner ${outer + 1}`}>
-              Match corner {outer + 1}
+            <button type="button" className="link-btn" onClick={onMatch} title={`Shape it to run round the same pipe as ${outer}`}>
+              Match {outer}
             </button>
           </p>
         ))}
@@ -470,7 +470,7 @@ export function SelectionPanel({
     const nest = nests.find((n) => n.inner === sel.i);
     const following = nest ? follows(draft.design.points, nest, lw) : false;
     const match = () => update((d) => ({ ...d, design: { ...d.design, points: matchNest(d.design.points, sel.i, lw) } }), `match:${sel.i}:${Date.now()}`);
-    const notes = <NestNotes inner={inner} outer={outer} following={following} onMatch={match} />;
+    const notes = <NestNotes inner={inner === null ? null : pointRef(live.numbering, inner)} outer={outer === null ? null : pointRef(live.numbering, outer)} following={following} onMatch={match} />;
     const outerSeg = <OuterSeg p={p} c={c} onPick={(o) => setPoint(sel.i, { outer: o }, "outer")} />;
     if (view === "quick") {
       const turns = !!apexOf(draft.design.points, sel.i, lw);
@@ -479,7 +479,7 @@ export function SelectionPanel({
       const setTo = (a: number, key: string) => update((d) => ({ ...d, design: { ...d.design, points: followNest(setApex(d.design.points, sel.i, a, lw), sel.i, lw) } }), `${key}:${sel.i}`);
       return (
         <section className="sel-panel" aria-labelledby="sel-h">
-          <h2 id="sel-h">Corner {sel.i + 1}</h2>
+          <h2 id="sel-h">{pointHeading(live.numbering, sel.i, "quick")}</h2>
           <p className="sel-turn">{turnLabel(draft.design.points, sel.i)}</p>
           {turns ? (
             <>
@@ -524,7 +524,7 @@ export function SelectionPanel({
     }
     return (
       <section className="sel-panel" aria-labelledby="sel-h">
-        <h2 id="sel-h">Corner point {sel.i + 1}</h2>
+        <h2 id="sel-h">{pointHeading(live.numbering, sel.i, "advanced")}</h2>
         <div className="fields">
           <NumberField label="East (x)" value={p.x} step={0.25} onChange={(v) => v !== undefined && setPoint(sel.i, { x: v }, "x")} />
           <NumberField label="North (z)" value={p.z} step={0.25} onChange={(v) => v !== undefined && setPoint(sel.i, { z: v }, "z")} />

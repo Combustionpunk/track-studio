@@ -1,6 +1,9 @@
 // Designer geometry: live (main-thread) racing line and placements, pointer projection, snapping, starter loops.
 // The full bake (dividers, checks, stats) runs in a worker; this is the cheap part that has to keep up with the pointer.
 import {
+  cornerNumbering,
+  numberCorners,
+  type CornerNumbering,
   FEATURE_INSET,
   arclength,
   atDistance,
@@ -66,6 +69,8 @@ export interface Live {
   spans: [number, number][];
   /** design.laneWidth: an unclaimed crossover's flat top spans it */
   laneWidth: number;
+  /** the corners' names (5, 5a, 5b), as the build sheet and the Corners figure number them (#176) */
+  numbering: CornerNumbering;
 }
 
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -76,7 +81,8 @@ export function liveGeometry(design: Design): Live {
   const { s, total } = arclength(line.x, line.z);
   const racing: [number, number, number][] = [];
   for (let i = 0; i < line.n; i += STEP) racing.push([line.x[i], line.z[i], line.width[i]]);
-  const live = { line, s, total, corners, racing, laneWidth: design.laneWidth ?? 2.0 } as Live;
+  const numbering = design.points.length < 3 ? cornerNumbering(design.points) : numberCorners(corners);
+  const live = { line, s, total, corners, racing, laneWidth: design.laneWidth ?? 2.0, numbering } as Live;
   // a crossover sits on the crossing it claims, on the over pass, sized for it (as the bake places it)
   const features = design.features ?? [];
   const cr = findCrossings(line, s, total, design.start?.distance ?? 0);

@@ -1,7 +1,7 @@
 // Quick and Advanced designer modes. Both edit the same .rctrack.json; Quick only hides controls: it writes a corner's
 // radius (as an apex radius) and its outside shape, never per-corner widths. Neither mode removes a value a track
 // already has, except where a nested corner follows the one outside it (nest.ts) and the rule wants its outside on auto.
-import type { BuiltFeature, Check, CheckLevel, DesignFeature, DesignPoint, FeatureType, Point2 } from "@track-studio/engine";
+import { cornerNumbering, pointName, type BuiltFeature, type Check, type CheckLevel, type CornerNumbering, type DesignFeature, type DesignPoint, type FeatureType, type Point2 } from "@track-studio/engine";
 import { newPointBetween } from "./geometry.js";
 import type { SnapMode } from "./snap.js";
 
@@ -112,25 +112,39 @@ export function checkCounts(checks: Check[]) {
 /** a check this close to a corner point is about that corner */
 const NEAR_CORNER = 3; // m
 
-/** 1-based number of the corner a check is about, if one is close enough */
-export function cornerOf(c: Check, points: DesignPoint[]): number | null {
+/** The design point (index) a check is about, if one is close enough */
+export function pointOf(c: Check, points: DesignPoint[]): number | null {
   if (c.x === undefined || c.z === undefined) return null;
   let best: number | null = null, bestD = NEAR_CORNER;
   points.forEach((p, i) => {
     const d = Math.hypot(p.x - c.x!, p.z - c.z!);
-    if (d < bestD) [best, bestD] = [i + 1, d];
+    if (d < bestD) [best, bestD] = [i, d];
   });
   return best;
 }
 
+// ---------------------------------------------------------------------------------------------- corner names (#176)
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * A design point's name as a heading or title, by the engine's one corner numbering (the build sheet's): "Corner 5a"
+ * ("Corner point 5a" in Advanced, where the points are the thing being edited), or "Bend after corner 4" for a point
+ * that turns too little to be a corner.
+ */
+export const pointHeading = (n: CornerNumbering, i: number, view: DesignerMode = "quick"): string => cap(pointName(n, i, view === "quick" ? "corner" : "corner point"));
+
+/** A design point's name inside a sentence: "corner 5a", or "the bend after corner 4". */
+export const pointRef = (n: CornerNumbering, i: number): string => (n.labels[i] ? "" : "the ") + pointName(n, i);
+
 /** What to do about an error, as a sentence. */
-export function fixFor(c: Check, points: DesignPoint[]): string {
-  const n = cornerOf(c, points);
+export function fixFor(c: Check, points: DesignPoint[], laneWidth = 2.0): string {
+  const i = pointOf(c, points);
+  const name = i === null ? null : pointRef(cornerNumbering(points, laneWidth), i);
   switch (c.code) {
     case "outside-area":
-      return `Move ${n ? `corner ${n}` : "the track"} back inside the track area to fix it.`;
+      return `Move ${name ?? "the track"} back inside the track area to fix it.`;
     case "obstacle":
-      return `${n ? `Move corner ${n} so the track clears` : "Move the track off"} the fixed obstacle to fix it.`;
+      return `${name ? `Move ${name} so the track clears` : "Move the track off"} the fixed obstacle to fix it.`;
     case "crossing-unbridged":
       return "Add a crossover (or a long tabletop) where the track crosses itself to fix it.";
     default:
@@ -139,10 +153,10 @@ export function fixFor(c: Check, points: DesignPoint[]): string {
 }
 
 /** Why Submit is blocked, as a plain sentence, or null when it can go. Warnings never block; errors always do. */
-export function submitBlock({ dirty, pending, checks, points }: { dirty: boolean; pending: boolean; checks: Check[]; points: DesignPoint[] }): string | null {
+export function submitBlock({ dirty, pending, checks, points, laneWidth }: { dirty: boolean; pending: boolean; checks: Check[]; points: DesignPoint[]; laneWidth?: number }): string | null {
   // errors first (from the latest bake, a moment behind while dragging): what to fix matters more than saving
   const errors = checks.filter((c) => c.level === "error");
-  if (errors.length) return `Submit is waiting on ${errors.length} ${errors.length === 1 ? "error" : "errors"}. ${fixFor(errors[0], points)}`;
+  if (errors.length) return `Submit is waiting on ${errors.length} ${errors.length === 1 ? "error" : "errors"}. ${fixFor(errors[0], points, laneWidth)}`;
   if (dirty) return "Save your changes before submitting.";
   if (pending) return "Checking the track…";
   return null;
