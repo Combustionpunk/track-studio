@@ -1,6 +1,7 @@
 // The printable build sheet (#17): what marshals lay a track out from. A3 landscape by default, A4 offered; saved to
 // PDF with the browser's print dialog. Drawn from `built` (the engine's buildSheet and print plan), in the fixed print
 // palette, measured from the south-west corner of the track area. Mockup: docs/design/mockups/BuildSheet.dc.html.
+import { HelpLink } from "../help/HelpLink.js";
 import { buildSheet, drawingArea, type BuildSheet, type RcTrack } from "@track-studio/engine";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useMemo } from "react";
@@ -70,6 +71,9 @@ export function BuildSheetPage() {
         <button type="button" className="btn btn-primary" onClick={() => window.print()} disabled={!doc?.built}>
           <Printer size={16} aria-hidden="true" /> Print or save as PDF
         </button>
+        <HelpLink topic="build" className="btn btn-quiet">
+          Help
+        </HelpLink>
         <p className="sheet-hint">The sheet is A3: print it from a computer, or save it as a PDF.</p>
       </div>
       <div className="sheet-stage" ref={stageRef}>

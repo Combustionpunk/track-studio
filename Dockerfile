@@ -22,6 +22,8 @@ COPY reference reference
 # the web tests read the design docs: the plan palette tests compare with tokens.json, and the phone designer design
 # test (apps/web/test/phone-design.test.ts) checks the plan and mockups
 COPY docs/design docs/design
+# the user guide (#171): the web build takes it in for /help, and apps/web/test/help.test.tsx checks it
+COPY docs/guide docs/guide
 COPY packages/engine packages/engine
 COPY apps/server apps/server
 COPY apps/web apps/web
