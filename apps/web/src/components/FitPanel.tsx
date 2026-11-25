@@ -1,4 +1,5 @@
 // "Fit to a venue": pick a venue, see every orientation the track fits in, preview it in the hall, make a copy.
+import { HelpLink } from "../help/HelpLink.js";
 import type { Built, RcVenue } from "@track-studio/engine";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -48,9 +49,12 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
   const venueName = venues.data?.venues.find((x) => x.id === venueId)?.name ?? v?.info.name ?? "this venue";
   return (
     <section className="ts-panel ts-fit" id="fit-panel" aria-labelledby="fit-h">
-      <h2 id="fit-h" className="ts-heading">
-        Fit to a venue
-      </h2>
+      <div className="help-head">
+        <h2 id="fit-h" className="ts-heading">
+          Fit to a venue
+        </h2>
+        <HelpLink topic="fit" />
+      </div>
       <div className="ts-field">
         <label className="ts-label" htmlFor="fit-venue">
           Venue

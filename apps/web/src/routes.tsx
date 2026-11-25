@@ -16,6 +16,9 @@ import { VenuePage, Venues } from "./pages/Venues.js";
 import { gateRevalidates, useCheckOnFocus, versionGate } from "./lib/version.js";
 import { EditVenuePage, NewVenuePage } from "./venues/pages.js";
 
+/** The user guide (#171), on its own: the guide's text and its Markdown reader load only when someone opens Help. */
+const Help = lazy(() => import("./pages/Help.js").then((m) => ({ default: m.Help })));
+
 /** development only (#121): a production build drops the import, so it ships no demo chunk */
 const SheetDemo = import.meta.env.DEV ? lazy(() => import("./pages/SheetDemo.js").then((m) => ({ default: m.SheetDemo }))) : null;
 
@@ -80,6 +83,7 @@ export const routes: RouteObject[] = [
               { path: "/v/:id", element: <VenuePage /> },
               { path: "/v/:id/edit", element: <EditVenuePage /> },
               { path: "/lap-speeds", element: <LapSpeeds /> },
+              { path: "/help", element: <Suspense><Help /></Suspense> },
               { path: "*", element: <NotFound /> },
             ],
           },
