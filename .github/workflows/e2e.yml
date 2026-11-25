@@ -1,14 +1,15 @@
 # Browser tests (Playwright) for the web app: tablet touch and desktop mouse in the designer, the 3D viewer, build
-# sheets. They start Vite alone (no API server); see apps/web/playwright.config.ts. Added to CI by #119, which needed
-# the touch long-press tests to run on every PR. No secrets; only the repo's own code runs.
+# sheets. They start Vite alone (no API server); see apps/web/playwright.config.ts. One spec, private-drafts (#175),
+# starts apps/server itself, so server changes run them too. Added to CI by #119, which needed the touch long-press
+# tests to run on every PR. No secrets; only the repo's own code runs.
 name: E2E
 
 on:
   pull_request:
-    paths: [apps/web/**, packages/engine/**, package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, .github/workflows/e2e.yml]
+    paths: [apps/web/**, apps/server/**, packages/engine/**, package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, .github/workflows/e2e.yml]
   push:
     branches: [main]
-    paths: [apps/web/**, packages/engine/**, package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, .github/workflows/e2e.yml]
+    paths: [apps/web/**, apps/server/**, packages/engine/**, package.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, .github/workflows/e2e.yml]
 
 # One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group and never cancel the
 # run in progress, so results on main arrive in commit order. GitHub keeps only one waiting run per group: if several

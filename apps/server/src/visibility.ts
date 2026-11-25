@@ -1,6 +1,8 @@
 // Who may see a layout (#175). A draft that has never been approved is its author's and the organisers' (site admins
-// are organisers); to anyone else it answers exactly as an id that doesn't exist: 404, never 403. Submitted, approved
-// and archived layouts are public, and so is a draft a meeting uses (the forum says; unknown while it's down = hidden).
+// are organisers); to anyone else it answers exactly as an id that doesn't exist: 404, never 403. Submitted layouts and
+// any layout with an approved revision are public, and so is a draft a meeting uses (the forum says; unknown while
+// it's down = hidden). Archiving a layout that was never approved doesn't publish it: it stays private.
+// The same rule is in SQL in store.ts: the venues' track counts and the "based on" name of a copy.
 import type { User } from "./auth.js";
 import type { DB } from "./db.js";
 import { notFound } from "./errors.js";
@@ -9,8 +11,11 @@ import { getTrackRow, type TrackRow } from "./store.js";
 
 type Row = Pick<TrackRow, "id" | "status" | "approved_revision" | "author_forum_id">;
 
-/** A draft with no approved revision: not public, unless a meeting uses it. (An approved layout with a newer draft is in the library.) */
-export const isPrivateDraft = (row: Pick<Row, "status" | "approved_revision">) => row.status === "draft" && row.approved_revision === null;
+/**
+ * A draft with no approved revision (or one archived as such): not public, unless a meeting uses it. An approved layout
+ * with a newer draft is in the library, so it is public.
+ */
+export const isPrivateDraft = (row: Pick<Row, "status" | "approved_revision">) => row.status !== "submitted" && row.approved_revision === null;
 
 /** The author and organisers see a layout whatever its state. */
 export const isOwnOrOrganiser = (user: User | null, row: Pick<Row, "author_forum_id">) => !!user && (user.id === row.author_forum_id || user.organiser);
@@ -51,5 +56,8 @@ export async function visibleRows<T extends Row>(events: ForumEvents, user: User
   return rows.filter((r) => !hidden.has(r.id));
 }
 
-/** Cache-Control for a layout's file or picture: never in a shared cache while it's a draft. */
-export const cacheScope = (row: Pick<Row, "status" | "approved_revision">) => (isPrivateDraft(row) ? "private" : "public");
+/**
+ * Cache-Control for a layout's file or picture: `public` with the given lifetime, but a draft's is never kept by a
+ * shared cache, and the browser asks again each time (so it's gone once the member signs out).
+ */
+export const cacheControl = (row: Pick<Row, "status" | "approved_revision">, lifetime: string) => (isPrivateDraft(row) ? "private, no-cache" : `public, ${lifetime}`);

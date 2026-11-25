@@ -67,7 +67,7 @@ describe("a draft is hidden from visitors and other members (#175)", () => {
   it("isn't in the library, the search, a status or venue filter, or Fits my venue", async () => {
     const { app, bob, id } = await setup();
     for (const who of [undefined, bob]) {
-      for (const url of ["/api/tracks", "/api/tracks?status=draft", `/api/tracks?q=${encodeURIComponent("secret")}`, "/api/tracks?fits=venue-1", "/api/tracks?minLap=1", "/api/tracks?lapClass=GT12"]) {
+      for (const url of ["/api/tracks", "/api/tracks?status=draft", `/api/tracks?q=${encodeURIComponent("secret")}`, "/api/tracks?fits=venue-1", "/api/tracks?minLap=1", "/api/tracks?lapClass=GT12", "/api/tracks?racedAt=7", "/api/tracks?venue=venue-1"]) {
         const ids = await listed(app, url, who);
         expect(ids, `${who ? "bob" : "signed out"} ${url}`).not.toContain(id);
       }
@@ -122,10 +122,59 @@ describe("a draft is hidden from visitors and other members (#175)", () => {
     for (const url of [`/api/tracks/${id}/r/1.rctrack.json`, `/api/tracks/${id}/latest.rctrack.json`, `/p/${id}/1.png`, `/p/${id}/1/card.png`]) {
       const res = await req(app, "GET", url, alice);
       expect(res.statusCode, url).toBe(200);
-      expect(res.headers["cache-control"], url).toMatch(/^private\b/);
+      expect(res.headers["cache-control"], url).toBe("private, no-cache");
     }
     // a public layout's stay shared
     expect((await req(app, "GET", `/api/tracks/${CLUB_A}/latest.rctrack.json`)).headers["cache-control"]).toBe("public, max-age=60");
+  });
+});
+
+describe("a hidden draft doesn't show through other things (#175)", () => {
+  const venueTracks = async (app: FastifyInstance, cookie?: string) => {
+    const list = (await req(app, "GET", "/api/venues", cookie)).json().venues as { id: string; tracks: number }[];
+    return { list: list.find((v) => v.id === "venue-1")!.tracks, page: (await req(app, "GET", "/api/venues/venue-1", cookie)).json().venue.tracks as number };
+  };
+
+  it("a venue's track count leaves out drafts drawn for it, and counts them once submitted", async () => {
+    const { app } = await makeApp({ seeded: true, forumFetch: forum({}).fetch });
+    const alice = await login(app, ALICE);
+    const before = await venueTracks(app);
+    const res = await req(app, "POST", "/api/tracks", alice, { track: freeform(), fromVenue: "venue-1" });
+    expect(res.statusCode, res.body).toBe(201);
+    const id = res.json().track.id as string;
+    expect(res.json().track.venueTemplateId).toBe("venue-1");
+    expect(await venueTracks(app)).toEqual(before);
+    expect(await venueTracks(app, alice)).toEqual(before); // one number for everyone: the public layouts
+    expect((await req(app, "POST", `/api/tracks/${id}/submit`, alice)).statusCode).toBe(200);
+    expect(await venueTracks(app)).toEqual({ list: before.list + 1, page: before.page + 1 });
+  });
+
+  it("a copy of a layout that has gone back to a draft no longer names it", async () => {
+    const { app, alice, bob, id, created } = await setup();
+    expect((await req(app, "POST", `/api/tracks/${id}/submit`, alice)).statusCode).toBe(200);
+    const copy = (await req(app, "POST", `/api/tracks/${id}/copy`, bob, {})).json().track as { id: string; derivedFrom: unknown };
+    expect(copy.derivedFrom).toEqual({ id, name: NAME, author: "alice" });
+    expect((await req(app, "POST", `/api/tracks/${copy.id}/submit`, bob)).statusCode).toBe(200);
+    // alice edits hers: a draft again, renamed
+    const renamed = { ...created.doc, info: { ...created.doc.info, name: "Even more secret" } };
+    expect((await req(app, "PUT", `/api/tracks/${id}`, alice, { track: renamed })).statusCode).toBe(200);
+    for (const who of [undefined, bob]) {
+      const got = await req(app, "GET", `/api/tracks/${copy.id}`, who);
+      expect(got.json().track.derivedFrom).toEqual({ id, name: null, author: null });
+      expect(got.body).not.toContain("Even more secret");
+      expect((await req(app, "GET", "/api/tracks", who)).body).not.toContain("Even more secret");
+    }
+  });
+
+  it("fit thumbnails of a draft are its author's too", async () => {
+    const { app, alice, bob, id } = await setup();
+    const fit = (await req(app, "GET", `/api/tracks/${id}/fit/venue-1`, alice)).json() as { results: { thumbUrl: string }[] };
+    expect(fit.results.length).toBeGreaterThan(0);
+    const url = fit.results[0].thumbUrl;
+    const mine = await req(app, "GET", url, alice);
+    expect(mine.statusCode).toBe(200);
+    expect(mine.headers["cache-control"]).toBe("private, no-cache");
+    for (const who of [undefined, bob]) expect((await req(app, "GET", url, who)).statusCode).toBe(404);
   });
 });
 
@@ -192,13 +241,27 @@ describe("submitted, approved and meeting-used layouts stay public (#175)", () =
     }
   });
 
-  it("an archived layout is as it was: off the lists, open by its link", async () => {
+  it("an archived layout that was approved is as it was: off the lists, open by its link", async () => {
     const { app, alice, org, id } = await setup();
     expect((await req(app, "POST", `/api/tracks/${id}/submit`, alice)).statusCode).toBe(200);
+    expect((await req(app, "POST", `/api/tracks/${id}/approve`, org)).statusCode).toBe(200);
     expect((await req(app, "POST", `/api/tracks/${id}/archive`, org)).statusCode).toBe(200);
     expect(await listed(app, "/api/tracks")).not.toContain(id);
     expect(await listed(app, "/api/tracks?status=archived")).toContain(id);
     expect((await req(app, "GET", `/api/tracks/${id}`)).statusCode).toBe(200);
+  });
+
+  it("archiving a draft doesn't publish it: it stays its author's and the organisers'", async () => {
+    const { app, alice, bob, org, id } = await setup();
+    expect((await req(app, "POST", `/api/tracks/${id}/archive`, org)).statusCode).toBe(200);
+    for (const who of [undefined, bob]) {
+      expect(await listed(app, "/api/tracks?status=archived", who)).not.toContain(id);
+      for (const url of reads(id)) expect((await req(app, "GET", url, who)).statusCode, url).toBe(404);
+    }
+    for (const who of [alice, org]) {
+      expect(await listed(app, "/api/tracks?status=archived", who)).toContain(id);
+      expect((await req(app, "GET", `/api/tracks/${id}`, who)).statusCode).toBe(200);
+    }
   });
 
   it("a draft a meeting uses is public whatever its state: listed and open to everyone", async () => {

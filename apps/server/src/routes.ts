@@ -38,7 +38,7 @@ import {
   type StatusAction,
   type TrackRow,
 } from "./store.js";
-import { cacheScope, changeableTrackRow, visibleRows, visibleTrackRow } from "./visibility.js";
+import { cacheControl, changeableTrackRow, visibleRows, visibleTrackRow } from "./visibility.js";
 
 const STATUSES = ["draft", "submitted", "approved", "archived"];
 
@@ -149,7 +149,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
   const sendTrackFile = (reply: FastifyReply, row: TrackRow, doc: RcTrack, maxAge: number) =>
     reply
       .header("content-disposition", `attachment; filename="${rctrackFileName(doc.info.name, doc.revision)}"`)
-      .header("cache-control", `${cacheScope(row)}, max-age=${maxAge}`)
+      .header("cache-control", cacheControl(row, `max-age=${maxAge}`))
       .type("application/json; charset=utf-8")
       .send(JSON.stringify(doc, null, 1));
 

@@ -15,7 +15,7 @@ import { notFound } from "./errors.js";
 import { fontsKey, previewFontFiles } from "./fonts.js";
 import type { ForumEvents } from "./forum-events.js";
 import { fitTrack, getTrackDoc, getVenueDoc, type TrackRow } from "./store.js";
-import { cacheScope, visibleTrackRow } from "./visibility.js";
+import { cacheControl, visibleTrackRow } from "./visibility.js";
 import type { ThemeSync } from "./theme.js";
 
 export { PREVIEW_WIDTH } from "./drawing.js";
@@ -51,7 +51,7 @@ export function describeTrack(row: TrackRow): string {
 
 /**
  * Serve a cached PNG (rendering it on first use). Exact version → cache for a year; anything else → briefly. A draft's
- * picture is for its author and organisers (#175): kept out of shared caches.
+ * picture is for its author and organisers (#175): kept out of shared caches, and asked for again each time.
  */
 function sendPng(reply: FastifyReply, row: TrackRow, file: string, version: string, requested: unknown, render: () => string): FastifyReply {
   let png: Buffer;
@@ -67,7 +67,7 @@ function sendPng(reply: FastifyReply, row: TrackRow, file: string, version: stri
     reply.header("x-preview-cache", "miss");
   }
   reply.header("etag", `"${version}"`);
-  return reply.type("image/png").header("cache-control", `${cacheScope(row)}, ${requested === version ? IMMUTABLE : SHORT}`).send(png);
+  return reply.type("image/png").header("cache-control", cacheControl(row, requested === version ? IMMUTABLE : SHORT)).send(png);
 }
 
 /** Drop cached pictures of a track that no current revision hash refers to (after a re-bake). */

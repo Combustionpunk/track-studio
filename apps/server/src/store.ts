@@ -87,7 +87,7 @@ interface VenueRow {
 }
 
 // tracks drawn on the venue (any revision of it), as the library lists them: archived ones hidden
-const VENUE_SELECT = `SELECT v.*, (SELECT COUNT(*) FROM tracks t WHERE t.venue_template_id = v.id AND t.status != 'archived') AS track_count FROM venues v`;
+const VENUE_SELECT = `SELECT v.*, (SELECT COUNT(*) FROM tracks t WHERE t.venue_template_id = v.id AND t.status != 'archived' AND (t.status != 'draft' OR t.approved_revision IS NOT NULL)) AS track_count FROM venues v`;
 
 interface VenueListRow extends VenueRow {
   track_count: number;
@@ -266,6 +266,7 @@ export interface TrackRow {
   // the latest revision
   l_errors: number;
   l_hash: string;
+  /** null too when the layout it came from isn't public (#175) */
   derived_name: string | null;
   derived_author: string | null;
 }
@@ -279,7 +280,7 @@ const TRACK_SELECT = `SELECT t.*, u.username AS author_username, v.name AS venue
   LEFT JOIN venues v ON v.id = t.venue_template_id
   JOIN track_revisions r ON r.track_id = t.id AND r.revision = COALESCE(t.approved_revision, t.current_revision)
   JOIN track_revisions l ON l.track_id = t.id AND l.revision = t.current_revision
-  LEFT JOIN tracks d ON d.id = t.derived_from_id
+  LEFT JOIN tracks d ON d.id = t.derived_from_id AND (d.status = 'submitted' OR d.approved_revision IS NOT NULL)
   LEFT JOIN users du ON du.forum_id = d.author_forum_id`;
 
 /** Why a track can't be changed: a forum event uses it ("event", #66), or it's in the library ("library"). */
