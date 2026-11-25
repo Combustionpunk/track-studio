@@ -169,6 +169,14 @@ describe("the guide as /help shows it", () => {
     for (const l of links) expect(l, l).toMatch(/^(#[a-z0-9-]+|https:\/\/forum\.rcmisfits\.org\/.*)$/);
   });
 
+  it("voting is sent to the forum: the Vote for the track panel, and the club guide for the steps", () => {
+    const voting = md.slice(md.indexOf("\n### Voting\n"), md.indexOf("\n### Put a layout on the forum\n"));
+    expect(voting).toContain("Track Studio itself has no voting");
+    expect(voting).toContain("**Vote for the track**");
+    expect(voting).toContain("](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template)");
+    expect(md).not.toMatch(/organisers decide|post its link on the forum/i);
+  });
+
   it("raw HTML in the source is shown as text, never run", () => {
     const html = renderGuide("# T\n\n<script>alert(1)</script>\n\nA <b onclick=\"x()\">b</b>\n", {});
     expect(html).not.toContain("<script");
