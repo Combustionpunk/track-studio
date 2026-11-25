@@ -231,7 +231,8 @@ describe("a layout used by an event is locked (#64, #66)", () => {
     const created = (await req(app, "POST", "/api/tracks", alice, { track: referenceJson<RcTrack>("examples/freeform-example.rctrack.json") })).json();
     const id = created.track.id as string;
     const before = f.calls.length;
-    expect((await req(app, "PUT", `/api/tracks/${id}`, bob, { track: created.doc })).statusCode).toBe(403);
+    // (someone else's draft: a 404 since #175, still without asking the forum)
+    expect((await req(app, "PUT", `/api/tracks/${id}`, bob, { track: created.doc })).statusCode).toBe(404);
     expect(f.calls).toHaveLength(before);
     expect((await req(app, "POST", `/api/tracks/${id}/archive`, await login(app, ORGANISER))).statusCode).toBe(200);
     expect((await req(app, "PUT", `/api/tracks/${id}`, alice, { track: created.doc })).statusCode).toBe(409);

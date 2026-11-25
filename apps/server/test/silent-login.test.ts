@@ -173,8 +173,11 @@ describe("silent sign-in on the first visit", () => {
     expect((await openPage(app, "/v", { "sec-purpose": "prefetch" })).statusCode).toBe(200);
     expect((await openPage(app, "/v", { purpose: "prefetch" })).statusCode).toBe(200);
     // a page that isn't there isn't worth a round trip
-    expect((await openPage(app, "/t/no-such-track")).statusCode).toBe(404);
+    expect((await openPage(app, "/v/no-such-venue")).statusCode).toBe(404);
     expect((await openPage(app, "/no/such/page")).statusCode).toBe(404);
+    // except a track's: it may be the visitor's own draft, hidden until they're signed in (#175). A missing track is
+    // checked the same way, so the redirect doesn't give a draft away.
+    expect((await openPage(app, "/t/no-such-track")).statusCode).toBe(302);
   });
 
   it("dev-login users aren't checked against the forum", async () => {

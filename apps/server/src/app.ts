@@ -116,7 +116,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   });
   registerAuth(app, config, db, forumReachable, memberThemes);
   registerRoutes(app, db, forumEvents, forumStats, app.forumVenues);
-  registerPreviews(app, config, db, theme);
+  registerPreviews(app, config, db, theme, forumEvents);
   await registerWeb(app, config, db, opts.web ?? { mode: "off", root: "", dist: "" });
   // compose's health check: the process is up and the database answers
   app.get("/healthz", async (_req, reply) => {

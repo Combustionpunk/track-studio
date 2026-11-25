@@ -159,7 +159,7 @@ describe("make my own copy", () => {
     expect(doc.info.derivedFrom).toEqual({ id: CLUB_A, revision: 1, author: "system" });
     expect(doc.design).toEqual((await send(app, "GET", `/api/tracks/${CLUB_A}`)).json().doc.design);
     expect(can.edit).toBe(true);
-    expect((await send(app, "GET", `/api/tracks/${track.id}/revisions`)).json().revisions[0].note).toBe("Copy of Club A r1 by system");
+    expect((await send(app, "GET", `/api/tracks/${track.id}/revisions`, bob)).json().revisions[0].note).toBe("Copy of Club A r1 by system");
     // the original is untouched
     expect((await send(app, "GET", `/api/tracks/${CLUB_A}`)).json().track.revision).toBe(1);
   });
