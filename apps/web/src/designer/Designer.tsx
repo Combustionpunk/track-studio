@@ -1508,7 +1508,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             }}
             vectorEffect="non-scaling-stroke"
           >
-            <title>{`${pointHeading(names, i)}: drag to move, wheel for radius, Ctrl+wheel for lane width, right-click to delete`}</title>
+            <title>{`${pointHeading(names, i, "advanced")}: drag to move, wheel for radius, Ctrl+wheel for lane width, right-click to delete`}</title>
           </circle>
         ))}
         {pointsList.map((p, i) => {

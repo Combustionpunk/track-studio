@@ -94,7 +94,7 @@ describe("the designer numbers corners as the build sheet and the Corners figure
 
   it("Advanced mode's corner points carry the same names", () => {
     const { overlay } = open(hairpin(), "advanced");
-    expect(titles(overlay, "ed-point")).toEqual(["Corner 1", "Corner 2", "Corner 3a", "Corner 3b", "Corner 4", "Bend after corner 4", "Corner 5"]);
+    expect(titles(overlay, "ed-point")).toEqual(["Corner point 1", "Corner point 2", "Corner point 3a", "Corner point 3b", "Corner point 4", "Bend after corner 4", "Corner point 5"]);
   });
 
   it("the selection panel and the phone's sheet are named the same way", () => {
