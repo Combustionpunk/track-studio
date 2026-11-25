@@ -104,3 +104,16 @@ test("a trip to 3D doesn't leave the plan zoomed on the start line", async ({ pa
   await expectFitted(page);
   expect(errors).toEqual([]);
 });
+
+test("a zoom the member makes while the start line is shown is theirs: letting it go keeps it", async ({ page }) => {
+  test.skip(isPhone(page), "the laptop's zoom buttons");
+  const errors = await serve(page);
+  await open(page);
+  await pickStart(page);
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  const theirs = await viewBox(page);
+  await letGo(page);
+  await page.waitForTimeout(200);
+  expect(await viewBox(page)).toEqual(theirs);
+  expect(errors).toEqual([]);
+});
