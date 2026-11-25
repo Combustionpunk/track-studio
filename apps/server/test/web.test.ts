@@ -88,6 +88,24 @@ describe("web app pages", () => {
     expect((await app.inject({ method: "GET", url: "/no/such/page" })).json().error).toBe("not-found");
   });
 
+  it("/help: the user guide's page, readable signed out (#171)", async () => {
+    const { app } = await makeAppWithWeb(fakeDist());
+    const res = await app.inject({ method: "GET", url: "/help", headers: html }); // no session cookie
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toBe("text/html; charset=utf-8");
+    expect(res.headers.location).toBeUndefined();
+    expect(res.body).toContain("<title>Help · Track Studio</title>");
+    expect(res.body).toContain('<meta name="description" content="How to design a track in Track Studio');
+    expect(res.body).toContain('<meta property="og:title" content="Track Studio user guide">');
+    expect(res.body).toContain('<script type="module" src="/assets/app-abc123.js">'); // the app draws the guide
+    expect(res.body).toMatch(/<div id="root"><h1>Track Studio user guide<\/h1>/); // until it starts
+    // the built app's policy: the guide's screenshots are the site's own files, and nothing else may frame the page
+    expect(res.headers["content-security-policy"]).toContain("img-src 'self'");
+    expect(res.headers["content-security-policy"]).toContain("script-src 'self'");
+    expect(res.headers["x-frame-options"]).toBe("SAMEORIGIN");
+    expect((await app.inject({ method: "GET", url: "/help/", headers: html })).statusCode).toBe(200);
+  });
+
   it("without a web build: fallback pages with the same tags", async () => {
     const { app } = await makeApp({ seeded: true });
     const res = await app.inject({ method: "GET", url: `/t/${SPORTS}`, headers: html });
