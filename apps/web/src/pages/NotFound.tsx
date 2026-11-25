@@ -13,6 +13,8 @@ export function NotFound({ what = "page" }: { what?: string }) {
         }
       >
         We couldn't find that {what}. It may have been removed, or the link is wrong.
+        {/* a draft answers like a track that isn't there (#175), so this is said for every missing track */}
+        {what === "track" && " If it's a draft, only its author and organisers can open it: sign in if it's yours."}
       </EmptyState>
     </div>
   );
