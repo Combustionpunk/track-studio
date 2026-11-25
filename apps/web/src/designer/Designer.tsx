@@ -606,7 +606,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         const s = selRef.current;
         const i = stepCorner(n, s?.kind === "point" ? s.i : null, e.key === "n" || e.key === "N" ? 1 : -1);
         setSel((selRef.current = { kind: "point", i }));
-        say(`${pointHeading(liveRef.current.numbering, i)} (point ${i + 1} of ${n}).`);
+        const names = liveRef.current.numbering;
+        say(names.labels[i] ? `${pointHeading(names, i)} of ${names.groups.length}.` : `${pointHeading(names, i)}.`);
       } else if (toolRef.current.kind === "add" && !draftRef.current.laying && e.key === "Enter" && !mod && !isControl(e.target)) {
         // Enter: a point halfway along the straight after the selected corner, one undo step
         e.preventDefault();

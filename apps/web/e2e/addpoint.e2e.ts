@@ -152,7 +152,7 @@ test.describe("mouse, 1200 px", () => {
       await page.keyboard.press("p");
       await expect(live(page)).toHaveText("Corner 1 of 4.");
       await page.keyboard.press("Enter");
-      await expect(live(page)).toHaveText("Added corner 2, halfway to the next one.");
+      await expect(live(page)).toHaveText("Added a point after corner 1, halfway to the next one.");
       const after = await corners(page);
       expect(after).toHaveLength(5);
       expect(after[1][0]).toBeCloseTo((before[0][0] + before[1][0]) / 2, 2);

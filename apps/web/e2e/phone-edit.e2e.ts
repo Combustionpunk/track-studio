@@ -4,7 +4,7 @@
 // and the laptop are unchanged; a narrow laptop window gets the phone layout and zooms with the wheel.
 // SHOTS=<dir> saves screenshots for the PR. The API is answered from the reference files, so only Vite is needed.
 import { expect, test, type Page } from "@playwright/test";
-import { corners, doc, emptyFloor, middleCorner, open, pinchIn, planBox, serve, shot, toolBtn, toolbar, viewBox } from "./phone-helper.js";
+import { cornerRef, corners, doc, emptyFloor, middleCorner, open, pinchIn, planBox, serve, shot, toolBtn, toolbar, viewBox } from "./phone-helper.js";
 import { screen, Touch, type XY } from "./touch-helper.js";
 
 /**
@@ -175,13 +175,13 @@ test.describe("phone", () => {
     await expect(page.locator("g.ed-corner.on")).toHaveCount(1);
     await toolBtn(page, "Add point").tap();
     await expect(toolBtn(page, "Add point")).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator(".designer-hint")).toContainText(`after ${i + 1}`);
+    await expect(page.locator(".designer-hint")).toContainText(`after ${await cornerRef(page, i)}.`);
     await expect(toolBtn(page, "Select")).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator(".designer-hint")).toContainText("Tap the floor");
     await t.tap(floor);
     await expect(page.locator("g.ed-corner")).toHaveCount(n + 1);
     await expect(page.locator("g.ed-corner.on")).toHaveCount(1); // the new one, selected
-    await expect(page.locator(".designer-hint")).toContainText(`after ${i + 2}`);
+    await expect(page.locator(".designer-hint")).toContainText(`after ${await cornerRef(page, i + 1)}.`);
     await toolBtn(page, "Select").tap();
     await expect(toolBtn(page, "Add point")).toHaveAttribute("aria-pressed", "false");
     await expect(toolBtn(page, "Select")).toHaveAttribute("aria-pressed", "true");

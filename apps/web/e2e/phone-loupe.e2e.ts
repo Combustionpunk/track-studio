@@ -3,7 +3,7 @@
 // it stays on screen, clear of the header and the toolbar, at the plan's edges; a mouse drag shows none, and neither
 // does a tablet. SHOTS=<dir> saves screenshots for the PR.
 import { expect, test, type Page } from "@playwright/test";
-import { corners, emptyFloor, middleCorner, open, pinchIn, planBox, serve, shot, toolbar } from "./phone-helper.js";
+import { cornerName, corners, emptyFloor, middleCorner, open, pinchIn, planBox, serve, shot, toolbar } from "./phone-helper.js";
 import { screen, Touch, type XY } from "./touch-helper.js";
 
 const loupe = (page: Page) => page.locator(".plan-loupe");
@@ -65,9 +65,10 @@ test.describe("phone loupe", () => {
     const t = await Touch.on(page);
     await pinchIn(page, t);
     const { i, at } = await middleCorner(page);
+    const name = await cornerName(page, i);
     // with its sheet open: the sheet tucks away for the drag, and the loupe shows over the plan
     await t.tap(at);
-    const s = page.getByRole("dialog", { name: `Corner ${i + 1}` });
+    const s = page.getByRole("dialog", { name });
     await expect(s).toHaveClass(/bottom-sheet--peek/);
     await t.down(at);
     await rest();

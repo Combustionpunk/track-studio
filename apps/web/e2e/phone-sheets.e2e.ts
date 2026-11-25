@@ -5,7 +5,7 @@
 // and How to draw opens from the ⋯ menu. SHOTS=<dir> saves screenshots for the PR.
 import { readFileSync } from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { corners, emptyFloor, middleCorner, open, pinchIn, REF, serve, shot, toolBtn, toolbar, viewBox } from "./phone-helper.js";
+import { cornerName, corners, emptyFloor, middleCorner, open, pinchIn, REF, serve, shot, toolBtn, toolbar, viewBox } from "./phone-helper.js";
 import { screen, Touch, type XY } from "./touch-helper.js";
 
 /** a track with one error that has a place on the plan (two straights overlap) */
@@ -36,9 +36,10 @@ test.describe("phone sheets", () => {
     await pinchIn(page, t);
     const n = (await corners(page)).length;
     const { i, at } = await middleCorner(page);
+    const name = await cornerName(page, i);
     await expect(sheet(page)).toHaveCount(0);
     await t.tap(at);
-    const s = page.getByRole("dialog", { name: `Corner ${i + 1}` });
+    const s = page.getByRole("dialog", { name });
     await expect(s).toBeVisible();
     await expect(s).toHaveClass(/bottom-sheet--peek/);
     await aboveToolbar(page, s);
@@ -96,8 +97,9 @@ test.describe("phone sheets", () => {
     await pinchIn(page, t);
     const before = await corners(page);
     const { i, at } = await middleCorner(page);
+    const name = await cornerName(page, i);
     await t.tap(at);
-    const s = page.getByRole("dialog", { name: `Corner ${i + 1}` });
+    const s = page.getByRole("dialog", { name });
     await expect(s).toHaveClass(/bottom-sheet--peek/);
     const peek = (await s.boundingBox())!.height;
     await t.down(at);
@@ -122,7 +124,7 @@ test.describe("phone sheets", () => {
       new MutationObserver(() => document.querySelector(".bottom-sheet--tucked") && (w.tucked = true)).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
     });
     await t.tap((await screen(page, ...(await corners(page))[i])) as XY);
-    await expect(page.getByRole("dialog", { name: `Corner ${i + 1}` })).toHaveClass(/bottom-sheet--peek/);
+    await expect(page.getByRole("dialog", { name })).toHaveClass(/bottom-sheet--peek/);
     await expect(page.locator("g.ed-corner.on")).toHaveCount(1);
     expect(await page.evaluate(() => (window as unknown as { tucked: boolean }).tucked)).toBe(false);
     expect(errors).toEqual([]);
