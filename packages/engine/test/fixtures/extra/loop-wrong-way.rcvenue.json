@@ -1,0 +1,33 @@
+{
+ "format": "rcvenue",
+ "version": 1,
+ "id": "venue-x4",
+ "revision": 1,
+ "info": {
+  "name": "Hall with the loop the other way",
+  "venue": null,
+  "notes": "fixture"
+ },
+ "surface": "astro",
+ "area": {
+  "length": 24,
+  "width": 14
+ },
+ "timingLoop": {
+  "x": -6.0,
+  "z": -4.9,
+  "heading": 180,
+  "length": 3.0
+ },
+ "obstacles": [
+  {
+   "type": "rect",
+   "kind": "pits",
+   "x": 0.0,
+   "z": -4.9,
+   "length": 2.0,
+   "width": 1.0,
+   "label": "Pits"
+  }
+ ]
+}

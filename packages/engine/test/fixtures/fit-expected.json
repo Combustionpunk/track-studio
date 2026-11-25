@@ -104,6 +104,125 @@
    }
   }
  },
+ "club-a.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": 9.0,
+     "z": -5.9,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "club-a.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.3
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.3
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.3
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.3
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "club-a.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish runs the wrong way over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "club-a.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -259,6 +378,172 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "figure-eight-crossover.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "figure-eight-crossover.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "figure-eight-crossover.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -425,6 +710,140 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "freeform-at-sports-hall-b.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": 10.44,
+     "z": 3.64,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "freeform-at-sports-hall-b.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     0.5,
+     0.3
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.62,
+     0.3
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.62,
+     -0.42
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     0.5,
+     -0.42
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -11.55,
+     "z": -1.45,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "freeform-at-sports-hall-b.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.95,
+     "z": -5.35,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -631,6 +1050,133 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "freeform-example.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -4.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "freeform-example.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "freeform-example.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -933,6 +1479,238 @@
    }
   }
  },
+ "closing-past-start.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -7.586,
+     "z": 4.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "closing-past-start.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     3.23,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     3.23,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     3.23
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -3.36
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -3.36
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     3.23
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "closing-past-start.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     3.23,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     11.5,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     3.23
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     3.23
+    ],
+    "spare": [
+     12.1,
+     1.5
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.976,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "closing-past-start.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -1190,6 +1968,172 @@
    }
   }
  },
+ "crossover-figure8.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "crossover-figure8.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "crossover-figure8.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "crossover-figure8.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -1350,6 +2294,172 @@
    }
   }
  },
+ "crossover-low-figure8.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "crossover-low-figure8.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "crossover-low-figure8.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "crossover-low-figure8.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -1505,6 +2615,172 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "crossover-unused-figure8.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "crossover-unused-figure8.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "crossover-unused-figure8.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -1710,6 +2986,186 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-clip.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": 1.115,
+     "z": 4.53,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-clip.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-clip.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -3.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     3.04,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     0.04
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -2169,6 +3625,388 @@
    }
   }
  },
+ "diagonal-past-lane.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     6.94,
+     1.51
+    ],
+    "spare": [
+     6.1,
+     1.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -7.06,
+     1.51
+    ],
+    "spare": [
+     6.1,
+     1.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -7.06,
+     -1.66
+    ],
+    "spare": [
+     6.1,
+     1.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     6.94,
+     -1.66
+    ],
+    "spare": [
+     6.1,
+     1.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -1.66,
+     6.94
+    ],
+    "spare": [
+     6.9,
+     1.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.51,
+     -7.06
+    ],
+    "spare": [
+     6.9,
+     1.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -1.66,
+     -7.06
+    ],
+    "spare": [
+     6.9,
+     1.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     1.51,
+     6.94
+    ],
+    "spare": [
+     6.9,
+     1.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -2.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-past-lane.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     6.94,
+     1.51
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -7.06,
+     1.51
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -7.06,
+     -1.66
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     6.94,
+     -1.66
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -1.66,
+     6.94
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.51,
+     -7.06
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -1.66,
+     -7.06
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     1.51,
+     6.94
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-past-lane.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     6.94,
+     1.51
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -7.06,
+     1.51
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -7.06,
+     -1.66
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     6.94,
+     -1.66
+    ],
+    "spare": [
+     16.1,
+     6.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -1.66,
+     6.94
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.51,
+     -7.06
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -1.66,
+     -7.06
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     1.51,
+     6.94
+    ],
+    "spare": [
+     16.9,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "diagonal-past-lane.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [
    {
@@ -2614,6 +4452,186 @@
    }
   }
  },
+ "jump-across-start.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.0,
+     "z": -2.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "jump-across-start.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     4.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "jump-across-start.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     0.64
+    ],
+    "spare": [
+     4.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     0.64
+    ],
+    "spare": [
+     4.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     0.64
+    ],
+    "spare": [
+     4.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     0.64
+    ],
+    "spare": [
+     4.1,
+     4.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -4.99,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "jump-across-start.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -2864,6 +4882,160 @@
    }
   }
  },
+ "lane-beside-v-point.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -4.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "lane-beside-v-point.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "lane-beside-v-point.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "lane-beside-v-point.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -3026,6 +5198,94 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "missed-crossing.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -7.371,
+     "z": -7.75,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "missed-crossing.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -7.371,
+     "z": -7.75,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -11.74,
+     "z": -1.44,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "missed-crossing.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -7.371,
+     "z": -7.75,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -3280,6 +5540,179 @@
    }
   }
  },
+ "narrow-oval.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -8.6,
+     "z": -3.1,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "narrow-oval.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.16,
+     -0.16
+    ],
+    "spare": [
+     6.7,
+     5.7
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     0.04,
+     -0.16
+    ],
+    "spare": [
+     6.7,
+     5.7
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     0.04,
+     0.04
+    ],
+    "spare": [
+     6.7,
+     5.7
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.16,
+     0.04
+    ],
+    "spare": [
+     6.7,
+     5.7
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "narrow-oval.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.16,
+     -0.16
+    ],
+    "spare": [
+     6.7,
+     5.7
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     0.04,
+     -0.16
+    ],
+    "spare": [
+     6.7,
+     5.7
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     0.04,
+     0.04
+    ],
+    "spare": [
+     6.7,
+     5.7
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.16,
+     0.04
+    ],
+    "spare": [
+     6.7,
+     5.7
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "narrow-oval.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [
    {
@@ -3454,6 +5887,94 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "nested-corners.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -5.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "nested-corners.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -7.043,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "nested-corners.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -7.043,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -3651,6 +6172,186 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "outside-and-obstacles.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.173,
+     "z": -2.432,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "outside-and-obstacles.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     0.62,
+     -0.13
+    ],
+    "spare": [
+     3.7,
+     3.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.64,
+     -0.13
+    ],
+    "spare": [
+     3.6,
+     3.0
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.74,
+     0.06
+    ],
+    "spare": [
+     3.7,
+     2.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     0.72,
+     0.06
+    ],
+    "spare": [
+     3.6,
+     2.9
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "outside-and-obstacles.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     0.62,
+     0.97
+    ],
+    "spare": [
+     3.7,
+     3.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.64,
+     0.97
+    ],
+    "spare": [
+     3.6,
+     3.0
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.84,
+     0.26
+    ],
+    "spare": [
+     3.7,
+     2.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     0.82,
+     0.26
+    ],
+    "spare": [
+     3.6,
+     2.9
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.873,
+     "z": -5.318,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -3883,6 +6584,133 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "overlap-beside-crossing.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -9.0,
+     "z": -1.508,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "overlap-beside-crossing.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "overlap-beside-crossing.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -4133,6 +6961,186 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "overlap-straights.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.0,
+     "z": -3.5,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "overlap-straights.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "overlap-straights.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -4407,6 +7415,186 @@
    }
   }
  },
+ "peel-round.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.0,
+     "z": -3.5,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "peel-round.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "peel-round.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "peel-round.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -4650,6 +7838,186 @@
    }
   }
  },
+ "peel-square.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.0,
+     "z": -3.5,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "peel-square.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "peel-square.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "peel-square.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -4832,6 +8200,133 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shallow-crossing.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -8.265,
+     "z": -3.912,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shallow-crossing.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -11.89,
+     "z": -1.402,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shallow-crossing.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.05
+    ],
+    "spare": [
+     0.1,
+     6.3
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.05
+    ],
+    "spare": [
+     0.1,
+     6.3
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.05
+    ],
+    "spare": [
+     0.1,
+     6.3
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.05
+    ],
+    "spare": [
+     0.1,
+     6.3
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -5082,6 +8577,186 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights-4cm.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.0,
+     "z": -3.5,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights-4cm.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights-4cm.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -5390,6 +9065,186 @@
    }
   }
  },
+ "shared-straights-6cm.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.0,
+     "z": -3.5,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights-6cm.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights-6cm.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "shared-straights-6cm.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -5688,6 +9543,186 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.0,
+     "z": -3.5,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.14
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     4.1,
+     3.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -6048,6 +10083,335 @@
    }
   }
  },
+ "sharp-v.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     2.04,
+     0.64
+    ],
+    "spare": [
+     0.2,
+     0.4
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -1.99,
+     0.64
+    ],
+    "spare": [
+     0.2,
+     0.4
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -1.99,
+     -0.62
+    ],
+    "spare": [
+     0.2,
+     0.4
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     2.04,
+     -0.62
+    ],
+    "spare": [
+     0.2,
+     0.4
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -9.0,
+     "z": -3.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "sharp-v.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     2.04,
+     0.64
+    ],
+    "spare": [
+     10.2,
+     5.4
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -1.99,
+     0.64
+    ],
+    "spare": [
+     10.2,
+     5.4
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -1.99,
+     -0.62
+    ],
+    "spare": [
+     10.2,
+     5.4
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     2.04,
+     -0.62
+    ],
+    "spare": [
+     10.2,
+     5.4
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.08,
+     2.04
+    ],
+    "spare": [
+     15.4,
+     0.2
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -5.56,
+     -1.99
+    ],
+    "spare": [
+     15.4,
+     0.2
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     5.58,
+     -1.99
+    ],
+    "spare": [
+     15.4,
+     0.2
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.94
+    ],
+    "spare": [
+     15.4,
+     0.2
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "sharp-v.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     2.04,
+     0.64
+    ],
+    "spare": [
+     10.2,
+     5.4
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -1.99,
+     0.64
+    ],
+    "spare": [
+     10.2,
+     5.4
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -1.99,
+     -0.62
+    ],
+    "spare": [
+     10.2,
+     5.4
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     2.04,
+     -0.62
+    ],
+    "spare": [
+     10.2,
+     5.4
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -6.02,
+     2.04
+    ],
+    "spare": [
+     15.4,
+     0.2
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     0.34,
+     -1.99
+    ],
+    "spare": [
+     15.4,
+     0.2
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.42,
+     -1.89
+    ],
+    "spare": [
+     15.4,
+     0.2
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     6.04,
+     2.04
+    ],
+    "spare": [
+     15.4,
+     0.2
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -4.99,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish runs the wrong way over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "sharp-v.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [
    {
@@ -6378,6 +10742,133 @@
    }
   }
  },
+ "short-legs-overlap.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -4.4,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "short-legs-overlap.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "short-legs-overlap.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "short-legs-overlap.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -6631,6 +11122,133 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "short-legs-squeeze.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -4.4,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "short-legs-squeeze.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "short-legs-squeeze.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -6894,6 +11512,125 @@
    }
   }
  },
+ "square-fill.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -4.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "square-fill.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "square-fill.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish runs the wrong way over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "square-fill.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -7107,6 +11844,179 @@
    }
   }
  },
+ "start-on-ramp.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "start-on-ramp.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "start-on-ramp.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "start-on-ramp.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -7209,6 +12119,140 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "switchbacks.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.65,
+     "z": -4.3,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "switchbacks.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     0.29,
+     -0.11
+    ],
+    "spare": [
+     1.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.21,
+     -0.11
+    ],
+    "spare": [
+     1.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.21,
+     -0.01
+    ],
+    "spare": [
+     1.1,
+     1.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     0.29,
+     -0.01
+    ],
+    "spare": [
+     1.1,
+     1.5
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -11.64,
+     "z": -1.44,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "switchbacks.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.94,
+     "z": -5.34,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -7374,6 +12418,172 @@
    }
   }
  },
+ "tabletop-figure8.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "tabletop-figure8.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "tabletop-figure8.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "tabletop-figure8.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -7534,6 +12744,172 @@
    }
   }
  },
+ "tabletop-low-figure8.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "tabletop-low-figure8.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "tabletop-low-figure8.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "tabletop-low-figure8.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -7681,6 +13057,133 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "test-squeezed-corner.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -9.0,
+     "z": 2.195,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "test-squeezed-corner.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "test-squeezed-corner.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -7936,6 +13439,186 @@
    }
   }
  },
+ "tight-hairpin.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -10.0,
+     "z": -3.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish crosses the timing loop at an angle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "tight-hairpin.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     1.84,
+     -0.06
+    ],
+    "spare": [
+     7.8,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -1.84,
+     -0.06
+    ],
+    "spare": [
+     7.8,
+     4.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -1.84,
+     -0.06
+    ],
+    "spare": [
+     7.8,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     1.84,
+     -0.06
+    ],
+    "spare": [
+     7.8,
+     4.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "tight-hairpin.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     1.84,
+     0.64
+    ],
+    "spare": [
+     7.8,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -1.84,
+     0.64
+    ],
+    "spare": [
+     7.8,
+     4.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -1.84,
+     -0.06
+    ],
+    "spare": [
+     7.8,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     1.84,
+     -0.06
+    ],
+    "spare": [
+     7.8,
+     4.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -4.99,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "tight-hairpin.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -8115,6 +13798,160 @@
    }
   }
  },
+ "two-crossings.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -11.0,
+     "z": -1.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "two-crossings.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     0.24
+    ],
+    "spare": [
+     2.1,
+     1.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     0.24
+    ],
+    "spare": [
+     2.1,
+     1.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.76
+    ],
+    "spare": [
+     2.1,
+     1.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.76
+    ],
+    "spare": [
+     2.1,
+     1.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "two-crossings.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.56
+    ],
+    "spare": [
+     2.1,
+     1.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.56
+    ],
+    "spare": [
+     2.1,
+     1.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": -0.99,
+     "z": -5.39,
+     "message": "Track overlaps a fixed obstacle"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "two-crossings.rctrack.json | obstacles-hall.rcvenue.json": {
   "fits": [],
   "check": {
@@ -8263,6 +14100,172 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "unbridged-figure8.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": -6.621,
+     "z": -7.0,
+     "message": "Track goes outside the venue's track area"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "unbridged-figure8.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "unbridged-figure8.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     2.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }
@@ -8677,6 +14680,388 @@
    "rostrum": {
     "side": "south",
     "x": 3.0,
+    "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | loop-angled.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.97,
+     -0.97
+    ],
+    "spare": [
+     9.0,
+     4.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     7.93,
+     -1.07
+    ],
+    "spare": [
+     8.9,
+     3.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.03,
+     1.03
+    ],
+    "spare": [
+     9.0,
+     4.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -8.07,
+     0.93
+    ],
+    "spare": [
+     8.9,
+     3.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.93,
+     -8.07
+    ],
+    "spare": [
+     8.9,
+     3.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -1.07,
+     7.93
+    ],
+    "spare": [
+     8.9,
+     3.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.03,
+     8.03
+    ],
+    "spare": [
+     9.0,
+     4.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.97,
+     -7.97
+    ],
+    "spare": [
+     9.0,
+     4.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "outside-area",
+     "x": 7.414,
+     "z": 1.0,
+     "message": "Track goes outside the venue's track area"
+    },
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -5.9,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -6.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | loop-hall.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.97,
+     -0.97
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     7.93,
+     -1.07
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.03,
+     1.03
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -8.07,
+     0.93
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.93,
+     -8.07
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -1.07,
+     7.93
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.03,
+     8.03
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.97,
+     -7.97
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "west",
+    "x": -13.5,
+    "z": 0.0,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | loop-wrong-way.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.97,
+     -0.97
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     7.93,
+     -1.07
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.03,
+     1.03
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -8.07,
+     0.93
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.93,
+     -8.07
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -1.07,
+     7.93
+    ],
+    "spare": [
+     18.9,
+     8.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.03,
+     8.03
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.97,
+     -7.97
+    ],
+    "spare": [
+     19.0,
+     9.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "warning",
+     "code": "timing-loop",
+     "x": -6.0,
+     "z": -4.9,
+     "message": "Start/finish isn't over the timing loop"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
     "z": -8.5,
     "eyeHeight": 2.8
    }

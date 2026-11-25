@@ -1,7 +1,8 @@
-// Venue template editor (organisers): a form on the left and the plan on the right, both editing one draft with
-// undo/redo. Drag an obstacle to move it, its handle to resize it, the rostrum along its wall. Each save is a new
-// revision; tracks keep the revision they were drawn on (basedOn), new designs use the latest.
-import type { Obstacle, Point2, RcVenue, Side } from "@track-studio/engine";
+// Venue template editor (organisers and, #173, a club's committee for its club's venues): a form on the left and the
+// plan on the right, both editing one draft with undo/redo. Drag an obstacle, pit area or rostrum zone to move it, its
+// handle to resize it, the rostrum along its wall, the timing loop to move it and its arrow to turn it. Each save is a
+// new revision; tracks keep the revision they were drawn on (basedOn), new designs use the latest.
+import { VENUE_SURFACES, type Obstacle, type ObstacleKind, type Point2, type RcVenue, type Side, type VenueSurface } from "@track-studio/engine";
 import { CircleAlert, CircleCheck, Monitor, Redo2, Trash2, Undo2 } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate } from "react-router-dom";
@@ -16,7 +17,16 @@ import { pickForumTrack, pickForumVenue } from "./forum.js";
 import { ForumVenuePicker } from "./ForumVenuePicker.js";
 import {
   addObstacle,
+  addTimingLoop,
+  addZone,
   cornerWord,
+  KIND_LABEL,
+  loopEnds,
+  loopHandle,
+  moveTimingLoop,
+  setKind,
+  SURFACE_LABEL,
+  turnTimingLoop,
   draftProblems,
   fromCorner,
   MAX_OBSTACLES,
@@ -47,7 +57,7 @@ interface Props {
   base?: VenueBase;
 }
 
-type Selection = { kind: "obstacle"; i: number } | { kind: "rostrum" } | null;
+type Selection = { kind: "obstacle"; i: number } | { kind: "rostrum" } | { kind: "loop" } | null;
 
 function svgOf(el: Element): SVGSVGElement {
   return (el instanceof SVGSVGElement ? el : (el as SVGElement).ownerSVGElement)!;
@@ -142,16 +152,24 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
       } else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current?.kind === "obstacle" && !(e.target instanceof Element && e.target.closest("button, a"))) {
         e.preventDefault();
         deleteObstacle(selRef.current.i);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current?.kind === "loop" && !(e.target instanceof Element && e.target.closest("button, a"))) {
+        e.preventDefault();
+        update((d) => {
+          const { timingLoop: _l, ...rest } = d;
+          return rest;
+        });
+        setSel(null);
       } else if (e.key === "Escape") setSel(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hist, deleteObstacle]);
+  }, [hist, deleteObstacle, update]);
 
   // a selection can point past the end after undo
   useEffect(() => {
     if (sel?.kind === "obstacle" && sel.i >= draft.obstacles.length) setSel(null);
-  }, [sel, draft.obstacles.length]);
+    if (sel?.kind === "loop" && !draft.timingLoop) setSel(null);
+  }, [sel, draft.obstacles.length, draft.timingLoop]);
 
   const save = async () => {
     if (blocked || saving) return;
@@ -201,7 +219,7 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
   ];
 
   // ------------------------------------------------------------------------------------ dragging
-  type Drag = { kind: "move"; i: number; offset: Point2 } | { kind: "resize"; i: number } | { kind: "rostrum"; offset: number };
+  type Drag = { kind: "move"; i: number; offset: Point2 } | { kind: "resize"; i: number } | { kind: "rostrum"; offset: number } | { kind: "loop"; offset: Point2 } | { kind: "turn" };
   const startDrag = (e: React.PointerEvent<SVGElement>, d: Drag) => {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -215,6 +233,13 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
         const along: Point2 = side === "north" || side === "south" ? [p[0] + d.offset, p[1]] : [p[0], p[1] + d.offset];
         const offset = rostrumOffsetAt(cur.area, side, along);
         if (offset !== cur.rostrum.offset) hist.set({ ...cur, rostrum: { side, offset } }, group);
+        return;
+      }
+      if (d.kind === "loop" || d.kind === "turn") {
+        const l = cur.timingLoop;
+        if (!l) return;
+        const next = d.kind === "loop" ? moveTimingLoop(l, [p[0] + d.offset[0], p[1] + d.offset[1]]) : turnTimingLoop(l, p);
+        if (JSON.stringify(next) !== JSON.stringify(l)) hist.set({ ...cur, timingLoop: next }, group);
         return;
       }
       const o = cur.obstacles[d.i];
@@ -245,6 +270,15 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
     setSel({ kind: "rostrum" });
     startDrag(e, { kind: "rostrum", offset: rostrum.side === "north" || rostrum.side === "south" ? rx - p[0] : rz - p[1] });
   };
+
+  const onLoopDown = (e: React.PointerEvent<SVGElement>) => {
+    const l = draftRef.current.timingLoop;
+    if (!l) return;
+    const p = planPoint(svgOf(e.currentTarget), e.clientX, e.clientY);
+    setSel({ kind: "loop" });
+    startDrag(e, { kind: "loop", offset: [l.x - p[0], l.z - p[1]] });
+  };
+  const loopOk = !!draft.timingLoop && !problems.timingLoop;
 
   const [rx, rz] = rostrumPos(draft.area, draft.rostrum.side, draft.rostrum.offset);
   const vertical = draft.rostrum.side === "east" || draft.rostrum.side === "west";
@@ -291,6 +325,24 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
       >
         <title>Rostrum: drag along its wall</title>
       </rect>
+      {loopOk && draft.timingLoop && (
+        <>
+          <path
+            data-handle="loop"
+            className={`ve-loop${sel?.kind === "loop" ? " on" : ""}`}
+            d={`M${loopEnds(draft.timingLoop).map(([x, z]) => `${x} ${-z}`).join(" L")}`}
+            strokeWidth={14 * m}
+            onPointerDown={onLoopDown}
+          >
+            <title>Timing loop: drag to move</title>
+          </path>
+          {sel?.kind === "loop" && (
+            <circle data-handle="turn" className="ve-resize" cx={loopHandle(draft.timingLoop)[0]} cy={-loopHandle(draft.timingLoop)[1]} r={7 * m} vectorEffect="non-scaling-stroke" onPointerDown={(e) => startDrag(e, { kind: "turn" })}>
+              <title>Drag to turn the timing loop: the track runs this way over it</title>
+            </circle>
+          )}
+        </>
+      )}
       {sel?.kind === "obstacle" && draft.obstacles[sel.i] && !problems[`obstacle-${sel.i}`] && (
         <ResizeHandle o={draft.obstacles[sel.i]} m={m} onPointerDown={(e) => startDrag(e, { kind: "resize", i: sel.i })} />
       )}
@@ -378,6 +430,17 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
             <NumberField label="Area length" hint="east–west" value={draft.area.length} unit="m" error={problems.length} onChange={(v) => update((d) => ({ ...d, area: { ...d.area, length: v } }), "area.length")} />
             <NumberField label="Area width" hint="north–south" value={draft.area.width} unit="m" error={problems.width} onChange={(v) => update((d) => ({ ...d, area: { ...d.area, width: v } }), "area.width")} />
             <SelectField
+              label="Surface"
+              value={draft.surface ?? ""}
+              options={[{ value: "", label: "Not given" }, ...VENUE_SURFACES.map((s) => ({ value: s, label: SURFACE_LABEL[s] }))]}
+              onChange={(v) =>
+                update((d) => {
+                  const { surface: _s, ...rest } = d;
+                  return v ? { ...rest, surface: v as VenueSurface } : rest;
+                })
+              }
+            />
+            <SelectField
               label="Rostrum side"
               value={draft.rostrum.side}
               options={SIDES.map((s) => ({ value: s, label: SIDE_LABEL[s] }))}
@@ -417,10 +480,16 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
                 <button type="button" className="btn btn-sm" disabled={draft.obstacles.length >= MAX_OBSTACLES} onClick={() => { update((d) => addObstacle(d, "rect")); setSel({ kind: "obstacle", i: draft.obstacles.length }); }}>
                   Add rectangle
                 </button>
+                <button type="button" className="btn btn-sm" disabled={draft.obstacles.length >= MAX_OBSTACLES} onClick={() => { update((d) => addZone(d, "pits")); setSel({ kind: "obstacle", i: draft.obstacles.length }); }}>
+                  Add pit area
+                </button>
+                <button type="button" className="btn btn-sm" disabled={draft.obstacles.length >= MAX_OBSTACLES} onClick={() => { update((d) => addZone(d, "rostrum")); setSel({ kind: "obstacle", i: draft.obstacles.length }); }}>
+                  Add rostrum
+                </button>
               </div>
             </div>
             {draft.obstacles.length === 0 ? (
-              <p className="ve-empty">No pillars, posts or keep-clear areas: the whole area is track. Add one if the hall has something in the way.</p>
+              <p className="ve-empty">No pillars, posts, keep-clear areas, pit area or rostrum inside the area: the whole area is track. Add one if the hall has something in the way. Layouts are kept off all of them.</p>
             ) : (
               <ul className="ve-list" aria-labelledby="ve-obstacles-h">
                 {draft.obstacles.map((o, i) => (
@@ -439,6 +508,40 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+
+          <div className="ve-obstacles">
+            <div className="ve-obstacles-head">
+              <span className="ve-label" id="ve-loop-h">
+                Timing loop
+              </span>
+              <div className="row">
+                {draft.timingLoop ? (
+                  <button type="button" className="btn btn-sm" onClick={() => { update((d) => { const { timingLoop: _l, ...rest } = d; return rest; }); setSel(null); }}>
+                    Remove timing loop
+                  </button>
+                ) : (
+                  <button type="button" className="btn btn-sm" onClick={() => { update(addTimingLoop); setSel({ kind: "loop" }); }}>
+                    Add timing loop
+                  </button>
+                )}
+              </div>
+            </div>
+            {draft.timingLoop ? (
+              <div className="ve-item-fields" aria-labelledby="ve-loop-h">
+                <NumberField label="x (east)" value={draft.timingLoop.x} unit="m" onChange={(v) => update((d) => ({ ...d, timingLoop: { ...d.timingLoop!, x: v } }), "loop.x")} />
+                <NumberField label="z (north)" value={draft.timingLoop.z} unit="m" onChange={(v) => update((d) => ({ ...d, timingLoop: { ...d.timingLoop!, z: v } }), "loop.z")} />
+                <NumberField label="Direction" hint="the way the track runs over it; 0° east, 90° north" value={draft.timingLoop.heading} unit="°" onChange={(v) => update((d) => ({ ...d, timingLoop: { ...d.timingLoop!, heading: v } }), "loop.heading")} />
+                <NumberField label="Length" hint="across the track" value={draft.timingLoop.length} unit="m" onChange={(v) => update((d) => ({ ...d, timingLoop: { ...d.timingLoop!, length: v } }), "loop.length")} />
+                {problems.timingLoop && (
+                  <p className="ve-help error" role="alert">
+                    {problems.timingLoop}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="ve-empty">No timing loop given. Add it so the fit check can warn when a layout's start/finish isn't over it.</p>
             )}
           </div>
 
@@ -473,13 +576,14 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
           <PlanView
             area={showArea ? draft.area : { length: 22, width: 12 }}
             obstacles={draft.obstacles.filter((_, i) => !problems[`obstacle-${i}`])}
+            timingLoop={loopOk ? draft.timingLoop : undefined}
             rostrum={{ side: draft.rostrum.side, x: rx, z: rz }}
             label={`Plan of ${name}, ${fmt.metres(L)} by ${fmt.metres(W)}`}
             className="ve-plan"
             overlay={overlay}
             onBackgroundClick={() => setSel(null)}
           />
-          <div className="ve-hint">Drag an obstacle to move it, its handle to resize. Drag the rostrum along its wall.</div>
+          <div className="ve-hint">Drag an obstacle or zone to move it, its handle to resize. Drag the rostrum along its wall, the timing loop to move it and its handle to turn it.</div>
         </section>
       </div>
     </div>
@@ -502,6 +606,12 @@ function ObstacleFields({ o, error, onChange }: { o: Obstacle; error?: string; o
   return (
     <div className="ve-item-fields">
       <TextField label="Label" value={o.label ?? ""} maxLength={60} wide onChange={(v) => onChange({ ...o, label: v }, "label")} />
+      <SelectField
+        label="What it is"
+        value={o.kind ?? ""}
+        options={(["", "pits", "rostrum"] as const).map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+        onChange={(v) => onChange(setKind(o, (v || undefined) as ObstacleKind | undefined), "kind")}
+      />
       {num("x", "x (east)", o.x)}
       {num("z", "z (north)", o.z)}
       {o.type === "circle" ? (

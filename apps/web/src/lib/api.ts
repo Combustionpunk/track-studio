@@ -197,6 +197,8 @@ export interface Me {
   organiser: boolean;
   admin: boolean;
   moderator: boolean;
+  /** #173: the clubs whose committee the member is on (forum groups); missing from an older server */
+  clubs?: string[];
   /** the member's own theme as the forum sends it, read by our server (#141); none: the club's theme, then Pit Lane. Read with memberThemePick */
   theme?: MemberThemeJson;
 }

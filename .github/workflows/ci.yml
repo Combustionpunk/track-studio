@@ -3,7 +3,8 @@
 # A red run on main opens a `board` issue (track-studio-ci-report.yml, .github/scripts/main-ci-status.cjs).
 # No secrets; only the repo's own code runs.
 #
-# Docs-only changes skip it: docs/** and any *.md, except the docs the tests read: docs/design/** (web tests) and
+# Docs-only changes skip it: docs/** and any *.md, except the docs the tests read: docs/design/** (web tests),
+# docs/guide/** (the user guide, which the web app builds in and apps/web/test/help.test.tsx checks, #171) and
 # docs/deploy.md (apps/server/test/deploy.test.ts).
 name: CI
 
@@ -14,6 +15,7 @@ on:
       - "!**/*.md"
       - "!docs/**"
       - "docs/design/**"
+      - "docs/guide/**"
       - "docs/deploy.md"
   push:
     branches: [main]
@@ -22,6 +24,7 @@ on:
       - "!**/*.md"
       - "!docs/**"
       - "docs/design/**"
+      - "docs/guide/**"
       - "docs/deploy.md"
 
 # One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group and never cancel the

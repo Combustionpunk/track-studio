@@ -7,6 +7,7 @@ import { badRequest, notFound } from "./errors.js";
 import { usedAt, type ForumEvents } from "./forum-events.js";
 import type { ForumStats } from "./forum-stats.js";
 import { assertTrackAtVenue, searchForumVenues, type ForumVenues } from "./forum-venues.js";
+import { assertMayEditVenue, canEditVenue } from "./venue-access.js";
 import { getClassSpeeds, setClassSpeeds, speedFor, typicalLap } from "./lap-times.js";
 import {
   adaptTrack,
@@ -32,7 +33,6 @@ import {
   trackSummary,
   updateTrack,
   updateVenue,
-  venuePermissions,
   venueFromBody,
   venueSummary,
   type ListQuery,
@@ -52,6 +52,8 @@ function revisionParam(v: string): number {
   if (!/^\d{1,9}$/.test(v)) throw notFound("Track revision");
   return Number(v);
 }
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumEvents, forumStats: ForumStats, forumVenues: ForumVenues): void {
   /**
@@ -240,7 +242,8 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
 
   app.get("/api/venues/:id", async (req) => {
     const { id } = req.params as { id: string };
-    return { venue: venueSummary(getVenueRow(db, id)), doc: getVenueDoc(db, id), can: venuePermissions(req.user) };
+    const doc = getVenueDoc(db, id);
+    return { venue: venueSummary(getVenueRow(db, id)), doc, can: { edit: await canEditVenue(req.user, doc.info.venue, forumVenues) } };
   });
 
   app.get("/api/venues/:id/revisions", async (req) => ({ revisions: listVenueRevisions(db, getVenueRow(db, (req.params as { id: string }).id)) }));
@@ -266,16 +269,27 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     await assertTrackAtVenue(forumVenues, { id, trackId });
   };
 
+  // the forum venue a body links to, for the permission check (a malformed body is refused later, by the schema)
+  const linkOf = (body: unknown) => {
+    const info = isObject(body) ? (isObject(body.venue) ? body.venue : body).info : undefined;
+    const link = isObject(info) ? info.venue : undefined;
+    return isObject(link) ? (link as { id: number; name?: string }) : null;
+  };
+
+  // organisers, or (#173) the committee of the club that runs the forum venue, before and after the edit
   app.post("/api/venues", async (req, reply) => {
-    const user = requireOrganiser(req);
+    const user = requireUser(req);
+    await assertMayEditVenue(user, [linkOf(req.body)], forumVenues);
     await checkForumLink(req.body);
     return reply.code(201).send(createVenue(db, user, req.body));
   });
 
   app.put("/api/venues/:id", async (req) => {
-    const user = requireOrganiser(req);
+    const user = requireUser(req);
     const { id } = req.params as { id: string };
-    await checkForumLink(req.body, getVenueDoc(db, id).info.venue ?? undefined);
+    const before = getVenueDoc(db, id).info.venue;
+    await assertMayEditVenue(user, [before, linkOf(req.body)], forumVenues);
+    await checkForumLink(req.body, before ?? undefined);
     return updateVenue(db, user, id, req.body);
   });
 }

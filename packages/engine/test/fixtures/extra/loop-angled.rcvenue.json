@@ -1,0 +1,22 @@
+{
+ "format": "rcvenue",
+ "version": 1,
+ "id": "venue-x5",
+ "revision": 1,
+ "info": {
+  "name": "Small hall, angled loop",
+  "venue": null,
+  "notes": "fixture"
+ },
+ "surface": "mixed",
+ "area": {
+  "length": 14,
+  "width": 9
+ },
+ "timingLoop": {
+  "x": -5.9,
+  "z": -4.9,
+  "heading": 60,
+  "length": 2.5
+ }
+}

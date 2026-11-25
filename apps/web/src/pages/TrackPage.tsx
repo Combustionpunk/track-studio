@@ -165,6 +165,9 @@ const Back = () => (
   </Link>
 );
 
+/** "Carpet", or nothing: the layout's own surface, else (#173) its venue template's. */
+const surfaceOf = (s: string | undefined) => (s ? s[0].toUpperCase() + s.slice(1) : null);
+
 export function TrackPage() {
   const { id = "" } = useParams();
   const [params, setParams] = useSearchParams();
@@ -473,7 +476,7 @@ export function TrackPage() {
                     {Math.round(b.stats.dividerLength)} m of pipe in {b.stats.dividerRuns} runs
                   </li>
                 )}
-                {doc.info?.surface && <li>{doc.info.surface}</li>}
+                {surfaceOf(doc.info?.surface ?? venueDoc?.surface) && <li>{surfaceOf(doc.info?.surface ?? venueDoc?.surface)}</li>}
                 {doc.info?.classes?.length ? <li>{doc.info.classes.join(", ")}</li> : null}
                 <li>Plan drawn from revision {rev}</li>
               </ul>

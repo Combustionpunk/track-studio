@@ -3,6 +3,7 @@
 // something is tapped), Checks (from the checks pill, at full height, in both modes), Jump (from the toolbar's Jump)
 // and How to draw; and the context sheet (#126), the actions for what a finger held. The Designer owns which sheet is
 // open and its height; a drag on the plan tucks it away.
+import { HelpLink } from "../help/HelpLink.js";
 import { cornerNumbering, outerStyle, type Built } from "@track-studio/engine";
 import { CornerUpLeft, Hash, Square, SquareRoundCorner, Trash2 } from "lucide-react";
 import { Sheet, type SheetHeight } from "../components/Sheet.js";
@@ -198,6 +199,9 @@ export function PhoneHowTo({ view }: { view: DesignerMode }) {
           <li>Drag empty space to pan; pinch to zoom. Undo and Redo are on the toolbar.</li>
         </ul>
       )}
+      <p className="howto-guide">
+        <HelpLink topic="touch">The user guide, with pictures</HelpLink>
+      </p>
     </section>
   );
 }

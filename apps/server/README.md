@@ -44,7 +44,8 @@ On the forum, Admin → Settings:
 - `enable discourse connect provider` = on
 - `discourse connect provider secrets`: add `<host of BASE_URL>|<DISCOURSE_CONNECT_SECRET>`, e.g. `192.168.0.6|…`
 - create the group `track-admins` (or whatever `ORGANISER_GROUP` says) and add the organisers; forum admins are
-  organisers anyway.
+  organisers anyway. A club's committee and officers need nothing here: the forum puts them in its `<short code>-com`
+  and `<short code>-off` groups, which DiscourseConnect sends at sign-in (#173).
 
 **Silent sign-in (#132).** Being signed into the forum means being signed in here, with no click. When a browser
 opens a page (a top-level navigation: `Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`) with no
@@ -150,7 +151,7 @@ writes (an `Origin` header other than `BASE_URL`) are refused.
 | `GET /api/tracks/:id/fit/:venueId[?r=]` · `POST /api/tracks/:id/adapt/:venueId` `{orientation?, revision?}` | fit search (cached per revision pair; each result has a `thumbUrl`) · adapted draft copy |
 | `GET /api/venues` · `/api/venues/:id` | venue templates; each summary has `tracks` (tracks drawn on it, archived not counted); `/:id` adds `can: {edit}` |
 | `GET /api/venues?forumTrack=<id>` | the template for that forum track, as `/:id` answers (404 if none). Open to any origin: the forum plugin's layout picker uses it |
-| `POST /api/venues` `{venue}` · `PUT /api/venues/:id` `{venue, baseRevision?}` | organisers only; every save is a new revision (`baseRevision` ≠ latest → 409 `stale`). Id `new` is reserved. One template per forum track (`info.venue.trackId`): a second → 409 `forum-track-taken` with `details.venue {id, name, url}`; a new template linked to a forum venue must name the track, and a new or changed link's track must be one of that venue's tracks on the forum (400 `invalid-venue`; not checked while the forum is down) |
+| `POST /api/venues` `{venue}` · `PUT /api/venues/:id` `{venue, baseRevision?}` | organisers, and (#173) the committee of the club that runs the template's forum venue: a member of the forum group `<short code>-com` or `<short code>-off`, where the forum's `GET /des/venues/:id` names the club (`managing_organisation.short_code`; cached 10 min, 503 `forum-unavailable` for them while the forum is down). A committee can't move a template to another club's venue, nor make one with no forum venue (403); every save is a new revision (`baseRevision` ≠ latest → 409 `stale`). Id `new` is reserved. One template per forum track (`info.venue.trackId`): a second → 409 `forum-track-taken` with `details.venue {id, name, url}`; a new template linked to a forum venue must name the track, and a new or changed link's track must be one of that venue's tracks on the forum (400 `invalid-venue`; not checked while the forum is down) |
 | `GET /api/class-speeds` · `PUT /api/class-speeds` `{classes: [{class, speed}]}` | the lap time estimate's speed per class, in order (see Lap times) · organisers replace the whole list: 1–40 character names, unique ignoring case, 0.5–30 m/s, at most 30 |
 | `GET /api/forum-venues?q=` | the forum's venues (`FORUM_URL/des/venues`): `{venues: [{id, name, town, tracks}], fetchedAt, stale}` (`town` comes from the address: the forum's list has none). Cached 10 min; forum down → the last copy with `stale: true`, or 503 `forum-unavailable`. `q` matches venue, town or track name |
 | `GET /api/venues/:id/revisions` · `GET /api/venues/:id/r/:rev[.rcvenue.json]` | revision history, newest first · one revision (`.rcvenue.json` = download) |

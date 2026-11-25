@@ -2,7 +2,8 @@
 """Regenerate the engine's test fixtures from the Python reference (reference/bake.py, reference/fit.py):
   test/fixtures/extra/*.rctrack.json   extra designs that exercise code paths the reference examples don't
                                        (every check code, closed dividers, rotated obstacles, wrapping distances)
-  test/fixtures/extra/*.rcvenue.json   extra venues: a rotated obstacle; the obstacles a fixture runs over
+  test/fixtures/extra/*.rcvenue.json   extra venues: a rotated obstacle; the obstacles a fixture runs over; (1.13) timing
+                                       loops, pit area and rostrum zones
   test/fixtures/fit-expected.json      fit.fits() and fit.check() for every track x venue (reference + extra)
   reference/examples/*.rctrack.json    re-baked (1.7: upgraded from 1.6 first)
 The v12/ to v18/ checks assert that older bakes re-bake the same, less what each later version changed on purpose.
@@ -264,6 +265,23 @@ EXTRA_VENUES = {
                      "area": {"length": 24, "width": 14}, "rostrum": {"side": "east", "offset": -1.0},
                      "obstacles": [{"type": "rect", "x": -3.0, "z": 0.5, "length": 1.2, "width": 0.6, "rotation": 45, "label": "Desk"},
                                    {"type": "circle", "x": 9.0, "z": -5.5, "radius": 0.5}]},
+    # 1.13: surface, timing loop, pit area and rostrum zones. club-a's start/finish (-5.972, -4.9, heading 0) is over
+    # loop-hall's loop, the wrong way over loop-wrong-way's (whose pit area it also runs over), at an angle over loop-angled's
+    "loop-hall": {"format": "rcvenue", "version": 1, "id": "venue-x3", "revision": 1,
+                  "info": {"name": "Hall with a timing loop", "venue": {"id": 98, "name": "Loop hall", "trackId": 981, "trackName": "Carpet"}, "notes": "fixture"},
+                  "surface": "carpet", "area": {"length": 24, "width": 14}, "rostrum": {"side": "west", "offset": 0},
+                  "timingLoop": {"x": -6.0, "z": -4.9, "heading": 0, "length": 3.0},
+                  "obstacles": [{"type": "rect", "kind": "pits", "x": 0.0, "z": 6.6, "length": 4.0, "width": 0.6, "label": "Pits"},
+                                {"type": "rect", "kind": "rostrum", "x": -11.7, "z": 0.0, "length": 0.5, "width": 3.0, "rotation": 0, "label": "Rostrum"}]},
+    "loop-wrong-way": {"format": "rcvenue", "version": 1, "id": "venue-x4", "revision": 1,
+                       "info": {"name": "Hall with the loop the other way", "venue": None, "notes": "fixture"},
+                       "surface": "astro", "area": {"length": 24, "width": 14},
+                       "timingLoop": {"x": -6.0, "z": -4.9, "heading": 180, "length": 3.0},
+                       "obstacles": [{"type": "rect", "kind": "pits", "x": 0.0, "z": -4.9, "length": 2.0, "width": 1.0, "label": "Pits"}]},
+    "loop-angled": {"format": "rcvenue", "version": 1, "id": "venue-x5", "revision": 1,
+                    "info": {"name": "Small hall, angled loop", "venue": None, "notes": "fixture"},
+                    "surface": "mixed", "area": {"length": 14, "width": 9},
+                    "timingLoop": {"x": -5.9, "z": -4.9, "heading": 60, "length": 2.5}},
 }
 
 for slug, doc in EXTRA_TRACKS.items():

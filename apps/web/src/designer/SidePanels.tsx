@@ -18,6 +18,7 @@ import {
 } from "@track-studio/engine";
 import { ArrowRightLeft, CircleCheck, CircleX, CornerUpLeft, Info, Minus, Plus, TriangleAlert } from "lucide-react";
 import { useEffect, useState, type ReactElement, type Ref } from "react";
+import { HelpLink } from "../help/HelpLink.js";
 import * as fmt from "../lib/format.js";
 import { designerEstimate, useClassSpeeds } from "../lib/laps.js";
 import { bridgeAt, crossingHint, makeCrossover, moveStart, overText, swapOver } from "./crossings.js";
@@ -772,6 +773,9 @@ export function QuickHowTo({ laying = false }: { laying?: boolean }) {
           <li>Errors and the full checks are on the Advanced tab.</li>
         </ul>
       )}
+      <p className="howto-guide">
+        <HelpLink topic="palette">The user guide, with pictures</HelpLink>
+      </p>
     </details>
   );
 }
@@ -804,6 +808,9 @@ export function Shortcuts() {
           Drag empty space to pan, wheel elsewhere to zoom. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redo, <kbd>Ctrl</kbd>+<kbd>S</kbd> save.
         </li>
       </ul>
+      <p className="howto-guide">
+        <HelpLink topic="palette">The user guide, with pictures</HelpLink>
+      </p>
     </details>
   );
 }

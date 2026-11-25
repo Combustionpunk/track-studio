@@ -5,10 +5,10 @@ name: Deploy config
 
 on:
   pull_request:
-    paths: [Dockerfile, .dockerignore, package.json, pnpm-workspace.yaml, tsconfig.base.json, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, docs/design/**, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
+    paths: [Dockerfile, .dockerignore, package.json, pnpm-workspace.yaml, tsconfig.base.json, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, docs/design/**, docs/guide/**, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
   push:
     branches: [main]
-    paths: [Dockerfile, .dockerignore, package.json, pnpm-workspace.yaml, tsconfig.base.json, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, docs/design/**, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
+    paths: [Dockerfile, .dockerignore, package.json, pnpm-workspace.yaml, tsconfig.base.json, docker-compose.prod.yml, deploy/**, .env.example, docs/deploy.md, docs/design/**, docs/guide/**, apps/**, packages/**, reference/**, pnpm-lock.yaml, .github/workflows/deploy-config.yml]
 
 # One group per PR, so a new push cancels the run it supersedes. Pushes to main share one group and never cancel the
 # run in progress, so results on main arrive in commit order. GitHub keeps only one waiting run per group: if several

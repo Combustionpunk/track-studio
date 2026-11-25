@@ -42,6 +42,16 @@ export interface User {
   admin: boolean;
   moderator: boolean;
   organiser: boolean;
+  /** #173: short codes of the clubs whose committee or officers the member is in (forum groups "<code>-com", "<code>-off") */
+  clubs: string[];
+}
+
+/** #173: a club's committee and officers are the forum groups "<short code>-com" and "<short code>-off" (the forum's club access sync). */
+const CLUB_COMMITTEE_GROUP = /^([a-z0-9]+(?:-[a-z0-9]+)*)-(?:com|off)$/;
+
+/** The clubs whose committee (officers included) these forum groups put the member on, sorted, no repeats. */
+export function committeeClubs(groups: string[]): string[] {
+  return [...new Set(groups.flatMap((g) => CLUB_COMMITTEE_GROUP.exec(g.toLowerCase())?.[1] ?? []))].sort();
 }
 
 declare module "fastify" {
@@ -105,6 +115,7 @@ export function rowToUser(r: UserRow, organiserGroup: string): User {
     admin,
     moderator: r.moderator === 1,
     organiser: admin || groups.includes(organiserGroup),
+    clubs: committeeClubs(groups),
   };
 }
 
@@ -142,7 +153,7 @@ export function getUser(db: DB, id: number, organiserGroup: string): User | null
 }
 
 export function publicUser(u: User) {
-  return { id: u.id, username: u.username, name: u.name, avatarUrl: u.avatarUrl, organiser: u.organiser, admin: u.admin, moderator: u.moderator };
+  return { id: u.id, username: u.username, name: u.name, avatarUrl: u.avatarUrl, organiser: u.organiser, admin: u.admin, moderator: u.moderator, clubs: u.clubs };
 }
 
 // ------------------------------------------------------------------ guards
