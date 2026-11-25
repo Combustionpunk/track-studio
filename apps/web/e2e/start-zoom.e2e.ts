@@ -116,7 +116,24 @@ test("a zoom the member makes while the start line is shown is theirs: letting i
   await page.getByRole("button", { name: "Zoom in" }).click();
   const theirs = await viewBox(page);
   await letGo(page);
-  await page.waitForTimeout(200);
-  expect(await viewBox(page)).toEqual(theirs);
+  // still theirs a while later: nothing comes back late
+  for (let n = 0; n < 5; n++) {
+    await page.waitForTimeout(100);
+    expect(await viewBox(page)).toEqual(theirs);
+  }
+  expect(errors).toEqual([]);
+});
+
+test("picking a corner lets the start line go: the plan zooms back", async ({ page }) => {
+  test.skip(isPhone(page), "a mouse click on a corner");
+  const errors = await serve(page);
+  await open(page);
+  const before = await viewBox(page);
+  await pickStart(page);
+  await expect.poll(async () => (await viewBox(page))[2]).toBeLessThan(before[2]);
+  await page.locator("g.ed-corner .ed-corner-dot").first().click();
+  await expect(page.locator("g.ed-corner.on")).toHaveCount(1);
+  await expect(page.locator(".plan-highlight")).toHaveCount(0);
+  await expect.poll(() => viewBox(page)).toEqual(before);
   expect(errors).toEqual([]);
 });
