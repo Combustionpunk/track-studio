@@ -5,7 +5,7 @@
 // SHOTS=<dir> saves screenshots for the PR. The API is answered from the reference files, so only Vite is needed.
 import { expect, test } from "@playwright/test";
 import { corners, doc, emptyFloor, middleCorner, open, pinchIn, planBox, serve, sheetClearOf, shot, toolBtn, toolbar, upperCorner, viewBox } from "./phone-helper.js";
-import { screen, Touch, type XY } from "./touch-helper.js";
+import { Touch } from "./touch-helper.js";
 
 test.describe("phone", () => {
   test.beforeEach(({}, info) => test.skip(info.project.name !== "phone", "a phone, 375 × 812"));
