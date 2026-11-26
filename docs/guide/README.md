@@ -61,6 +61,8 @@ Select a layout to open its page. The page shows the plan, the lap length, the c
 
 **Venues** lists the club's venue templates. A venue template is a hall's usable track area, its surface, its rostrum side, its timing loop, its pit area and its fixed obstacles, such as pillars and fire exits. New layouts can start from one, and any layout can be checked against one.
 
+A template linked to a track on the forum takes its surface from that track's details on the forum, such as carpet or astroturf, with whether it's indoors or outdoors. Track Studio shows it but doesn't keep its own copy: to change it, follow **Set on the forum** to the venue's page on the forum and edit the track there. Track Studio picks up the change within 10 minutes. A grass track shows as grass, but layouts drawn there get no surface, because Track Studio has no grass surface yet. A template with no forum track has its own **Surface** to pick.
+
 The committee of the club that runs the venue on the forum, and Track Studio's organisers, add and edit venue templates. The committee's guide to setting up a venue is with the club guides on the [forum](https://forum.rcmisfits.org/).
 
 ![The Venues page: a card for each hall with its area, rostrum side and number of obstacles](img/venues.webp)

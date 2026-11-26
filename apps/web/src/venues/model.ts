@@ -45,12 +45,15 @@ export function draftFromDoc(doc: RcVenue): VenueDraft {
   };
 }
 
-/** What POST/PUT /api/venues takes. */
+/** #190: a template linked to a forum track takes its surface from the forum (read-only here, never saved). */
+export const surfaceFromForum = (link: ForumVenueRef | null | undefined) => link?.trackId !== undefined;
+
+/** What POST/PUT /api/venues takes. A linked template sends no surface (#190). */
 export function venueBody(d: VenueDraft) {
   const notes = d.info.notes?.trim();
   return {
     info: { name: d.info.name.trim(), venue: d.info.venue ?? null, ...(notes ? { notes: d.info.notes } : {}) },
-    ...(d.surface ? { surface: d.surface } : {}),
+    ...(d.surface && !surfaceFromForum(d.info.venue) ? { surface: d.surface } : {}),
     area: d.area,
     rostrum: d.rostrum,
     ...(d.timingLoop ? { timingLoop: d.timingLoop } : {}),
