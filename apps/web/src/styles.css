@@ -744,6 +744,8 @@ select.ts-input { padding: 0 var(--space-2); }
 .ts-track-head__title { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
 .ts-actions-wrap { display: grid; gap: var(--space-1); justify-items: end; }
 .ts-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+/* signed out: signing in lets a visitor copy the layout (#180) */
+.ts-signin-hint a { font-weight: 600; }
 .ts-confirm { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--danger-soft); border: 1px solid var(--danger); }
 .ts-confirm p { margin: 0; }
 .ts-track-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--space-6); align-items: start; }
@@ -852,6 +854,7 @@ select.ts-input { padding: 0 var(--space-2); }
   .ts-filters .ts-btn, .ts-filters .ts-input { min-height: var(--touch-target); }
   .ts-track-head__title { flex-direction: column-reverse; align-items: flex-start; gap: var(--space-2); }
   .ts-actions-wrap, .ts-actions { width: 100%; }
+  .ts-signin-hint a { display: inline-block; min-height: var(--touch-target); line-height: var(--touch-target); }
   .ts-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ts-actions .ts-btn { height: var(--touch-target); white-space: normal; text-align: center; line-height: 18px; }
   .ts-actions .ts-btn--primary { grid-column: 1 / -1; order: -1; }
