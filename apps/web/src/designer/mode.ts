@@ -133,6 +133,12 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  */
 export const pointHeading = (n: CornerNumbering, i: number, view: DesignerMode = "quick"): string => cap(pointName(n, i, view === "quick" ? "corner" : "corner point"));
 
+/**
+ * The word for a design point in its own panel, sheet and titles: "corner", or "point" for one that isn't a corner, so
+ * the words under a "Point" heading don't call it a corner.
+ */
+export const pointNoun = (n: CornerNumbering, i: number): "corner" | "point" => (n.labels[i] ? "corner" : "point");
+
 /** A design point's name inside a sentence: "corner 5a", or "the point" for one that isn't a corner. */
 export const pointRef = (n: CornerNumbering, i: number): string => (n.labels[i] ? "" : "the ") + pointName(n, i);
 

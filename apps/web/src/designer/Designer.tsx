@@ -58,6 +58,7 @@ import {
   movePoint,
   paletteJumps,
   pointHeading,
+  pointNoun,
   pointRef,
   readMode,
   snapModeFor,
@@ -619,7 +620,9 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         const after = s?.kind === "point" ? s.i : null;
         const r = after !== null ? keyInsert(viewRef.current, cur.design.points, after, cur.design.laneWidth ?? 2) : null;
         if (!r) {
-          const text = s?.kind === "point" ? "There's no room for a point between those two corners." : "Pick a corner first (N or P): Enter adds a point halfway to the next one.";
+          const names = liveRef.current.numbering;
+          const both = s?.kind === "point" && pointNoun(names, s.i) === "corner" && pointNoun(names, (s.i + 1) % cur.design.points.length) === "corner";
+          const text = s?.kind === "point" ? `There's no room for a point between those two ${both ? "corners" : "points"}.` : "Pick a corner first (N or P): Enter adds a point halfway to the next one.";
           setMessage({ kind: "info", text });
           say(text);
           return;
@@ -1383,7 +1386,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           )}
           <circle className={`ed-apex ${sel?.kind === "point" && sel.i === i ? "on" : ""}`} cx={h[0]} cy={-h[1]} r={(touch ? APEX_TOUCH_PX : APEX_PX) * m} vectorEffect="non-scaling-stroke" />
           <circle data-handle="apex" className="ed-hit ed-hit-apex" cx={h[0]} cy={-h[1]} r={(touch ? TOUCH_PX : APEX_PX + 3) * m} onPointerDown={(e) => onApexDown(e, i)} onPointerEnter={() => setHoverPt(i)} onPointerLeave={() => setHoverPt(null)}>
-            <title>{`${pointHeading(names, i)}: drag in or out to cut the corner back (apex radius ${fmt.metres(apexNow, 1)})`}</title>
+            <title>{`${pointHeading(names, i)}: drag in or out to cut ${names.labels[i] ? "the corner" : "it"} back (apex radius ${fmt.metres(apexNow, 1)})`}</title>
           </circle>
         </g>
       );
@@ -2018,7 +2021,7 @@ const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${wa
  * Quick step 2: a corner point, numbered in driving order; on touch screens it's drawn bigger and takes a press 44 px
  * across. A finger held on it fills a ring round it (the long-press), which stays full while it's selected.
  */
-function QuickCorner({ p, label, name, m, touch, on, linked = false, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; /** "5", "5a", or "" for a point that isn't a corner (#176) */ label: string; /** "Corner 5a", "Bend after corner 4" */ name: string; m: number; touch: boolean; on: boolean; /** round the same pipe as the selected corner (#106) */ linked?: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
+function QuickCorner({ p, label, name, m, touch, on, linked = false, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; /** "5", "5a", or "" for a point that isn't a corner (#176) */ label: string; /** "Corner 5a", or "Point" */ name: string; m: number; touch: boolean; on: boolean; /** round the same pipe as the selected corner (#106) */ linked?: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
   const base = touch ? CORNER_TOUCH_PX : CORNER_PX;
   const r = (on ? base + 2 : base) * m;
   const ring = (base + 7) * m;

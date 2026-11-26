@@ -25,7 +25,7 @@ import { bridgeAt, crossingHint, makeCrossover, moveStart, overText, swapOver } 
 import type { Draft, Selection } from "./Designer.js";
 import { wrapDistance, type Live } from "./geometry.js";
 import { TURNS_HINT, type LaneGrid } from "./lanes.js";
-import { checkCounts, FEATURE_TYPES, pointHeading, pointRef, visibleChecks, type DesignerMode } from "./mode.js";
+import { checkCounts, FEATURE_TYPES, pointHeading, pointNoun, pointRef, visibleChecks, type DesignerMode } from "./mode.js";
 import { findNests, followNest, follows, innerOf, matchNest, outerOf } from "./nest.js";
 import { apexFromField, apexOf, apexRadius, APEX_MAX, isReduced, MIN_CORNERS, QUICK_SIZES, setApex, turnLabel, widthAt } from "./shape.js";
 import { hairpinWhy } from "./snap.js";
@@ -111,12 +111,16 @@ export function SidePanel({ laying, grid, built, ...p }: PanelProps & { laying: 
   );
 }
 
-/** The outside of the corner: square (a mitre), round (the pipe follows the arc) or auto (square up to 120°). Both modes. */
-function OuterSeg({ p, c, onPick }: { p: DesignPoint; c: Corner | undefined; onPick: (o: DesignPoint["outer"]) => void }) {
+/**
+ * The outside of the corner: square (a mitre), round (the pipe follows the arc) or auto (square up to 120°). Both modes.
+ * `noun`: for a point that isn't a corner it is the "Outside pipe" (#176).
+ */
+function OuterSeg({ p, c, noun, onPick }: { p: DesignPoint; c: Corner | undefined; noun: "corner" | "point"; onPick: (o: DesignPoint["outer"]) => void }) {
   const now = p.outer ?? "auto";
+  const label = noun === "corner" ? "Outside corner" : "Outside pipe";
   return (
-    <div className="seg seg-outer" role="radiogroup" aria-label="Outside corner">
-      <span className="seg-label">Outside corner</span>
+    <div className="seg seg-outer" role="radiogroup" aria-label={label}>
+      <span className="seg-label">{label}</span>
       {(["auto", "square", "round"] as const).map((o) => (
         <button
           key={o}
@@ -472,7 +476,9 @@ export function SelectionPanel({
     const following = nest ? follows(draft.design.points, nest, lw) : false;
     const match = () => update((d) => ({ ...d, design: { ...d.design, points: matchNest(d.design.points, sel.i, lw) } }), `match:${sel.i}:${Date.now()}`);
     const notes = <NestNotes inner={inner === null ? null : pointRef(live.numbering, inner)} outer={outer === null ? null : pointRef(live.numbering, outer)} following={following} onMatch={match} />;
-    const outerSeg = <OuterSeg p={p} c={c} onPick={(o) => setPoint(sel.i, { outer: o }, "outer")} />;
+    // a point that isn't a corner is a "point" in its own panel, as its heading says (#176)
+    const noun = pointNoun(live.numbering, sel.i);
+    const outerSeg = <OuterSeg p={p} c={c} noun={noun} onPick={(o) => setPoint(sel.i, { outer: o }, "outer")} />;
     if (view === "quick") {
       const turns = !!apexOf(draft.design.points, sel.i, lw);
       const apex = apexRadius(p, lw);
@@ -506,18 +512,18 @@ export function SelectionPanel({
                   </p>
                 )}
               </div>
-              <p className="hint">{touch ? "Drag the corner to move it, or its inside handle to cut it back." : "Drag the corner to move it, or its inside handle to cut it back. Right-click it or press Delete to remove it."}</p>
+              <p className="hint">{touch ? `Drag the ${noun} to move it, or its inside handle to cut it back.` : `Drag the ${noun} to move it, or its inside handle to cut it back. Right-click it or press Delete to remove it.`}</p>
             </>
           ) : (
             <p className="hint">
               {turnLabel(draft.design.points, sel.i) === "straight back"
-                ? "This corner turns straight back on itself, so there's nothing to cut back: drag it to open the turn, or delete it."
-                : "This corner is on a straight line: drag it to make a turn, or delete it."}
+                ? `This ${noun} turns straight back on itself, so there's nothing to cut back: drag it to open the turn, or delete it.`
+                : `This ${noun} is on a straight line: drag it to make a turn, or delete it.`}
             </p>
           )}
           {del(
             <button type="button" className="btn btn-danger" onClick={onDelete} disabled={draft.design.points.length <= MIN_CORNERS}>
-              Delete corner
+              Delete {noun}
             </button>,
           )}
         </section>

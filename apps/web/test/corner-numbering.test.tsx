@@ -34,7 +34,9 @@ vi.mock("../src/components/PlanView.js", async (orig) => ({
 
 const { Designer, draftFromDoc } = await import("../src/designer/Designer.js");
 const { MODE_KEY, submitBlock } = await import("../src/designer/mode.js");
-const { sheetLabel } = await import("../src/designer/PhoneSheets.js");
+const { sheetLabel, contextActions } = await import("../src/designer/PhoneSheets.js");
+const { SelectionPanel } = await import("../src/designer/SidePanels.js");
+const { liveGeometry } = await import("../src/designer/geometry.js");
 const { shapeHint } = await import("../src/designer/addtool.js");
 const { SessionContext } = await import("../src/lib/session.js");
 import type { DesignerBase } from "../src/designer/Designer.js";
@@ -103,6 +105,74 @@ describe("the designer numbers corners as the build sheet and the Corners figure
     expect(sheetLabel({ kind: "point", i: 5 }, "advanced", d)).toBe("Corner point 5b");
     expect(sheetLabel({ kind: "point", i: 5 }, "quick", draftFromDoc(hairpin()))).toBe("Point");
     expect(sheetLabel({ kind: "point", i: 5 }, "advanced", draftFromDoc(hairpin()))).toBe("Point");
+  });
+
+  // Board, 25 Nov 2026: under its "Point" heading a point that isn't a corner is a "point", never a "corner"
+  describe("a point that isn't a corner is called a point in its own panel", () => {
+    /** the hairpin layout with one more point halfway along the first straight: dead straight, index 1 */
+    const withStraight = (): RcTrack => {
+      const doc = hairpin();
+      return { ...doc, design: { ...doc.design, points: [HAIRPIN[0], { x: -5, z: -8 }, ...HAIRPIN.slice(1)] } };
+    };
+    const panel = (doc: RcTrack, i: number, view: "quick" | "advanced", opts: { touch?: boolean; phone?: boolean } = {}) => {
+      const d = draftFromDoc(doc);
+      return renderToStaticMarkup(<SelectionPanel sel={{ kind: "point", i }} view={view} draft={d} live={liveGeometry(d.design)} update={() => {}} onDelete={() => {}} inCorner={new Map()} {...opts} />);
+    };
+    const button = (html: string) => html.match(/<button[^>]*btn-danger[^>]*>([^<]*)</)?.[1];
+
+    it("Quick, on a straight line: \"This point is on a straight line\" and Delete point", () => {
+      const html = panel(withStraight(), 1, "quick");
+      expect(html).toContain('<h2 id="sel-h">Point</h2>');
+      expect(html).toContain("This point is on a straight line: drag it to make a turn, or delete it.");
+      expect(button(html)).toBe("Delete point");
+      expect(html).not.toMatch(/[Cc]orner/);
+    });
+
+    it("Quick, a slight bend: drag the point, its outside pipe, Delete point", () => {
+      const html = panel(hairpin(), 5, "quick");
+      expect(html).toContain('<h2 id="sel-h">Point</h2>');
+      expect(html).toContain("Drag the point to move it, or its inside handle to cut it back. Right-click it or press Delete to remove it.");
+      expect(html).toContain('role="radiogroup" aria-label="Outside pipe"');
+      expect(button(html)).toBe("Delete point");
+      expect(html.replace(/title="[^"]*"/g, "")).not.toMatch(/[Cc]orner/); // the Square choice's tip still describes pipes "meeting in a corner"
+      expect(panel(hairpin(), 5, "quick", { touch: true })).toContain("Drag the point to move it, or its inside handle to cut it back.</p>");
+    });
+
+    it("Advanced: no corner wording either, on the laptop or in the phone's sheet", () => {
+      for (const opts of [{}, { touch: true, phone: true }]) {
+        for (const [doc, i] of [[withStraight(), 1], [hairpin(), 5]] as const) {
+          const html = panel(doc, i, "advanced", opts);
+          expect(html).toContain('<h2 id="sel-h">Point</h2>');
+          expect(html).toContain('aria-label="Outside pipe"');
+          if (!opts.phone) expect(button(html)).toBe("Delete point");
+          expect(html.replace(/title="[^"]*"/g, "").replace("drag it to make a corner", "")).not.toMatch(/[Cc]orner/);
+        }
+      }
+    });
+
+    it("a real corner keeps its corner wording", () => {
+      const quick = panel(hairpin(), 2, "quick");
+      expect(quick).toContain('<h2 id="sel-h">Corner 3a</h2>');
+      expect(quick).toContain("Drag the corner to move it, or its inside handle to cut it back.");
+      expect(quick).toContain('aria-label="Outside corner"');
+      expect(button(quick)).toBe("Delete corner");
+      expect(panel(hairpin(), 2, "advanced")).toContain('aria-label="Outside corner"');
+    });
+
+    it("its dot's and apex handle's titles, and the phone's held-point sheet, don't say corner", () => {
+      const { overlay } = open(hairpin(), "quick");
+      const all = [...overlay.matchAll(/<title>([^<]*)<\/title>/g)].map((m) => m[1]);
+      const mine = all.filter((t) => t.startsWith("Point:"));
+      expect(mine.length).toBeGreaterThanOrEqual(2); // the dot and its apex handle
+      for (const t of mine) expect(t).not.toMatch(/corner/i);
+      expect(mine.some((t) => t.startsWith("Point: drag in or out to cut it back (apex radius"))).toBe(true);
+      expect(all.some((t) => t.startsWith("Corner 1: drag in or out to cut the corner back"))).toBe(true);
+      const d = draftFromDoc(hairpin());
+      const labels = (i: number, view: "quick" | "advanced") => contextActions({ kind: "point", i }, view, d, liveGeometry(d.design)).map((a) => a.label);
+      expect(labels(5, "quick")).toEqual(["Delete", "Round outside pipe"]);
+      expect(labels(5, "advanced")).toEqual(["Delete", "Round outside pipe", "Make hairpin"]);
+      expect(labels(2, "quick")[1]).toMatch(/^(Round|Square) outside corner$/);
+    });
   });
 
   it("what to fix names the corner by its label", () => {

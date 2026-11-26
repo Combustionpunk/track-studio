@@ -12,7 +12,7 @@ import type { Draft, Selection } from "./Designer.js";
 import type { Live } from "./geometry.js";
 import { ConeButton, JumpPalette } from "./JumpPalette.js";
 import { PhoneDetails, PhoneMenu, PhoneSave, useMenuKeys, type PhoneDetailsProps, type PhoneMenuProps, type PhoneSaveProps } from "./PhoneMenu.js";
-import { allows, paletteJumps, pointHeading, type DesignerMode } from "./mode.js";
+import { allows, paletteJumps, pointHeading, pointNoun, type DesignerMode } from "./mode.js";
 import { MIN_CORNERS } from "./shape.js";
 import { hairpinWhy } from "./snap.js";
 import { ChecksPanel, SelectionPanel, Stats, type PanelProps } from "./SidePanels.js";
@@ -63,7 +63,7 @@ export function contextActions(sel: Selection, view: DesignerMode, draft: Draft,
   const p = pts[sel.i], c = live.corners[sel.i];
   if (!p) return [];
   const out: ContextAction[] = [{ action: "delete", label: "Delete", why: pts.length <= MIN_CORNERS ? `A track needs at least ${MIN_CORNERS} corner points.` : undefined }];
-  if (c && allows(view, "outer")) out.push({ action: "outer", label: outerStyle(p, c) === "square" ? "Round outside corner" : "Square outside corner" });
+  if (c && allows(view, "outer")) out.push({ action: "outer", label: `${outerStyle(p, c) === "square" ? "Round" : "Square"} outside ${pointNoun(cornerNumbering(pts, draft.design.laneWidth ?? 2), sel.i) === "corner" ? "corner" : "pipe"}` });
   if (allows(view, "hairpin")) {
     out.push({ action: "hairpin", label: "Make hairpin", why: hairpinWhy(pts, sel.i, draft.design.laneWidth ?? 2) });
   }
