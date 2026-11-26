@@ -63,6 +63,7 @@ test("a corner low on the plan is panned above its sheet, can be dragged at once
   const low = await lowCorner(page, t);
   const before = await viewBox(page);
   const where = (await corners(page))[low.i];
+  await shot(page, "0-low-corner");
 
   await t.tap(low.at);
   const sheet = page.locator("section.bottom-sheet");
