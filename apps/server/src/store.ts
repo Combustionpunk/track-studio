@@ -6,6 +6,7 @@ import {
   drawingArea,
   fits,
   ORIENTS,
+  orientationList,
   orientationName,
   trackVenueRef,
   upgradeTrack,
@@ -780,7 +781,7 @@ export function adaptTrack(db: DB, user: User, id: string, venueId: string, orie
   const answer = fitTrack(db, row, venueId, rev);
   if (!answer.results.length) throw new HttpError(422, "does-not-fit", "This track doesn't fit that venue in any orientation");
   const fit = orientation ? answer.results.find((r) => r.orientation === orientation) : answer.results[0];
-  if (!fit) throw badRequest("bad-orientation", `It doesn't fit as "${orientation}"; options: ${answer.results.map((r) => r.orientation).join(", ")}`);
+  if (!fit) throw badRequest("bad-orientation", `It doesn't fit ${orientationName(orientation ?? "")}. It fits ${orientationList(answer.results.map((r) => r.orientation))}.`);
   const { thumbUrl: _t, ...plainFit } = fit;
   const adapted = adapt(getTrackDoc(db, row, rev), getVenueDoc(db, venueId), plainFit);
   const t = now();

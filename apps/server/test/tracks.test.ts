@@ -528,6 +528,8 @@ describe("fit + adapt", () => {
     expect((await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-3`, alice)).statusCode).toBe(422);
     const bad = await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-1`, alice, { orientation: "rotated 90" });
     expect(bad.statusCode).toBe(400);
+    // the options are named as the fit lists name them (#179)
+    expect(bad.json().message).toBe("It doesn't fit turned a quarter left. It fits as designed, mirrored, turned round, or mirrored and turned round.");
     const chosen = await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-1`, alice, { orientation: "mirrored" });
     expect(chosen.json().fit.orientation).toBe("mirrored");
   });
