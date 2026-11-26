@@ -5,7 +5,7 @@
 // and How to draw opens from the ⋯ menu. SHOTS=<dir> saves screenshots for the PR.
 import { readFileSync } from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { corners, emptyFloor, middleCorner, open, pinchIn, REF, serve, shot, toolBtn, toolbar, viewBox } from "./phone-helper.js";
+import { corners, emptyFloor, middleCorner, open, pinchIn, REF, serve, sheetClearOf, shot, toolBtn, toolbar, upperCorner, viewBox } from "./phone-helper.js";
 import { screen, Touch, type XY } from "./touch-helper.js";
 
 /** a track with one error that has a place on the plan (two straights overlap) */
@@ -95,10 +95,12 @@ test.describe("phone sheets", () => {
     const t = await Touch.on(page);
     await pinchIn(page, t);
     const before = await corners(page);
-    const { i, at } = await middleCorner(page);
+    // a corner the sheet doesn't cover: the finger has to land on the corner again once the sheet is up (#185)
+    const { i, at } = await upperCorner(page);
     await t.tap(at);
     const s = page.getByRole("dialog", { name: `Corner ${i + 1}` });
     await expect(s).toHaveClass(/bottom-sheet--peek/);
+    await sheetClearOf(page, at, 50);
     const peek = (await s.boundingBox())!.height;
     await t.down(at);
     await t.move([[at[0] + 10, at[1] + 20]], 4);
