@@ -445,7 +445,7 @@ The answers, and what they mean:
 | Answer | What it means |
 |---|---|
 | **Fits … where it's drawn.** | Nothing to do. It fits the hall as it is. |
-| **Fits … once moved: as designed, mirrored, rotated 180 …** | It does fit the hall, but not where it is drawn now. The list says which ways round it fits. |
+| **Fits … once moved: as designed, mirrored, turned round, or mirrored and turned round.** | It does fit the hall, but not where it is drawn now. The list says which ways round it fits: **mirrored** is flipped left to right, **turned round** is turned through 180°, and **turned a quarter left** or **right** is turned through 90°. |
 | **Where it's drawn: the track overlaps a fixed obstacle.** | A lane runs over a pillar or another obstacle. Select **Show** to see where. |
 | **Where it's drawn: the track goes outside the venue's track area.** | Part of the layout is beyond the edge of the usable area. Select **Show** to see where. |
 | **Where it's drawn: start/finish isn't over the timing loop.** | A warning. The start line is not on the hall's timing loop. Move the start line onto the loop, running the arrow's way. Select **Show** to see the loop. |
@@ -470,7 +470,7 @@ Use this to take a finished layout to a different hall.
 3. Under **Fits as**, choose a way round. Each one says how much room is spare.
 4. The preview shows the layout placed in the hall, with the hall's obstacles, rostrum and timing loop. If that way round leaves the start line off the loop, a **Timing loop** warning under the preview says so: pick another way round, or move the start line in your copy.
 
-![Fit to a venue on a layout's page: Sports hall B chosen, "rotated 180" with 3.1 × 2.1 m spare, and a preview of the layout in the hall between the pillars](img/fit-to-venue.webp)
+![Fit to a venue on a layout's page: Sports hall B chosen, "turned round" with 3.1 × 2.1 m spare, and a preview of the layout in the hall between the pillars](img/fit-to-venue.webp)
 
 5. Select **Make a copy for …** to get your own copy, turned to fit that hall. The original is not changed, and your copy stays credited to it.
 

@@ -6,6 +6,7 @@ import {
   drawingArea,
   fits,
   ORIENTS,
+  orientationName,
   trackVenueRef,
   upgradeTrack,
   validateTrack,
@@ -784,6 +785,6 @@ export function adaptTrack(db: DB, user: User, id: string, venueId: string, orie
   const adapted = adapt(getTrackDoc(db, row, rev), getVenueDoc(db, venueId), plainFit);
   const t = now();
   adapted.info = { ...adapted.info, author: user.username, created: t, modified: t, status: "draft" };
-  const saved = saveRevision(db, user, adapted, { status: "draft", note: `Adapted from ${row.d_name} r${rev} (${fit.orientation})` });
+  const saved = saveRevision(db, user, adapted, { status: "draft", note: `Adapted from ${row.d_name} r${rev} (${orientationName(fit.orientation)})` });
   return { ...trackResult(db, saved.id, user), fit: plainFit };
 }

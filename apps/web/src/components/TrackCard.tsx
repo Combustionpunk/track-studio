@@ -1,3 +1,4 @@
+import { orientationName } from "@track-studio/engine";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import * as fmt from "../lib/format.js";
@@ -78,7 +79,7 @@ export function TrackCard({ track, fitVenueId, lapClass }: { track: TrackSummary
                   onMouseEnter={() => setShown(i)}
                   onFocus={() => setShown(i)}
                 >
-                  {r.orientation}
+                  {orientationName(r.orientation)}
                   <small>{fmt.spare(r)}</small>
                 </Link>
               </li>
