@@ -432,7 +432,7 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
             <NumberField label="Area length" hint="east–west" value={draft.area.length} unit="m" error={problems.length} onChange={(v) => update((d) => ({ ...d, area: { ...d.area, length: v } }), "area.length")} />
             <NumberField label="Area width" hint="north–south" value={draft.area.width} unit="m" error={problems.width} onChange={(v) => update((d) => ({ ...d, area: { ...d.area, width: v } }), "area.width")} />
             {draft.info.venue?.trackId !== undefined ? (
-              <LinkedSurface link={draft.info.venue} />
+              <LinkedSurface link={draft.info.venue} saved={base?.doc.info.venue?.trackId === draft.info.venue.trackId ? base.doc : undefined} />
             ) : (
               <SelectField
                 label="Surface"
@@ -665,10 +665,11 @@ function TextField(props: { label: string; value: string; onChange: (v: string) 
  * #190: a template linked to a forum track takes the track's surface from the forum: shown read-only, from the forum's
  * venue list (so a newly picked track shows its surface before the save), with a link to change it there.
  */
-function LinkedSurface({ link }: { link: NonNullable<VenueDraft["info"]["venue"]> }) {
+function LinkedSurface({ link, saved }: { link: NonNullable<VenueDraft["info"]["venue"]>; saved?: RcVenue }) {
   const list = useApi<ForumVenueList>("/api/forum-venues");
   const track = list.data?.venues.find((v) => v.id === link.id)?.tracks.find((t) => t.id === link.trackId);
-  const view = surfaceView({ info: { name: "", venue: link } }, trackSurface(track), track?.templateSurface ?? null);
+  // while the list loads, or if the forum doesn't answer, the surface the server gave the saved template (the forum's)
+  const view = !list.data && saved ? surfaceView(saved, { known: true, surface: saved.surface ?? null, environment: null, stale: false }) : surfaceView({ info: { name: "", venue: link } }, trackSurface(track), track?.templateSurface ?? null);
   return <ForumSurface view={view} venueId={link.id} editor />;
 }
 

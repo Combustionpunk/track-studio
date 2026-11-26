@@ -947,5 +947,6 @@ describe("fit results", async () => {
     const grass = text(panel());
     expect(grass).toMatch(/m area, grass\), with its obstacles/);
     expect(grass).not.toContain("the venue's surface");
+    expect(grass).toContain("turned to fit, with no surface.");
   });
 });

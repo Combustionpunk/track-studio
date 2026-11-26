@@ -200,4 +200,26 @@ describe("venue templates and the forum's surface over the API", () => {
     expect(res.statusCode).toBe(201);
     expect((res.json().doc as RcTrack).info.surface).toBe("astro");
   });
+
+  it("adapted to a grass track, or one with no surface on the forum, the copy has none (not the layout's own carpet)", async () => {
+    const { app, org, alice, f } = await setup();
+    const v = (await req(app, "GET", "/api/venues/venue-2")).json().doc as RcVenue;
+    await req(app, "PUT", "/api/venues/venue-2", org, { ...v, info: { ...v.info, venue: { id: 12, name: "Niagara centre", trackId: 32, trackName: "Outdoor" } } });
+    const grass = await req(app, "POST", `/api/tracks/${FREEFORM}/adapt/venue-2`, alice);
+    expect(grass.statusCode).toBe(201);
+    expect(grass.json().doc.info).not.toHaveProperty("surface");
+    f.state.tracks[1].surface = null;
+    expect((await req(app, "POST", `/api/tracks/${FREEFORM}/adapt/venue-2`, alice)).json().doc.info).not.toHaveProperty("surface");
+  });
+
+  it("the forum can't say (track not on its list): the copy keeps the layout's own surface, as for a template without one", async () => {
+    const { app, alice } = await setup();
+    const v = (await req(app, "GET", "/api/venues/venue-2")).json().doc as RcVenue;
+    // track 99 isn't on the forum's list (any more), so the API won't save a new link to it: write it as an old one
+    const { db } = app as unknown as { db: { prepare(s: string): { run(...a: unknown[]): unknown } } };
+    db.prepare("UPDATE venue_revisions SET rcvenue_json = ? WHERE venue_id = 'venue-2'").run(JSON.stringify({ ...v, info: { ...v.info, venue: { id: 12, name: "Niagara centre", trackId: 99 } } }));
+    const res = await req(app, "POST", `/api/tracks/${FREEFORM}/adapt/venue-2`, alice);
+    expect(res.statusCode).toBe(201);
+    expect(res.json().doc.info.surface).toBe("carpet");
+  });
 });
