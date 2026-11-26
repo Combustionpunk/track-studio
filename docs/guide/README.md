@@ -604,7 +604,7 @@ To change an approved layout, select **Copy and edit**. You get your own draft c
 
 A **draft** is private: only you and the organisers can see it. It isn't in the library for anyone else, and its link shows "Not found" to them. When you **Submit** it, it becomes public; submitted and approved layouts can be seen by anyone, signed in or not. If you edit a submitted layout it is a draft, and private, again until you submit it. A layout a meeting uses is always public. An archived layout that was never approved stays private.
 
-Only the author and organisers can edit a layout. Any other signed-in member is offered **Make my own copy** of a public one. Signed out, a layout's page says so beside its buttons: select **Sign in** there and you come back to the layout, ready to copy it.
+Only the author and organisers can edit a layout. Any other signed-in member is offered **Make my own copy** of a public one. Signed out, a layout's page says that signing in lets you copy it: select **Sign in** beside its buttons and you come back to the layout, ready to copy it.
 
 ### Voting
 

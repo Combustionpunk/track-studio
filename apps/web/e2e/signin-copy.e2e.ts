@@ -132,7 +132,11 @@ test.describe("signed out on a layout's page", () => {
     // the hint sits in the actions block, in view, and on a phone its link is a full touch target
     const link = hint.getByRole("link", { name: "Sign in" });
     await expect(link).toBeInViewport();
-    if (info.project.name === "phone") expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    // and its tap area stays clear of the buttons above, so a tap on a button's edge isn't a sign-in
+    const box = (await link.boundingBox())!;
+    const buttons = (await page.getByRole("group", { name: "Track actions" }).boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(buttons.y + buttons.height);
+    if (info.project.name === "phone") expect(box.height).toBeGreaterThanOrEqual(44);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/signed-out-${info.project.name}.png` });
 
     await link.click();
