@@ -4,7 +4,7 @@
 // and How to draw; and the context sheet (#126), the actions for what a finger held. The Designer owns which sheet is
 // open and its height; a drag on the plan tucks it away.
 import { HelpLink } from "../help/HelpLink.js";
-import { outerStyle, type Built } from "@track-studio/engine";
+import { cornerNumbering, outerStyle, type Built } from "@track-studio/engine";
 import { CornerUpLeft, Hash, Square, SquareRoundCorner, Trash2 } from "lucide-react";
 import { Sheet, type SheetHeight } from "../components/Sheet.js";
 import { FEATURE_LABEL } from "../lib/format.js";
@@ -12,7 +12,7 @@ import type { Draft, Selection } from "./Designer.js";
 import type { Live } from "./geometry.js";
 import { ConeButton, JumpPalette } from "./JumpPalette.js";
 import { PhoneDetails, PhoneMenu, PhoneSave, useMenuKeys, type PhoneDetailsProps, type PhoneMenuProps, type PhoneSaveProps } from "./PhoneMenu.js";
-import { allows, paletteJumps, type DesignerMode } from "./mode.js";
+import { allows, paletteJumps, pointHeading, pointNoun, type DesignerMode } from "./mode.js";
 import { MIN_CORNERS } from "./shape.js";
 import { hairpinWhy } from "./snap.js";
 import { ChecksPanel, SelectionPanel, Stats, type PanelProps } from "./SidePanels.js";
@@ -29,7 +29,7 @@ export interface PhoneSheetOpen {
 
 /** The selection sheet's name: what's selected, as its panel's heading says. */
 export function sheetLabel(sel: Selection, view: DesignerMode, draft: Draft): string {
-  if (sel?.kind === "point") return `${view === "quick" ? "Corner" : "Corner point"} ${sel.i + 1}`;
+  if (sel?.kind === "point") return pointHeading(cornerNumbering(draft.design.points, draft.design.laneWidth ?? 2), sel.i, view);
   if (sel?.kind === "feature") {
     const f = draft.design.features?.[sel.i];
     return f ? FEATURE_LABEL[f.type] : "Jump";
@@ -63,7 +63,7 @@ export function contextActions(sel: Selection, view: DesignerMode, draft: Draft,
   const p = pts[sel.i], c = live.corners[sel.i];
   if (!p) return [];
   const out: ContextAction[] = [{ action: "delete", label: "Delete", why: pts.length <= MIN_CORNERS ? `A track needs at least ${MIN_CORNERS} corner points.` : undefined }];
-  if (c && allows(view, "outer")) out.push({ action: "outer", label: outerStyle(p, c) === "square" ? "Round outside corner" : "Square outside corner" });
+  if (c && allows(view, "outer")) out.push({ action: "outer", label: `${outerStyle(p, c) === "square" ? "Round" : "Square"} outside ${pointNoun(cornerNumbering(pts, draft.design.laneWidth ?? 2), sel.i) === "corner" ? "corner" : "pipe"}` });
   if (allows(view, "hairpin")) {
     out.push({ action: "hairpin", label: "Make hairpin", why: hairpinWhy(pts, sel.i, draft.design.laneWidth ?? 2) });
   }
