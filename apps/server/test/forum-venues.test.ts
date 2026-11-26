@@ -47,8 +47,8 @@ describe("forum venue client", () => {
       name: "Misfits Main Hall",
       town: "Leeds",
       tracks: [
-        { id: 31, name: "Indoor carpet", surface: "carpet", environment: "indoor", width_m: 12, length_m: 22 },
-        { id: 32, name: "Outdoor tarmac", surface: "tarmac", environment: "outdoor", width_m: 20, length_m: 40 },
+        { id: 31, name: "Indoor carpet", surface: "carpet", templateSurface: "carpet", environment: "indoor", width_m: 12, length_m: 22 },
+        { id: 32, name: "Outdoor tarmac", surface: "tarmac", templateSurface: "tarmac", environment: "outdoor", width_m: 20, length_m: 40 },
       ],
     });
     expect(list.venues[1].tracks[0]).toMatchObject({ width_m: null, length_m: null });

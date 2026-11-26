@@ -773,7 +773,8 @@ export function tracksFitting(db: DB, venueId: string, f: Omit<ListQuery, "statu
   return out;
 }
 
-export function adaptTrack(db: DB, user: User, id: string, venueId: string, orientation?: string, revision?: number) {
+/** `venue`: the template's current revision as served (#190: with the forum's surface); read from the database if not given */
+export function adaptTrack(db: DB, user: User, id: string, venueId: string, orientation?: string, revision?: number, venue?: RcVenue) {
   const row = getTrackRow(db, id);
   const rev = revision ?? publicRevision(row);
   const answer = fitTrack(db, row, venueId, rev);
@@ -781,7 +782,7 @@ export function adaptTrack(db: DB, user: User, id: string, venueId: string, orie
   const fit = orientation ? answer.results.find((r) => r.orientation === orientation) : answer.results[0];
   if (!fit) throw badRequest("bad-orientation", `It doesn't fit as "${orientation}"; options: ${answer.results.map((r) => r.orientation).join(", ")}`);
   const { thumbUrl: _t, ...plainFit } = fit;
-  const adapted = adapt(getTrackDoc(db, row, rev), getVenueDoc(db, venueId), plainFit);
+  const adapted = adapt(getTrackDoc(db, row, rev), venue ?? getVenueDoc(db, venueId), plainFit);
   const t = now();
   adapted.info = { ...adapted.info, author: user.username, created: t, modified: t, status: "draft" };
   const saved = saveRevision(db, user, adapted, { status: "draft", note: `Adapted from ${row.d_name} r${rev} (${fit.orientation})` });

@@ -1,12 +1,13 @@
 // JSON API. Reads are public, except drafts (visibility.ts, #175); writes need a session (see auth.ts guards).
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { rctrackFileName, rcvenueFileName, type RcTrack } from "@track-studio/engine";
+import { rctrackFileName, rcvenueFileName, type RcTrack, type RcVenue } from "@track-studio/engine";
 import type { DB } from "./db.js";
 import { requireOrganiser, requireUser } from "./auth.js";
 import { badRequest, notFound } from "./errors.js";
 import { usedAt, type ForumEvents } from "./forum-events.js";
 import type { ForumStats } from "./forum-stats.js";
 import { assertTrackAtVenue, searchForumVenues, type ForumVenues } from "./forum-venues.js";
+import { dropLinkedSurface, withForumSurface } from "./venue-surface.js";
 import { assertMayEditVenue, canEditVenue } from "./venue-access.js";
 import { getClassSpeeds, setClassSpeeds, speedFor, typicalLap } from "./lap-times.js";
 import {
@@ -196,7 +197,9 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const orientation = typeof body.orientation === "string" ? body.orientation : undefined;
     const revision = typeof body.revision === "number" ? body.revision : undefined;
     await trackFor(req, id);
-    return reply.code(201).send(adaptTrack(db, user, id, venueId, orientation, revision));
+    // #190: the copy takes the template's surface as served (a linked template's is the forum's)
+    const { doc: venue } = await withForumSurface(getVenueDoc(db, venueId), forumVenues);
+    return reply.code(201).send(adaptTrack(db, user, id, venueId, orientation, revision, venue));
   });
 
   // "Make my own copy" — body {revision?}, default the public revision
@@ -241,7 +244,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     reply.header("access-control-allow-origin", "*");
     if (!/^\d{1,9}$/.test(forumTrack)) throw notFound("Venue template for that forum track");
     const row = getVenueRowByForumTrack(db, Number(forumTrack));
-    return { venue: venueSummary(row), doc: getVenueDoc(db, row.id) };
+    return { venue: venueSummary(row), doc: (await withForumSurface(getVenueDoc(db, row.id), forumVenues)).doc };
   });
 
   // the forum's venues and their tracks, for the venue editor's picker
@@ -253,8 +256,10 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
 
   app.get("/api/venues/:id", async (req) => {
     const { id } = req.params as { id: string };
-    const doc = getVenueDoc(db, id);
-    return { venue: venueSummary(getVenueRow(db, id)), doc, can: { edit: await canEditVenue(req.user, doc.info.venue, forumVenues) } };
+    // #190: a template linked to a forum track has the forum's surface; forumTrack is what the forum said (null: not linked)
+    const stored = getVenueDoc(db, id);
+    const [{ doc, forumTrack }, edit] = await Promise.all([withForumSurface(stored, forumVenues), canEditVenue(req.user, stored.info.venue, forumVenues)]);
+    return { venue: venueSummary(getVenueRow(db, id)), doc, forumTrack, can: { edit } };
   });
 
   app.get("/api/venues/:id/revisions", async (req) => ({ revisions: listVenueRevisions(db, getVenueRow(db, (req.params as { id: string }).id)) }));
@@ -264,7 +269,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const { id, file } = req.params as { id: string; file: string };
     const m = /^(\d{1,9})(\.rcvenue\.json)?$/.exec(file);
     if (!m) throw notFound("Venue revision");
-    const doc = getVenueDoc(db, id, Number(m[1]));
+    const { doc } = await withForumSurface(getVenueDoc(db, id, Number(m[1])), forumVenues);
     if (m[2]) reply.header("content-disposition", `attachment; filename="${rcvenueFileName(doc.info.name, doc.revision)}"`);
     return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 1));
   });
@@ -287,12 +292,19 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     return isObject(link) ? (link as { id: number; name?: string }) : null;
   };
 
+  // a save's answer, with the template as GET serves it (#190: a linked one with the forum's surface)
+  const served = async <T extends { doc: RcVenue }>(saved: T) => {
+    const { doc, forumTrack } = await withForumSurface(saved.doc, forumVenues);
+    return { ...saved, doc, forumTrack };
+  };
+
   // organisers, or (#173) the committee of the club that runs the forum venue, before and after the edit
   app.post("/api/venues", async (req, reply) => {
     const user = requireUser(req);
     await assertMayEditVenue(user, [linkOf(req.body)], forumVenues);
     await checkForumLink(req.body);
-    return reply.code(201).send(createVenue(db, user, req.body));
+    dropLinkedSurface(venueFromBody(req.body));
+    return reply.code(201).send(await served(createVenue(db, user, req.body)));
   });
 
   app.put("/api/venues/:id", async (req) => {
@@ -301,6 +313,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const before = getVenueDoc(db, id).info.venue;
     await assertMayEditVenue(user, [before, linkOf(req.body)], forumVenues);
     await checkForumLink(req.body, before ?? undefined);
-    return updateVenue(db, user, id, req.body);
+    dropLinkedSurface(venueFromBody(req.body));
+    return served(updateVenue(db, user, id, req.body));
   });
 }
