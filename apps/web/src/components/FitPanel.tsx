@@ -8,6 +8,8 @@ import * as fmt from "../lib/format.js";
 import { useApi } from "../lib/hooks.js";
 import { rostrumPos, transformBuilt } from "../lib/plan.js";
 import { useSession } from "../lib/session.js";
+import { surfaceView, type ForumTrackFacts } from "../venues/forum.js";
+import { SURFACE_LABEL } from "../venues/model.js";
 import { PlanView } from "./PlanView.js";
 import { EmptyState, ErrorAlert, Skeleton } from "./states.js";
 
@@ -19,7 +21,7 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const venues = useApi<{ venues: VenueSummary[] }>("/api/venues");
-  const venue = useApi<{ doc: RcVenue }>(venueId ? `/api/venues/${encodeURIComponent(venueId)}` : null);
+  const venue = useApi<{ doc: RcVenue; forumTrack?: ForumTrackFacts | null }>(venueId ? `/api/venues/${encodeURIComponent(venueId)}` : null);
   const fit = useApi<FitAnswer>(venueId ? `/api/tracks/${trackId}/fit/${encodeURIComponent(venueId)}` : null);
 
   const results = fit.data?.results ?? [];
@@ -31,6 +33,8 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
 
   const placed = useMemo(() => (chosen && venue.data ? transformBuilt(built, chosen) : undefined), [built, chosen, venue.data]);
   const v = venue.data?.doc;
+  // #190: a linked template's surface is the forum's (and the copy takes it, if the format has a word for it)
+  const surface = v ? surfaceView(v, venue.data?.forumTrack).surface : null;
   // #173: where this fit puts the start/finish against the venue's timing loop (the fit search doesn't move it there)
   const loopWarning = placed && v ? timingLoopCheck({ built: placed }, v) : null;
 
@@ -136,7 +140,8 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
             </p>
           )}
           <p className="ts-help">
-            Preview: the track placed in {v.info.name} ({fmt.size(v.area)} area), with its obstacles and rostrum. The copy keeps only the track, turned to fit.
+            Preview: the track placed in {v.info.name} ({fmt.size(v.area)} area{surface ? `, ${surface.toLowerCase()}` : ""}), with its obstacles and rostrum. The copy keeps only the
+            track, turned to fit{v.surface ? `, and the venue's surface (${SURFACE_LABEL[v.surface].toLowerCase()})` : ""}.
           </p>
           {error && <ErrorAlert title="Couldn't make the copy.">{error}</ErrorAlert>}
           <div>
