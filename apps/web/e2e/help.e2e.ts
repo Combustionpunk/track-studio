@@ -160,7 +160,7 @@ test.describe("help links in the app", () => {
 
   test("on a tablet in Quick mode, the dock's ? opens how to draw the track in a new tab, and the drawing stays (#178)", async ({ page }, info) => {
     test.skip(!info.project.name.startsWith("tablet"), "the tablet's dock");
-    await signedOut(page);
+    const errors = await signedOut(page);
     await page.goto("/new/design?length=22&width=12");
     await expect(page.locator("rect.lay-hit")).toBeVisible();
     const dock = page.getByRole("toolbar", { name: "Designer tools" });
@@ -196,6 +196,7 @@ test.describe("help links in the app", () => {
     await expect(page).toHaveURL(/\/new\/design/);
     await expect(page.locator("g.ed-corner")).toHaveCount(4);
     await guide.close();
+    expect(errors).toEqual([]);
   });
 
   test("the dock's ? is the tablet's only: the laptop and the phone keep what they had (#178)", async ({ page }, info) => {
@@ -206,13 +207,14 @@ test.describe("help links in the app", () => {
       // the phone's Help is in How to draw, behind More, as before: none on the editor itself
       await expect(page.locator("a.help-link")).toHaveCount(0);
     } else {
-      await signedOut(page);
+      const errors = await signedOut(page);
       await page.goto("/new/design?length=22&width=12");
       await expect(page.locator("rect.lay-hit")).toBeVisible();
       await expect(page.locator(".designer-dock")).toHaveCount(0);
       // step 1: the palette's ? (and How to draw's link), as before
       expect(new Set(await page.locator("a.help-link").evaluateAll((as) => as.map((a) => a.getAttribute("href"))))).toEqual(new Set(["/help#draw-the-track"]));
       await expect(page.locator(".designer-palette a.help-link")).toHaveCount(1);
+      expect(errors).toEqual([]);
     }
   });
 
