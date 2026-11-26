@@ -854,7 +854,8 @@ select.ts-input { padding: 0 var(--space-2); }
   .ts-filters .ts-btn, .ts-filters .ts-input { min-height: var(--touch-target); }
   .ts-track-head__title { flex-direction: column-reverse; align-items: flex-start; gap: var(--space-2); }
   .ts-actions-wrap, .ts-actions { width: 100%; }
-  .ts-signin-hint a { display: inline-block; min-height: var(--touch-target); line-height: var(--touch-target); }
+  /* a full touch target without spreading the lines: padded, the padding taken back out of the line */
+  .ts-signin-hint a { display: inline-block; padding-block: calc((var(--touch-target) - 18px) / 2); margin-block: calc((18px - var(--touch-target)) / 2); }
   .ts-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ts-actions .ts-btn { height: var(--touch-target); white-space: normal; text-align: center; line-height: 18px; }
   .ts-actions .ts-btn--primary { grid-column: 1 / -1; order: -1; }
