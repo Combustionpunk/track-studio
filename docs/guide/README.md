@@ -685,15 +685,15 @@ These three things work the same on a tablet and a phone.
 
 ### On a tablet
 
-In Quick mode, the tools are on a **dock** along the bottom, and the checks are behind a pill, top right of the plan. Switch to **Advanced** and a tablet shows the same layout as a computer, with the tools on the left and the panels on the right.
+In Quick mode, the tools are on a **dock** along the bottom, with **?** at its right-hand end for this guide, and the checks are behind a pill, top right of the plan. Switch to **Advanced** and a tablet shows the same layout as a computer, with the tools on the left and the panels on the right.
 
 **Lay the lanes** with one finger: press on the first square and drag through the others, as with a mouse.
 
-![A tablet in step 1: a finger has laid the lane along the bottom and up the right-hand side. The dock has Undo, Redo, Start again and Reverse](img/tablet-lay-lanes.webp)
+![A tablet in step 1: a finger has laid the lane along the bottom and up the right-hand side. The dock has Undo, Redo, Start again, Reverse, Zoom to fit and Help](img/tablet-lay-lanes.webp)
 
 **Shape it** from the dock.
 
-![A tablet in step 2: the plan above, and the dock below with Undo, Redo, the jumps, Cone, Add point, Start line, Snap and Reverse](img/tablet-designer.webp)
+![A tablet in step 2: the plan above, and the dock below with Undo, Redo, the jumps, Cone, Add point, Start line, Snap, Reverse, Zoom to fit and Help](img/tablet-designer.webp)
 
 - **Drag** a corner to move it, or its inside handle to cut it back.
 - **Tap a jump** on the dock to arm it, then tap the racing line. Or drag the jump from the dock onto the track.
@@ -756,7 +756,7 @@ The library and a layout's page are a single column.
 
 ![The More menu on a phone: Save revision, Submit track, Mode, Reverse direction, Zoom to fit, Layout details, How to draw and Back to track](img/phone-more.webp)
 
-**How to draw**, on a computer and on a phone, has a link to this guide. A tablet in Quick mode has no link in the designer yet: open **Help** from the menu on any other page.
+**How to draw**, on a computer and on a phone, has a link to this guide. On a tablet in Quick mode, tap **?** at the right-hand end of the dock: the guide opens in a new tab, and your drawing stays where it is.
 
 ### What is coming on phones
 
