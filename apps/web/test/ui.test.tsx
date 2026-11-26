@@ -167,6 +167,14 @@ describe("track card", () => {
     expect(text(h)).toContain("as designed 2 × 1 m spare");
     expect(h).toContain('src="/f/1.png"');
   });
+
+  it("names each orientation the same way as everywhere else, linking by its label (#179)", () => {
+    const fit = { revision: 4, results: [{ orientation: "mirrored, rotated 180", spare: [2, 1], thumbUrl: "/f/3.png" }] };
+    const h = html(<TrackCard track={summary({ fit } as unknown as Partial<TrackSummary>)} fitVenueId="hall" />);
+    expect(h).toContain('href="/t/winter-3?fit=hall&amp;o=mirrored%2C%20rotated%20180"');
+    expect(text(h)).toContain("mirrored and turned round 2 × 1 m spare");
+    expect(text(h)).not.toContain("rotated");
+  });
 });
 
 describe("library results", () => {
@@ -726,6 +734,12 @@ describe("track page", () => {
     expect(text(h)).toContain("Based on Club A by yeti (revision 2)");
   });
 
+  it("an adaptation names its orientation the same way as the fit lists (#179)", () => {
+    const d = { ...doc, info: { ...doc.info, derivedFrom: { id: "club-a", revision: 2, orientation: "mirrored, rotated 180" } } };
+    const h = page(can({ edit: true }), { status: "draft", derivedFrom: { id: "club-a", name: "Club A", author: null } }, d);
+    expect(text(h)).toContain("Adapted from Club A (revision 2, mirrored and turned round)");
+  });
+
   it("an organiser approves; with errors, Submit and Approve are disabled and the reason is shown beside them", () => {
     const h = page(can({ approve: true, submit: true }), { errors: 2 });
     expect(h).toMatch(/class="ts-btn ts-btn--primary"[^>]*disabled=""[^>]*>Approve revision 4</);
@@ -936,6 +950,16 @@ describe("fit results", async () => {
     expect(t).toContain("as designed 1 × 2 m spare");
     expect(t).toMatch(/Make a copy for|Log in to make a copy/);
   });
+
+  it("names the orientations (#179), keeping the label as the value sent to adapt", () => {
+    setup({ data: { results: [{ orientation: "rotated 180", rotation: 180, mirror: false, shift: [0, 0], spare: [1, 2], thumbUrl: "" }, { orientation: "mirrored, rotated 90", rotation: 90, mirror: true, shift: [0, 0], spare: [1, 2], thumbUrl: "" }] }, loading: false });
+    const h = panel();
+    expect(text(h)).toContain("turned round 1 × 2 m spare");
+    expect(text(h)).toContain("mirrored and turned a quarter left 1 × 2 m spare");
+    expect(h).toContain('value="mirrored, rotated 90"');
+    expect(text(h)).not.toContain("rotated");
+  });
+
   it("#190: the preview names the venue's surface, the forum's for a linked template", () => {
     setup({ data: { results: [{ orientation: "as designed", rotation: 0, mirror: false, shift: [0, 0], spare: [1, 2], thumbUrl: "" }] }, loading: false });
     const linked = { ...venue, surface: "carpet", info: { ...venue.info, venue: { id: 12, name: "Niagara centre", trackId: 31 } } };

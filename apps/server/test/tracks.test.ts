@@ -521,10 +521,15 @@ describe("fit + adapt", () => {
     // obstacles or its rostrum (1.7)
     expect(doc.design).toEqual(withoutCones(referenceJson<RcTrack>("examples/freeform-at-sports-hall-b.rctrack.json")).design);
     expect(doc.info.drawnFor).toEqual({ venueTemplate: "venue-2", name: "Sports hall B" });
+    // the revision note names the orientation as the fit lists do (#179); the stored label stays "rotated 180"
+    const revs = (await req(app, "GET", `/api/tracks/${track.id}/revisions`, alice)).json().revisions;
+    expect(revs.map((r: { note: string }) => r.note)).toEqual(["Adapted from Freeform example r1 (turned round)"]);
     expect(JSON.stringify(doc)).not.toMatch(/"obstacles"|"rostrum"|"basedOn"|Pillar/);
     expect((await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-3`, alice)).statusCode).toBe(422);
     const bad = await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-1`, alice, { orientation: "rotated 90" });
     expect(bad.statusCode).toBe(400);
+    // the options are named as the fit lists name them (#179)
+    expect(bad.json().message).toBe("It doesn't fit turned a quarter left. It fits as designed, mirrored, turned round, or mirrored and turned round.");
     const chosen = await req(app, "POST", `/api/tracks/${CLUB_A}/adapt/venue-1`, alice, { orientation: "mirrored" });
     expect(chosen.json().fit.orientation).toBe("mirrored");
   });

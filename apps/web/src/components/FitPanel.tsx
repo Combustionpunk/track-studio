@@ -1,6 +1,6 @@
 // "Fit to a venue": pick a venue, see every orientation the track fits in, preview it in the hall, make a copy.
 import { HelpLink } from "../help/HelpLink.js";
-import { timingLoopCheck, type Built, type RcVenue } from "@track-studio/engine";
+import { orientationName, timingLoopCheck, type Built, type RcVenue } from "@track-studio/engine";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { post, type FitAnswer, type TrackResponse, type VenueSummary } from "../lib/api.js";
@@ -119,7 +119,7 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
             {results.map((r) => (
               <label key={r.orientation} className="ts-fit-chip">
                 <input type="radio" name="orientation" value={r.orientation} checked={r === chosen} onChange={() => setOrientation(r.orientation)} />
-                <span>{r.orientation}</span>
+                <span>{orientationName(r.orientation)}</span>
                 <small>{fmt.spare(r)}</small>
               </label>
             ))}
@@ -132,7 +132,7 @@ export function FitPanel({ trackId, built, initialVenue, initialOrientation }: {
               built={placed}
               rostrum={{ ...xz(rostrumPos(v.area, v.rostrum?.side, v.rostrum?.offset)), side: v.rostrum?.side ?? "south" }}
               layers={{ lanes: true, racingLine: true, dividers: true, features: true, start: true, checks: false, obstacles: true, grid: true, rostrum: true, marshals: true }}
-              label={`${chosen.orientation} in ${v.info.name}`}
+              label={`${orientationName(chosen.orientation)} in ${v.info.name}`}
               className="ts-plan-well fit-plan"
             />
           )}
