@@ -74,8 +74,9 @@ export interface PlanViewProps {
   /** a point to keep clear of a sheet over the bottom of the plan (#188: the phone's selection sheet and its corner),
    * `top` being where the sheet's top rests (clientY). The plan pans up, smoothly, just enough to put the point a
    * finger's reach above it, and looks again when `key` or `top` changes. Taken away (null), the plan pans back to the
-   * view it left, unless the member has moved the plan since. */
-  keepClear?: { key: string; at: Point2; top: number } | null;
+   * view it left, unless the member has moved the plan since. `at` null holds the plan where it is (the sheet is still
+   * open, for something else). */
+  keepClear?: { key: string; at: Point2 | null; top: number } | null;
 }
 
 export interface LoupeProps {
@@ -129,13 +130,18 @@ export function PlanView(props: PlanViewProps) {
 
   // fit on first layout and whenever the box or area changes, unless the user has moved the view
   useEffect(() => {
-    if (fitted && (!moved.current || !view)) setView(fitted);
+    if (fitted && (!moved.current || !view)) setViewNow(fitted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitted]);
 
   const v = view ?? fitted;
+  /** the view as it is, or as an effect has just set it (#188: an effect after it in the same commit reads it) */
   const viewNow = useRef(v);
   viewNow.current = v;
+  const setViewNow = (to: View) => {
+    viewNow.current = to;
+    setView(to);
+  };
   const minScale = (fitted?.s ?? 1) * 0.5;
 
   const reset = useCallback(() => {
@@ -143,18 +149,19 @@ export function PlanView(props: PlanViewProps) {
     unhighlighted.current = undefined;
     uncovered.current = undefined;
     cancelAnimationFrame(glideFrame.current);
-    if (fitted) setView(fitted);
+    if (fitted) setViewNow(fitted);
   }, [fitted]);
 
   /** pan (and zoom) to a view over GLIDE_MS, eased; at once with reduced motion. Anything else that moves the plan stops it. */
   const glide = useCallback((to: View) => {
     cancelAnimationFrame(glideFrame.current);
     const from = viewNow.current;
+    viewNow.current = to;
     if (!from || reducedMotion()) return setView(to);
     const t0 = performance.now();
     const step = (t: number) => {
       const k = Math.min(1, (t - t0) / GLIDE_MS);
-      setView(lerp(from, to, 1 - (1 - k) ** 3));
+      setView(k < 1 ? lerp(from, to, 1 - (1 - k) ** 3) : to);
       if (k < 1) glideFrame.current = requestAnimationFrame(step);
     };
     glideFrame.current = requestAnimationFrame(step);
@@ -182,13 +189,13 @@ export function PlanView(props: PlanViewProps) {
       const back = unhighlighted.current;
       unhighlighted.current = undefined;
       if (back === null) reset();
-      else if (back) setView(back);
+      else if (back) setViewNow(back);
       return;
     }
     if (unhighlighted.current === undefined) unhighlighted.current = moved.current ? view : null;
     moved.current = true;
     cancelAnimationFrame(glideFrame.current);
-    setView((cur) => ({ cx: highlight[0], cy: -highlight[1], s: Math.max(cur?.s ?? fitted.s, fitted.s * 2) }));
+    setViewNow({ cx: highlight[0], cy: -highlight[1], s: Math.max(viewNow.current?.s ?? fitted.s, fitted.s * 2) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlight, fitted]);
 
@@ -208,7 +215,7 @@ export function PlanView(props: PlanViewProps) {
       return;
     }
     const cur = viewNow.current, r = boxRef.current?.getBoundingClientRect();
-    if (!cur || !r) return;
+    if (!keepClear.at || !cur || !r) return;
     const to = clearOf(cur, keepClear.at, box.height, keepClear.top - r.top, CLEAR_PX);
     if (!to) return;
     if (uncovered.current === undefined) uncovered.current = moved.current ? cur : null;

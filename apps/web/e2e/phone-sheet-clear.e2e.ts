@@ -41,18 +41,20 @@ async function lowCorner(page: Page, t: Touch): Promise<{ i: number; at: XY }> {
   return low;
 }
 
-/** where corner `i` is on the screen once the plan has stopped moving */
+/** where corner `i` is on the screen once the plan has stopped moving: after its 200 ms glide, still for three looks in a row */
 async function settled(page: Page, i: number): Promise<XY> {
+  await page.waitForTimeout(250);
   let last: XY = [NaN, NaN];
+  let still = 0;
   await expect
     .poll(async () => {
       const pts = await corners(page);
       const now = await screen(page, pts[i][0], pts[i][1]);
-      const still = Math.hypot(now[0] - last[0], now[1] - last[1]) < 0.5;
+      still = Math.hypot(now[0] - last[0], now[1] - last[1]) < 0.5 ? still + 1 : 0;
       last = now;
       return still;
     }, { intervals: [100] })
-    .toBe(true);
+    .toBeGreaterThanOrEqual(2);
   return last;
 }
 

@@ -340,8 +340,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [handleDrag, setHandleDrag] = useState(false);
   /** the phone (#188): where the selection sheet's top rests (clientY), while it's open */
   const [selectionTop, setSelectionTop] = useState<number | null>(null);
-  /** handle drags on the phone that have ended: after one, the plan looks again at whether the corner is clear */
-  const [dragsDone, setDragsDone] = useState(0);
+  /** what the plan last looked at keeping clear of it: the corner and where it was, kept as it was while it's dragged */
+  const clearKey = useRef("");
   /** a finger dragging a handle past the slop where the loupe is on (#125): where the finger is, and what it drags */
   const [loupeDrag, setLoupeDrag] = useState<{ client: Spot; d: DragKind } | null>(null);
   /** Checks' Show changes the selection: the Checks sheet stays (at peek) rather than giving way to the selection's */
@@ -770,10 +770,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setShared(null);
       setSnapInfo(null);
       setDragging(null);
-      if (tucked) {
-        setHandleDrag(false);
-        setDragsDone((n) => n + 1);
-      }
+      if (tucked) setHandleDrag(false);
       if (loupeOn) setLoupeDrag(null);
       setPress((p) => (p?.done ? p : null)); // a long-press's ring stays while its corner is selected
       edit.current = null;
@@ -1745,10 +1742,13 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setPhoneSheet(null);
   };
   putSheetAway.current = () => phoneSheetHeight("closed");
-  /** the phone (#188): the selected corner stays clear of its sheet, so a finger can drag it straight away; the plan
-   * looks again when another corner is picked, the sheet changes height, or a drag ends */
-  const clearPt = phoneEdit && phoneSheet?.kind === "selection" && sel?.kind === "point" && selectionTop !== null ? draft.design.points[sel.i] : undefined;
-  const keepClear = clearPt && sel?.kind === "point" ? { key: `${sel.i}:${dragsDone}`, at: [clearPt.x, clearPt.z] as Point2, top: selectionTop! } : null;
+  /** the phone (#188): the selected corner stays clear of its sheet, so a finger can drag it straight away. The plan
+   * looks again when another corner is picked, the sheet changes height, or the corner has moved (a drag once it ends,
+   * an undo); while the sheet shows something else, it holds where it is, and pans back only when the sheet closes. */
+  const clearPt = sel?.kind === "point" ? draft.design.points[sel.i] : undefined;
+  if (!handleDrag) clearKey.current = clearPt && sel?.kind === "point" ? `${sel.i}@${clearPt.x.toFixed(2)},${clearPt.z.toFixed(2)}` : (sel?.kind ?? "");
+  const keepClear =
+    phoneEdit && phoneSheet?.kind === "selection" && selectionTop !== null ? { key: clearKey.current, at: clearPt ? ([clearPt.x, clearPt.z] as Point2) : null, top: selectionTop } : null;
   /** the plan, or the 3D view (on a phone, with its switch on: #127) */
   const plan = viewing3d ? (
     <Suspense

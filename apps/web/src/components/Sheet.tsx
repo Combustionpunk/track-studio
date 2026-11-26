@@ -120,8 +120,13 @@ export function Sheet({
       rest.current?.(window.innerHeight - (parseFloat(getComputedStyle(el).bottom) || below) - tall);
     };
     tell();
+    // and again once a change of height has finished: mid-way, the body's height isn't its content's
+    const el = ref.current;
+    const done = (e: TransitionEvent) => e.target === el && e.propertyName === "height" && tell();
+    el?.addEventListener("transitionend", done);
     window.addEventListener("resize", tell);
     return () => {
+      el?.removeEventListener("transitionend", done);
       window.removeEventListener("resize", tell);
       rest.current?.(null);
     };
