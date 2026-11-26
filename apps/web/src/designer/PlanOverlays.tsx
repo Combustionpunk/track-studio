@@ -4,6 +4,7 @@
 import type { Check } from "@track-studio/engine";
 import { ArrowRightLeft, CircleCheck, CircleX, Plus, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode, Ref } from "react";
+import { HelpLink } from "../help/HelpLink.js";
 import { shapeHint } from "./addtool.js";
 import type { Selection, Tool } from "./Designer.js";
 import { ConeButton, JumpPalette } from "./JumpPalette.js";
@@ -233,6 +234,8 @@ export function TabletDock({ view, laying, canStartAgain, onStartAgain, tool, on
       <button type="button" className="dock-btn dock-icon dock-fit" onClick={onFit} aria-label="Zoom to fit">
         <Scan size={20} aria-hidden="true" />
       </button>
+      {/* the tablet's only way to the guide (#178): Quick on a tablet has no palette, side column or menu row */}
+      <HelpLink topic="palette" className="dock-btn dock-icon dock-help" />
     </div>
   );
 }
