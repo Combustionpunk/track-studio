@@ -97,6 +97,14 @@ export function PlanView(props: PlanViewProps) {
   const fitted = useMemo(() => (box.width && box.height ? fitView(bounds, box.width, fitWidth ? Infinity : box.height) : null), [bounds, box.width, box.height, fitWidth]);
   const [view, setView] = useState<View | null>(null);
   const moved = useRef(false);
+  /** the view a highlight moved away from, to go back to when it's taken away (#177): null for the fitted view;
+   * undefined when there's nothing to go back to (no highlight, or the member has moved the plan since) */
+  const unhighlighted = useRef<View | null | undefined>(undefined);
+  /** the member moved the plan: theirs from now on */
+  const userMoved = useCallback(() => {
+    moved.current = true;
+    unhighlighted.current = undefined;
+  }, []);
   const [tip, setTip] = useState<{ x: number; y: number; key: string } | null>(null);
   const [hint, setHint] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
@@ -112,6 +120,7 @@ export function PlanView(props: PlanViewProps) {
 
   const reset = useCallback(() => {
     moved.current = false;
+    unhighlighted.current = undefined;
     if (fitted) setView(fitted);
   }, [fitted]);
 
@@ -122,17 +131,27 @@ export function PlanView(props: PlanViewProps) {
 
   const zoomBy = useCallback(
     (factor: number, px = box.width / 2, py = box.height / 2) => {
-      moved.current = true;
+      userMoved();
       setView((cur) => (cur ? zoomAt(cur, factor, px, py, box.width, box.height, minScale, MAX_SCALE) : cur));
     },
-    [box.width, box.height, minScale],
+    [box.width, box.height, minScale, userMoved],
   );
 
-  // centre on a highlighted point
+  // centre on a highlighted point; when it's taken away, back to the view it moved away from (unless the member has
+  // moved the plan since)
   useEffect(() => {
-    if (!highlight || !fitted) return;
+    if (!fitted) return;
+    if (!highlight) {
+      const back = unhighlighted.current;
+      unhighlighted.current = undefined;
+      if (back === null) reset();
+      else if (back) setView(back);
+      return;
+    }
+    if (unhighlighted.current === undefined) unhighlighted.current = moved.current ? view : null;
     moved.current = true;
     setView((cur) => ({ cx: highlight[0], cy: -highlight[1], s: Math.max(cur?.s ?? fitted.s, fitted.s * 2) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlight, fitted]);
 
   // wheel zoom (non-passive listener so the page doesn't scroll while zooming)
@@ -225,7 +244,7 @@ export function PlanView(props: PlanViewProps) {
     e.stopPropagation();
     const other = [...spots.current.entries()].find(([id]) => id !== e.pointerId)?.[1];
     if (!other) return; // the finger left after a pinch: nothing
-    moved.current = true;
+    userMoved();
     setView((cur) => (cur ? pinchView(cur, [before, other], [now, other], box.width, box.height, minScale, MAX_SCALE) : cur));
   };
   const onTouchUp = (e: React.PointerEvent) => {
@@ -250,7 +269,7 @@ export function PlanView(props: PlanViewProps) {
         const starts = e.pointerType === "mouse" ? Math.hypot(dx, dy) > 2 : Math.hypot(next.x - pressedAt.current.x, next.y - pressedAt.current.y) > TAP_SLOP_PX;
         if (dragged.current || starts) {
           dragged.current = true;
-          moved.current = true;
+          userMoved();
           setTip(null);
           setView((cur) => (cur ? pan(cur, dx, dy) : cur));
         } else return;
@@ -295,7 +314,7 @@ export function PlanView(props: PlanViewProps) {
     const f = keys[e.key];
     if (f) {
       e.preventDefault();
-      moved.current = true;
+      userMoved();
       f();
     }
   };

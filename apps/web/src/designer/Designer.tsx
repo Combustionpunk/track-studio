@@ -67,6 +67,7 @@ import { HAIRPIN_STRAIGHT, hairpinWhy, hasMitre, keepPinned, tidy, makeHairpin, 
 import { cellAt, cellCentre, cellCorner, designStep, dragCell, gridFor, neighbours, paintTo, REFUSAL_TEXT, releaseStep, reopenLaying, same, withLaying, type Cell, type LaneGrid, type Laying, type Refusal } from "./lanes.js";
 import { alongBisector, apexOf, deleteCorner, handlePoint, insertAfter, insertNearTrack, isReduced, MIN_CORNERS, placeCorner, radiusFromDrag, followTravel, type Seen, widthAt } from "./shape.js";
 import { findNests, followNest, linkedTo } from "./nest.js";
+import { shownMark, type PlanMark } from "./highlight.js";
 import { describeLane, layKey, startCursor, type LayKeys } from "./laykeys.js";
 import { useBake } from "./useBake.js";
 import { DesignerLayout } from "./DesignerLayout.js";
@@ -239,7 +240,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [coneHover, setConeHover] = useState<Point2 | null>(null);
   /** a jump being dragged from the palette (#157): its type and where on the line it would go */
   const [jumpDrag, setJumpDrag] = useState<{ type: FeatureType; s: number; at: Point2 } | null>(null);
-  const [highlight, setHighlight] = useState<Point2 | null>(null);
+  /** what the plan centres on and marks: a check shown from the list, or the start line from its button (#177) */
+  const [mark, setMark] = useState<PlanMark | null>(null);
   const [layers, setLayers] = useStored<Layers>("designer-layers", { ...DEFAULT_LAYERS, checks: true });
   const [saving, setSaving] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -1295,6 +1297,12 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     },
     [setView3d],
   );
+  // the plan's mark (#177): the start line's goes when the start line is let go, and neither outlasts its mode or a trip
+  // to 3D, so the plan zooms back rather than staying on something no longer picked
+  const planMark = shownMark(mark, sel, view);
+  useEffect(() => {
+    if (mark && (!planMark || viewing3d)) setMark(null);
+  }, [mark, planMark, viewing3d]);
   const unsupported3d = useCallback((why: "none" | "lost") => setNoWebGL(why), []);
   // a jump picked from the palette is placed on the plan: back to 2D
   useEffect(() => {
@@ -1652,7 +1660,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setSel({ kind: "feature", i: r.index });
   };
   const showCheck = (x: number, z: number) => {
-    setHighlight([x, z]);
+    setMark({ at: [x, z], of: "check", mode: view });
     // select what the check is about: the nearest corner point or jump
     let best: Selection = null, bestD = 1.5;
     draft.design.points.forEach((p, i) => {
@@ -1700,7 +1708,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const pickStart = () => {
     setTool({ kind: "select" });
     setSel({ kind: "start" });
-    setHighlight([built.startLine.x, built.startLine.z]);
+    setMark({ at: [built.startLine.x, built.startLine.z], of: "start", mode: view });
   };
   const restoreAutosave = () => {
     if (restore) hist.set(restore.draft);
@@ -1772,7 +1780,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       designFeatures={draft.design.features}
       layers={layers}
       onLayersChange={setLayers}
-      highlight={highlight}
+      highlight={planMark}
       label={`Designer plan of ${draft.info.name}`}
       className="designer-plan"
       overlay={laying ? layOverlay : overlay}
@@ -1786,7 +1794,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         setPress(null);
       }}
       onBackgroundClick={(e) => {
-        setHighlight(null);
+        setMark(null);
         // a tap with a jump or the cone armed (#157): a finger's press went through to the plan, so a drag pans and a
         // second finger pinches; only a tap on the track (a jump) or where a cone may stand places one
         if (e.pointerType === "touch" && (tool.kind === "feature" || tool.kind === "marshal")) {

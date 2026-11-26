@@ -263,7 +263,7 @@ group("draw", async () => {
   await mouseDrag(page, start, [start[0] + 110, start[1]]);
   await shot(page, "start-line");
   await pressEsc(page);
-  // picking the start line zooms in on it: back to the whole plan
+  // letting the start line go zooms back out (#177); fit anyway, so the next shots start from the whole plan
   await page.getByRole("button", { name: "Fit to view" }).click();
   await settle(page, 400);
 
