@@ -138,7 +138,8 @@ describe("Submit", () => {
 
   it("says what to fix while errors exist, naming the nearest corner", () => {
     const msg = submitBlock({ ...base, checks: [{ level: "error", code: "outside-area", x: 10.5, z: 5.2, message: "Track goes outside the venue's track area" }] });
-    expect(msg).toBe("Submit is waiting on 1 error. Move corner 3 back inside the track area to fix it.");
+    // #176: the build sheet's numbering: the triangle's last two points turn the same way 5 m apart, one corner
+    expect(msg).toBe("Submit is waiting on 1 error. Move corner 2b back inside the track area to fix it.");
     const two = submitBlock({
       ...base,
       checks: [
