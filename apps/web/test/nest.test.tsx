@@ -1,6 +1,6 @@
 // Nested corners (#106): corners on neighbouring lanes round one shared pipe follow each other, so the pipe is one
 // curve; an override is kept and can be re-matched; Quick mode shapes the outside corner too.
-import { bakeBuilt, racingLine, type Built, type DesignPoint, type Point2, type RcTrack } from "@track-studio/engine";
+import { bakeBuilt, cornerNumbering, racingLine, type Built, type DesignPoint, type Point2, type RcTrack } from "@track-studio/engine";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -349,10 +349,11 @@ describe("the corner panels", () => {
     const d = withPoints(d0, followNest(setApex(d0.design.points, nest.outer, 4, 2), nest.outer, 2));
     for (const view of ["quick", "advanced"] as const) {
       const ho = panel(d, nest.outer, view);
-      expect(ho).toContain(`Also shapes corner ${nest.inner + 1} (inside)`);
+      const names = cornerNumbering(d.design.points, 2).labels; // #176: named as the build sheet numbers them
+      expect(ho).toContain(`Also shapes corner ${names[nest.inner]} (inside)`);
       expect(ho).not.toContain("Match corner");
       const hi = panel(d, nest.inner, view);
-      expect(hi).toContain(`Follows corner ${nest.outer + 1} (outside)`);
+      expect(hi).toContain(`Follows corner ${names[nest.outer]} (outside)`);
       expect(hi).not.toContain("Match corner");
       expect(hi).toMatch(/aria-checked="true"[^>]*>Round/);
     }
@@ -369,7 +370,7 @@ describe("the corner panels", () => {
     for (const view of ["quick", "advanced"] as const) {
       const h = panel(d, nest.inner, view);
       expect(h).toContain("Shaped on its own");
-      expect(h).toMatch(new RegExp(`<button[^>]*>Match corner ${nest.outer + 1}</button>`));
+      expect(h).toMatch(new RegExp(`<button[^>]*>Match corner ${cornerNumbering(d.design.points, 2).labels[nest.outer]}</button>`));
       expect(h).not.toContain("Follows corner");
     }
   });

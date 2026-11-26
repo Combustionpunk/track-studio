@@ -1,11 +1,15 @@
 // The forum's venue list (FORUM_URL/des/venues, public), for the venue editor's picker. Cached for 10 minutes; when the
 // forum doesn't answer, the last copy is served marked stale, and with nothing cached the caller gets a 503.
+import type { VenueSurface } from "@track-studio/engine";
 import { HttpError } from "./errors.js";
 
 export interface ForumTrack {
   id: number;
   name: string;
+  /** the forum's word for it (DesVenueTrack::SURFACES: carpet, astroturf, grass, tarmac, dirt, mixed) */
   surface: string | null;
+  /** #190: the same in the format's words (templateSurface); null when the forum gives none or the format has no match */
+  templateSurface: VenueSurface | null;
   environment: string | null;
   width_m: number | null;
   length_m: number | null;
@@ -60,6 +64,19 @@ export function townFromAddress(address: unknown): string | null {
   return before || (at > 0 ? parts[at - 1] : null);
 }
 
+/**
+ * #190: the forum's track surfaces in the format's words. The forum is the source of a linked template's surface. Grass
+ * has no match in the format, so a grass track's template (and the layouts drawn on it) have no surface.
+ */
+const FORUM_SURFACES: Record<string, VenueSurface | null> = { carpet: "carpet", astroturf: "astro", tarmac: "tarmac", dirt: "dirt", mixed: "mixed", grass: null };
+
+/** A forum surface → the format's, or null (none given, grass, or a word neither knows). */
+export function templateSurface(forum: unknown): VenueSurface | null {
+  if (typeof forum !== "string") return null;
+  const key = forum.trim().toLowerCase();
+  return Object.hasOwn(FORUM_SURFACES, key) ? FORUM_SURFACES[key] : null;
+}
+
 /** The forum's answer → venues with id, name, town and tracks only. Throws if it isn't a venue list. */
 export function parseForumVenues(body: unknown): ForumVenue[] {
   const list = Array.isArray(body) ? body : isObject(body) && Array.isArray(body.venues) ? body.venues : null;
@@ -74,6 +91,7 @@ export function parseForumVenues(body: unknown): ForumVenue[] {
         id: t.id as number,
         name: str(t.name) ?? `Track ${t.id}`,
         surface: str(t.surface),
+        templateSurface: templateSurface(t.surface),
         environment: str(t.environment),
         width_m: metres(t.width_m),
         length_m: metres(t.length_m),

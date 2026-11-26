@@ -61,6 +61,8 @@ Select a layout to open its page. The page shows the plan, the lap length, the c
 
 **Venues** lists the club's venue templates. A venue template is a hall's usable track area, its surface, its rostrum side, its timing loop, its pit area and its fixed obstacles, such as pillars and fire exits. New layouts can start from one, and any layout can be checked against one.
 
+A template linked to a track on the forum takes its surface from that track's details on the forum, such as carpet or astroturf, with whether it's indoors or outdoors. Track Studio shows it but doesn't keep its own copy: to change it, follow **Set on the forum** to the venue's page on the forum and edit the track there. Track Studio picks up the change within 10 minutes. A grass track shows as grass, but layouts drawn there get no surface, because Track Studio has no grass surface yet. A template with no forum track has its own **Surface** to pick.
+
 The committee of the club that runs the venue on the forum, and Track Studio's organisers, add and edit venue templates. The committee's guide to setting up a venue is with the club guides on the [forum](https://forum.rcmisfits.org/).
 
 ![The Venues page: a card for each hall with its area, rostrum side and number of obstacles](img/venues.webp)
@@ -143,7 +145,7 @@ What you see now:
 
 - The **lanes** are green and the **pipes** are the white lines.
 - The dashed line is the **racing line**. Its arrows show the direction of travel.
-- Each **corner** has a numbered dot.
+- Each **corner** has a numbered dot. Corners are numbered the way racers count them, so a hairpin's two dots are one corner: **5a** and **5b**. The build sheet and the **Corners** figure use the same numbers.
 - The chequered line is the **start line**, with the grid boxes behind it.
 
 To take the whole lane up and begin again, use **Start again** in step 1.
@@ -161,7 +163,9 @@ You can also lay the lanes from the keyboard. Press <kbd>Tab</kbd> until the gri
 2. Drag the dot to move the corner.
 3. To make the corner more open, choose a preset under **Apex radius**: **Hairpin** (0 m), **Tight** (0.6 m), **Medium** (1.8 m) or **Sweeper** (4 m). Or type a radius, or drag the corner's **inside handle**, the blue dot on the inside pipe.
 
-![Corner 3 as a sweeper: the inside pipe now curves round with a 4 m radius](img/corner-sweeper.webp)
+![Corner 3 as a sweeper: the inside pipe now curves round with a 4 m radius, and its dot now reads 3a](img/corner-sweeper.webp)
+
+The numbers follow the track as you shape it. Here the sweeper runs straight into the next corner, so the two now count as one corner, **3a** and **3b**, and the corners after them move down a number.
 
 4. **Outside corner** sets the outside pipe: **Square** is two straight pipes meeting in a corner, **Round** follows the curve. **Auto** uses square up to a 120° turn and round beyond.
 
@@ -171,10 +175,10 @@ To remove a corner, select it and press <kbd>Delete</kbd>, right-click it, or us
 
 A hairpin is a U-turn: the track comes back alongside itself, one lane over.
 
-- **While laying the lanes**, turn back on yourself to make one. In the pictures above, corners 5 and 6 are a hairpin.
+- **While laying the lanes**, turn back on yourself to make one. In the first picture above, the dots **5a** and **5b** are a hairpin: one corner, drawn as two points.
 - **In Advanced mode**, you can turn any corner into a hairpin. Select the corner point and press <kbd>H</kbd>. On a phone, use **Make hairpin** in the corner's sheet. The corner becomes two points one lane apart.
 
-![Advanced mode, before the hairpin: corner point 8, top left, is selected, with its position, radius and lane width on the right](img/advanced-point.webp)
+![Advanced mode, before the hairpin: corner point 6, top left, is selected, with its position, radius and lane width on the right](img/advanced-point.webp)
 
 ![After Make hairpin: the corner is now two points a lane apart](img/hairpin.webp)
 
@@ -193,9 +197,9 @@ A straight is the run between two corners. There is no separate straight tool.
 2. Click the track where you want the new corner, or click the floor to add one after the selected corner. In Advanced mode, click a straight.
 3. Add point stays on, so you can add several. Press <kbd>A</kbd> or <kbd>Esc</kbd> to stop.
 
-![Add point switched on: a new corner 9 has been added on the left-hand straight, and its panel says it is on a straight line](img/add-point.webp)
+![Add point switched on: a new point has been added on the left-hand straight. Its dot has no number, and its panel is headed Point and says it is on a straight line](img/add-point.webp)
 
-A new corner on a straight does nothing until you drag it to make a turn.
+A new corner on a straight does nothing until you drag it to make a turn. Until then it isn't a corner, so its dot has no number.
 
 ### Jumps and ramps
 
@@ -533,7 +537,7 @@ The **Help** button on the build sheet opens this part of the guide.
 What is on it:
 
 - **The plan**, on a grid of 1 m squares with a bold line every 5 m, and every corner point numbered.
-- **Corner points**: how far each one is from the west wall and from the south wall, and which way it turns. Measure from the south-west corner of the track area. The points of one corner share its number, such as 5a and 5b. So the sheet's numbers can differ from the dots in the designer: a hairpin drawn as corners 5 and 6 there is 5a and 5b on the sheet.
+- **Corner points**: how far each one is from the west wall and from the south wall, and which way it turns. Measure from the south-west corner of the track area. The points of one corner share its number, such as 5a and 5b. These are the same numbers as the dots in the designer.
 - **Jumps**: the type, where it goes, and its length and height.
 - **Marshal points** and the **start line**, with their positions.
 - **The figures**: lap length, corners, track size, track area, how much pipe in how many runs, and the lane width.
