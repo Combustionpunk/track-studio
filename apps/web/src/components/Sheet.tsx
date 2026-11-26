@@ -10,7 +10,7 @@
 // - `modal` puts a scrim behind it that covers everything else (the overflow menu); a tap on the scrim closes it.
 // Focus stays inside while it is full or modal; Escape closes it. With reduced motion it shows without sliding.
 import { X } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 
 export type SheetHeight = "closed" | "peek" | "full";
 
@@ -57,6 +57,7 @@ export function Sheet({
   modal = false,
   hug = false,
   below = 0,
+  onRest,
   className,
   children,
 }: {
@@ -73,6 +74,9 @@ export function Sheet({
   hug?: boolean;
   /** the height of the bottom toolbar the sheet sits above, in px (the home-indicator inset is added to it) */
   below?: number;
+  /** where the sheet's top comes to rest at its height (clientY), told when it opens, changes height or the window
+   * resizes, and null when it closes: the slide-in and tucking don't count (#188: the plan keeps the selection clear of it) */
+  onRest?: (top: number | null) => void;
   className?: string;
   children: ReactNode;
 }) {
@@ -103,6 +107,27 @@ export function Sheet({
     setDrag(null);
   }, [open]);
 
+  // where it rests (#188)
+  const rest = useRef(onRest);
+  rest.current = onRest;
+  useLayoutEffect(() => {
+    if (!open || !rest.current) return;
+    const tell = () => {
+      const el = ref.current;
+      if (!el) return;
+      const { peek, full, content } = heights();
+      const tall = height === "full" ? (hug ? Math.min(content, full) : full) : peek;
+      rest.current?.(window.innerHeight - (parseFloat(getComputedStyle(el).bottom) || below) - tall);
+    };
+    tell();
+    window.addEventListener("resize", tell);
+    return () => {
+      window.removeEventListener("resize", tell);
+      rest.current?.(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, height, hug, below]);
+
   if (!open) return null;
 
   const inset = "env(safe-area-inset-bottom, 0px)";
@@ -123,7 +148,7 @@ export function Sheet({
     const full = vh - SHEET_TOP - (parseFloat(getComputedStyle(el).bottom) || below);
     const body = el.querySelector(".bottom-sheet-body")!;
     const content = el.offsetHeight - body.clientHeight + body.scrollHeight;
-    return { peek: Math.min(vh / 3, content, full), full };
+    return { peek: Math.min(vh / 3, content, full), full, content };
   };
 
   const down = (e: PointerEvent) => {

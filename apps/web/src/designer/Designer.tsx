@@ -338,6 +338,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   const [dismissed, setDismissed] = useState<string[]>([]);
   /** a finger (or the mouse) is dragging a handle past the slop: the phone's sheet tucks away until it lifts */
   const [handleDrag, setHandleDrag] = useState(false);
+  /** the phone (#188): where the selection sheet's top rests (clientY), while it's open */
+  const [selectionTop, setSelectionTop] = useState<number | null>(null);
+  /** handle drags on the phone that have ended: after one, the plan looks again at whether the corner is clear */
+  const [dragsDone, setDragsDone] = useState(0);
   /** a finger dragging a handle past the slop where the loupe is on (#125): where the finger is, and what it drags */
   const [loupeDrag, setLoupeDrag] = useState<{ client: Spot; d: DragKind } | null>(null);
   /** Checks' Show changes the selection: the Checks sheet stays (at peek) rather than giving way to the selection's */
@@ -766,7 +770,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       setShared(null);
       setSnapInfo(null);
       setDragging(null);
-      if (tucked) setHandleDrag(false);
+      if (tucked) {
+        setHandleDrag(false);
+        setDragsDone((n) => n + 1);
+      }
       if (loupeOn) setLoupeDrag(null);
       setPress((p) => (p?.done ? p : null)); // a long-press's ring stays while its corner is selected
       edit.current = null;
@@ -1738,6 +1745,10 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
     setPhoneSheet(null);
   };
   putSheetAway.current = () => phoneSheetHeight("closed");
+  /** the phone (#188): the selected corner stays clear of its sheet, so a finger can drag it straight away; the plan
+   * looks again when another corner is picked, the sheet changes height, or a drag ends */
+  const clearPt = phoneEdit && phoneSheet?.kind === "selection" && sel?.kind === "point" && selectionTop !== null ? draft.design.points[sel.i] : undefined;
+  const keepClear = clearPt && sel?.kind === "point" ? { key: `${sel.i}:${dragsDone}`, at: [clearPt.x, clearPt.z] as Point2, top: selectionTop! } : null;
   /** the plan, or the 3D view (on a phone, with its switch on: #127) */
   const plan = viewing3d ? (
     <Suspense
@@ -1789,6 +1800,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
       fitWidth={phoneEdit}
       loupe={loupe}
       fitRequest={fitRequest}
+      keepClear={keepClear}
       onSecondFinger={() => {
         edit.current?.cancel();
         setPress(null);
@@ -1871,6 +1883,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
                 sheet: phoneSheet,
                 onHeight: phoneSheetHeight,
                 tucked: handleDrag,
+                onSelectionRest: setSelectionTop,
                 panels,
                 built,
                 // the context sheet (#126): an action does it (one undo step) and puts the sheet away

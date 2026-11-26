@@ -219,6 +219,8 @@ export interface PhoneSheetsProps {
   details: PhoneDetailsProps;
   /** the context sheet (#126): an action picked for what's held */
   context: { onAction: (a: ContextActionKind) => void };
+  /** where the selection sheet's top rests, or null (#188: the plan keeps the selected corner clear of it) */
+  onSelectionRest?: (top: number | null) => void;
 }
 
 const LABEL: Record<Exclude<PhoneSheetKind, "selection" | "context">, string> = { checks: "Checks", jump: "Jumps", howto: "How to draw", save: "Save", details: "Layout details", menu: "More" };
@@ -227,7 +229,7 @@ const LABEL: Record<Exclude<PhoneSheetKind, "selection" | "context">, string> = 
 const TOOLBAR = 64;
 
 /** The open sheet, if any, above the toolbar. */
-export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps, menu, save, details, context }: PhoneSheetsProps) {
+export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps, menu, save, details, context, onSelectionRest }: PhoneSheetsProps) {
   if (!sheet) return null;
   const { kind, height } = sheet;
   const p = panels;
@@ -238,7 +240,7 @@ export function PhoneSheets({ sheet, onHeight, tucked, panels, built, jumps, men
   const hug = modal || kind === "context";
   return (
     // one Sheet per kind (keyed), so a new kind starts at its own top and slides in
-    <Sheet key={kind} label={label} height={height} onHeight={onHeight} tucked={tucked && !modal} modal={modal} hug={hug} below={modal ? 0 : TOOLBAR} className={`phone-sheet phone-sheet-${kind}`}>
+    <Sheet key={kind} label={label} height={height} onHeight={onHeight} tucked={tucked && !modal} modal={modal} hug={hug} below={modal ? 0 : TOOLBAR} onRest={kind === "selection" ? onSelectionRest : undefined} className={`phone-sheet phone-sheet-${kind}`}>
       {kind === "selection" ? (
         <SelectionPanel sel={p.sel} view={p.view} draft={p.drawn} live={p.live} update={p.update} onDelete={p.onDelete} onHairpin={p.onHairpin} fromVenue={p.venueName} inCorner={p.inCorner} touch phone />
       ) : kind === "context" ? (
