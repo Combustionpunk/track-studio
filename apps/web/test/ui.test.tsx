@@ -688,7 +688,7 @@ describe("track page", () => {
 
   it("an adaptation names its orientation the same way as the fit lists (#179)", () => {
     const d = { ...doc, info: { ...doc.info, derivedFrom: { id: "club-a", revision: 2, orientation: "mirrored, rotated 180" } } };
-    const h = page(can({ edit: true }), { status: "draft", derivedFrom: { id: "club-a", name: "Club A" } }, d);
+    const h = page(can({ edit: true }), { status: "draft", derivedFrom: { id: "club-a", name: "Club A", author: null } }, d);
     expect(text(h)).toContain("Adapted from Club A (revision 2, mirrored and turned round)");
   });
 
