@@ -151,8 +151,8 @@ describe("the selection sheet", () => {
 
   it("names the sheet after what's selected", () => {
     const d = draftFromDoc(clubA());
-    expect(sheetLabel({ kind: "point", i: 4 }, "quick", d)).toBe("Corner 5");
-    expect(sheetLabel({ kind: "point", i: 4 }, "advanced", d)).toBe("Corner point 5");
+    expect(sheetLabel({ kind: "point", i: 4 }, "quick", d)).toBe("Corner 5a"); // #176: club-a's hairpin, as the build sheet numbers it
+    expect(sheetLabel({ kind: "point", i: 4 }, "advanced", d)).toBe("Corner point 5a");
     expect(sheetLabel({ kind: "feature", i: 1 }, "quick", d)).toBe("Double");
     expect(sheetLabel({ kind: "start" }, "quick", d)).toBe("Start line");
   });
