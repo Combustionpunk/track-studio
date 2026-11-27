@@ -59,7 +59,9 @@ describe("the forum's surfaces in the format", () => {
     ["dirt", "dirt"],
     ["mixed", "mixed"],
     ["Carpet", "carpet"],
-    ["grass", null],
+    ["grass", "grass"], // #197: rctrack 1.14 / rcvenue 1.3
+    ["Grass", "grass"],
+    ["clay", "clay"], // once the forum has it (plugin #537)
     ["", null],
     [null, null],
     ["constructor", null],
@@ -73,7 +75,7 @@ describe("the forum's surfaces in the format", () => {
     const list = await new ForumVenues({ forumUrl: FORUM_URL, fetch, log: quiet }).list();
     expect(list.venues[0].tracks.map((t) => [t.surface, t.templateSurface])).toEqual([
       ["carpet", "carpet"],
-      ["grass", null],
+      ["grass", "grass"],
       [null, null],
     ]);
   });
@@ -88,12 +90,21 @@ describe("withForumSurface", () => {
     expect(out.forumTrack).toEqual({ known: true, surface: "carpet", environment: "indoor", stale: false });
   });
 
-  it("a forum surface with no match (grass) or none at all: the template has no surface", async () => {
+  it("a grass track on the forum: the template is grass (#197)", async () => {
     const { fetch } = forum();
     const fv = new ForumVenues({ forumUrl: FORUM_URL, fetch, log: quiet });
     const grass = await withForumSurface(doc({ surface: "astro", info: linked(32).info } as Partial<RcVenue>), fv);
-    expect(grass.doc).not.toHaveProperty("surface");
+    expect(grass.doc.surface).toBe("grass");
     expect(grass.forumTrack).toMatchObject({ known: true, surface: "grass", environment: "outdoor" });
+  });
+
+  it("a forum surface with no match or none at all: the template has no surface", async () => {
+    const f = forum();
+    f.state.tracks[1].surface = "lava";
+    const fv = new ForumVenues({ forumUrl: FORUM_URL, fetch: f.fetch, log: quiet });
+    const lava = await withForumSurface(doc({ surface: "astro", info: linked(32).info } as Partial<RcVenue>), fv);
+    expect(lava.doc).not.toHaveProperty("surface");
+    expect(lava.forumTrack).toMatchObject({ known: true, surface: "lava", environment: "outdoor" });
     const none = await withForumSurface(doc({ info: linked(33).info } as Partial<RcVenue>), fv);
     expect(none.doc).not.toHaveProperty("surface");
     expect(none.forumTrack).toMatchObject({ known: true, surface: null });
@@ -168,7 +179,7 @@ describe("venue templates and the forum's surface over the API", () => {
     const stored = JSON.parse(db.prepare("SELECT rcvenue_json FROM venue_revisions WHERE venue_id = ? AND revision = 1").pluck().get(venue.id)) as RcVenue;
     expect(stored).not.toHaveProperty("surface");
     // a forum value the format doesn't know isn't a reason to refuse the save either
-    const updated = await req(app, "PUT", `/api/venues/${venue.id}`, org, linked(31, { surface: "grass" }));
+    const updated = await req(app, "PUT", `/api/venues/${venue.id}`, org, linked(31, { surface: "sand" }));
     expect(updated.statusCode).toBe(200);
   });
 
@@ -179,7 +190,8 @@ describe("venue templates and the forum's surface over the API", () => {
     const res = (await req(app, "GET", `/api/venues/${venue.id}`)).json() as { doc: RcVenue; forumTrack: unknown };
     expect(res.doc.surface).toBe("astro");
     expect(res.forumTrack).toBeNull();
-    expect((await req(app, "POST", "/api/venues", org, { ...body, info: { name: "Barn", venue: null }, surface: "grass" })).statusCode).toBe(400);
+    expect((await req(app, "POST", "/api/venues", org, { ...body, info: { name: "Barn", venue: null }, surface: "sand" })).statusCode).toBe(400);
+    expect((await req(app, "POST", "/api/venues", org, { ...body, info: { name: "Field", venue: null }, surface: "grass" })).statusCode).toBe(201);
     expect(f.calls).not.toHaveBeenCalledWith(`${FORUM_URL}/des/venues`, expect.anything());
   });
 
@@ -201,15 +213,20 @@ describe("venue templates and the forum's surface over the API", () => {
     expect((res.json().doc as RcTrack).info.surface).toBe("astro");
   });
 
-  it("adapted to a grass track, or one with no surface on the forum, the copy has none (not the layout's own carpet)", async () => {
-    const { app, org, alice, f } = await setup();
+  it("adapted to a grass track, the copy is grass (#197); to one with no surface the format has, or none, it has none (not the layout's own carpet)", async () => {
+    const { app, org, alice } = await setup();
     const v = (await req(app, "GET", "/api/venues/venue-2")).json().doc as RcVenue;
     await req(app, "PUT", "/api/venues/venue-2", org, { ...v, info: { ...v.info, venue: { id: 12, name: "Niagara centre", trackId: 32, trackName: "Outdoor" } } });
     const grass = await req(app, "POST", `/api/tracks/${FREEFORM}/adapt/venue-2`, alice);
     expect(grass.statusCode).toBe(201);
-    expect(grass.json().doc.info).not.toHaveProperty("surface");
-    f.state.tracks[1].surface = null;
-    expect((await req(app, "POST", `/api/tracks/${FREEFORM}/adapt/venue-2`, alice)).json().doc.info).not.toHaveProperty("surface");
+    expect((grass.json().doc as RcTrack).info.surface).toBe("grass");
+    for (const word of ["lava", null]) {
+      const { app, org, alice, f } = await setup();
+      f.state.tracks[1].surface = word; // before the forum's list is first fetched (it is cached)
+      const v = (await req(app, "GET", "/api/venues/venue-2")).json().doc as RcVenue;
+      await req(app, "PUT", "/api/venues/venue-2", org, { ...v, info: { ...v.info, venue: { id: 12, name: "Niagara centre", trackId: 32, trackName: "Outdoor" } } });
+      expect((await req(app, "POST", `/api/tracks/${FREEFORM}/adapt/venue-2`, alice)).json().doc.info, String(word)).not.toHaveProperty("surface");
+    }
   });
 
   it("the forum can't say (track not on its list): the copy keeps the layout's own surface, as for a template without one", async () => {

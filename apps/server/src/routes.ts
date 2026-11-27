@@ -198,7 +198,7 @@ export function registerRoutes(app: FastifyInstance, db: DB, forumEvents: ForumE
     const revision = typeof body.revision === "number" ? body.revision : undefined;
     await trackFor(req, id);
     // #190: the copy takes the template's surface as served (a linked template's is the forum's); when the forum gives
-    // the track no surface the format has (grass, or none), the copy has none either, not the source layout's
+    // the track no surface the format has (an unknown word, or none), the copy has none either, not the source layout's
     const { doc: venue, forumTrack } = await withForumSurface(getVenueDoc(db, venueId), forumVenues);
     return reply.code(201).send(adaptTrack(db, user, id, venueId, orientation, revision, { venue, dropSurface: !!forumTrack?.known && !venue.surface }));
   });

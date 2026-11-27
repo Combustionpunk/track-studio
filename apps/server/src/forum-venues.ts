@@ -6,7 +6,7 @@ import { HttpError } from "./errors.js";
 export interface ForumTrack {
   id: number;
   name: string;
-  /** the forum's word for it (DesVenueTrack::SURFACES: carpet, astroturf, grass, tarmac, dirt, mixed) */
+  /** the forum's word for it (DesVenueTrack::SURFACES: carpet, astroturf, grass, tarmac, dirt, mixed; clay with plugin #537) */
   surface: string | null;
   /** #190: the same in the format's words (templateSurface); null when the forum gives none or the format has no match */
   templateSurface: VenueSurface | null;
@@ -65,12 +65,13 @@ export function townFromAddress(address: unknown): string | null {
 }
 
 /**
- * #190: the forum's track surfaces in the format's words. The forum is the source of a linked template's surface. Grass
- * has no match in the format, so a grass track's template (and the layouts drawn on it) have no surface.
+ * #190: the forum's track surfaces in the format's words. The forum is the source of a linked template's surface.
+ * #197: grass is in the format since rctrack 1.14 / rcvenue 1.3; clay is the format's already and maps as soon as the
+ * forum offers it (plugin #537). A word the format doesn't have gives the template (and layouts drawn on it) no surface.
  */
-const FORUM_SURFACES: Record<string, VenueSurface | null> = { carpet: "carpet", astroturf: "astro", tarmac: "tarmac", dirt: "dirt", mixed: "mixed", grass: null };
+const FORUM_SURFACES: Record<string, VenueSurface> = { carpet: "carpet", astroturf: "astro", grass: "grass", tarmac: "tarmac", dirt: "dirt", clay: "clay", mixed: "mixed" };
 
-/** A forum surface → the format's, or null (none given, grass, or a word neither knows). */
+/** A forum surface → the format's, or null (none given, or a word the format doesn't have). */
 export function templateSurface(forum: unknown): VenueSurface | null {
   if (typeof forum !== "string") return null;
   const key = forum.trim().toLowerCase();
