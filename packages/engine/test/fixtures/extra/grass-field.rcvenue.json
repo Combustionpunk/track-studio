@@ -1,0 +1,36 @@
+{
+ "format": "rcvenue",
+ "version": 1,
+ "id": "venue-x6",
+ "revision": 1,
+ "info": {
+  "name": "Grass field",
+  "venue": {
+   "id": 97,
+   "name": "Grass field",
+   "trackId": 971,
+   "trackName": "Outdoor"
+  },
+  "notes": "fixture"
+ },
+ "surface": "grass",
+ "area": {
+  "length": 30,
+  "width": 20
+ },
+ "rostrum": {
+  "side": "south",
+  "offset": 0
+ },
+ "obstacles": [
+  {
+   "type": "rect",
+   "kind": "pits",
+   "x": 12.0,
+   "z": 8.5,
+   "length": 5.0,
+   "width": 2.0,
+   "label": "Pits"
+  }
+ ]
+}

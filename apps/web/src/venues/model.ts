@@ -16,7 +16,11 @@ export interface VenueDraft {
   obstacles: Obstacle[];
 }
 
-export const SURFACE_LABEL: Record<VenueSurface, string> = { carpet: "Carpet", astro: "Astro", dirt: "Dirt", clay: "Clay", tarmac: "Tarmac", mixed: "Mixed" };
+export const SURFACE_LABEL: Record<VenueSurface, string> = { carpet: "Carpet", astro: "Astro", grass: "Grass", dirt: "Dirt", clay: "Clay", tarmac: "Tarmac", mixed: "Mixed" };
+
+/** #197: a template's surface as shown, or null: not given. One this Track Studio doesn't know (a newer file's) is "Other". */
+export const surfaceLabel = (s: string | null | undefined): string | null =>
+  !s ? null : Object.hasOwn(SURFACE_LABEL, s) ? SURFACE_LABEL[s as VenueSurface] : "Other";
 
 /** The server's input limits (apps/server/src/store.ts LIMITS). */
 export const MAX_AREA = 100;

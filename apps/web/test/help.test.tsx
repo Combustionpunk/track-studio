@@ -204,7 +204,8 @@ describe("the guide as /help shows it", () => {
     // #190: a linked template's surface is set on the forum
     expect(venues).toContain("takes its surface from that track's details on the forum");
     expect(venues).toContain("**Set on the forum**");
-    expect(venues).toMatch(/grass.*layouts drawn there get no surface/);
+    expect(venues).not.toMatch(/no grass surface/); // #197: grass is in the format
+    expect(venues).toMatch(/surface Track Studio doesn't have.*layouts drawn there get no surface/);
     expect(venues).toContain("A template with no forum track has its own **Surface** to pick.");
   });
 

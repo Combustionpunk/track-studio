@@ -104,6 +104,71 @@
    }
   }
  },
+ "club-a.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.3
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.3
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.3
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.3
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "club-a.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -379,6 +444,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "figure-eight-crossover.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -711,6 +841,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "freeform-at-sports-hall-b.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     0.5,
+     0.3
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.62,
+     0.3
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.62,
+     -0.42
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     0.5,
+     -0.42
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -1051,6 +1246,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "freeform-example.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -1475,6 +1735,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "closing-past-start.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     3.23,
+     -0.06
+    ],
+    "spare": [
+     17.5,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     17.5,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -3.36,
+     -0.06
+    ],
+    "spare": [
+     17.5,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     3.23,
+     -0.06
+    ],
+    "spare": [
+     17.5,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     3.23
+    ],
+    "spare": [
+     18.1,
+     7.5
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -3.36
+    ],
+    "spare": [
+     18.1,
+     7.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -3.36
+    ],
+    "spare": [
+     18.1,
+     7.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     3.23
+    ],
+    "spare": [
+     18.1,
+     7.5
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -1968,6 +2345,71 @@
    }
   }
  },
+ "crossover-figure8.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "crossover-figure8.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -2294,6 +2736,71 @@
    }
   }
  },
+ "crossover-low-figure8.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "crossover-low-figure8.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -2616,6 +3123,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "crossover-unused-figure8.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -2987,6 +3559,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-clip.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     14.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     14.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     14.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     14.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     18.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     18.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     18.1,
+     4.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     18.1,
+     4.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -3621,6 +4310,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "diagonal-past-lane.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     6.94,
+     1.51
+    ],
+    "spare": [
+     22.1,
+     12.9
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -7.06,
+     1.51
+    ],
+    "spare": [
+     22.1,
+     12.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -7.06,
+     -1.66
+    ],
+    "spare": [
+     22.1,
+     12.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     6.94,
+     -1.66
+    ],
+    "spare": [
+     22.1,
+     12.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -1.66,
+     6.94
+    ],
+    "spare": [
+     22.9,
+     12.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     1.51,
+     -7.06
+    ],
+    "spare": [
+     22.9,
+     12.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -1.66,
+     -7.06
+    ],
+    "spare": [
+     22.9,
+     12.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     1.51,
+     6.94
+    ],
+    "spare": [
+     22.9,
+     12.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -4452,6 +5258,123 @@
    }
   }
  },
+ "jump-across-start.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     10.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     10.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     10.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     10.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     20.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     20.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     20.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     20.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "jump-across-start.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -4882,6 +5805,71 @@
    }
   }
  },
+ "lane-beside-v-point.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "lane-beside-v-point.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -5199,6 +6187,79 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "missed-crossing.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.01,
+     -0.31
+    ],
+    "spare": [
+     6.6,
+     4.6
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.01,
+     -0.31
+    ],
+    "spare": [
+     6.6,
+     4.6
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.01,
+     -0.31
+    ],
+    "spare": [
+     6.6,
+     4.6
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.01,
+     -0.31
+    ],
+    "spare": [
+     6.6,
+     4.6
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 9.56,
+     "z": 7.56,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -5536,6 +6597,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "narrow-oval.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.16,
+     -0.16
+    ],
+    "spare": [
+     12.7,
+     11.7
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     0.04,
+     -0.16
+    ],
+    "spare": [
+     12.7,
+     11.7
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     0.04,
+     0.04
+    ],
+    "spare": [
+     12.7,
+     11.7
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.16,
+     0.04
+    ],
+    "spare": [
+     12.7,
+     11.7
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.04,
+     -0.16
+    ],
+    "spare": [
+     21.7,
+     2.7
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.16,
+     0.04
+    ],
+    "spare": [
+     21.7,
+     2.7
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     0.04,
+     0.04
+    ],
+    "spare": [
+     21.7,
+     2.7
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.16,
+     -0.16
+    ],
+    "spare": [
+     21.7,
+     2.7
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -5892,6 +7070,79 @@
    }
   }
  },
+ "nested-corners.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -1.56,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -1.56,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -1.56,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -1.56,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     2.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [
+    {
+     "level": "error",
+     "code": "obstacle",
+     "x": 9.51,
+     "z": 7.51,
+     "message": "Track overlaps a fixed obstacle"
+    }
+   ],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "nested-corners.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -6173,6 +7424,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "outside-and-obstacles.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     0.62,
+     -0.13
+    ],
+    "spare": [
+     9.7,
+     9.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.64,
+     -0.13
+    ],
+    "spare": [
+     9.6,
+     9.0
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.74,
+     0.06
+    ],
+    "spare": [
+     9.7,
+     8.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     0.72,
+     0.06
+    ],
+    "spare": [
+     9.6,
+     8.9
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -6589,6 +7905,71 @@
    }
   }
  },
+ "overlap-beside-crossing.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "overlap-beside-crossing.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -6962,6 +8343,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "overlap-straights.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -7415,6 +8913,123 @@
    }
   }
  },
+ "peel-round.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "peel-round.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -7838,6 +9453,123 @@
    }
   }
  },
+ "peel-square.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "peel-square.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -8201,6 +9933,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shallow-crossing.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.05
+    ],
+    "spare": [
+     6.1,
+     12.3
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.05
+    ],
+    "spare": [
+     6.1,
+     12.3
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.05
+    ],
+    "spare": [
+     6.1,
+     12.3
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.05
+    ],
+    "spare": [
+     6.1,
+     12.3
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -8578,6 +10375,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights-4cm.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -9065,6 +10979,123 @@
    }
   }
  },
+ "shared-straights-6cm.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "shared-straights-6cm.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -9544,6 +11575,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "shared-straights.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     10.1,
+     9.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     19.1,
+     0.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -10079,6 +12227,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "sharp-v.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     2.04,
+     0.64
+    ],
+    "spare": [
+     16.2,
+     11.4
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -1.99,
+     0.64
+    ],
+    "spare": [
+     16.2,
+     11.4
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -1.99,
+     -0.62
+    ],
+    "spare": [
+     16.2,
+     11.4
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     2.04,
+     -0.62
+    ],
+    "spare": [
+     16.2,
+     11.4
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.62,
+     2.04
+    ],
+    "spare": [
+     21.4,
+     6.2
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     0.64,
+     -1.99
+    ],
+    "spare": [
+     21.4,
+     6.2
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.62,
+     -1.99
+    ],
+    "spare": [
+     21.4,
+     6.2
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     0.64,
+     2.04
+    ],
+    "spare": [
+     21.4,
+     6.2
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -10742,6 +13007,71 @@
    }
   }
  },
+ "short-legs-overlap.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "short-legs-overlap.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -11123,6 +13453,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "short-legs-squeeze.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -11512,6 +13907,71 @@
    }
   }
  },
+ "square-fill.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "square-fill.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -11844,6 +14304,71 @@
    }
   }
  },
+ "start-on-ramp.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "start-on-ramp.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -12120,6 +14645,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "switchbacks.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     0.09,
+     -0.11
+    ],
+    "spare": [
+     7.1,
+     7.5
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.21,
+     -0.11
+    ],
+    "spare": [
+     7.1,
+     7.5
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.21,
+     -0.01
+    ],
+    "spare": [
+     7.1,
+     7.5
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     0.09,
+     -0.01
+    ],
+    "spare": [
+     7.1,
+     7.5
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -12414,6 +15004,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "tabletop-figure8.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -12744,6 +15399,71 @@
    }
   }
  },
+ "tabletop-low-figure8.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "tabletop-low-figure8.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -13058,6 +15778,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "test-squeezed-corner.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     8.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -13439,6 +16224,123 @@
    }
   }
  },
+ "tight-hairpin.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     1.84,
+     -0.06
+    ],
+    "spare": [
+     13.8,
+     10.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -1.84,
+     -0.06
+    ],
+    "spare": [
+     13.8,
+     10.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -1.84,
+     -0.06
+    ],
+    "spare": [
+     13.8,
+     10.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     1.84,
+     -0.06
+    ],
+    "spare": [
+     13.8,
+     10.1
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     1.84
+    ],
+    "spare": [
+     20.1,
+     3.8
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -1.84
+    ],
+    "spare": [
+     20.1,
+     3.8
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -1.84
+    ],
+    "spare": [
+     20.1,
+     3.8
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     1.84
+    ],
+    "spare": [
+     20.1,
+     3.8
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "tight-hairpin.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -13798,6 +16700,71 @@
    }
   }
  },
+ "two-crossings.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     0.44
+    ],
+    "spare": [
+     8.1,
+     7.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     0.44
+    ],
+    "spare": [
+     8.1,
+     7.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.56
+    ],
+    "spare": [
+     8.1,
+     7.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.56
+    ],
+    "spare": [
+     8.1,
+     7.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
  "two-crossings.rctrack.json | loop-angled.rcvenue.json": {
   "fits": [],
   "check": {
@@ -14101,6 +17068,71 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "unbridged-figure8.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -0.06,
+     -0.06
+    ],
+    "spare": [
+     8.1,
+     6.1
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }
@@ -14681,6 +17713,123 @@
     "side": "south",
     "x": 3.0,
     "z": -8.5,
+    "eyeHeight": 2.8
+   }
+  }
+ },
+ "v-points-at-edge.rctrack.json | grass-field.rcvenue.json": {
+  "fits": [
+   {
+    "orientation": "as designed",
+    "rotation": 0,
+    "mirror": false,
+    "shift": [
+     -7.97,
+     -0.97
+    ],
+    "spare": [
+     25.0,
+     15.0
+    ]
+   },
+   {
+    "orientation": "mirrored",
+    "rotation": 0,
+    "mirror": true,
+    "shift": [
+     7.93,
+     -1.07
+    ],
+    "spare": [
+     24.9,
+     14.9
+    ]
+   },
+   {
+    "orientation": "rotated 180",
+    "rotation": 180,
+    "mirror": false,
+    "shift": [
+     8.03,
+     1.03
+    ],
+    "spare": [
+     25.0,
+     15.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 180",
+    "rotation": 180,
+    "mirror": true,
+    "shift": [
+     -8.07,
+     0.93
+    ],
+    "spare": [
+     24.9,
+     14.9
+    ]
+   },
+   {
+    "orientation": "rotated 90",
+    "rotation": 90,
+    "mirror": false,
+    "shift": [
+     0.93,
+     -8.07
+    ],
+    "spare": [
+     24.9,
+     14.9
+    ]
+   },
+   {
+    "orientation": "rotated 270",
+    "rotation": 270,
+    "mirror": false,
+    "shift": [
+     -1.07,
+     7.93
+    ],
+    "spare": [
+     24.9,
+     14.9
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 90",
+    "rotation": 90,
+    "mirror": true,
+    "shift": [
+     1.03,
+     8.03
+    ],
+    "spare": [
+     25.0,
+     15.0
+    ]
+   },
+   {
+    "orientation": "mirrored, rotated 270",
+    "rotation": 270,
+    "mirror": true,
+    "shift": [
+     -0.97,
+     -7.97
+    ],
+    "spare": [
+     25.0,
+     15.0
+    ]
+   }
+  ],
+  "check": {
+   "checks": [],
+   "rostrum": {
+    "side": "south",
+    "x": 0.0,
+    "z": -11.5,
     "eyeHeight": 2.8
    }
   }

@@ -2,14 +2,14 @@
 // (GET /api/forum-venues). Pure, so it can be tested without a browser. Forum sizes are metres: length_m east–west
 // (the template's area.length), width_m north–south (area.width).
 import type { Area, RcVenue, VenueSurface } from "@track-studio/engine";
-import { blankVenue, SURFACE_LABEL, surfaceFromForum, type VenueDraft } from "./model.js";
+import { blankVenue, surfaceFromForum, surfaceLabel, type VenueDraft } from "./model.js";
 
 export interface ForumTrack {
   id: number;
   name: string;
-  /** the forum's word (carpet, astroturf, grass, tarmac, dirt, mixed) */
+  /** the forum's word (carpet, astroturf, grass, tarmac, dirt, mixed; clay with plugin #537) */
   surface?: string | null;
-  /** #190: the same in the format's words; null when the format has no match (grass) */
+  /** #190: the same in the format's words; null when the format has no match */
   templateSurface?: VenueSurface | null;
   environment?: string | null;
   width_m?: number | null;
@@ -115,13 +115,13 @@ export interface SurfaceView {
 
 /**
  * A template's surface as pages show it. Linked to a forum track (`facts` given): the forum's, which the server has
- * put on the doc in the format's words; a forum surface with no match (grass) is shown as the forum says it, with a
+ * put on the doc in the format's words; a forum surface with no match is shown as the forum says it, with a
  * note. Not linked (`facts` null): the template's own.
  */
 export function surfaceView(doc: Pick<RcVenue, "surface" | "info">, facts: ForumTrackFacts | null | undefined, templateSurface?: VenueSurface | null): SurfaceView {
-  if (!facts || !surfaceFromForum(doc.info.venue)) return { surface: doc.surface ? SURFACE_LABEL[doc.surface] : null, environment: null, fromForum: false, note: null };
+  if (!facts || !surfaceFromForum(doc.info.venue)) return { surface: surfaceLabel(doc.surface), environment: null, fromForum: false, note: null };
   const mapped = templateSurface !== undefined ? templateSurface : doc.surface;
-  const surface = mapped ? SURFACE_LABEL[mapped] : upper(facts.surface);
+  const surface = mapped ? surfaceLabel(mapped) : upper(facts.surface);
   const note = !mapped && facts.surface ? `Track Studio has no ${facts.surface.toLowerCase()} surface, so layouts drawn here don't get one.` : null;
   return { surface, environment: upper(facts.environment), fromForum: true, note };
 }

@@ -17,9 +17,10 @@ const example = JSON.parse(readFileSync(fileURLToPath(new URL("../../../referenc
 const hallB = JSON.parse(readFileSync(fileURLToPath(new URL("../../../reference/venues/sports-hall-b.rcvenue.json", import.meta.url)), "utf8"));
 const SHOTS = process.env.SHOTS;
 
-/** the forum's venue list: Niagara centre's winter track is indoor carpet */
+/** the forum's venue list: Niagara centre's winter track is indoor carpet; SOAR's (#197) is an outdoor grass field */
 const FORUM_VENUES = [
   { id: 12, name: "Niagara centre", address: "Niagara Road, Sheffield, S6 1LU", tracks: [{ id: 31, name: "Indoor (Winter)", surface: "carpet", environment: "indoor", width_m: null, length_m: null }] },
+  { id: 13, name: "SOAR", address: "Sheffield, S6 2AA", tracks: [{ id: 41, name: "Field", surface: "grass", environment: "outdoor", width_m: null, length_m: null }] },
 ];
 
 const freePort = () =>
@@ -52,6 +53,7 @@ test.describe("a linked venue template's surface comes from the forum", () => {
       const json = (status: number, body: unknown) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
       if (req.url === "/des/venues") return json(200, { venues: FORUM_VENUES });
       if (req.url === "/des/venues/12") return json(200, { venue: { id: 12, name: "Niagara centre", managing_organisation: null } });
+      if (req.url === "/des/venues/13") return json(200, { venue: { id: 13, name: "SOAR", managing_organisation: null } });
       return json(404, { error: "not found" });
     });
     await new Promise<void>((resolve) => forum.listen(forumPort, "127.0.0.1", resolve));
@@ -155,6 +157,35 @@ test.describe("a linked venue template's surface comes from the forum", () => {
     expect(copy.doc.info.surface).toBe("carpet");
   });
 
+  test("#197: SOAR's linked grass field shows Grass, and a copy made for it is grass", async ({ browser }) => {
+    test.setTimeout(120_000);
+    const olive = await visitor(browser, "olive", true);
+    const id = await template(olive, { name: "SOAR – Field", venue: { id: 13, name: "SOAR", trackId: 41, trackName: "Field" } });
+
+    await olive.goto(`/v/${id}`);
+    const details = olive.locator("dl.details");
+    await expect(details).toContainText("Grass · Outdoor");
+    await expect(olive.locator("main")).not.toContainText("no grass surface");
+    if (SHOTS) await olive.screenshot({ path: `${SHOTS}/venue-page-grass-1200.png` });
+    await olive.goto(`/v/${id}/edit`);
+    await expect(olive.getByRole("group", { name: "Surface" })).toContainText("Grass · Outdoor");
+
+    const alice = await visitor(browser, "alice");
+    const { surface: _own, ...info } = example.info;
+    const created = await alice.request.post("/api/tracks", { data: { track: { ...example, info, design: { ...example.design, marshals: undefined } } }, headers: { origin: base } });
+    expect(created.status(), await created.text()).toBe(201);
+    const trackId = (await created.json()).track.id as string;
+    await alice.goto(`/t/${trackId}?fit=${id}`);
+    await expect(alice.locator("#fit-panel")).toContainText("grass)");
+    await expect(alice.locator("#fit-panel")).toContainText("the venue's surface (grass)");
+    await alice.getByRole("button", { name: /Make a copy for SOAR/ }).click();
+    await alice.waitForURL((url) => url.pathname.startsWith("/t/") && !url.pathname.includes(trackId));
+    const copyId = /^\/t\/([^/]+)/.exec(new URL(alice.url()).pathname)![1];
+    const copy = await (await alice.request.get(`/api/tracks/${copyId}`)).json();
+    expect(copy.doc.info.surface).toBe("grass");
+    await expect(alice.locator("main")).toContainText("Grass");
+  });
+
   test("an unlinked template still sets its surface by hand", async ({ browser }) => {
     const olive = await visitor(browser, "olive", true);
     const id = await template(olive, { name: "Scout hut", venue: null }, "astro");
@@ -167,6 +198,12 @@ test.describe("a linked venue template's surface comes from the forum", () => {
     await select.selectOption("tarmac");
     await olive.getByRole("button", { name: /^Save/ }).click();
     await expect.poll(async () => (await (await olive.request.get(`/api/venues/${id}`)).json()).doc.surface).toBe("tarmac");
+    // #197: Grass is in the list
+    await olive.goto(`/v/${id}/edit`);
+    await expect(select.locator("option", { hasText: "Grass" })).toHaveAttribute("value", "grass");
+    await select.selectOption("grass");
+    await olive.getByRole("button", { name: /^Save/ }).click();
+    await expect.poll(async () => (await (await olive.request.get(`/api/venues/${id}`)).json()).doc.surface).toBe("grass");
     if (SHOTS) await olive.screenshot({ path: `${SHOTS}/editor-unlinked-1200.png` });
   });
 });
