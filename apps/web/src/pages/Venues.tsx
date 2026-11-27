@@ -266,8 +266,7 @@ function VenueRevisions({ id, current, revs, error }: { id: string; current: num
               <span className="rev-btn">
                 <span className="rev-n">r{r.revision}</span>
                 <span className="rev-meta">
-                  {fmt.date(r.createdAt)} · {fmt.author(r.createdBy)} · {fmt.size(r.area, true)} · {r.obstacles === 1 ? "1 obstacle" : `${r.obstacles} obstacles`}
-                  {r.revision === current ? " · latest" : ""}
+                  {fmt.venueRevisionMeta(r, r.revision === current)}
                 </span>
               </span>
               <a className="btn btn-quiet btn-icon rev-dl" href={r.downloadUrl} aria-label={`Download revision ${r.revision}`} title={`Download revision ${r.revision} (.rcvenue.json)`}>

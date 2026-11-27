@@ -45,3 +45,11 @@ export const FEATURE_LABEL: Record<string, string> = {
 /** Slug for download file names, like the server's. */
 export const slug = (s: string) =>
   s.normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 60) || "track";
+
+/** The venue page's revision line: " · 6 Nov 2026 · Name · 22 × 12 m · 0 obstacles · latest", shown after the "r1" label so the two never run together. */
+export function venueRevisionMeta(
+  r: { createdAt: string; createdBy: UserRef; area: Parameters<typeof size>[0]; obstacles: number },
+  latest: boolean,
+): string {
+  return ` · ${date(r.createdAt)} · ${author(r.createdBy)} · ${size(r.area, true)} · ${r.obstacles === 1 ? "1 obstacle" : `${r.obstacles} obstacles`}${latest ? " · latest" : ""}`;
+}
