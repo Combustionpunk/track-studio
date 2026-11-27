@@ -61,7 +61,7 @@ Select a layout to open its page. The page shows the plan, the lap length, the c
 
 **Venues** lists the club's venue templates. A venue template is a hall's usable track area, its surface, its rostrum side, its timing loop, its pit area and its fixed obstacles, such as pillars and fire exits. New layouts can start from one, and any layout can be checked against one.
 
-A template linked to a track on the forum takes its surface from that track's details on the forum, such as carpet or astroturf, with whether it's indoors or outdoors. Track Studio shows it but doesn't keep its own copy: to change it, follow **Set on the forum** to the venue's page on the forum and edit the track there. Track Studio picks up the change within 10 minutes. A grass track shows as grass, but layouts drawn there get no surface, because Track Studio has no grass surface yet. A template with no forum track has its own **Surface** to pick.
+A template linked to a track on the forum takes its surface from that track's details on the forum, such as carpet, astroturf or grass, with whether it's indoors or outdoors. Track Studio shows it but doesn't keep its own copy: to change it, follow **Set on the forum** to the venue's page on the forum and edit the track there. Track Studio picks up the change within 10 minutes. Layouts drawn there take the same surface. If the forum ever lists a surface Track Studio doesn't have, the template shows it as the forum says, but layouts drawn there get no surface. A template with no forum track has its own **Surface** to pick.
 
 The committee of the club that runs the venue on the forum, and Track Studio's organisers, add and edit venue templates. The committee's guide to setting up a venue is with the club guides on the [forum](https://forum.rcmisfits.org/).
 
@@ -732,7 +732,7 @@ The library and a layout's page are a single column.
 
 ![The phone's plan zoomed in on the middle of the track, with corners easy to tell apart](img/phone-zoomed.webp)
 
-2. **Tap a corner** to select it. Its sheet slides up with the radius presets. Drag the corner to move it. A magnifier shows what is under your finger while you drag.
+2. **Tap a corner** to select it. Its sheet slides up with the radius presets. If the corner is low on the plan, the plan moves it up above the sheet, and back when the sheet closes (unless you moved the plan yourself meanwhile). Drag the corner to move it. A magnifier shows what is under your finger while you drag.
 
 ![Corner 4 selected on a phone: its sheet shows Hairpin, Tight, Medium and Sweeper and the apex radius](img/phone-selection.webp)
 

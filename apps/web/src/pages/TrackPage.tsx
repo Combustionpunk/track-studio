@@ -15,6 +15,7 @@ import { useSession } from "../lib/session.js";
 import { estimateSeconds, lapTime, recordTime, speedFor, useClassSpeeds } from "../lib/laps.js";
 import { defaultRostrumSide, readRostrum, writeRostrum } from "../viewer3d/rostrum.js";
 import { hasWebGL } from "../viewer3d/support.js";
+import { surfaceLabel } from "../venues/model.js";
 import { NotFound } from "./NotFound.js";
 
 // three.js and the 3D view load only when 3D is opened (#83)
@@ -165,9 +166,6 @@ const Back = () => (
     Library
   </Link>
 );
-
-/** "Carpet", or nothing: the layout's own surface, else (#173) its venue template's. */
-const surfaceOf = (s: string | undefined) => (s ? s[0].toUpperCase() + s.slice(1) : null);
 
 export function TrackPage() {
   const { id = "" } = useParams();
@@ -485,7 +483,8 @@ export function TrackPage() {
                     {Math.round(b.stats.dividerLength)} m of pipe in {b.stats.dividerRuns} runs
                   </li>
                 )}
-                {surfaceOf(doc.info?.surface ?? venueDoc?.surface) && <li>{surfaceOf(doc.info?.surface ?? venueDoc?.surface)}</li>}
+                {/* the layout's own surface, else (#173) its venue template's; (#197) one this Track Studio doesn't know is "Other" */}
+                {surfaceLabel(doc.info?.surface ?? venueDoc?.surface) && <li>{surfaceLabel(doc.info?.surface ?? venueDoc?.surface)}</li>}
                 {doc.info?.classes?.length ? <li>{doc.info.classes.join(", ")}</li> : null}
                 <li>Plan drawn from revision {rev}</li>
               </ul>

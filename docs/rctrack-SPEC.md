@@ -1,4 +1,4 @@
-# rctrack — shared track format (v1.13)
+# rctrack — shared track format (v1.14)
 
 One file describes a track for the forum, the real world and the sim. Designers write it; the forum stores,
 previews and links it to venues and meetings; the sim imports it. Files are JSON, extension `.rctrack.json`.
@@ -25,7 +25,7 @@ the layout) and to check a layout against a venue (the fit search, which says wh
 |---|---|
 | `format`, `version` | `"rctrack"`, `1` |
 | `id`, `revision` | UUID stable across edits; revision increments on every saved change. Meetings pin a revision. |
-| `info` | name, author (forum username), dates, description, venue `{id, name}`, status `draft / submitted / approved / archived`, surface (`carpet / astro / dirt / clay / tarmac / mixed / other`; *1.13*: a layout drawn for or adapted to a venue template takes the template's), classes, tags, `derivedFrom` (below), `drawnFor` *(v1.7)*: `{venueTemplate, name}`, the venue template the layout was drawn for — a label for people browsing ("drawn for …"); nothing checks it |
+| `info` | name, author (forum username), dates, description, venue `{id, name}`, status `draft / submitted / approved / archived`, surface (`carpet / astro / grass / dirt / clay / tarmac / mixed / other`; *1.13*: a layout drawn for or adapted to a venue template takes the template's; *1.14*: `grass`), classes, tags, `derivedFrom` (below), `drawnFor` *(v1.7)*: `{venueTemplate, name}`, the venue template the layout was drawn for — a label for people browsing ("drawn for …"); nothing checks it |
 | `area` | optional *(v1.7)*: `{length, width}` in metres, the drawing area the designer used (a venue template's, or set for a blank design). No check depends on it. Without it, draw the layout on the smallest box centred on the origin, in whole metres, that holds `built.size` with 0.5 m to spare (`drawingArea` in the engine) |
 | `design` | editable inputs, below |
 | `built` | derived geometry, below |
@@ -252,9 +252,14 @@ A template is used for two things only *(v1.7)*:
 2. **Checking a layout against the venue:** the fit search and venue checks below.
 
 **Surface, timing loop, pit area and rostrum** *(rcvenue 1.2, rctrack 1.13)*, all optional:
-- `surface`: `carpet`, `astro`, `dirt`, `clay`, `tarmac` or `mixed`, what the track is laid on. Starting a layout from the
-  template, or adapting one to it, sets the layout's `info.surface` to it, so a reader of the layout (the sim) has it
-  without the template.
+- `surface`: `carpet`, `astro`, `grass` *(rcvenue 1.3)*, `dirt`, `clay`, `tarmac` or `mixed`, what the track is laid on.
+  Starting a layout from the template, or adapting one to it, sets the layout's `info.surface` to it, so a reader of the
+  layout (the sim) has it without the template. A template linked to a forum track is served with the forum track's
+  surface; it isn't stored. (Track Studio maps the forum's words: `carpet`, `astroturf` → `astro`, `grass`, `tarmac`,
+  `dirt`, `clay` and `mixed`; a word the format doesn't have gives the template no surface.) A reader that meets a
+  surface it doesn't know, in a template or a layout, treats it as `other` (shows it as "Other" or as its text) and
+  never refuses the file for it. (Writers are stricter: Track Studio's save checks the file against its own schema and
+  refuses a word it doesn't have.)
 - `timingLoop: {x, z, heading, length}`: the timing loop fixed in the floor, the one track feature every layout must
   respect. `x, z` its centre; `heading` the direction the track runs over it (degrees, 0 = +x, counter-clockwise);
   `length` its span across the track (m). The venue checks warn (`timing-loop`) when a layout's start/finish isn't over
@@ -266,6 +271,8 @@ A template is used for two things only *(v1.7)*:
   area); a rostrum zone is only floor the track can't use.
 
 rcvenue changes:
+- **1.3** *(rctrack 1.14)* — `surface` may also be `grass`. `version` stays `1`; 1.2 files load and check exactly as
+  before.
 - **1.2** — `surface`, `timingLoop` and `obstacles[].kind` (above). `version` stays `1`; 1.1 files have none of them
   and load and check exactly as before. Older readers ignore the keys and treat zones as obstacles, which is right
   for the fit.
@@ -334,7 +341,7 @@ use this) and the public revision, approved if there is one, else the latest, at
   version (1.10 in the title) is the engine's; it is in `built.generator` for information and readers don't branch
   on it.
 - A reader **ignores keys it doesn't know**, at every level. A check code it doesn't know is treated as the `level` it
-  carries (see `built.checks`). A `features[].type` it doesn't know is built from its `profile` like any ramp.
+  carries (see `built.checks`). An `info.surface` (or a template's `surface`) it doesn't know is treated as `other`. A `features[].type` it doesn't know is built from its `profile` like any ramp.
 
 **What `built` always has.** `generator`, `lapLength`, `racingLine`, `dividers`, `features` (may be empty),
 `startLine`, `checks` (may be empty), `stats` and `footprint`; and `lanes` and `size` in every file baked by 1.4 or
@@ -373,6 +380,12 @@ venue). `figure-eight-crossover` has no cones and no `built.marshals` key. Each 
 (`*.preview.svg`) to compare against.
 
 ## Changes
+- **1.14** — a new surface, `grass` (SOAR races on grass), for layouts' `info.surface` and venue templates' `surface`
+  (rcvenue 1.3). A template linked to a forum grass track is grass, and so are the layouts drawn for or adapted to it.
+  `version` stays `1`. **Nothing re-bakes:** `built` is unchanged and the generator strings stay at 1.12; fit results
+  are unchanged. Readers never branch on the surface to build a track: an older reader draws a 1.14 file exactly as
+  before, and shows `grass` as an unknown surface (as text, or "Other"; see *Compatibility for consumers*). A reader that
+  validates files against the 1.13 schema refuses `grass`; validate against the 1.14 schema, or don't check `surface`.
 - **1.13** — venue templates gain a surface, a timing loop and pit area / rostrum zones (rcvenue 1.2, *Venue
   templates*), and the venue checks a warning, `timing-loop`, when a layout's start/finish isn't over the venue's loop.
   In the layout: `info.surface` may also be `dirt`, `tarmac` or `mixed` (it was `carpet`, `astro`, `clay` or `other`),

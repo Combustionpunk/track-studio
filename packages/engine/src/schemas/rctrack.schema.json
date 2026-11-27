@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://forum.rcmisfits.org/schemas/rctrack-v1.json",
-  "title": "RC track design (rctrack v1.13)",
+  "title": "RC track design (rctrack v1.14)",
   "type": "object",
   "required": [
     "format",
@@ -77,6 +77,7 @@
           "enum": [
             "carpet",
             "astro",
+            "grass",
             "dirt",
             "clay",
             "tarmac",

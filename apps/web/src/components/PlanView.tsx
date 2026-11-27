@@ -7,7 +7,7 @@ import { Layers as LayersIcon, Scan, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { FEATURE_LABEL, metres } from "../lib/format.js";
 import { useElementSize } from "../lib/hooks.js";
-import { areaBounds, fitView, pan, viewBox, zoomAt, type View } from "../lib/plan.js";
+import { areaBounds, clearOf, fitView, pan, viewBox, zoomAt, type View } from "../lib/plan.js";
 import { Fingers, pinchView, TAP_SLOP_PX, type Spot } from "../lib/touch.js";
 import { LOUPE_PX, LOUPE_ZOOM, loupePlace, loupeViewBox } from "../lib/loupe.js";
 
@@ -71,6 +71,12 @@ export interface PlanViewProps {
   /** a finger dragging a handle (#125): a magnified circle of the plan round `at`, placed by the finger (`client`, page
    * px), with a readout. Mounted only while set. */
   loupe?: LoupeProps | null;
+  /** a point to keep clear of a sheet over the bottom of the plan (#188: the phone's selection sheet and its corner),
+   * `top` being where the sheet's top rests (clientY). The plan pans up, smoothly, just enough to put the point a
+   * finger's reach above it, and looks again when `key` or `top` changes. Taken away (null), the plan pans back to the
+   * view it left, unless the member has moved the plan since. `at` null holds the plan where it is (the sheet is still
+   * open, for something else). */
+  keepClear?: { key: string; at: Point2 | null; top: number } | null;
 }
 
 export interface LoupeProps {
@@ -86,9 +92,16 @@ export interface LoupeProps {
 }
 
 const MAX_SCALE = 400; // px per metre
+/** how far above a sheet a point it keeps clear goes: a finger's reach (#188) */
+const CLEAR_PX = 56;
+/** how long the plan takes to pan to a point it keeps clear, or back (as long as the sheet takes to slide in) */
+const GLIDE_MS = 200;
+
+const lerp = (a: View, b: View, k: number): View => ({ cx: a.cx + (b.cx - a.cx) * k, cy: a.cy + (b.cy - a.cy) * k, s: a.s + (b.s - a.s) * k });
+const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function PlanView(props: PlanViewProps) {
-  const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children, overlay, onHandleWheel, onBackgroundClick, onSecondFinger, fitRequest, controls = true, fitWidth = false, loupe } = props;
+  const { area, obstacles = [], built, layers = DEFAULT_LAYERS, onLayersChange, highlight, compact = false, interactive = true, label, className, children, overlay, onHandleWheel, onBackgroundClick, onSecondFinger, fitRequest, controls = true, fitWidth = false, loupe, keepClear } = props;
   const [boxRef, box] = useElementSize<HTMLDivElement>();
   const svgRef = useRef<SVGSVGElement>(null);
   // the area and its margin, wider where a marshal point (#151) stands further out
@@ -100,10 +113,16 @@ export function PlanView(props: PlanViewProps) {
   /** the view a highlight moved away from, to go back to when it's taken away (#177): null for the fitted view;
    * undefined when there's nothing to go back to (no highlight, or the member has moved the plan since) */
   const unhighlighted = useRef<View | null | undefined>(undefined);
+  /** the same for a point kept clear of a sheet (#188) */
+  const uncovered = useRef<View | null | undefined>(undefined);
+  /** the plan gliding to a view (#188): its animation frame */
+  const glideFrame = useRef(0);
   /** the member moved the plan: theirs from now on */
   const userMoved = useCallback(() => {
     moved.current = true;
     unhighlighted.current = undefined;
+    uncovered.current = undefined;
+    cancelAnimationFrame(glideFrame.current);
   }, []);
   const [tip, setTip] = useState<{ x: number; y: number; key: string } | null>(null);
   const [hint, setHint] = useState(false);
@@ -111,18 +130,43 @@ export function PlanView(props: PlanViewProps) {
 
   // fit on first layout and whenever the box or area changes, unless the user has moved the view
   useEffect(() => {
-    if (fitted && (!moved.current || !view)) setView(fitted);
+    if (fitted && (!moved.current || !view)) setViewNow(fitted);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitted]);
 
   const v = view ?? fitted;
+  /** the view as it is, or as an effect has just set it (#188: an effect after it in the same commit reads it) */
+  const viewNow = useRef(v);
+  viewNow.current = v;
+  const setViewNow = (to: View) => {
+    viewNow.current = to;
+    setView(to);
+  };
   const minScale = (fitted?.s ?? 1) * 0.5;
 
   const reset = useCallback(() => {
     moved.current = false;
     unhighlighted.current = undefined;
-    if (fitted) setView(fitted);
+    uncovered.current = undefined;
+    cancelAnimationFrame(glideFrame.current);
+    if (fitted) setViewNow(fitted);
   }, [fitted]);
+
+  /** pan (and zoom) to a view over GLIDE_MS, eased; at once with reduced motion. Anything else that moves the plan stops it. */
+  const glide = useCallback((to: View) => {
+    cancelAnimationFrame(glideFrame.current);
+    const from = viewNow.current;
+    viewNow.current = to;
+    if (!from || reducedMotion()) return setView(to);
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / GLIDE_MS);
+      setView(k < 1 ? lerp(from, to, 1 - (1 - k) ** 3) : to);
+      if (k < 1) glideFrame.current = requestAnimationFrame(step);
+    };
+    glideFrame.current = requestAnimationFrame(step);
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(glideFrame.current), []);
 
   useEffect(() => {
     if (fitRequest) reset();
@@ -145,14 +189,40 @@ export function PlanView(props: PlanViewProps) {
       const back = unhighlighted.current;
       unhighlighted.current = undefined;
       if (back === null) reset();
-      else if (back) setView(back);
+      else if (back) setViewNow(back);
       return;
     }
     if (unhighlighted.current === undefined) unhighlighted.current = moved.current ? view : null;
     moved.current = true;
-    setView((cur) => ({ cx: highlight[0], cy: -highlight[1], s: Math.max(cur?.s ?? fitted.s, fitted.s * 2) }));
+    cancelAnimationFrame(glideFrame.current);
+    setViewNow({ cx: highlight[0], cy: -highlight[1], s: Math.max(viewNow.current?.s ?? fitted.s, fitted.s * 2) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlight, fitted]);
+
+  // keep a point clear of a sheet (#188): pan it up above the sheet's top if it's under it or too close, and back when
+  // the sheet lets it go (unless the member has moved the plan since). Only `key` and `top` look again, so dragging the
+  // point doesn't drag the plan along.
+  const clearKey = keepClear ? `${keepClear.key}@${Math.round(keepClear.top)}` : null;
+  useEffect(() => {
+    if (!fitted) return;
+    if (!keepClear) {
+      const back = uncovered.current;
+      uncovered.current = undefined;
+      if (back === null) {
+        moved.current = false;
+        glide(fitted);
+      } else if (back) glide(back);
+      return;
+    }
+    const cur = viewNow.current, r = boxRef.current?.getBoundingClientRect();
+    if (!keepClear.at || !cur || !r) return;
+    const to = clearOf(cur, keepClear.at, box.height, keepClear.top - r.top, CLEAR_PX);
+    if (!to) return;
+    if (uncovered.current === undefined) uncovered.current = moved.current ? cur : null;
+    moved.current = true;
+    glide(to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearKey, fitted]);
 
   // wheel zoom (non-passive listener so the page doesn't scroll while zooming)
   useEffect(() => {
