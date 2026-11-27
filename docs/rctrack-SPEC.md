@@ -258,7 +258,8 @@ A template is used for two things only *(v1.7)*:
   surface; it isn't stored. (Track Studio maps the forum's words: `carpet`, `astroturf` → `astro`, `grass`, `tarmac`,
   `dirt`, `clay` and `mixed`; a word the format doesn't have gives the template no surface.) A reader that meets a
   surface it doesn't know, in a template or a layout, treats it as `other` (shows it as "Other" or as its text) and
-  never refuses the file for it.
+  never refuses the file for it. (Writers are stricter: Track Studio's save checks the file against its own schema and
+  refuses a word it doesn't have.)
 - `timingLoop: {x, z, heading, length}`: the timing loop fixed in the floor, the one track feature every layout must
   respect. `x, z` its centre; `heading` the direction the track runs over it (degrees, 0 = +x, counter-clockwise);
   `length` its span across the track (m). The venue checks warn (`timing-loop`) when a layout's start/finish isn't over
