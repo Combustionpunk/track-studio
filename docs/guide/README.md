@@ -746,6 +746,8 @@ The library and a layout's page are a single column.
 
 5. **Tap a jump**, then tap the racing line. Or drag the jump from the sheet onto the track.
 
+   When you tap a jump, a cone or the start line that is low on the plan, the plan moves it up above its sheet so you can drag it straight away, and back when the sheet closes (unless you moved the plan yourself meanwhile).
+
 ![Tabletop armed on a phone: the Jump button is lit and the hint says "Tap on the racing line to place it"](img/phone-armed.webp)
 
 6. **Tap the checks pill** for the checks, the venue check and the figures.
