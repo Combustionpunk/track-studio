@@ -495,11 +495,18 @@ describe("surface from the forum (#190)", async () => {
     expect(text(list)).toMatch(/Surface Carpet/);
   });
 
-  it("a forum surface the format doesn't have: shown as the forum says, with a note", () => {
-    const { list, page } = pages({ ...linkedDoc, surface: undefined }, { ...carpet, surface: "grass", environment: "outdoor" });
+  it("#197: a grass track on the forum: Surface Grass, with no note", () => {
+    const { list, page } = pages({ ...linkedDoc, surface: "grass" }, { ...carpet, surface: "grass", environment: "outdoor" });
     expect(text(page)).toMatch(/Surface Grass · Outdoor Set on the forum/);
-    expect(text(page)).toMatch(/no grass surface, so layouts drawn here don't get one/);
+    expect(text(page)).not.toMatch(/no grass surface/);
     expect(text(list)).toMatch(/Surface Grass/);
+  });
+
+  it("a forum surface the format doesn't have: shown as the forum says, with a note", () => {
+    const { list, page } = pages({ ...linkedDoc, surface: undefined }, { ...carpet, surface: "sand", environment: "outdoor" });
+    expect(text(page)).toMatch(/Surface Sand · Outdoor Set on the forum/);
+    expect(text(page)).toMatch(/no sand surface, so layouts drawn here don't get one/);
+    expect(text(list)).toMatch(/Surface Sand/);
   });
 
   it("the forum says nothing or can't be asked: Not given, still set on the forum", () => {
@@ -1002,10 +1009,14 @@ describe("fit results", async () => {
     const t = text(panel());
     expect(t).toMatch(/m area, carpet\), with its obstacles/);
     expect(t).toContain("and the venue's surface (carpet).");
-    answers.set("/api/venues/hall", { data: { doc: { ...linked, surface: undefined }, forumTrack: { known: true, surface: "grass", environment: "outdoor", stale: false } }, loading: false });
+    answers.set("/api/venues/hall", { data: { doc: { ...linked, surface: "grass" }, forumTrack: { known: true, surface: "grass", environment: "outdoor", stale: false } }, loading: false });
     const grass = text(panel());
     expect(grass).toMatch(/m area, grass\), with its obstacles/);
-    expect(grass).not.toContain("the venue's surface");
-    expect(grass).toContain("turned to fit, with no surface.");
+    expect(grass).toContain("and the venue's surface (grass).");
+    answers.set("/api/venues/hall", { data: { doc: { ...linked, surface: undefined }, forumTrack: { known: true, surface: "sand", environment: "outdoor", stale: false } }, loading: false });
+    const sand = text(panel());
+    expect(sand).toMatch(/m area, sand\), with its obstacles/);
+    expect(sand).not.toContain("the venue's surface");
+    expect(sand).toContain("turned to fit, with no surface.");
   });
 });

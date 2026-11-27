@@ -1,9 +1,9 @@
 // #190: a template linked to a forum venue track shows the forum's surface (read-only); an unlinked one keeps its own.
-import type { RcVenue } from "@track-studio/engine";
+import { VENUE_SURFACES, type RcVenue } from "@track-studio/engine";
 import { describe, expect, it } from "vitest";
 import { venueDraft } from "../src/designer/start.js";
 import { surfaceView, trackSurface, type ForumTrackFacts } from "../src/venues/forum.js";
-import { blankVenue, surfaceFromForum, venueBody, type VenueDraft } from "../src/venues/model.js";
+import { blankVenue, SURFACE_LABEL, surfaceFromForum, surfaceLabel, venueBody, type VenueDraft } from "../src/venues/model.js";
 
 const link = { id: 12, name: "Niagara centre", trackId: 31, trackName: "Indoor (Winter)" };
 const facts = (over: Partial<ForumTrackFacts> = {}): ForumTrackFacts => ({ known: true, surface: "carpet", environment: "indoor", stale: false, ...over });
@@ -15,10 +15,27 @@ describe("surfaceView", () => {
     expect(surfaceView(doc({ surface: "carpet" }), facts())).toEqual({ surface: "Carpet", environment: "Indoor", fromForum: true, note: null });
   });
 
+  it("#197: a grass track on the forum is Grass, with no note (the format has grass since 1.14)", () => {
+    expect(surfaceView(doc({ surface: "grass" }), facts({ surface: "grass", environment: "outdoor" }))).toEqual({ surface: "Grass", environment: "Outdoor", fromForum: true, note: null });
+    // the editor, before the save: the forum list's track in the format's words
+    expect(surfaceView({ info: { name: "", venue: link } }, facts({ surface: "grass" }), "grass")).toMatchObject({ surface: "Grass", note: null });
+  });
+
   it("a forum surface the format has no word for: shown, with a note that layouts get none", () => {
-    const v = surfaceView(doc(), facts({ surface: "grass", environment: "outdoor" }));
-    expect(v).toMatchObject({ surface: "Grass", environment: "Outdoor", fromForum: true });
-    expect(v.note).toMatch(/no grass surface/i);
+    const v = surfaceView(doc(), facts({ surface: "sand", environment: "outdoor" }));
+    expect(v).toMatchObject({ surface: "Sand", environment: "Outdoor", fromForum: true });
+    expect(v.note).toMatch(/no sand surface/i);
+  });
+
+  it("a surface this Track Studio doesn't know (a newer file's) reads as Other, never an error", () => {
+    expect(surfaceView(doc({ surface: "sand" as never, info: { name: "Hut" } }), null).surface).toBe("Other");
+    expect(surfaceLabel("sand")).toBe("Other");
+    expect(surfaceLabel("grass")).toBe("Grass");
+    expect(surfaceLabel(undefined)).toBeNull();
+  });
+
+  it("the Surface list for unlinked templates and layouts has Grass", () => {
+    expect(VENUE_SURFACES.map((s) => SURFACE_LABEL[s])).toEqual(["Carpet", "Astro", "Grass", "Dirt", "Clay", "Tarmac", "Mixed"]);
   });
 
   it("the forum says nothing, or can't be asked: not given", () => {
