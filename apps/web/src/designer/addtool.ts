@@ -53,24 +53,25 @@ export function keyInsert(view: DesignerMode, points: DesignPoint[], i: number, 
 }
 
 /**
- * The hint over the plan in step 2, when no jump is armed. `sel`: the selected corner, if any. `tablet`: a finger (tap,
+ * The hint over the plan in step 2, when no jump is armed. `sel`: the selected corner's name in a sentence (pointRef:
+ * "corner 5a"), if any. `tablet`: a finger (tap,
  * not click). `phone`: the phone layout (#122), where Select stops adding and pinch (or the wheel) zooms.
  */
-export function shapeHint(o: { advanced: boolean; tablet: boolean; phone?: boolean; adding: boolean; sel: number | null }): string {
+export function shapeHint(o: { advanced: boolean; tablet: boolean; phone?: boolean; adding: boolean; sel: string | null }): string {
   if (o.phone) {
     const [Verb, verb] = o.tablet ? ["Tap", "tap"] : ["Click", "click"];
     if (o.adding) {
       if (o.advanced) return `${Verb} a straight to add a point there. ${Verb} Select to stop.`;
-      return o.sel === null ? `${Verb} the track or the floor to add a corner. ${Verb} Select to stop.` : `${Verb} the floor to add a corner after ${o.sel + 1}. ${Verb} Select to stop.`;
+      return o.sel === null ? `${Verb} the track or the floor to add a corner. ${Verb} Select to stop.` : `${Verb} the floor to add a corner after ${o.sel}. ${Verb} Select to stop.`;
     }
     const zoom = o.tablet ? "Pinch to zoom in." : "Scroll to zoom in.";
     if (o.advanced) return `${zoom} Drag a corner point to move it; to add one, ${verb} Add point, then a straight.`;
     return `${zoom} ${Verb} a corner to select it, drag it to move it, or drag its inside handle to cut it back.`;
   }
   if (o.adding) {
-    if (o.tablet) return o.sel === null ? "Tap the track or the floor to add a corner. Tap Add point again to stop." : `Tap the floor to add a corner after ${o.sel + 1}. Tap Add point again to stop.`;
+    if (o.tablet) return o.sel === null ? "Tap the track or the floor to add a corner. Tap Add point again to stop." : `Tap the floor to add a corner after ${o.sel}. Tap Add point again to stop.`;
     if (o.advanced) return "Click a straight to add a point there. Esc or A to stop.";
-    return o.sel === null ? "Click the track or the floor to add a corner. Esc or A to stop." : `Click the track or the floor to add a corner after ${o.sel + 1}. Esc or A to stop.`;
+    return o.sel === null ? "Click the track or the floor to add a corner. Esc or A to stop." : `Click the track or the floor to add a corner after ${o.sel}. Esc or A to stop.`;
   }
   if (o.advanced) return "Drag a corner to move it. To add one, press Add point (A), then click a straight.";
   if (o.tablet) return "Drag a corner, or its inside handle to cut it back. Hold a corner for its panel; tap Add point to add one.";

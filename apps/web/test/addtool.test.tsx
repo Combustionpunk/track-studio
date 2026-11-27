@@ -120,13 +120,13 @@ describe("the hints", () => {
     expect(shapeHint({ ...base, tablet: true })).toMatch(/tap Add point/);
     expect(shapeHint({ ...base, advanced: true })).toMatch(/Add point \(A\)/);
     expect(shapeHint({ ...base, adding: true })).toMatch(/Click the track or the floor to add a corner/);
-    expect(shapeHint({ ...base, adding: true, sel: 2 })).toMatch(/after 3/);
+    expect(shapeHint({ ...base, adding: true, sel: "corner 3" })).toMatch(/after corner 3\./);
     expect(shapeHint({ ...base, adding: true, tablet: true })).toMatch(/^Tap the track/);
     expect(shapeHint({ ...base, adding: true, advanced: true })).toMatch(/Click a straight to add a point/);
     for (const h of [shapeHint({ ...base, adding: true }), shapeHint({ ...base, adding: true, advanced: true })]) expect(h).toMatch(/Esc/);
     // a plain tap or click no longer adds one, so the hint doesn't say it does
     expect(shapeHint(base)).not.toMatch(/Tap the track to add/);
-    expect(shapeHint({ ...base, sel: 0 })).not.toMatch(/Tap the floor to add/);
+    expect(shapeHint({ ...base, sel: "corner 1" })).not.toMatch(/Tap the floor to add/);
   });
 
   it("\"How to draw\" says how to add a point, by mouse and by keyboard", () => {

@@ -167,6 +167,14 @@ describe("track card", () => {
     expect(text(h)).toContain("as designed 2 × 1 m spare");
     expect(h).toContain('src="/f/1.png"');
   });
+
+  it("names each orientation the same way as everywhere else, linking by its label (#179)", () => {
+    const fit = { revision: 4, results: [{ orientation: "mirrored, rotated 180", spare: [2, 1], thumbUrl: "/f/3.png" }] };
+    const h = html(<TrackCard track={summary({ fit } as unknown as Partial<TrackSummary>)} fitVenueId="hall" />);
+    expect(h).toContain('href="/t/winter-3?fit=hall&amp;o=mirrored%2C%20rotated%20180"');
+    expect(text(h)).toContain("mirrored and turned round 2 × 1 m spare");
+    expect(text(h)).not.toContain("rotated");
+  });
 });
 
 describe("library results", () => {
@@ -465,6 +473,54 @@ describe("forum venue and track (#65)", async () => {
   });
 });
 
+describe("surface from the forum (#190)", async () => {
+  const { ForumSurface } = await import("../src/venues/ForumSurface.js");
+  const doc = JSON.parse(readFileSync(join(ROOT, "reference/venues/club-hall.rcvenue.json"), "utf8")) as RcVenue;
+  const link = { id: 12, name: "Niagara centre", trackId: 31, trackName: "Indoor (Winter)" };
+  const linkedDoc: RcVenue = { ...doc, surface: "carpet", info: { ...doc.info, name: "Niagara centre – Indoor (Winter)", venue: link } };
+  const venue: VenueSummary = { id: "winter-3", name: "Niagara centre – Indoor (Winter)", forumVenueId: 12, forumTrackId: 31, ownerId: 1, revision: 3, tracks: 0, createdAt: "2026-10-01T10:00:00Z", updatedAt: "2026-11-02T10:00:00Z" };
+  const carpet = { known: true, surface: "carpet", environment: "indoor", stale: false };
+  const pages = (d: RcVenue, forumTrack: unknown) => {
+    answers.set("/api/venues", { data: { venues: [venue] }, loading: false });
+    answers.set("/api/venues/winter-3", { data: { venue, doc: d, forumTrack, can: { edit: false } }, loading: false });
+    answers.set("/api/venues/winter-3/revisions", { data: { revisions: [] }, loading: false });
+    answers.set("/api/tracks", { data: { tracks: [] }, loading: false });
+    return { list: html(<Venues />, "/v"), page: html(<VenuePage />, "/v/winter-3") };
+  };
+
+  it("Niagara centre Indoor (Winter): Surface Carpet, from the forum, with a link to change it there", () => {
+    const { list, page } = pages(linkedDoc, carpet);
+    expect(text(page)).toMatch(/Surface Carpet · Indoor Set on the forum/);
+    expect(page).toMatch(/<a href="https:\/\/forum\.example\/venues\/12"[^>]*>Set on the forum<\/a>/);
+    expect(text(list)).toMatch(/Surface Carpet/);
+  });
+
+  it("a forum surface the format doesn't have: shown as the forum says, with a note", () => {
+    const { list, page } = pages({ ...linkedDoc, surface: undefined }, { ...carpet, surface: "grass", environment: "outdoor" });
+    expect(text(page)).toMatch(/Surface Grass · Outdoor Set on the forum/);
+    expect(text(page)).toMatch(/no grass surface, so layouts drawn here don't get one/);
+    expect(text(list)).toMatch(/Surface Grass/);
+  });
+
+  it("the forum says nothing or can't be asked: Not given, still set on the forum", () => {
+    const { page } = pages({ ...linkedDoc, surface: undefined }, { known: false, surface: null, environment: null, stale: false });
+    expect(text(page)).toMatch(/Surface Not given Set on the forum/);
+  });
+
+  it("an unlinked template shows its own surface, with no forum link", () => {
+    const { page } = pages({ ...doc, surface: "astro", info: { ...doc.info, venue: null } }, null);
+    expect(text(page)).toMatch(/Surface Astro Rostrum/);
+    expect(text(page)).not.toContain("Set on the forum");
+  });
+
+  it("the editor's field: read-only, labelled, with the forum link", () => {
+    const h = html(<ForumSurface view={{ surface: "Carpet", environment: "Indoor", fromForum: true, note: null }} venueId={12} editor />, "/v/winter-3/edit");
+    expect(text(h)).toMatch(/Surface Carpet · Indoor Set on the forum/);
+    expect(h).not.toContain("<select");
+    expect(h).toContain('href="https://forum.example/venues/12"');
+  });
+});
+
 describe("track page", () => {
   const doc = JSON.parse(readFileSync(join(ROOT, "reference/examples/club-a.rctrack.json"), "utf8")) as RcTrack;
   const can = (over: Partial<Permissions> = {}): Permissions => ({ edit: false, submit: false, approve: false, archive: false, adapt: false, copy: false, ...over });
@@ -678,6 +734,12 @@ describe("track page", () => {
     expect(text(h)).toContain("Based on Club A by yeti (revision 2)");
   });
 
+  it("an adaptation names its orientation the same way as the fit lists (#179)", () => {
+    const d = { ...doc, info: { ...doc.info, derivedFrom: { id: "club-a", revision: 2, orientation: "mirrored, rotated 180" } } };
+    const h = page(can({ edit: true }), { status: "draft", derivedFrom: { id: "club-a", name: "Club A", author: null } }, d);
+    expect(text(h)).toContain("Adapted from Club A (revision 2, mirrored and turned round)");
+  });
+
   it("an organiser approves; with errors, Submit and Approve are disabled and the reason is shown beside them", () => {
     const h = page(can({ approve: true, submit: true }), { errors: 2 });
     expect(h).toMatch(/class="ts-btn ts-btn--primary"[^>]*disabled=""[^>]*>Approve revision 4</);
@@ -887,5 +949,28 @@ describe("fit results", async () => {
     const t = text(panel());
     expect(t).toContain("as designed 1 × 2 m spare");
     expect(t).toMatch(/Make a copy for|Log in to make a copy/);
+  });
+
+  it("names the orientations (#179), keeping the label as the value sent to adapt", () => {
+    setup({ data: { results: [{ orientation: "rotated 180", rotation: 180, mirror: false, shift: [0, 0], spare: [1, 2], thumbUrl: "" }, { orientation: "mirrored, rotated 90", rotation: 90, mirror: true, shift: [0, 0], spare: [1, 2], thumbUrl: "" }] }, loading: false });
+    const h = panel();
+    expect(text(h)).toContain("turned round 1 × 2 m spare");
+    expect(text(h)).toContain("mirrored and turned a quarter left 1 × 2 m spare");
+    expect(h).toContain('value="mirrored, rotated 90"');
+    expect(text(h)).not.toContain("rotated");
+  });
+
+  it("#190: the preview names the venue's surface, the forum's for a linked template", () => {
+    setup({ data: { results: [{ orientation: "as designed", rotation: 0, mirror: false, shift: [0, 0], spare: [1, 2], thumbUrl: "" }] }, loading: false });
+    const linked = { ...venue, surface: "carpet", info: { ...venue.info, venue: { id: 12, name: "Niagara centre", trackId: 31 } } };
+    answers.set("/api/venues/hall", { data: { doc: linked, forumTrack: { known: true, surface: "carpet", environment: "indoor", stale: false } }, loading: false });
+    const t = text(panel());
+    expect(t).toMatch(/m area, carpet\), with its obstacles/);
+    expect(t).toContain("and the venue's surface (carpet).");
+    answers.set("/api/venues/hall", { data: { doc: { ...linked, surface: undefined }, forumTrack: { known: true, surface: "grass", environment: "outdoor", stale: false } }, loading: false });
+    const grass = text(panel());
+    expect(grass).toMatch(/m area, grass\), with its obstacles/);
+    expect(grass).not.toContain("the venue's surface");
+    expect(grass).toContain("turned to fit, with no surface.");
   });
 });

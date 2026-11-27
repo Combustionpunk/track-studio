@@ -2,9 +2,10 @@
 // of the drawing area (drawingArea; "x m from the west wall, y m from the south wall"), not from the centre origin the format uses.
 //
 // Everything comes from `built` except the corner points, which `built` doesn't list: they are the design points the
-// engine's own corner maths treats as corners (racingLine + the CORNER_* rules that make built.stats.corners), so the
-// numbering always agrees with stats.corners. Tests check each corner's arc lies on built.racingLine.
-import { CORNER_JOIN_GAP, CORNER_MIN_TURN, drawingArea, racingLine } from "./bake.js";
+// engine's own corner maths treats as corners, numbered by numberCorners (numbering.ts: the CORNER_* rules that make
+// built.stats.corners, and the numbering the designer shows), so the numbering always agrees with stats.corners. Tests check each corner's arc lies on built.racingLine.
+import { drawingArea, racingLine } from "./bake.js";
+import { numberCorners } from "./numbering.js";
 import type { Area, FeatureType, Point2, RcTrack } from "./types.js";
 
 /** Distances from the west wall (x) and the south wall (z) of the track area, metres. */
@@ -218,53 +219,20 @@ function marshals(doc: Pick<RcTrack, "area" | "design" | "built">, area: Area): 
     .map(({ m }) => ({ number: m.number, x: m.x, z: m.z, ...fromSouthWest(area, m.x, m.z), where: where(m) }));
 }
 
-/**
- * Corner points grouped into corners the way countCorners (bake.ts) counts them: every turn of more than
- * CORNER_MIN_TURN, turns the same way joined by less than CORNER_JOIN_GAP of racing line making one corner.
- */
+/** Corner points grouped and labelled by the one corner numbering (numbering.ts, #176) that counts stats.corners. */
 function cornerPoints(doc: Pick<RcTrack, "area" | "design" | "built">): SheetCornerPoint[] {
   const pts = doc.design.points;
   if (pts.length < 3) return [];
   const corners = racingLine(pts, doc.design.laneWidth ?? 2.0).corners;
-  const n = corners.length;
-  const sig = corners.flatMap((c, i) => (c.th > CORNER_MIN_TURN ? [i] : []));
-  if (!sig.length) return [];
-  const straight = corners.map((c, i) => {
-    const next = corners[(i + 1) % n].start;
-    return Math.hypot(next[0] - c.end[0], next[1] - c.end[1]);
-  });
-  const arc = corners.map((c) => c.r * c.th);
-  // joined[k]: sig[k] and the next significant point make one corner
-  const joined = sig.map((i, k) => {
-    const j = sig[(k + 1) % sig.length];
-    if (sig.length < 2) return false;
-    let gap = straight[i];
-    for (let m = (i + 1) % n; m !== j; m = (m + 1) % n) gap += arc[m] + straight[m];
-    return corners[i].sign === corners[j].sign && gap < CORNER_JOIN_GAP;
-  });
-
-  // groups of consecutive joined points; start at the first point that isn't joined from the one before it
-  const groups: number[][] = [];
-  const first = joined.findIndex((_, k) => !joined[(k - 1 + sig.length) % sig.length]);
-  if (first < 0) groups.push([...sig]); // one continuous turn
-  else
-    for (let s = 0; s < sig.length; s++) {
-      const k = (first + s) % sig.length;
-      if (s === 0 || !joined[(k - 1 + sig.length) % sig.length]) groups.push([]);
-      groups[groups.length - 1].push(sig[k]);
-    }
-  // corner 1 is the first that starts at or after design point 0 (a corner wrapping round point 0 comes last)
-  groups.sort((a, c) => a[0] - c[0]);
-  const wraps = groups.findIndex((g) => g.some((i, k) => k > 0 && i < g[k - 1]));
-  if (wraps >= 0) groups.push(...groups.splice(wraps, 1));
+  const { groups, labels } = numberCorners(corners);
 
   return groups.flatMap((g, gi) => {
     const hairpin = g.reduce((t, i) => t + corners[i].th, 0) >= HAIRPIN;
-    return g.map((i, k): SheetCornerPoint => {
+    return g.map((i): SheetCornerPoint => {
       const c = corners[i];
       return {
         number: gi + 1,
-        label: g.length > 1 ? `${gi + 1}${String.fromCharCode(97 + (k % 26))}` : String(gi + 1),
+        label: labels[i]!,
         index: i,
         x: c.P[0],
         z: c.P[1],

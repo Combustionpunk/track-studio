@@ -2,7 +2,7 @@
 // the design as it stands against a venue template, in the browser: where it is drawn (obstacles hit, area left) and
 // in which orientations it fits. Nothing of the venue goes into the design.
 import { HelpLink } from "../help/HelpLink.js";
-import { bakeBuilt, fits, venueCheck, type Check, type RcTrack, type RcVenue, type VenueCheck } from "@track-studio/engine";
+import { bakeBuilt, fits, orientationList, venueCheck, type Check, type RcTrack, type RcVenue, type VenueCheck } from "@track-studio/engine";
 import { CircleAlert, CircleCheck, CircleX } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { api, type VenueSummary } from "../lib/api.js";
@@ -24,15 +24,14 @@ export function checkAgainstVenue(design: RcTrack["design"], venue: RcVenue): Ve
   return { venue: { id: venue.id, name: venue.info.name }, fits: fits(track, venue).map((f) => f.orientation), asDrawn };
 }
 
-/** One line on whether it fits: "Fits Sports hall B where it's drawn.", "Fits Club hall once moved: as designed or mirrored." … */
+/** One line on whether it fits: "Fits Sports hall B where it's drawn.", "Fits Club hall once moved: as designed, mirrored, or turned round." … */
 export function fitSummary(r: VenueCheckResult): string {
   if (!r.fits.length) return `Doesn't fit ${r.venue.name} in any orientation.`;
   // only errors (area, obstacles) mean moving it; a warning (the timing loop, #173) is listed below
   const misplaced = r.asDrawn.checks.some((c) => c.level === "error");
   if (r.fits.includes("as designed") && !misplaced) return `Fits ${r.venue.name} where it's drawn.`;
-  const list = r.fits.length > 2 ? `${r.fits.slice(0, -1).join(", ")} or ${r.fits[r.fits.length - 1]}` : r.fits.join(" or ");
   // fits() slides the track to the best place: when it doesn't fit where it's drawn, say it has to move
-  return `Fits ${r.venue.name}${misplaced ? " once moved" : ""}: ${list}.`;
+  return `Fits ${r.venue.name}${misplaced ? " once moved" : ""}: ${orientationList(r.fits)}.`;
 }
 
 export function VenueCheckPanel({ design, drawnFor, onShow }: { design: RcTrack["design"]; drawnFor?: { venueTemplate: string }; onShow: (x: number, z: number) => void }) {

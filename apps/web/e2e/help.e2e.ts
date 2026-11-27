@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { open, serve } from "./phone-helper.js";
-import { cell, type XY } from "./touch-helper.js";
+import { cell, Touch, type XY } from "./touch-helper.js";
 
 const SECTIONS = ["getting-started", "start-a-layout", "draw-the-track", "edit", "check-and-finish", "share", "on-a-tablet-or-phone", "faq"];
 const sheetDoc = JSON.parse(readFileSync(fileURLToPath(new URL("../../../packages/engine/test/fixtures/extra/crossover-figure8.rctrack.json", import.meta.url)), "utf8")) as { id: string; info: { name: string } };
@@ -156,6 +156,66 @@ test.describe("help links in the app", () => {
     await page.getByRole("navigation", { name: "Track Studio" }).getByRole("link", { name: "Help" }).click();
     await expect(page).toHaveURL(/\/help$/);
     await expect(page.getByRole("heading", { level: 1, name: "Track Studio user guide" })).toBeVisible();
+  });
+
+  test("on a tablet in Quick mode, the dock's ? opens how to draw the track in a new tab, and the drawing stays (#178)", async ({ page }, info) => {
+    test.skip(!info.project.name.startsWith("tablet"), "the tablet's dock");
+    const errors = await signedOut(page);
+    await page.goto("/new/design?length=22&width=12");
+    await expect(page.locator("rect.lay-hit")).toBeVisible();
+    const dock = page.getByRole("toolbar", { name: "Designer tools" });
+    const help = dock.getByRole("link", { name: "Help with drawing the track (opens in a new tab)" });
+    // step 1 already has it
+    await expect(help).toBeVisible();
+    // lay a loop by touch: step 2, with four corners
+    const t = await Touch.on(page);
+    const loop: XY[] = [[0, 0], [10, 0], [10, 5], [0, 5], [0, 0]];
+    const path: XY[] = [];
+    for (const c of loop) path.push(await cell(page, ...c));
+    await t.drag(path, 10);
+    await expect(page.locator("g.ed-corner")).toHaveCount(4);
+    // a finger-sized target, in the muted text colour like the other "?" links
+    const box = (await help.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    const muted = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--text-muted)";
+      document.body.append(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    expect(await help.evaluate((a) => getComputedStyle(a).color)).toBe(muted);
+    // one tap: the guide's section in a new tab
+    const [guide] = await Promise.all([page.context().waitForEvent("page"), help.tap()]);
+    await guide.waitForLoadState();
+    expect(new URL(guide.url()).pathname + new URL(guide.url()).hash).toBe("/help#draw-the-track");
+    await expect(guide.locator("#draw-the-track")).toBeInViewport();
+    // and the drawing is still here
+    await expect(page).toHaveURL(/\/new\/design/);
+    await expect(page.locator("g.ed-corner")).toHaveCount(4);
+    await guide.close();
+    expect(errors).toEqual([]);
+  });
+
+  test("the dock's ? is the tablet's only: the laptop and the phone keep what they had (#178)", async ({ page }, info) => {
+    test.skip(info.project.name.startsWith("tablet"), "the laptop and the phone");
+    if (info.project.name === "phone") {
+      await serve(page);
+      await open(page);
+      // the phone's Help is in How to draw, behind More, as before: none on the editor itself
+      await expect(page.locator("a.help-link")).toHaveCount(0);
+    } else {
+      const errors = await signedOut(page);
+      await page.goto("/new/design?length=22&width=12");
+      await expect(page.locator("rect.lay-hit")).toBeVisible();
+      await expect(page.locator(".designer-dock")).toHaveCount(0);
+      // step 1: the palette's ? (and How to draw's link), as before
+      expect(new Set(await page.locator("a.help-link").evaluateAll((as) => as.map((a) => a.getAttribute("href"))))).toEqual(new Set(["/help#draw-the-track"]));
+      await expect(page.locator(".designer-palette a.help-link")).toHaveCount(1);
+      expect(errors).toEqual([]);
+    }
   });
 
   test("on a phone, How to draw links to the tablet and phone section", async ({ page }, info) => {
