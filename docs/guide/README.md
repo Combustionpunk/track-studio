@@ -732,7 +732,7 @@ The library and a layout's page are a single column.
 
 ![The phone's plan zoomed in on the middle of the track, with corners easy to tell apart](img/phone-zoomed.webp)
 
-2. **Tap a corner** to select it. Its sheet slides up with the radius presets. Drag the corner to move it. A magnifier shows what is under your finger while you drag.
+2. **Tap a corner** to select it. Its sheet slides up with the radius presets. If the corner is low on the plan, the plan moves it up above the sheet, and back when the sheet closes (unless you moved the plan yourself meanwhile). Drag the corner to move it. A magnifier shows what is under your finger while you drag.
 
 ![Corner 4 selected on a phone: its sheet shows Hairpin, Tight, Medium and Sweeper and the apex radius](img/phone-selection.webp)
 

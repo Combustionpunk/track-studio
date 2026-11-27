@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as fmt from "../src/lib/format.js";
-import { areaBounds, featureCorners, fitView, laneRuns, laneSegments, pan, rostrumPos, toPlan, transformBuilt, viewBox, zoomAt } from "../src/lib/plan.js";
+import { areaBounds, clearOf, featureCorners, fitView, laneRuns, laneSegments, pan, rostrumPos, toPlan, transformBuilt, viewBox, zoomAt } from "../src/lib/plan.js";
 
 const ref = <T,>(p: string) => JSON.parse(readFileSync(join(__dirname, "../../../reference", p), "utf8")) as T;
 
@@ -32,6 +32,29 @@ describe("view maths", () => {
     const v = { cx: 0, cy: 0, s: 10 };
     expect(pan(v, 50, -20)).toEqual({ cx: -5, cy: 2, s: 10 });
     expect(toPlan(v, 500, 0, 1000, 600)[1]).toBe(30); // top of the box is +z (north)
+  });
+});
+
+describe("keeping a point clear of a sheet (#188)", () => {
+  // a 375 × 600 px plan at 20 px/m, centred on the origin: z = 0 is at y = 300 px, and north is up
+  const v = { cx: 0, cy: 0, s: 20 };
+  const y = (w: { cx: number; cy: number; s: number }, z: number) => 300 + (-z - w.cy) * w.s;
+
+  it("pans the plan up just enough to put the point `room` px above the sheet's top", () => {
+    // the point is at y = 300 + 8 × 20 = 460 px; the sheet's top is at 400 px
+    const to = clearOf(v, [3, -8], 600, 400, 56)!;
+    expect(to.s).toBe(20);
+    expect(to.cx).toBe(0); // only up and down
+    expect(y(to, -8)).toBeCloseTo(400 - 56, 9);
+  });
+
+  it("leaves the view alone when the point is already clear", () => {
+    expect(clearOf(v, [3, 0], 600, 400, 56)).toBeNull(); // 300 px: 100 px above the sheet
+    expect(clearOf(v, [3, -2.2], 600, 400, 56)).toBeNull(); // 344 px: exactly `room` above it
+  });
+
+  it("does nothing when the sheet leaves no room above it", () => {
+    expect(clearOf(v, [3, -8], 600, 100, 56)).toBeNull();
   });
 });
 
