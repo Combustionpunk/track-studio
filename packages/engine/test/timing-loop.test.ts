@@ -55,7 +55,7 @@ describe("rcvenue 1.2 validation", () => {
     expect(validateVenue(hall({ surface: "astro", obstacles: [{ type: "rect", kind: "pits", x: 0, z: 0, length: 2, width: 1 }] })).valid).toBe(true);
   });
   it("refuses an unknown surface or kind, and a loop with no length", () => {
-    expect(validateVenue({ ...hall(), surface: "grass" } as unknown as RcVenue).valid).toBe(false);
+    expect(validateVenue({ ...hall(), surface: "sand" } as unknown as RcVenue).valid).toBe(false);
     expect(validateVenue(hall({ obstacles: [{ type: "rect", kind: "bar", x: 0, z: 0, length: 2, width: 1 } as never] })).valid).toBe(false);
     expect(validateVenue({ ...hall(), timingLoop: { x: 0, z: 0, heading: 0 } } as unknown as RcVenue).valid).toBe(false);
   });

@@ -3,7 +3,8 @@
   test/fixtures/extra/*.rctrack.json   extra designs that exercise code paths the reference examples don't
                                        (every check code, closed dividers, rotated obstacles, wrapping distances)
   test/fixtures/extra/*.rcvenue.json   extra venues: a rotated obstacle; the obstacles a fixture runs over; (1.13) timing
-                                       loops, pit area and rostrum zones
+                                       loops, pit area and rostrum zones;
+                                       (1.14) a grass field
   test/fixtures/fit-expected.json      fit.fits() and fit.check() for every track x venue (reference + extra)
   reference/examples/*.rctrack.json    re-baked (1.7: upgraded from 1.6 first)
 The v12/ to v18/ checks assert that older bakes re-bake the same, less what each later version changed on purpose.
@@ -282,6 +283,11 @@ EXTRA_VENUES = {
                     "info": {"name": "Small hall, angled loop", "venue": None, "notes": "fixture"},
                     "surface": "mixed", "area": {"length": 14, "width": 9},
                     "timingLoop": {"x": -5.9, "z": -4.9, "heading": 60, "length": 2.5}},
+    # 1.14 (#197): a SOAR-style outdoor grass field, linked to a forum track (the server serves the forum's surface)
+    "grass-field": {"format": "rcvenue", "version": 1, "id": "venue-x6", "revision": 1,
+                    "info": {"name": "Grass field", "venue": {"id": 97, "name": "Grass field", "trackId": 971, "trackName": "Outdoor"}, "notes": "fixture"},
+                    "surface": "grass", "area": {"length": 30, "width": 20}, "rostrum": {"side": "south", "offset": 0},
+                    "obstacles": [{"type": "rect", "kind": "pits", "x": 12.0, "z": 8.5, "length": 5.0, "width": 2.0, "label": "Pits"}]},
 }
 
 for slug, doc in EXTRA_TRACKS.items():

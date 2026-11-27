@@ -1,11 +1,11 @@
-// Types for the rctrack (v1.13) and rcvenue (v1.2) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
+// Types for the rctrack (v1.14) and rcvenue (v1.3) formats — see docs/rctrack-SPEC.md and reference/rctrack.schema.json.
 // Units: metres. Origin at the centre of the (drawing) area, +x east, +z north. Headings in degrees, 0 = +x, CCW.
 
 export type TrackStatus = "draft" | "submitted" | "approved" | "archived";
-/** What a track is laid on. 1.13 adds dirt, tarmac and mixed (a venue template's surfaces); "other" is a layout's only. */
-export type Surface = "carpet" | "astro" | "dirt" | "clay" | "tarmac" | "mixed" | "other";
-/** rcvenue 1.2: the surfaces a venue template can name, in the editor's order */
-export const VENUE_SURFACES = ["carpet", "astro", "dirt", "clay", "tarmac", "mixed"] as const;
+/** What a track is laid on. 1.13 adds dirt, tarmac and mixed (a venue template's surfaces), 1.14 grass; "other" is a layout's only. */
+export type Surface = "carpet" | "astro" | "grass" | "dirt" | "clay" | "tarmac" | "mixed" | "other";
+/** rcvenue 1.2: the surfaces a venue template can name, in the editor's order (1.3 adds grass) */
+export const VENUE_SURFACES = ["carpet", "astro", "grass", "dirt", "clay", "tarmac", "mixed"] as const;
 export type VenueSurface = (typeof VENUE_SURFACES)[number];
 export type Side = "north" | "south" | "east" | "west";
 export type FeatureType = "tabletop" | "double" | "kicker" | "stepup" | "stepdown" | "whoops" | "bump" | "crossover";
