@@ -622,7 +622,7 @@ A meeting can let its racers vote between layouts:
 
 The organiser picks the layout only if the vote is tied or nobody voted, or to end the vote early.
 
-The steps for organisers are in the forum's club guide, [Set up the club's venue template in Track Studio](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template), under "Attach a layout to a meeting".
+The vote steps for organisers are in the forum's club guide, [Set up the club's venue template in Track Studio](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template), in its **Vote for the track** section.
 
 The winning layout shows in Track Studio like any other meeting's layout: see [Attach a layout to a meeting](#attach-a-layout-to-a-meeting).
 
@@ -637,7 +637,7 @@ On the layout's page, find **Share and download**.
 
 ### Attach a layout to a meeting
 
-Meetings are set up on the forum, not in Track Studio. The organiser chooses the layout when setting up the meeting on the forum, or lets the booked racers vote between up to 4: see [Voting](#voting). The steps are in the forum's club guide, [Set up the club's venue template in Track Studio](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template), under "Attach a layout to a meeting".
+Meetings are set up on the forum, not in Track Studio. The organiser chooses the layout when setting up the meeting on the forum, or lets the booked racers vote between up to 4: see [Voting](#voting). The steps for choosing the layout are in the forum's club guide, [Set up the club's venue template in Track Studio](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template), under "Attach a layout to a meeting"; the steps for the vote are in its **Vote for the track** section.
 
 In Track Studio you see the result:
 
