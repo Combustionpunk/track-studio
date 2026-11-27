@@ -1,4 +1,4 @@
-import { drawingArea, rctrackFileName, type Point2, type RcTrack, type RcVenue, type Side } from "@track-studio/engine";
+import { drawingArea, orientationName, rctrackFileName, type Point2, type RcTrack, type RcVenue, type Side } from "@track-studio/engine";
 import { ArrowLeft, Download, Lock } from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -305,7 +305,7 @@ export function TrackPage() {
               {doc.info.derivedFrom.orientation ? "Adapted from " : "Based on "}
               <Link to={`/t/${doc.info.derivedFrom.id}`}>{track.derivedFrom?.name ?? "another layout"}</Link>
               {track.derivedFrom?.author && <> by {track.derivedFrom.author}</>} (revision {doc.info.derivedFrom.revision}
-              {doc.info.derivedFrom.orientation && <>, {doc.info.derivedFrom.orientation}</>})
+              {doc.info.derivedFrom.orientation && <>, {orientationName(doc.info.derivedFrom.orientation)}</>})
             </p>
           )}
           {track.locked && (

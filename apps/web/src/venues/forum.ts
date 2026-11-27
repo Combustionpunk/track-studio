@@ -1,13 +1,16 @@
 // Linking a venue template to the forum (#65): one forum venue and one of its tracks, picked from the forum's list
 // (GET /api/forum-venues). Pure, so it can be tested without a browser. Forum sizes are metres: length_m east–west
 // (the template's area.length), width_m north–south (area.width).
-import type { Area } from "@track-studio/engine";
-import { blankVenue, type VenueDraft } from "./model.js";
+import type { Area, RcVenue, VenueSurface } from "@track-studio/engine";
+import { blankVenue, SURFACE_LABEL, surfaceFromForum, type VenueDraft } from "./model.js";
 
 export interface ForumTrack {
   id: number;
   name: string;
+  /** the forum's word (carpet, astroturf, grass, tarmac, dirt, mixed) */
   surface?: string | null;
+  /** #190: the same in the format's words; null when the format has no match (grass) */
+  templateSurface?: VenueSurface | null;
   environment?: string | null;
   width_m?: number | null;
   length_m?: number | null;
@@ -83,3 +86,42 @@ export function filterForumVenues(venues: ForumVenue[], q: string): ForumVenue[]
 
 /** The forum's page for a venue. */
 export const forumVenueUrl = (forumUrl: string, id: number) => `${forumUrl.replace(/\/+$/, "")}/venues/${id}`;
+
+// ------------------------------------------------------------------ surface (#190)
+/** GET /api/venues/:id's forumTrack: what the forum says about a linked template's track (known: false, it can't say). */
+export interface ForumTrackFacts {
+  known: boolean;
+  surface: string | null;
+  environment: string | null;
+  stale: boolean;
+}
+
+const upper = (s: string | null | undefined) => (s ? s[0].toUpperCase() + s.slice(1) : null);
+
+/** A track from the forum's list, as the editor shows it before saving. */
+export const trackSurface = (t: ForumTrack | undefined): ForumTrackFacts =>
+  t ? { known: true, surface: t.surface ?? null, environment: t.environment ?? null, stale: false } : { known: false, surface: null, environment: null, stale: false };
+
+export interface SurfaceView {
+  /** "Carpet", "Grass", or null: not given */
+  surface: string | null;
+  /** "Indoor" / "Outdoor" (linked templates only) */
+  environment: string | null;
+  /** set on the forum, read-only here */
+  fromForum: boolean;
+  /** a forum surface the format has no word for */
+  note: string | null;
+}
+
+/**
+ * A template's surface as pages show it. Linked to a forum track (`facts` given): the forum's, which the server has
+ * put on the doc in the format's words; a forum surface with no match (grass) is shown as the forum says it, with a
+ * note. Not linked (`facts` null): the template's own.
+ */
+export function surfaceView(doc: Pick<RcVenue, "surface" | "info">, facts: ForumTrackFacts | null | undefined, templateSurface?: VenueSurface | null): SurfaceView {
+  if (!facts || !surfaceFromForum(doc.info.venue)) return { surface: doc.surface ? SURFACE_LABEL[doc.surface] : null, environment: null, fromForum: false, note: null };
+  const mapped = templateSurface !== undefined ? templateSurface : doc.surface;
+  const surface = mapped ? SURFACE_LABEL[mapped] : upper(facts.surface);
+  const note = !mapped && facts.surface ? `Track Studio has no ${facts.surface.toLowerCase()} surface, so layouts drawn here don't get one.` : null;
+  return { surface, environment: upper(facts.environment), fromForum: true, note };
+}

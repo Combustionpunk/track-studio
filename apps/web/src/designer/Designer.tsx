@@ -57,6 +57,9 @@ import {
   moveJump,
   movePoint,
   paletteJumps,
+  pointHeading,
+  pointNoun,
+  pointRef,
   readMode,
   snapModeFor,
   submitBlock,
@@ -609,15 +612,19 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         const s = selRef.current;
         const i = stepCorner(n, s?.kind === "point" ? s.i : null, e.key === "n" || e.key === "N" ? 1 : -1);
         setSel((selRef.current = { kind: "point", i }));
-        say(`Corner ${i + 1} of ${n}.`);
+        const names = liveRef.current.numbering;
+        say(names.labels[i] ? `${pointHeading(names, i)} of ${names.groups.length}.` : `${pointHeading(names, i)}.`);
       } else if (toolRef.current.kind === "add" && !draftRef.current.laying && e.key === "Enter" && !mod && !isControl(e.target)) {
         // Enter: a point halfway along the straight after the selected corner, one undo step
         e.preventDefault();
         const s = selRef.current;
         const cur = draftRef.current;
-        const r = s?.kind === "point" ? keyInsert(viewRef.current, cur.design.points, s.i, cur.design.laneWidth ?? 2) : null;
+        const after = s?.kind === "point" ? s.i : null;
+        const r = after !== null ? keyInsert(viewRef.current, cur.design.points, after, cur.design.laneWidth ?? 2) : null;
         if (!r) {
-          const text = s?.kind === "point" ? "There's no room for a point between those two corners." : "Pick a corner first (N or P): Enter adds a point halfway to the next one.";
+          const names = liveRef.current.numbering;
+          const both = s?.kind === "point" && pointNoun(names, s.i) === "corner" && pointNoun(names, (s.i + 1) % cur.design.points.length) === "corner";
+          const text = s?.kind === "point" ? `There's no room for a point between those two ${both ? "corners" : "points"}.` : "Pick a corner first (N or P): Enter adds a point halfway to the next one.";
           setMessage({ kind: "info", text });
           say(text);
           return;
@@ -626,7 +633,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         hist.set(draftRef.current, `insert:${Date.now()}`);
         setSel((selRef.current = { kind: "point", i: r.index }));
         setMessage(null);
-        say(`Added corner ${r.index + 1}, halfway to the next one.`);
+        const from = liveRef.current.numbering;
+        say(from.labels[after!] ? `Added a point after ${pointRef(from, after!)}, halfway to the next one.` : "Added a point, halfway to the next one.");
       } else if (e.key === "Delete" || e.key === "Backspace") {
         if (selRef.current) {
           e.preventDefault();
@@ -1273,6 +1281,8 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
 
   // ------------------------------------------------------------------------------------ overlay
   const pointsList = draft.design.points;
+  /** the corners' names, as the build sheet numbers them (#176) */
+  const names = live.numbering;
   const lw = draft.design.laneWidth ?? 2;
   const advanced = view === "advanced";
   // what 3D highlights: the selected jump, corner (on its point) or start line
@@ -1384,7 +1394,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
           )}
           <circle className={`ed-apex ${sel?.kind === "point" && sel.i === i ? "on" : ""}`} cx={h[0]} cy={-h[1]} r={(touch ? APEX_TOUCH_PX : APEX_PX) * m} vectorEffect="non-scaling-stroke" />
           <circle data-handle="apex" className="ed-hit ed-hit-apex" cx={h[0]} cy={-h[1]} r={(touch ? TOUCH_PX : APEX_PX + 3) * m} onPointerDown={(e) => onApexDown(e, i)} onPointerEnter={() => setHoverPt(i)} onPointerLeave={() => setHoverPt(null)}>
-            <title>{`Corner ${i + 1}: drag in or out to cut the corner back (apex radius ${fmt.metres(apexNow, 1)})`}</title>
+            <title>{`${pointHeading(names, i)}: drag in or out to cut ${names.labels[i] ? "the corner" : "it"} back (apex radius ${fmt.metres(apexNow, 1)})`}</title>
           </circle>
         </g>
       );
@@ -1482,7 +1492,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         {/* apex handles under the corner dots where one lands on another corner's dot (a nest's outer corner, #106); the
             rest stay on top: a touch near both goes to whichever is on top, and the handle is the smaller target */}
         {!advanced && pointsList.map((p, i) => (crowdedApex(i) ? apexHandle(p, i) : null))}
-        {!advanced && pointsList.map((p, i) => <QuickCorner key={i} p={p} i={i} m={m} touch={touch} on={sel?.kind === "point" && sel.i === i} linked={linked.includes(i)} press={press?.i === i ? press : null} onPointerDown={(e) => onPointDown(e, i)} onDelete={() => {
+        {!advanced && pointsList.map((p, i) => <QuickCorner key={i} p={p} label={names.labels[i] ?? ""} name={pointHeading(names, i)} m={m} touch={touch} on={sel?.kind === "point" && sel.i === i} linked={linked.includes(i)} press={press?.i === i ? press : null} onPointerDown={(e) => onPointDown(e, i)} onDelete={() => {
           setSel({ kind: "point", i });
           selRef.current = { kind: "point", i };
           deleteSelection();
@@ -1513,7 +1523,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
             }}
             vectorEffect="non-scaling-stroke"
           >
-            <title>{advanced ? `Corner ${i + 1}: drag to move, wheel for radius, Ctrl+wheel for lane width, right-click to delete` : `Corner ${i + 1}: drag to move, right-click to delete`}</title>
+            <title>{`${pointHeading(names, i, "advanced")}: drag to move, wheel for radius, Ctrl+wheel for lane width, right-click to delete`}</title>
           </circle>
         ))}
         {pointsList.map((p, i) => {
@@ -1614,7 +1624,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
   // ------------------------------------------------------------------------------------ layout
   const status = base?.track;
   const showSubmit = !!me && mode === "edit" && !!base?.can.submit;
-  const blocked = submitBlock({ dirty, pending: bake.pending, checks: built.checks, points: pointsList });
+  const blocked = submitBlock({ dirty, pending: bake.pending, checks: built.checks, points: pointsList, laneWidth: lw });
   /** Quick's right-hand column has no checks (#113): why Submit is waiting is told by the button instead */
   const quickSide = !advanced && !tablet && !laying;
   /** where the reason is shown (#submit-why): by the button on Quick, else under the checks while they're showing */
@@ -1994,7 +2004,7 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
         grid,
         onGridKey,
         onGridFocus: setGridFocus,
-        hint: { snapInfo, viewing3d, synced3d, tablet: phoneEdit ? touch : tablet, phone: phoneEdit, laying, layNote, gridFocus, cells: draft.laying, layKeys, grid, tool, advanced, sel },
+        hint: { snapInfo, viewing3d, synced3d, tablet: phoneEdit ? touch : tablet, phone: phoneEdit, laying, layNote, gridFocus, cells: draft.laying, layKeys, grid, tool, advanced, selName: sel?.kind === "point" ? (names.labels[sel.i] ? pointRef(names, sel.i) : "the selected point") : null },
         adding: tool.kind === "add" && !laying && view === "quick",
         plan,
         shown3d,
@@ -2019,7 +2029,7 @@ const fmtR = (want: number, got: number) => (Math.abs(want - got) > 0.01 ? `${wa
  * Quick step 2: a corner point, numbered in driving order; on touch screens it's drawn bigger and takes a press 44 px
  * across. A finger held on it fills a ring round it (the long-press), which stays full while it's selected.
  */
-function QuickCorner({ p, i, m, touch, on, linked = false, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; i: number; m: number; touch: boolean; on: boolean; /** round the same pipe as the selected corner (#106) */ linked?: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
+function QuickCorner({ p, label, name, m, touch, on, linked = false, press, onPointerDown, onDelete, onHover }: { p: DesignPoint; /** "5", "5a", or "" for a point that isn't a corner (#176) */ label: string; /** "Corner 5a", or "Point" */ name: string; m: number; touch: boolean; on: boolean; /** round the same pipe as the selected corner (#106) */ linked?: boolean; press: { done: boolean } | null; onPointerDown: (e: React.PointerEvent<SVGElement>) => void; onDelete: () => void; onHover: (on: boolean) => void }) {
   const base = touch ? CORNER_TOUCH_PX : CORNER_PX;
   const r = (on ? base + 2 : base) * m;
   const ring = (base + 7) * m;
@@ -2040,7 +2050,7 @@ function QuickCorner({ p, i, m, touch, on, linked = false, press, onPointerDown,
         if (lastPointer.current === "mouse") onDelete();
       }}
     >
-      <title>{touch ? `Corner ${i + 1}: drag to move, hold to open its panel` : `Corner ${i + 1}: drag to move (Alt: no snapping), right-click to delete`}</title>
+      <title>{touch ? `${name}: drag to move, hold to open its panel` : `${name}: drag to move (Alt: no snapping), right-click to delete`}</title>
       {touch && <circle className="ed-hit" cx={p.x} cy={-p.z} r={TOUCH_PX * m} />}
       <circle className="ed-corner-dot" cx={p.x} cy={-p.z} r={r} vectorEffect="non-scaling-stroke" />
       {press && (
@@ -2058,7 +2068,7 @@ function QuickCorner({ p, i, m, touch, on, linked = false, press, onPointerDown,
         />
       )}
       <text className="ed-corner-n" x={p.x} y={-p.z} dy={4 * m} fontSize={11 * m} textAnchor="middle">
-        {i + 1}
+        {label}
       </text>
     </g>
   );

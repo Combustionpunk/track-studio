@@ -4,6 +4,7 @@
 import type { Check } from "@track-studio/engine";
 import { ArrowRightLeft, CircleCheck, CircleX, Plus, Redo2, Scan, TriangleAlert, Undo2, X } from "lucide-react";
 import type { KeyboardEvent, ReactNode, Ref } from "react";
+import { HelpLink } from "../help/HelpLink.js";
 import { shapeHint } from "./addtool.js";
 import type { Selection, Tool } from "./Designer.js";
 import { ConeButton, JumpPalette } from "./JumpPalette.js";
@@ -40,11 +41,12 @@ export interface PlanHintProps {
   grid: LaneGrid | null;
   tool: Tool;
   advanced: boolean;
-  sel: Selection;
+  /** the selected corner's name in a sentence (pointRef: "corner 5a"), if a corner is selected */
+  selName: string | null;
 }
 
 /** The hint over the plan: what to do next, or the snapping while a drag is on. */
-export function PlanHint({ snapInfo, viewing3d, synced3d, tablet, phone = false, laying, layNote, gridFocus, cells, layKeys, grid, tool, advanced, sel }: PlanHintProps) {
+export function PlanHint({ snapInfo, viewing3d, synced3d, tablet, phone = false, laying, layNote, gridFocus, cells, layKeys, grid, tool, advanced, selName }: PlanHintProps) {
   return snapInfo ? (
     <div className="designer-hint" aria-live="polite">
       <b>{SNAP_LABEL[snapInfo.mode]}</b>
@@ -68,7 +70,7 @@ export function PlanHint({ snapInfo, viewing3d, synced3d, tablet, phone = false,
           ? tool.type === "crossover"
             ? `${tablet ? "Tap" : "Click"} where the track crosses itself: the pass you ${tablet ? "tap" : "click"} goes over.`
             : `${tablet ? "Tap" : "Click"} on the racing line to place it.`
-          : shapeHint({ advanced, tablet, phone, adding: tool.kind === "add", sel: sel?.kind === "point" ? sel.i : null })}
+          : shapeHint({ advanced, tablet, phone, adding: tool.kind === "add", sel: selName })}
     </div>
   );
 }
@@ -233,6 +235,8 @@ export function TabletDock({ view, laying, canStartAgain, onStartAgain, tool, on
       <button type="button" className="dock-btn dock-icon dock-fit" onClick={onFit} aria-label="Zoom to fit">
         <Scan size={20} aria-hidden="true" />
       </button>
+      {/* the tablet's only way to the guide (#178): Quick on a tablet has no palette, side column or menu row */}
+      <HelpLink topic="palette" className="dock-btn dock-icon dock-help" />
     </div>
   );
 }

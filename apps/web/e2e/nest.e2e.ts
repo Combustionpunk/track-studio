@@ -23,8 +23,17 @@ async function open(page: Page) {
   await page.waitForTimeout(200);
 }
 
-/** the dot of corner n (1-based, as the plan numbers them) */
-const dot = (page: Page, n: number) => page.locator("g.ed-corner").filter({ has: page.locator("text", { hasText: new RegExp(`^${n}$`) }) });
+/** the dot of design point n (1-based, in lap order) */
+const dot = (page: Page, n: number) => page.locator("g.ed-corner").nth(n - 1);
+/**
+ * Points 2 and 5's names, as the plan, the panels and the build sheet give them (#176: the loop's west end is a
+ * hairpin, so the numbers aren't the points' places in the lap): headings ("Corner 2") and in sentences ("corner 2").
+ */
+async function names(page: Page) {
+  const name = async (n: number) => (await dot(page, n).locator("title").textContent())!.split(":")[0];
+  const [c2, c5] = [await name(2), await name(5)];
+  return { c2, c5, in2: c2.toLowerCase(), in5: c5.toLowerCase() };
+}
 
 const checks = (page: Page) => page.locator(".checks-panel");
 /** wait on the checks, which are on the Advanced tab (#113), from Quick */
@@ -46,14 +55,15 @@ test.describe("mouse, 1200 px", () => {
     for (const p of path.slice(1)) await page.mouse.move(...p, { steps: 7 });
     await page.mouse.up();
     await expect(page.locator("g.ed-corner")).toHaveCount(6);
+    const { c2, c5, in2, in5 } = await names(page);
     await quickChecks(page, "No problems found.");
 
     // corner 2: the panel says what else it shapes, and corner 5 highlights
     await dot(page, 2).click();
     const panel = page.locator("section.sel-panel");
-    await expect(panel.getByRole("heading", { name: "Corner 2" })).toBeVisible();
+    await expect(panel.getByRole("heading", { name: c2 })).toBeVisible();
     await expect(panel).toContainText("90° right");
-    await expect(panel).toContainText("Also shapes corner 5 (inside)");
+    await expect(panel).toContainText(`Also shapes ${in5} (inside)`);
     await expect(dot(page, 5)).toHaveClass(/linked/);
     await expect(dot(page, 3)).not.toHaveClass(/linked/);
     await panel.getByRole("button", { name: /^Sweeper/ }).click();
@@ -63,8 +73,8 @@ test.describe("mouse, 1200 px", () => {
 
     // corner 5 followed: a 2.0 m apex, round, and its panel has the outside-corner control
     await dot(page, 5).click();
-    await expect(panel.getByRole("heading", { name: "Corner 5" })).toBeVisible();
-    await expect(panel).toContainText("Follows corner 2 (outside)");
+    await expect(panel.getByRole("heading", { name: c5 })).toBeVisible();
+    await expect(panel).toContainText(`Follows ${in2} (outside)`);
     await expect(panel.getByLabel("Apex radius")).toHaveValue("2");
     await expect(checkedOuter(panel)).toHaveText("Round");
     await expect(dot(page, 2)).toHaveClass(/linked/);
@@ -74,12 +84,12 @@ test.describe("mouse, 1200 px", () => {
     await panel.getByRole("radio", { name: "Square" }).click();
     await expect(checkedOuter(panel)).toHaveText("Square");
     await expect(panel).toContainText("Shaped on its own.");
-    const match = panel.getByRole("button", { name: "Match corner 2" });
+    const match = panel.getByRole("button", { name: `Match ${in2}` });
     await expect(match).toBeVisible();
     await onAdvanced(page, (c) => expect(c).not.toContainText("Checking", { timeout: 15_000 }));
     await shot(page, "3-corner-5-override");
     await match.click();
-    await expect(panel).toContainText("Follows corner 2 (outside)");
+    await expect(panel).toContainText(`Follows ${in2} (outside)`);
     await expect(checkedOuter(panel)).toHaveText("Round");
     await expect(panel.getByLabel("Apex radius")).toHaveValue("2");
     await quickChecks(page, "No problems found.");
@@ -90,7 +100,7 @@ test.describe("mouse, 1200 px", () => {
     await quickChecks(page, /Lanes overlap by|Lane narrows by/);
     await page.keyboard.press("Control+z");
     await expect(panel.getByLabel("Apex radius")).toHaveValue("2");
-    await expect(panel).toContainText("Follows corner 2 (outside)");
+    await expect(panel).toContainText(`Follows ${in2} (outside)`);
 
     // the follow is part of the same undo step as the Sweeper: undoing it puts both corners back
     await dot(page, 2).click();
@@ -105,14 +115,14 @@ test.describe("mouse, 1200 px", () => {
     // Advanced mode: the Radius field follows the same rule (r_in = r_out − 2 m)
     await page.getByRole("group", { name: "Mode" }).getByRole("button", { name: "Advanced" }).click();
     await page.locator('circle.ed-point[data-index="1"]').click();
-    await expect(panel.getByRole("heading", { name: "Corner point 2" })).toBeVisible();
-    await expect(panel).toContainText("Also shapes corner 5 (inside)");
+    await expect(panel.getByRole("heading", { name: c2.replace("Corner", "Corner point") })).toBeVisible();
+    await expect(panel).toContainText(`Also shapes ${in5} (inside)`);
     await panel.getByLabel("Radius").fill("4.5");
     await page.locator('circle.ed-point[data-index="4"]').click();
-    await expect(panel.getByRole("heading", { name: "Corner point 5" })).toBeVisible();
+    await expect(panel.getByRole("heading", { name: c5.replace("Corner", "Corner point") })).toBeVisible();
     await expect(panel.getByLabel("Radius")).toHaveValue("2.5");
     await expect(checkedOuter(panel)).toHaveText("Round");
-    await expect(panel).toContainText("Follows corner 2 (outside)");
+    await expect(panel).toContainText(`Follows ${in2} (outside)`);
     await expect(checks(page)).toContainText("No problems found.", { timeout: 15_000 });
   });
 });
@@ -127,6 +137,7 @@ test.describe("tablet touch", () => {
     for (const [c, r] of L_LOOP) path.push(await cell(page, c, r));
     await t.drag(path, 10);
     await expect(page.locator("g.ed-corner")).toHaveCount(6);
+    const { c2, c5, in2, in5 } = await names(page);
     const pill = page.locator(".checks-pill");
     await expect(pill).toHaveText(/No problems/, { timeout: 15_000 });
     const dots = await page.locator("g.ed-corner .ed-corner-dot").evaluateAll((els) => els.map((e) => [+e.getAttribute("cx")!, -e.getAttribute("cy")!] as XY));
@@ -137,8 +148,8 @@ test.describe("tablet touch", () => {
     };
     const sheet = page.locator(".designer-sheet");
     await hold(2);
-    await expect(sheet.getByRole("heading", { name: "Corner 2" })).toBeVisible();
-    await expect(sheet).toContainText("Also shapes corner 5 (inside)");
+    await expect(sheet.getByRole("heading", { name: c2 })).toBeVisible();
+    await expect(sheet).toContainText(`Also shapes ${in5} (inside)`);
     await expect(dot(page, 5)).toHaveClass(/linked/);
     await sheet.getByRole("button", { name: /^Sweeper/ }).tap();
     await expect(sheet.getByRole("button", { name: /^Sweeper/ })).toHaveAttribute("aria-pressed", "true");
@@ -149,8 +160,8 @@ test.describe("tablet touch", () => {
     await sheet.getByRole("button", { name: "Close" }).tap();
     await expect(sheet).toHaveCount(0);
     await hold(5);
-    await expect(sheet.getByRole("heading", { name: "Corner 5" })).toBeVisible();
-    await expect(sheet).toContainText("Follows corner 2 (outside)");
+    await expect(sheet.getByRole("heading", { name: c5 })).toBeVisible();
+    await expect(sheet).toContainText(`Follows ${in2} (outside)`);
     await expect(sheet.getByLabel("Apex radius")).toHaveValue("2");
     const outer = sheet.getByRole("radiogroup", { name: "Outside corner" });
     await expect(outer).toBeVisible();
@@ -162,11 +173,11 @@ test.describe("tablet touch", () => {
     await outer.getByRole("radio", { name: "Square" }).tap();
     await expect(checkedOuter(sheet)).toHaveText("Square");
     await expect(sheet).toContainText("Shaped on its own.");
-    expect((await sheet.getByRole("button", { name: "Match corner 2" }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect((await sheet.getByRole("button", { name: `Match ${in2}` }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expect(pill).not.toHaveText(/Checking/, { timeout: 15_000 });
     await shot(page, "5-touch-override");
-    await sheet.getByRole("button", { name: "Match corner 2" }).tap();
+    await sheet.getByRole("button", { name: `Match ${in2}` }).tap();
     await expect(checkedOuter(sheet)).toHaveText("Round");
-    await expect(sheet).toContainText("Follows corner 2 (outside)");
+    await expect(sheet).toContainText(`Follows ${in2} (outside)`);
   });
 });

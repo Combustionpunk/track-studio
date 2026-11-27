@@ -9,11 +9,13 @@ import { Link, useBlocker, useNavigate } from "react-router-dom";
 import { Message } from "../components/bits.js";
 import { PlanView } from "../components/PlanView.js";
 import { useHistory } from "../designer/history.js";
+import { useApi } from "../lib/hooks.js";
 import { api, ApiError, type VenueSummary } from "../lib/api.js";
 import * as fmt from "../lib/format.js";
 import { rostrumPos } from "../lib/plan.js";
 import { useHoldReload } from "../lib/version.js";
-import { pickForumTrack, pickForumVenue } from "./forum.js";
+import { pickForumTrack, pickForumVenue, surfaceView, trackSurface, type ForumVenueList } from "./forum.js";
+import { ForumSurface } from "./ForumSurface.js";
 import { ForumVenuePicker } from "./ForumVenuePicker.js";
 import {
   addObstacle,
@@ -429,17 +431,21 @@ export function VenueEditor({ initial, base: initialBase }: Props) {
             <TextField label="Name" value={draft.info.name} maxLength={80} error={problems.name} wide onChange={(v) => update((d) => ({ ...d, info: { ...d.info, name: v } }), "name")} />
             <NumberField label="Area length" hint="east–west" value={draft.area.length} unit="m" error={problems.length} onChange={(v) => update((d) => ({ ...d, area: { ...d.area, length: v } }), "area.length")} />
             <NumberField label="Area width" hint="north–south" value={draft.area.width} unit="m" error={problems.width} onChange={(v) => update((d) => ({ ...d, area: { ...d.area, width: v } }), "area.width")} />
-            <SelectField
-              label="Surface"
-              value={draft.surface ?? ""}
-              options={[{ value: "", label: "Not given" }, ...VENUE_SURFACES.map((s) => ({ value: s, label: SURFACE_LABEL[s] }))]}
-              onChange={(v) =>
-                update((d) => {
-                  const { surface: _s, ...rest } = d;
-                  return v ? { ...rest, surface: v as VenueSurface } : rest;
-                })
-              }
-            />
+            {draft.info.venue?.trackId !== undefined ? (
+              <LinkedSurface link={draft.info.venue} saved={base?.doc.info.venue?.trackId === draft.info.venue.trackId ? base.doc : undefined} />
+            ) : (
+              <SelectField
+                label="Surface"
+                value={draft.surface ?? ""}
+                options={[{ value: "", label: "Not given" }, ...VENUE_SURFACES.map((s) => ({ value: s, label: SURFACE_LABEL[s] }))]}
+                onChange={(v) =>
+                  update((d) => {
+                    const { surface: _s, ...rest } = d;
+                    return v ? { ...rest, surface: v as VenueSurface } : rest;
+                  })
+                }
+              />
+            )}
             <SelectField
               label="Rostrum side"
               value={draft.rostrum.side}
@@ -653,6 +659,18 @@ function TextField(props: { label: string; value: string; onChange: (v: string) 
       )}
     </div>
   );
+}
+
+/**
+ * #190: a template linked to a forum track takes the track's surface from the forum: shown read-only, from the forum's
+ * venue list (so a newly picked track shows its surface before the save), with a link to change it there.
+ */
+function LinkedSurface({ link, saved }: { link: NonNullable<VenueDraft["info"]["venue"]>; saved?: RcVenue }) {
+  const list = useApi<ForumVenueList>("/api/forum-venues");
+  const track = list.data?.venues.find((v) => v.id === link.id)?.tracks.find((t) => t.id === link.trackId);
+  // while the list loads, or if the forum doesn't answer, the surface the server gave the saved template (the forum's)
+  const view = !list.data && saved ? surfaceView(saved, { known: true, surface: saved.surface ?? null, environment: null, stale: false }) : surfaceView({ info: { name: "", venue: link } }, trackSurface(track), track?.templateSurface ?? null);
+  return <ForumSurface view={view} venueId={link.id} editor />;
 }
 
 function SelectField(props: { label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }) {

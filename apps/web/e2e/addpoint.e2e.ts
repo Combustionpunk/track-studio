@@ -152,9 +152,21 @@ test.describe("mouse, 1200 px", () => {
       await page.keyboard.press("p");
       await expect(live(page)).toHaveText("Corner 1 of 4.");
       await page.keyboard.press("Enter");
-      await expect(live(page)).toHaveText("Added corner 2, halfway to the next one.");
+      await expect(live(page)).toHaveText("Added a point after corner 1, halfway to the next one.");
       const after = await corners(page);
       expect(after).toHaveLength(5);
+      // the new point, halfway along a straight, isn't a corner: it has no number and no name (#176)
+      await page.keyboard.press("n");
+      await expect(live(page)).toHaveText("Corner 2 of 4.");
+      await page.keyboard.press("p");
+      await expect(live(page)).toHaveText("Point.");
+      // and its panel calls it a point, as its heading does: the hint and the Delete button don't say "corner"
+      const panel = page.locator("section.sel-panel");
+      await expect(panel.locator("h2")).toHaveText("Point");
+      await expect(panel).toContainText(mode === "quick" ? "This point is on a straight line: drag it to make a turn, or delete it." : "This point is on a straight line");
+      await expect(panel.getByRole("button", { name: "Delete point", exact: true })).toBeVisible();
+      await expect(panel.getByRole("button", { name: "Delete corner" })).toHaveCount(0);
+      if (mode === "quick") await expect(panel).not.toContainText(/corner/i);
       expect(after[1][0]).toBeCloseTo((before[0][0] + before[1][0]) / 2, 2);
       expect(after[1][1]).toBeCloseTo((before[0][1] + before[1][1]) / 2, 2);
       await page.keyboard.press("Control+z");

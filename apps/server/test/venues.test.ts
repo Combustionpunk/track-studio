@@ -168,8 +168,10 @@ describe("venue editor pages", () => {
 });
 
 describe("rcvenue 1.2 fields (#173)", () => {
+  // not linked to the forum: a linked template's surface is the forum's (#190, forum-surface.test.ts)
   const withNew = () => ({
     ...newVenue(),
+    info: { ...newVenue().info, venue: null },
     surface: "astro",
     timingLoop: { x: -4, z: -5, heading: 0, length: 3 },
     obstacles: [...newVenue().obstacles, { type: "rect", kind: "pits", x: 0, z: 5.5, length: 6, width: 1, label: "Pits" }, { type: "rect", kind: "rostrum", x: 0, z: -5.7, length: 4, width: 0.6 }],
