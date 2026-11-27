@@ -734,6 +734,41 @@ describe("track page", () => {
     expect(text(h)).toContain("Based on Club A by yeti (revision 2)");
   });
 
+  // #180: a signed-out visitor is told that signing in lets them copy it, with a Sign in that comes back here
+  const signedOut = (c: Permissions, over: Partial<TrackSummary> = {}, path = "/t/winter-3", ready = true) => {
+    page(c, over);
+    return renderToStaticMarkup(
+      <SessionContext.Provider value={{ ...session(), me: null, ready, config: FORUM, loginUrl: (r = "") => `/auth/login?return=${encodeURIComponent(r)}` }}>
+        <MemoryRouter initialEntries={[path]}>
+          <TrackPage />
+        </MemoryRouter>
+      </SessionContext.Provider>,
+    );
+  };
+  const HINT = "Sign in with your forum account to make your own copy.";
+
+  it("signed out: the hint and a Sign in link back to this layout, beside the actions (#180)", () => {
+    for (const over of [{ status: "approved" as const, approvedRevision: 4, locked: "library" as const }, {}]) {
+      const h = signedOut(can(), over);
+      expect(text(h)).toContain(HINT);
+      expect(h).toMatch(/<a [^>]*href="\/auth\/login\?return=%2Ft%2Fwinter-3"[^>]*>Sign in<\/a>/);
+      // in the actions block, after the buttons
+      const wrap = h.slice(h.indexOf('class="ts-actions-wrap"'));
+      expect(wrap.indexOf(" with your forum account")).toBeGreaterThan(wrap.indexOf("Fit to a venue"));
+      for (const no of ["Copy and edit", "Make my own copy"]) expect(text(h)).not.toContain(no);
+    }
+  });
+
+  it("signed out on an older revision: Sign in comes back to that revision (#180)", () => {
+    expect(signedOut(can(), {}, "/t/winter-3?r=3")).toContain('href="/auth/login?return=%2Ft%2Fwinter-3%3Fr%3D3"');
+  });
+
+  it("signed in, or before the session is known: no hint (#180)", () => {
+    expect(text(page(can({ copy: true }), { status: "approved", approvedRevision: 4, locked: "library" }))).not.toContain(HINT);
+    expect(text(page(can()))).not.toContain(HINT);
+    expect(text(signedOut(can(), {}, "/t/winter-3", false))).not.toContain(HINT);
+  });
+
   it("an adaptation names its orientation the same way as the fit lists (#179)", () => {
     const d = { ...doc, info: { ...doc.info, derivedFrom: { id: "club-a", revision: 2, orientation: "mirrored, rotated 180" } } };
     const h = page(can({ edit: true }), { status: "draft", derivedFrom: { id: "club-a", name: "Club A", author: null } }, d);

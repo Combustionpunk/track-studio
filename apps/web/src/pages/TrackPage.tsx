@@ -1,7 +1,7 @@
 import { drawingArea, orientationName, rctrackFileName, type Point2, type RcTrack, type RcVenue, type Side } from "@track-studio/engine";
 import { ArrowLeft, Download, Lock } from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CopyButton, StatusBadge } from "../components/bits.js";
 import { ChecksList } from "../components/ChecksList.js";
 import { FitPanel } from "../components/FitPanel.js";
@@ -11,6 +11,7 @@ import { ApiError, post, type ClassSpeed, type LapRecord, type LapStats, type Re
 import * as fmt from "../lib/format.js";
 import { areaBounds } from "../lib/plan.js";
 import { useApi, useSessionChoice, useStored } from "../lib/hooks.js";
+import { useSession } from "../lib/session.js";
 import { estimateSeconds, lapTime, recordTime, speedFor, useClassSpeeds } from "../lib/laps.js";
 import { defaultRostrumSide, readRostrum, writeRostrum } from "../viewer3d/rostrum.js";
 import { hasWebGL } from "../viewer3d/support.js";
@@ -171,6 +172,8 @@ const surfaceOf = (s: string | undefined) => (s ? s[0].toUpperCase() + s.slice(1
 export function TrackPage() {
   const { id = "" } = useParams();
   const [params, setParams] = useSearchParams();
+  const loc = useLocation();
+  const { me, ready, loginUrl } = useSession();
   const tr = useApi<TrackResponse>(`/api/tracks/${encodeURIComponent(id)}`);
   const revs = useApi<{ revisions: Revision[] }>(`/api/tracks/${encodeURIComponent(id)}/revisions`);
   const speeds = useClassSpeeds();
@@ -354,6 +357,12 @@ export function TrackPage() {
           {why && (
             <p className="ts-help" id={why}>
               {blockedByErrors}.
+            </p>
+          )}
+          {/* signed out, where Copy and edit would be (#180); Sign in comes back to this page, revision and view */}
+          {ready && !me && (
+            <p className="ts-help ts-signin-hint">
+              <a href={loginUrl(loc.pathname + loc.search)}>Sign in</a> with your forum account to make your own copy.
             </p>
           )}
         </div>
