@@ -1756,9 +1756,17 @@ export function Designer({ mode, initial, base: initialBase, fromVenue, storageK
    * looks again when another corner is picked, the sheet changes height, or the corner has moved (a drag once it ends,
    * an undo); while the sheet shows something else, it holds where it is, and pans back only when the sheet closes. */
   const clearPt = sel?.kind === "point" ? draft.design.points[sel.i] : undefined;
-  if (!handleDrag) clearKey.current = clearPt && sel?.kind === "point" ? `${sel.i}@${clearPt.x.toFixed(2)},${clearPt.z.toFixed(2)}` : (sel?.kind ?? "");
-  const keepClear =
-    phoneEdit && phoneSheet?.kind === "selection" && selectionTop !== null ? { key: clearKey.current, at: clearPt ? ([clearPt.x, clearPt.z] as Point2) : null, top: selectionTop } : null;
+  const clearJump = sel?.kind === "feature" ? built.features[sel.i] : undefined;
+  const clearAt: Point2 | null =
+    sel?.kind === "point"
+      ? clearPt ? [clearPt.x, clearPt.z] : null
+      : sel?.kind === "marshal"
+        ? selCone ? [selCone.x, selCone.z] : null
+        : sel?.kind === "feature"
+          ? clearJump ? [clearJump.x, clearJump.z] : null
+          : sel?.kind === "start" ? [built.startLine.x, built.startLine.z] : null;
+  if (!handleDrag) clearKey.current = clearAt && sel ? `${sel.kind}${"i" in sel ? sel.i : ""}@${clearAt[0].toFixed(2)},${clearAt[1].toFixed(2)}` : (sel?.kind ?? "");
+  const keepClear = phoneEdit && phoneSheet?.kind === "selection" && selectionTop !== null ? { key: clearKey.current, at: clearAt, top: selectionTop } : null;
   /** the plan, or the 3D view (on a phone, with its switch on: #127) */
   const plan = viewing3d ? (
     <Suspense
