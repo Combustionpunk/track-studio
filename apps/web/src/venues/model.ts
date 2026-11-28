@@ -16,7 +16,11 @@ export interface VenueDraft {
   obstacles: Obstacle[];
 }
 
-export const SURFACE_LABEL: Record<VenueSurface, string> = { carpet: "Carpet", astro: "Astro", dirt: "Dirt", clay: "Clay", tarmac: "Tarmac", mixed: "Mixed" };
+export const SURFACE_LABEL: Record<VenueSurface, string> = { carpet: "Carpet", astro: "Astro", grass: "Grass", dirt: "Dirt", clay: "Clay", tarmac: "Tarmac", mixed: "Mixed" };
+
+/** #197: a template's surface as shown, or null: not given. One this Track Studio doesn't know (a newer file's) is "Other". */
+export const surfaceLabel = (s: string | null | undefined): string | null =>
+  !s ? null : Object.hasOwn(SURFACE_LABEL, s) ? SURFACE_LABEL[s as VenueSurface] : "Other";
 
 /** The server's input limits (apps/server/src/store.ts LIMITS). */
 export const MAX_AREA = 100;
@@ -45,12 +49,15 @@ export function draftFromDoc(doc: RcVenue): VenueDraft {
   };
 }
 
-/** What POST/PUT /api/venues takes. */
+/** #190: a template linked to a forum track takes its surface from the forum (read-only here, never saved). */
+export const surfaceFromForum = (link: ForumVenueRef | null | undefined) => link?.trackId !== undefined;
+
+/** What POST/PUT /api/venues takes. A linked template sends no surface (#190). */
 export function venueBody(d: VenueDraft) {
   const notes = d.info.notes?.trim();
   return {
     info: { name: d.info.name.trim(), venue: d.info.venue ?? null, ...(notes ? { notes: d.info.notes } : {}) },
-    ...(d.surface ? { surface: d.surface } : {}),
+    ...(d.surface && !surfaceFromForum(d.info.venue) ? { surface: d.surface } : {}),
     area: d.area,
     rostrum: d.rostrum,
     ...(d.timingLoop ? { timingLoop: d.timingLoop } : {}),

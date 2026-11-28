@@ -9,8 +9,9 @@ import * as fmt from "../lib/format.js";
 import { useApi } from "../lib/hooks.js";
 import { rostrumPos } from "../lib/plan.js";
 import { mayEditVenues, useSession } from "../lib/session.js";
-import { forumVenueUrl, linkName } from "../venues/forum.js";
-import { KIND_LABEL, obstacleName, SURFACE_LABEL, toCorner } from "../venues/model.js";
+import { forumVenueUrl, linkName, surfaceView, type ForumTrackFacts } from "../venues/forum.js";
+import { ForumSurface } from "../venues/ForumSurface.js";
+import { KIND_LABEL, obstacleName, toCorner } from "../venues/model.js";
 import { NotFound } from "./NotFound.js";
 
 /** A heading as a compass word: 0° east, 90° north (+z), counter-clockwise; "east (0°)", "north-east (45°)". */
@@ -66,8 +67,10 @@ function ForumLink({ venue }: { venue: ForumVenueRef }) {
 }
 
 function VenueCard({ id, name }: { id: string; name: string }) {
-  const v = useApi<{ doc: RcVenue }>(`/api/venues/${encodeURIComponent(id)}`);
+  const v = useApi<{ doc: RcVenue; forumTrack?: ForumTrackFacts | null }>(`/api/venues/${encodeURIComponent(id)}`);
   const doc = v.data?.doc;
+  // #190: a linked template's surface is the forum's
+  const surface = doc ? surfaceView(doc, v.data?.forumTrack).surface : null;
   return (
     <article className="card">
       <Link to={`/v/${id}`} className="card-link" aria-label={name}>
@@ -85,10 +88,10 @@ function VenueCard({ id, name }: { id: string; name: string }) {
               <dt>Area</dt>
               <dd>{fmt.size(doc.area, true)}</dd>
             </div>
-            {doc.surface && (
+            {surface && (
               <div>
                 <dt>Surface</dt>
-                <dd>{SURFACE_LABEL[doc.surface]}</dd>
+                <dd>{surface}</dd>
               </div>
             )}
             <div>
@@ -113,12 +116,13 @@ function VenueCard({ id, name }: { id: string; name: string }) {
 
 export function VenuePage() {
   const { id = "" } = useParams();
-  const v = useApi<{ venue: VenueSummary; doc: RcVenue; can: { edit: boolean } }>(`/api/venues/${encodeURIComponent(id)}`);
+  const v = useApi<{ venue: VenueSummary; doc: RcVenue; forumTrack?: ForumTrackFacts | null; can: { edit: boolean } }>(`/api/venues/${encodeURIComponent(id)}`);
   const revs = useApi<{ revisions: VenueRevision[] }>(`/api/venues/${encodeURIComponent(id)}/revisions`);
   const fitting = useApi<{ tracks: TrackSummary[] }>(`/api/tracks?fits=${encodeURIComponent(id)}`);
   if (v.error) return v.error instanceof ApiError && v.error.status === 404 ? <NotFound what="venue" /> : <div className="wrap page"><Message kind="error">{v.error.message}</Message></div>;
   if (!v.data) return <div className="wrap page"><Loading what="Loading venue" /></div>;
   const { doc, venue, can } = v.data;
+  const surface = surfaceView(doc, v.data.forumTrack);
   const side = doc.rostrum?.side ?? "south";
   const [rx, rz] = rostrumPos(doc.area, side, doc.rostrum?.offset);
   return (
@@ -158,7 +162,13 @@ export function VenuePage() {
                 {doc.area.length} m east–west × {doc.area.width} m north–south
               </dd>
               <dt>Surface</dt>
-              <dd>{doc.surface ? SURFACE_LABEL[doc.surface] : <span className="muted">Not given</span>}</dd>
+              <dd>
+                {surface.fromForum && doc.info.venue ? (
+                  <ForumSurface view={surface} venueId={doc.info.venue.id} />
+                ) : (
+                  surface.surface ?? <span className="muted">Not given</span>
+                )}
+              </dd>
               <dt>Rostrum</dt>
               <dd>
                 {side[0].toUpperCase() + side.slice(1)} wall, {fmt.metres(toCorner(doc.area, side, doc.rostrum?.offset ?? 0))} from the {side === "north" || side === "south" ? "west" : "south"} corner
@@ -256,8 +266,7 @@ function VenueRevisions({ id, current, revs, error }: { id: string; current: num
               <span className="rev-btn">
                 <span className="rev-n">r{r.revision}</span>
                 <span className="rev-meta">
-                  {fmt.date(r.createdAt)} · {fmt.author(r.createdBy)} · {fmt.size(r.area, true)} · {r.obstacles === 1 ? "1 obstacle" : `${r.obstacles} obstacles`}
-                  {r.revision === current ? " · latest" : ""}
+                  {fmt.venueRevisionMeta(r, r.revision === current)}
                 </span>
               </span>
               <a className="btn btn-quiet btn-icon rev-dl" href={r.downloadUrl} aria-label={`Download revision ${r.revision}`} title={`Download revision ${r.revision} (.rcvenue.json)`}>

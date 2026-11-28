@@ -16,6 +16,30 @@ export const ORIENTS: [string, number, boolean][] = [
   ["mirrored, rotated 270", 270, true],
 ];
 
+/** What people read for each ORIENTS label (#179). Display only: the labels stay the stored and API values. */
+const ORIENT_NAMES: Record<string, string> = {
+  "as designed": "as designed",
+  mirrored: "mirrored",
+  "rotated 180": "turned round",
+  "mirrored, rotated 180": "mirrored and turned round",
+  "rotated 90": "turned a quarter left",
+  "rotated 270": "turned a quarter right",
+  "mirrored, rotated 90": "mirrored and turned a quarter left",
+  "mirrored, rotated 270": "mirrored and turned a quarter right",
+};
+
+/** The name shown for a fit orientation label ("mirrored, rotated 180" -> "mirrored and turned round"); an unknown label as it is. */
+export function orientationName(label: string): string {
+  return ORIENT_NAMES[label] ?? label;
+}
+
+/** Orientation labels as one phrase: "a", "a or b", "a, b, or c". */
+export function orientationList(labels: string[]): string {
+  const names = labels.map(orientationName);
+  if (names.length <= 2) return names.join(" or ");
+  return `${names.slice(0, -1).join(", ")}, or ${names[names.length - 1]}`;
+}
+
 /** Mirror (x -> -x) then rotate CCW by `rot` degrees. */
 export function transformPt(x: number, z: number, rot: number, mirror: boolean): [number, number] {
   if (mirror) x = -x;

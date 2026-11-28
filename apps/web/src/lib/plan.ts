@@ -42,6 +42,18 @@ export function zoomAt(v: View, factor: number, px: number, py: number, w: numbe
 
 export const pan = (v: View, dxPx: number, dyPx: number): View => ({ ...v, cx: v.cx - dxPx / v.s, cy: v.cy - dyPx / v.s });
 
+/**
+ * Keeping a point clear of a sheet over the bottom of the plan (#188): the view panned up (only up) just enough that
+ * plan point `at` (x, z) is `room` px above `top`, the sheet's top in px from the top of an `h` px box. Null when it's
+ * there already, or when the sheet leaves no room above it.
+ */
+export function clearOf(v: View, at: Point2, h: number, top: number, room: number): View | null {
+  const y = h / 2 + (-at[1] - v.cy) * v.s;
+  const want = top - room;
+  if (y <= want + 1e-6 || want < room) return null;
+  return pan(v, 0, want - y);
+}
+
 /** Plan coordinates (x, z) of a box pixel. */
 export function toPlan(v: View, px: number, py: number, w: number, h: number): Point2 {
   return [v.cx + (px - w / 2) / v.s, -(v.cy + (py - h / 2) / v.s)];

@@ -1,11 +1,15 @@
 // The forum's venue list (FORUM_URL/des/venues, public), for the venue editor's picker. Cached for 10 minutes; when the
 // forum doesn't answer, the last copy is served marked stale, and with nothing cached the caller gets a 503.
+import type { VenueSurface } from "@track-studio/engine";
 import { HttpError } from "./errors.js";
 
 export interface ForumTrack {
   id: number;
   name: string;
+  /** the forum's word for it (DesVenueTrack::SURFACES: carpet, astroturf, grass, tarmac, dirt, mixed; clay with plugin #537) */
   surface: string | null;
+  /** #190: the same in the format's words (templateSurface); null when the forum gives none or the format has no match */
+  templateSurface: VenueSurface | null;
   environment: string | null;
   width_m: number | null;
   length_m: number | null;
@@ -60,6 +64,20 @@ export function townFromAddress(address: unknown): string | null {
   return before || (at > 0 ? parts[at - 1] : null);
 }
 
+/**
+ * #190: the forum's track surfaces in the format's words. The forum is the source of a linked template's surface.
+ * #197: grass is in the format since rctrack 1.14 / rcvenue 1.3; clay is the format's already and maps as soon as the
+ * forum offers it (plugin #537). A word the format doesn't have gives the template (and layouts drawn on it) no surface.
+ */
+const FORUM_SURFACES: Record<string, VenueSurface> = { carpet: "carpet", astroturf: "astro", grass: "grass", tarmac: "tarmac", dirt: "dirt", clay: "clay", mixed: "mixed" };
+
+/** A forum surface → the format's, or null (none given, or a word the format doesn't have). */
+export function templateSurface(forum: unknown): VenueSurface | null {
+  if (typeof forum !== "string") return null;
+  const key = forum.trim().toLowerCase();
+  return Object.hasOwn(FORUM_SURFACES, key) ? FORUM_SURFACES[key] : null;
+}
+
 /** The forum's answer → venues with id, name, town and tracks only. Throws if it isn't a venue list. */
 export function parseForumVenues(body: unknown): ForumVenue[] {
   const list = Array.isArray(body) ? body : isObject(body) && Array.isArray(body.venues) ? body.venues : null;
@@ -74,6 +92,7 @@ export function parseForumVenues(body: unknown): ForumVenue[] {
         id: t.id as number,
         name: str(t.name) ?? `Track ${t.id}`,
         surface: str(t.surface),
+        templateSurface: templateSurface(t.surface),
         environment: str(t.environment),
         width_m: metres(t.width_m),
         length_m: metres(t.length_m),

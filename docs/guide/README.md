@@ -61,6 +61,8 @@ Select a layout to open its page. The page shows the plan, the lap length, the c
 
 **Venues** lists the club's venue templates. A venue template is a hall's usable track area, its surface, its rostrum side, its timing loop, its pit area and its fixed obstacles, such as pillars and fire exits. New layouts can start from one, and any layout can be checked against one.
 
+A template linked to a track on the forum takes its surface from that track's details on the forum, such as carpet, astroturf or grass, with whether it's indoors or outdoors. Track Studio shows it but doesn't keep its own copy: to change it, follow **Set on the forum** to the venue's page on the forum and edit the track there. Track Studio picks up the change within 10 minutes. Layouts drawn there take the same surface. If the forum ever lists a surface Track Studio doesn't have, the template shows it as the forum says, but layouts drawn there get no surface. A template with no forum track has its own **Surface** to pick.
+
 The committee of the club that runs the venue on the forum, and Track Studio's organisers, add and edit venue templates. The committee's guide to setting up a venue is with the club guides on the [forum](https://forum.rcmisfits.org/).
 
 ![The Venues page: a card for each hall with its area, rostrum side and number of obstacles](img/venues.webp)
@@ -143,7 +145,7 @@ What you see now:
 
 - The **lanes** are green and the **pipes** are the white lines.
 - The dashed line is the **racing line**. Its arrows show the direction of travel.
-- Each **corner** has a numbered dot.
+- Each **corner** has a numbered dot. Corners are numbered the way racers count them, so a hairpin's two dots are one corner: **5a** and **5b**. The build sheet and the **Corners** figure use the same numbers.
 - The chequered line is the **start line**, with the grid boxes behind it.
 
 To take the whole lane up and begin again, use **Start again** in step 1.
@@ -161,7 +163,9 @@ You can also lay the lanes from the keyboard. Press <kbd>Tab</kbd> until the gri
 2. Drag the dot to move the corner.
 3. To make the corner more open, choose a preset under **Apex radius**: **Hairpin** (0 m), **Tight** (0.6 m), **Medium** (1.8 m) or **Sweeper** (4 m). Or type a radius, or drag the corner's **inside handle**, the blue dot on the inside pipe.
 
-![Corner 3 as a sweeper: the inside pipe now curves round with a 4 m radius](img/corner-sweeper.webp)
+![Corner 3 as a sweeper: the inside pipe now curves round with a 4 m radius, and its dot now reads 3a](img/corner-sweeper.webp)
+
+The numbers follow the track as you shape it. Here the sweeper runs straight into the next corner, so the two now count as one corner, **3a** and **3b**, and the corners after them move down a number.
 
 4. **Outside corner** sets the outside pipe: **Square** is two straight pipes meeting in a corner, **Round** follows the curve. **Auto** uses square up to a 120° turn and round beyond.
 
@@ -171,10 +175,10 @@ To remove a corner, select it and press <kbd>Delete</kbd>, right-click it, or us
 
 A hairpin is a U-turn: the track comes back alongside itself, one lane over.
 
-- **While laying the lanes**, turn back on yourself to make one. In the pictures above, corners 5 and 6 are a hairpin.
+- **While laying the lanes**, turn back on yourself to make one. In the first picture above, the dots **5a** and **5b** are a hairpin: one corner, drawn as two points.
 - **In Advanced mode**, you can turn any corner into a hairpin. Select the corner point and press <kbd>H</kbd>. On a phone, use **Make hairpin** in the corner's sheet. The corner becomes two points one lane apart.
 
-![Advanced mode, before the hairpin: corner point 8, top left, is selected, with its position, radius and lane width on the right](img/advanced-point.webp)
+![Advanced mode, before the hairpin: corner point 6, top left, is selected, with its position, radius and lane width on the right](img/advanced-point.webp)
 
 ![After Make hairpin: the corner is now two points a lane apart](img/hairpin.webp)
 
@@ -193,9 +197,9 @@ A straight is the run between two corners. There is no separate straight tool.
 2. Click the track where you want the new corner, or click the floor to add one after the selected corner. In Advanced mode, click a straight.
 3. Add point stays on, so you can add several. Press <kbd>A</kbd> or <kbd>Esc</kbd> to stop.
 
-![Add point switched on: a new corner 9 has been added on the left-hand straight, and its panel says it is on a straight line](img/add-point.webp)
+![Add point switched on: a new point has been added on the left-hand straight. Its dot has no number, and its panel is headed Point and says it is on a straight line](img/add-point.webp)
 
-A new corner on a straight does nothing until you drag it to make a turn.
+A new corner on a straight does nothing until you drag it to make a turn. Until then it isn't a corner, so its dot has no number.
 
 ### Jumps and ramps
 
@@ -445,7 +449,7 @@ The answers, and what they mean:
 | Answer | What it means |
 |---|---|
 | **Fits … where it's drawn.** | Nothing to do. It fits the hall as it is. |
-| **Fits … once moved: as designed, mirrored, rotated 180 …** | It does fit the hall, but not where it is drawn now. The list says which ways round it fits. |
+| **Fits … once moved: as designed, mirrored, turned round, or mirrored and turned round.** | It does fit the hall, but not where it is drawn now. The list says which ways round it fits: **mirrored** is flipped left to right, **turned round** is turned through 180°, and **turned a quarter left** or **right** is turned through 90°. |
 | **Where it's drawn: the track overlaps a fixed obstacle.** | A lane runs over a pillar or another obstacle. Select **Show** to see where. |
 | **Where it's drawn: the track goes outside the venue's track area.** | Part of the layout is beyond the edge of the usable area. Select **Show** to see where. |
 | **Where it's drawn: start/finish isn't over the timing loop.** | A warning. The start line is not on the hall's timing loop. Move the start line onto the loop, running the arrow's way. Select **Show** to see the loop. |
@@ -470,7 +474,7 @@ Use this to take a finished layout to a different hall.
 3. Under **Fits as**, choose a way round. Each one says how much room is spare.
 4. The preview shows the layout placed in the hall, with the hall's obstacles, rostrum and timing loop. If that way round leaves the start line off the loop, a **Timing loop** warning under the preview says so: pick another way round, or move the start line in your copy.
 
-![Fit to a venue on a layout's page: Sports hall B chosen, "rotated 180" with 3.1 × 2.1 m spare, and a preview of the layout in the hall between the pillars](img/fit-to-venue.webp)
+![Fit to a venue on a layout's page: Sports hall B chosen, "turned round" with 3.1 × 2.1 m spare, and a preview of the layout in the hall between the pillars](img/fit-to-venue.webp)
 
 5. Select **Make a copy for …** to get your own copy, turned to fit that hall. The original is not changed, and your copy stays credited to it.
 
@@ -533,7 +537,7 @@ The **Help** button on the build sheet opens this part of the guide.
 What is on it:
 
 - **The plan**, on a grid of 1 m squares with a bold line every 5 m, and every corner point numbered.
-- **Corner points**: how far each one is from the west wall and from the south wall, and which way it turns. Measure from the south-west corner of the track area. The points of one corner share its number, such as 5a and 5b. So the sheet's numbers can differ from the dots in the designer: a hairpin drawn as corners 5 and 6 there is 5a and 5b on the sheet.
+- **Corner points**: how far each one is from the west wall and from the south wall, and which way it turns. Measure from the south-west corner of the track area. The points of one corner share its number, such as 5a and 5b. These are the same numbers as the dots in the designer.
 - **Jumps**: the type, where it goes, and its length and height.
 - **Marshal points** and the **start line**, with their positions.
 - **The figures**: lap length, corners, track size, track area, how much pipe in how many runs, and the lane width.
@@ -604,7 +608,7 @@ To change an approved layout, select **Copy and edit**. You get your own draft c
 
 A **draft** is private: only you and the organisers can see it. It isn't in the library for anyone else, and its link shows "Not found" to them. When you **Submit** it, it becomes public; submitted and approved layouts can be seen by anyone, signed in or not. If you edit a submitted layout it is a draft, and private, again until you submit it. A layout a meeting uses is always public. An archived layout that was never approved stays private.
 
-Only the author and organisers can edit a layout. Any other signed-in member is offered **Make my own copy** of a public one.
+Only the author and organisers can edit a layout. Any other signed-in member is offered **Make my own copy** of a public one. Signed out, a layout's page says that signing in lets you copy it: select **Sign in** beside its buttons and you come back to the layout, ready to copy it.
 
 ### Voting
 
@@ -618,7 +622,7 @@ A meeting can let its racers vote between layouts:
 
 The organiser picks the layout only if the vote is tied or nobody voted, or to end the vote early.
 
-The steps for organisers are in the forum's club guide, [Set up the club's venue template in Track Studio](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template), under "Attach a layout to a meeting".
+The vote steps for organisers are in the forum's club guide, [Set up the club's venue template in Track Studio](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template), in its **Vote for the track** section.
 
 The winning layout shows in Track Studio like any other meeting's layout: see [Attach a layout to a meeting](#attach-a-layout-to-a-meeting).
 
@@ -633,7 +637,7 @@ On the layout's page, find **Share and download**.
 
 ### Attach a layout to a meeting
 
-Meetings are set up on the forum, not in Track Studio. The organiser chooses the layout when setting up the meeting on the forum, or lets the booked racers vote between up to 4: see [Voting](#voting). The steps are in the forum's club guide, [Set up the club's venue template in Track Studio](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template), under "Attach a layout to a meeting".
+Meetings are set up on the forum, not in Track Studio. The organiser chooses the layout when setting up the meeting on the forum, or lets the booked racers vote between up to 4: see [Voting](#voting). The steps for choosing the layout are in the forum's club guide, [Set up the club's venue template in Track Studio](https://forum.rcmisfits.org/t/external_id/club-guide-track-studio-venue-template), under "Attach a layout to a meeting"; the steps for the vote are in its **Vote for the track** section.
 
 In Track Studio you see the result:
 
@@ -681,15 +685,15 @@ These three things work the same on a tablet and a phone.
 
 ### On a tablet
 
-In Quick mode, the tools are on a **dock** along the bottom, and the checks are behind a pill, top right of the plan. Switch to **Advanced** and a tablet shows the same layout as a computer, with the tools on the left and the panels on the right.
+In Quick mode, the tools are on a **dock** along the bottom, with **?** at its right-hand end for this guide, and the checks are behind a pill, top right of the plan. Switch to **Advanced** and a tablet shows the same layout as a computer, with the tools on the left and the panels on the right.
 
 **Lay the lanes** with one finger: press on the first square and drag through the others, as with a mouse.
 
-![A tablet in step 1: a finger has laid the lane along the bottom and up the right-hand side. The dock has Undo, Redo, Start again and Reverse](img/tablet-lay-lanes.webp)
+![A tablet in step 1: a finger has laid the lane along the bottom and up the right-hand side. The dock has Undo, Redo, Start again, Reverse, Zoom to fit and Help](img/tablet-lay-lanes.webp)
 
 **Shape it** from the dock.
 
-![A tablet in step 2: the plan above, and the dock below with Undo, Redo, the jumps, Cone, Add point, Start line, Snap and Reverse](img/tablet-designer.webp)
+![A tablet in step 2: the plan above, and the dock below with Undo, Redo, the jumps, Cone, Add point, Start line, Snap, Reverse, Zoom to fit and Help](img/tablet-designer.webp)
 
 - **Drag** a corner to move it, or its inside handle to cut it back.
 - **Tap a jump** on the dock to arm it, then tap the racing line. Or drag the jump from the dock onto the track.
@@ -728,7 +732,7 @@ The library and a layout's page are a single column.
 
 ![The phone's plan zoomed in on the middle of the track, with corners easy to tell apart](img/phone-zoomed.webp)
 
-2. **Tap a corner** to select it. Its sheet slides up with the radius presets. Drag the corner to move it. A magnifier shows what is under your finger while you drag.
+2. **Tap a corner** to select it. Its sheet slides up with the radius presets. If the corner is low on the plan, the plan moves it up above the sheet, and back when the sheet closes (unless you moved the plan yourself meanwhile). Drag the corner to move it. A magnifier shows what is under your finger while you drag.
 
 ![Corner 4 selected on a phone: its sheet shows Hairpin, Tight, Medium and Sweeper and the apex radius](img/phone-selection.webp)
 
@@ -742,6 +746,8 @@ The library and a layout's page are a single column.
 
 5. **Tap a jump**, then tap the racing line. Or drag the jump from the sheet onto the track.
 
+   When you tap a jump, a cone or the start line that is low on the plan, the plan moves it up above its sheet so you can drag it straight away, and back when the sheet closes (unless you moved the plan yourself meanwhile).
+
 ![Tabletop armed on a phone: the Jump button is lit and the hint says "Tap on the racing line to place it"](img/phone-armed.webp)
 
 6. **Tap the checks pill** for the checks, the venue check and the figures.
@@ -752,7 +758,7 @@ The library and a layout's page are a single column.
 
 ![The More menu on a phone: Save revision, Submit track, Mode, Reverse direction, Zoom to fit, Layout details, How to draw and Back to track](img/phone-more.webp)
 
-**How to draw**, on a computer and on a phone, has a link to this guide. A tablet in Quick mode has no link in the designer yet: open **Help** from the menu on any other page.
+**How to draw**, on a computer and on a phone, has a link to this guide. On a tablet in Quick mode, tap **?** at the right-hand end of the dock: the guide opens in a new tab, and your drawing stays where it is.
 
 ### What is coming on phones
 

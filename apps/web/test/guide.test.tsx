@@ -153,7 +153,14 @@ describe("Check against a venue", () => {
     const r = checkAgainstVenue(ref<RcTrack>("examples/freeform-example.rctrack.json").design, sportsHall);
     expect(r.asDrawn.checks.map((c) => c.code)).toContain("obstacle");
     expect(r.fits).toEqual(["rotated 180"]);
-    expect(fitSummary(r)).toBe("Fits Sports hall B once moved: rotated 180.");
+    expect(fitSummary(r)).toBe("Fits Sports hall B once moved: turned round.");
+  });
+
+  it("lists several orientations by name, so the list reads cleanly (#179)", () => {
+    const r = { ...checkAgainstVenue(adapted().design, sportsHall), fits: ["as designed", "mirrored", "rotated 180", "mirrored, rotated 180"] };
+    r.asDrawn = { ...r.asDrawn, checks: [{ level: "error", code: "obstacle", message: "x" }] };
+    expect(fitSummary(r)).toBe("Fits Sports hall B once moved: as designed, mirrored, turned round, or mirrored and turned round.");
+    expect(fitSummary({ ...r, fits: ["mirrored", "rotated 90"] })).toBe("Fits Sports hall B once moved: mirrored or turned a quarter left.");
   });
 
   it("says when nothing fits", () => {

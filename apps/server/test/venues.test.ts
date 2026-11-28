@@ -168,8 +168,10 @@ describe("venue editor pages", () => {
 });
 
 describe("rcvenue 1.2 fields (#173)", () => {
+  // not linked to the forum: a linked template's surface is the forum's (#190, forum-surface.test.ts)
   const withNew = () => ({
     ...newVenue(),
+    info: { ...newVenue().info, venue: null },
     surface: "astro",
     timingLoop: { x: -4, z: -5, heading: 0, length: 3 },
     obstacles: [...newVenue().obstacles, { type: "rect", kind: "pits", x: 0, z: 5.5, length: 6, width: 1, label: "Pits" }, { type: "rect", kind: "rostrum", x: 0, z: -5.7, length: 4, width: 0.6 }],
@@ -185,7 +187,7 @@ describe("rcvenue 1.2 fields (#173)", () => {
 
   it("refuse an unknown surface and a timing loop far outside", async () => {
     const { app, org } = await setup();
-    expect((await req(app, "POST", "/api/venues", org, { ...withNew(), surface: "grass" })).statusCode).toBe(400);
+    expect((await req(app, "POST", "/api/venues", org, { ...withNew(), surface: "sand" })).statusCode).toBe(400);
     expect((await req(app, "POST", "/api/venues", org, { ...withNew(), timingLoop: { x: 500, z: 0, heading: 0, length: 3 } })).statusCode).toBe(400);
   });
 

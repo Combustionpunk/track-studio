@@ -9,3 +9,4 @@ export { compareBuilt, distanceToPolyline, polylineDistance, type BuiltDiff } fr
 export * from "./sheet.js";
 export { reverseDesign } from "./reverse.js";
 export { fileSlug, rctrackFileName, rcvenueFileName } from "./files.js";
+export * from "./numbering.js";
